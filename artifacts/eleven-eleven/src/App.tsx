@@ -509,47 +509,254 @@ async function streamAiResponse(
 
 // ─── PARTICLE BG ──────────────────────────────────────────────────────────────
 
-const ParticleBackground = () => {
+const FuturisticBackground = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    let particles: { x: number; y: number; size: number; speedX: number; speedY: number; opacity: number }[] = [];
+
+    let W = 0, H = 0;
     let rafId: number;
+    let t = 0;
+
+    // ── Warp stars ──────────────────────────────────────────────────────────
+    type Star = { angle: number; dist: number; speed: number; size: number; opacity: number };
+    let stars: Star[] = [];
+
+    // ── Data stream columns ──────────────────────────────────────────────────
+    const DATA_CHARS = "01アイウエオカキクケコ0123456789ABCDEF∆Ω◈◉▸▹✦";
+    type DataCol = {
+      x: number; chars: { ch: string; y: number; alpha: number }[];
+      speed: number; head: number; active: boolean; timer: number;
+    };
+    let dataCols: DataCol[] = [];
+
+    // ── Network nodes ────────────────────────────────────────────────────────
+    type Node = { x: number; y: number; vx: number; vy: number; size: number; pulse: number };
+    let nodes: Node[] = [];
+
     const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      particles = Array.from({ length: Math.floor((canvas.width * canvas.height) / 14000) }, () => ({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        size: Math.random() * 1.5 + 0.3,
-        speedX: (Math.random() - 0.5) * 0.25,
-        speedY: (Math.random() - 0.5) * 0.25,
-        opacity: Math.random() * 0.45 + 0.05,
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+
+      // Warp stars — emanate from center
+      stars = Array.from({ length: 160 }, () => ({
+        angle: Math.random() * Math.PI * 2,
+        dist: Math.random() * Math.max(W, H) * 0.5,
+        speed: 0.15 + Math.random() * 0.55,
+        size: Math.random() * 1.4 + 0.2,
+        opacity: Math.random() * 0.6 + 0.1,
+      }));
+
+      // Data columns — ~10 across screen
+      const colCount = Math.floor(W / 90);
+      dataCols = Array.from({ length: colCount }, (_, i) => {
+        const x = (i + 0.5) * (W / colCount) + (Math.random() - 0.5) * 30;
+        return {
+          x,
+          chars: Array.from({ length: 18 }, (__, j) => ({
+            ch: DATA_CHARS[Math.floor(Math.random() * DATA_CHARS.length)],
+            y: Math.random() * H,
+            alpha: 0,
+          })),
+          speed: 0.4 + Math.random() * 0.6,
+          head: Math.random() * H,
+          active: Math.random() > 0.4,
+          timer: Math.random() * 300,
+        };
+      });
+
+      // Network nodes — fewer, floating in upper half
+      nodes = Array.from({ length: 18 }, () => ({
+        x: Math.random() * W,
+        y: Math.random() * H * 0.75,
+        vx: (Math.random() - 0.5) * 0.18,
+        vy: (Math.random() - 0.5) * 0.12,
+        size: Math.random() * 1.8 + 0.5,
+        pulse: Math.random() * Math.PI * 2,
       }));
     };
+
     const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      particles.forEach((p) => {
-        ctx.fillStyle = `rgba(200,180,180,${p.opacity})`;
+      t += 0.008;
+      ctx.clearRect(0, 0, W, H);
+
+      // ── 1. Perspective grid ────────────────────────────────────────────────
+      const horizonY = H * 0.58;
+      const vpX = W * 0.5;
+      const gridAlpha = 0.035 + 0.012 * Math.sin(t * 0.6);
+
+      ctx.save();
+      // Horizontal lines — converge toward horizon
+      const hLines = 22;
+      for (let i = 0; i <= hLines; i++) {
+        const progress = (i / hLines);
+        // Perspective: lines bunch near horizon, spread at bottom
+        const perspective = Math.pow(progress, 2.8);
+        const y = horizonY + (H - horizonY) * perspective;
+        const lineFade = progress * gridAlpha;
+        ctx.strokeStyle = `rgba(180,20,20,${lineFade})`;
+        ctx.lineWidth = 0.5;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.moveTo(0, y);
+        ctx.lineTo(W, y);
+        ctx.stroke();
+      }
+      // Vertical converging lines
+      const vLines = 18;
+      for (let i = 0; i <= vLines; i++) {
+        const ratio = i / vLines;
+        const bottomX = ratio * W;
+        const fade = Math.abs(ratio - 0.5) * 0.06 + 0.008;
+        ctx.strokeStyle = `rgba(180,20,20,${fade + 0.01 * Math.sin(t + ratio * 4)})`;
+        ctx.lineWidth = 0.4;
+        ctx.beginPath();
+        ctx.moveTo(vpX, horizonY);
+        ctx.lineTo(bottomX, H);
+        ctx.stroke();
+      }
+      // Horizon glow line
+      const horizonGrad = ctx.createLinearGradient(0, horizonY, W, horizonY);
+      horizonGrad.addColorStop(0, "rgba(160,10,10,0)");
+      horizonGrad.addColorStop(0.3, `rgba(180,20,20,${0.06 + 0.03 * Math.sin(t * 0.8)})`);
+      horizonGrad.addColorStop(0.5, `rgba(200,30,30,${0.12 + 0.04 * Math.sin(t * 0.8)})`);
+      horizonGrad.addColorStop(0.7, `rgba(180,20,20,${0.06 + 0.03 * Math.sin(t * 0.8)})`);
+      horizonGrad.addColorStop(1, "rgba(160,10,10,0)");
+      ctx.fillStyle = horizonGrad;
+      ctx.fillRect(0, horizonY - 1, W, 2.5);
+      ctx.restore();
+
+      // ── 2. Warp stars ──────────────────────────────────────────────────────
+      ctx.save();
+      const cx = W / 2, cy = H * 0.42;
+      stars.forEach((s) => {
+        s.dist += s.speed;
+        if (s.dist > Math.max(W, H) * 0.72) {
+          s.dist = Math.random() * 8;
+          s.angle = Math.random() * Math.PI * 2;
+        }
+        const x = cx + Math.cos(s.angle) * s.dist;
+        const y = cy + Math.sin(s.angle) * s.dist * 0.55;
+        const distRatio = s.dist / (Math.max(W, H) * 0.72);
+        const alpha = Math.min(s.opacity, distRatio * s.opacity * 1.8);
+        // Trail
+        const trailLen = s.speed * 8;
+        const tx = cx + Math.cos(s.angle) * (s.dist - trailLen);
+        const ty = cy + Math.sin(s.angle) * (s.dist - trailLen) * 0.55;
+        const grad = ctx.createLinearGradient(tx, ty, x, y);
+        grad.addColorStop(0, `rgba(220,200,200,0)`);
+        grad.addColorStop(1, `rgba(220,200,200,${alpha * 0.7})`);
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = s.size * 0.6;
+        ctx.beginPath();
+        ctx.moveTo(tx, ty);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        // Point
+        ctx.fillStyle = `rgba(240,220,220,${alpha})`;
+        ctx.beginPath();
+        ctx.arc(x, y, s.size * 0.4, 0, Math.PI * 2);
         ctx.fill();
-        p.x += p.speedX; p.y += p.speedY;
-        if (p.x < 0) p.x = canvas.width;
-        if (p.x > canvas.width) p.x = 0;
-        if (p.y < 0) p.y = canvas.height;
-        if (p.y > canvas.height) p.y = 0;
       });
+      ctx.restore();
+
+      // ── 3. Data stream columns ─────────────────────────────────────────────
+      ctx.save();
+      ctx.font = "10px 'Share Tech Mono', monospace";
+      dataCols.forEach((col) => {
+        col.timer -= 1;
+        if (col.timer <= 0) {
+          col.active = !col.active;
+          col.timer = col.active ? 80 + Math.random() * 200 : 60 + Math.random() * 180;
+          if (col.active) col.head = -20;
+        }
+        if (!col.active) return;
+        col.head += col.speed;
+        if (col.head > H + 40) {
+          col.active = false;
+          col.timer = 40 + Math.random() * 120;
+        }
+        const lineH = 16;
+        const trailLen = 14;
+        for (let i = 0; i < trailLen; i++) {
+          const y = col.head - i * lineH;
+          if (y < 0 || y > H) continue;
+          const fadeRatio = 1 - i / trailLen;
+          if (i === 0) {
+            // Head — bright
+            ctx.fillStyle = `rgba(255,255,255,${0.55 * fadeRatio})`;
+          } else if (i < 3) {
+            ctx.fillStyle = `rgba(200,60,60,${0.4 * fadeRatio})`;
+          } else {
+            ctx.fillStyle = `rgba(140,20,20,${0.25 * fadeRatio})`;
+          }
+          // Randomize char occasionally
+          if (Math.random() < 0.04) {
+            col.chars[i % col.chars.length].ch = DATA_CHARS[Math.floor(Math.random() * DATA_CHARS.length)];
+          }
+          ctx.fillText(col.chars[i % col.chars.length].ch, col.x, y);
+        }
+      });
+      ctx.restore();
+
+      // ── 4. Network nodes + connections ────────────────────────────────────
+      ctx.save();
+      const maxDist = 180;
+      nodes.forEach((n) => {
+        n.x += n.vx; n.y += n.vy;
+        n.pulse += 0.02;
+        if (n.x < 0 || n.x > W) n.vx *= -1;
+        if (n.y < 0 || n.y > H * 0.75) n.vy *= -1;
+      });
+      // Connections
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const dx = nodes[j].x - nodes[i].x;
+          const dy = nodes[j].y - nodes[i].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < maxDist) {
+            const alpha = (1 - dist / maxDist) * 0.09;
+            ctx.strokeStyle = `rgba(180,30,30,${alpha})`;
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(nodes[i].x, nodes[i].y);
+            ctx.lineTo(nodes[j].x, nodes[j].y);
+            ctx.stroke();
+          }
+        }
+      }
+      // Node dots
+      nodes.forEach((n) => {
+        const pulse = 0.3 + 0.2 * Math.sin(n.pulse);
+        ctx.fillStyle = `rgba(200,40,40,${pulse})`;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.restore();
+
+      // ── 5. Slow scan beam ─────────────────────────────────────────────────
+      const scanY = ((t * 28) % (H + 60)) - 30;
+      const scanGrad = ctx.createLinearGradient(0, scanY - 40, 0, scanY + 40);
+      scanGrad.addColorStop(0, "rgba(200,20,20,0)");
+      scanGrad.addColorStop(0.5, `rgba(200,30,30,0.025)`);
+      scanGrad.addColorStop(1, "rgba(200,20,20,0)");
+      ctx.fillStyle = scanGrad;
+      ctx.fillRect(0, scanY - 40, W, 80);
+
       rafId = requestAnimationFrame(draw);
     };
+
     window.addEventListener("resize", resize);
-    resize(); draw();
+    resize();
+    draw();
     return () => { window.removeEventListener("resize", resize); cancelAnimationFrame(rafId); };
   }, []);
-  return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0 opacity-50" />;
+
+  return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0" />;
 };
 
 // ─── APP ──────────────────────────────────────────────────────────────────────
@@ -747,7 +954,7 @@ function App() {
 
   return (
     <div className={`min-h-screen w-full bg-background overflow-hidden relative text-foreground font-mono selection:bg-primary/30 ${globalGlitch ? "animate-glitch" : ""}`}>
-      <ParticleBackground />
+      <FuturisticBackground />
 
       {/* Central glow */}
       <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] h-[90vw] md:w-[45vw] md:h-[45vw] rounded-full bg-primary/8 blur-[120px] pointer-events-none z-0 transition-all duration-1000 ${isListening ? "opacity-90 scale-125 animate-pulse" : "opacity-50"}`}
