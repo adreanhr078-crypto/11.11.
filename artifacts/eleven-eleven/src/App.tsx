@@ -143,15 +143,37 @@ function WishVideoRecorder({ onSave, onCancel }: { onSave: (text: string) => voi
             </p>
           </div>
 
+          {/* What are "ركائز القدر" */}
+          <div className="border border-primary/20 bg-background/30 p-3" dir="rtl">
+            <p className="text-primary/80 text-[10px] tracking-[0.2em] font-bold mb-2">◈ ما هي ركائز القدر؟</p>
+            <p className="text-foreground/65 text-[11px] leading-relaxed">
+              هي المعطيات الكونية التي تُحدد هويتك في مسار الأحداث:
+            </p>
+            <div className="mt-2 flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <span className="text-primary/50 text-[10px]">▸</span>
+                <span className="text-foreground/80 text-[11px]"><span className="text-primary/80 font-bold">الاسم الكامل</span> — بصريح العبارة، لا اختصار</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-primary/50 text-[10px]">▸</span>
+                <span className="text-foreground/80 text-[11px]"><span className="text-primary/80 font-bold">تاريخ الميلاد</span> — اليوم / الشهر / السنة</span>
+              </div>
+            </div>
+            <p className="text-muted-foreground/50 text-[10px] mt-2 leading-relaxed">
+              النظام يستخدم هذه الركائز لربط أمنيتك بمسارك الزمني الصحيح.
+            </p>
+          </div>
+
           {/* Instructions */}
           <div className="border border-muted/25 bg-background/50 p-4" dir="rtl">
             <p className="text-primary/70 text-[10px] tracking-[0.2em] font-bold mb-3">خطوات البروتوكول:</p>
             <ol className="flex flex-col gap-2 list-none">
               {[
                 ["١", "خذ ورقة بيضاء وقلم"],
-                ["٢", "اكتب في أعلى الورقة بخط واضح وكبير: ركائز القدر"],
-                ["٣", "اكتب أمنيتك كاملة تحتها بصدق تام"],
-                ["٤", "امسك الورقة أمام الكاميرا وتحدّث عنها بصوت واضح"],
+                ["٢", "اكتب في أعلى الورقة: ركائز القدر"],
+                ["٣", "اكتب تحتها: اسمك الكامل — ثم تاريخ ميلادك"],
+                ["٤", "اكتب أمنيتك بالكامل تحتها بصدق تام"],
+                ["٥", "امسك الورقة أمام الكاميرا وتحدّث عن أمنيتك بصوت واضح"],
               ].map(([num, text]) => (
                 <li key={num} className="flex items-start gap-3 text-xs text-foreground/70 leading-relaxed">
                   <span className="text-primary/60 font-bold shrink-0">{num}</span>
