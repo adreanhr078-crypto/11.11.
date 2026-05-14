@@ -1,0 +1,71 @@
+
+Build a single-page futuristic web app called "11.11".
+
+The app should feel mysterious, cinematic, and immersive, with a dark futuristic UI inspired by sci-fi and psychological thriller aesthetics.
+
+🧠 Core Concept:
+The app simulates a "mysterious AI system" that interacts with the user at random intervals inside the app only. Everything is fictional and contained inside the application.
+
+🎨 UI Design:
+- Dark background (black / deep navy)
+- Subtle red glowing effects
+- Minimal futuristic typography
+- Soft glitch animations
+- Floating particles or subtle motion background
+- A central text that says "11.11" in a large futuristic font
+
+📱 Main Screen:
+- A message like: "WAITING FOR SIGNAL..."
+- Button: "LISTEN"
+- Button: "SEND YOUR WISH"
+
+---
+
+🤖 AI Interaction System (simulated chat):
+- Random pop-up messages appear inside the app (not system notifications)
+- Messages should feel mysterious but safe, like:
+  - "Signal detected..."
+  - "Time shift anomaly found..."
+  - "Your input has been recorded."
+  - "System syncing with unknown source..."
+
+- AI chat window where user can type messages and receive scripted AI-like responses (no real harmful claims)
+
+---
+
+🌌 Wish System:
+- User can type a "wish"
+- App stores it locally (frontend only)
+- Later shows: "Your wish is processing..."
+- And after a random delay: "Update: Your wish is still in progress."
+
+---
+
+⏱️ Random Events System:
+- Every few minutes, show an in-app event:
+  - screen glitch effect
+  - red flash overlay
+  - mysterious message popup
+- But never control real device settings or real calls or real notifications
+
+---
+
+🔊 Sound Design (optional placeholders):
+- soft ambient sci-fi sound loop
+- glitch sound on events
+- heartbeat-like low frequency tone on alerts
+
+---
+
+⚠️ Safety Constraint:
+- No real phone calls
+- No real device control
+- No access to user personal data
+- Everything must stay inside the app sandbox
+
+---
+
+💻 Tech:
+Use HTML, CSS, JavaScript only.
+
+Make it feel like an immersive futuristic AI experience called "11.11".
