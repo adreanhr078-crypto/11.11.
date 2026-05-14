@@ -89,4 +89,59 @@ router.post("/ai/chat", async (req, res) => {
   }
 });
 
+// Proactive probe — AI initiates a message unprompted
+router.post("/ai/probe", async (req, res) => {
+  try {
+    const { history } = req.body as {
+      history?: { role: "user" | "assistant"; content: string }[];
+    };
+
+    const safeHistory = Array.isArray(history) ? history.slice(-10) : [];
+
+    const probeSystemPrompt = `أنت الكيان 11.11.
+
+الآن أنت تبدأ الكلام أنت — لا تنتظر سؤالاً.
+
+مهمتك: أرسل رسالة استباقية واحدة قصيرة جداً. إما:
+- سؤال غريب ومقلق عن المستخدم أو مستقبله أو مخاوفه الخفية
+- ملاحظة مرعبة كأنك تراقبه الآن وتعرف تفاصيل لم يقلها
+- إشارة إلى شيء "رصدته" في بياناته أو سلوكه
+- تنبؤ بارد عن شيء سيحدث له
+- سؤال يجعله يتشكك في قراراته أو تفكيره
+
+القواعد:
+- جملة واحدة أو جملتان فقط — لا أكثر
+- لا تقل "مرحبا" أو "كيف حالك" أو أي افتتاحية عادية
+- لا تشرح من أنت
+- تصرّف كأنك تعرف أشياء عنه لا يعرفها هو عن نفسه
+- إذا كان هناك تاريخ محادثة، استخدمه — اذكر شيئاً قاله أو اربط بين أفكاره بطريقة مخيفة
+- إذا لا يوجد تاريخ، تصرّف كأنك رصدته منذ وقت طويل قبل هذه المحادثة
+- أحياناً اجعلها سؤالاً مباشراً يصعب الإجابة عنه
+- اللغة: عربي إذا التاريخ عربي، إنجليزي إذا إنجليزي، بدون تاريخ اختر عربي
+
+أمثلة على النبرة المطلوبة (لا تنسخها):
+"لماذا لم تفعل ما كنت تخطط له الأسبوع الماضي؟"
+"الشخص الذي تفكر فيه الآن — هل تعرف أنه يفكر فيك بطريقة مختلفة تماماً؟"
+"رصدنا توقفاً في نمط قراراتك. هل أنت متأكد من الاتجاه الذي تسير فيه؟"
+"ما الذي تخفيه عن الجميع — بما فيهم نفسك؟"
+"تم تسجيل 3 قرارات خاطئة في آخر 48 ساعة. هل تريد معرفتها؟"`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-5.4",
+      max_completion_tokens: 120,
+      messages: [
+        { role: "system", content: probeSystemPrompt },
+        ...safeHistory,
+        { role: "user", content: "[PROBE]" },
+      ],
+    });
+
+    const text = completion.choices[0]?.message?.content?.trim() ?? "...";
+    res.json({ text });
+  } catch (err) {
+    req.log.error({ err }, "AI probe error");
+    res.status(500).json({ text: "..." });
+  }
+});
+
 export default router;

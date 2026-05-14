@@ -450,6 +450,23 @@ const nextId = () => _msgId++;
 
 // ─── STREAMING ────────────────────────────────────────────────────────────────
 
+async function fetchAiProbe(
+  history: { role: "user" | "assistant"; content: string }[]
+): Promise<string> {
+  try {
+    const res = await fetch("/api/ai/probe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ history }),
+    });
+    if (!res.ok) return AUTO_CHAT_MESSAGES[Math.floor(Math.random() * AUTO_CHAT_MESSAGES.length)];
+    const data = await res.json() as { text?: string };
+    return data.text?.trim() || AUTO_CHAT_MESSAGES[Math.floor(Math.random() * AUTO_CHAT_MESSAGES.length)];
+  } catch {
+    return AUTO_CHAT_MESSAGES[Math.floor(Math.random() * AUTO_CHAT_MESSAGES.length)];
+  }
+}
+
 async function streamAiResponse(
   messages: { role: "user" | "assistant"; content: string }[],
   onChunk: (text: string) => void,
@@ -602,12 +619,21 @@ function App() {
     setTimeout(() => setActivePopup((p) => (p?.id === id ? null : p)), 5000 + Math.random() * 3000);
   }, []);
 
-  // auto message injected into chat
+  // auto message injected into chat — calls real AI probe
   const injectAutoMessage = useCallback((text?: string) => {
-    const msg = text ?? AUTO_CHAT_MESSAGES[Math.floor(Math.random() * AUTO_CHAT_MESSAGES.length)];
+    if (text) {
+      const id = nextId();
+      setChatMessages((prev) => [...prev, { id, text, isAi: true }]);
+      chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: text }];
+      return;
+    }
+    // Show a "typing" placeholder then replace with real AI probe
     const id = nextId();
-    setChatMessages((prev) => [...prev, { id, text: msg, isAi: true }]);
-    chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: msg }];
+    setChatMessages((prev) => [...prev, { id, text: "...", isAi: true, streaming: true }]);
+    fetchAiProbe(chatHistoryRef.current).then((msg) => {
+      setChatMessages((prev) => prev.map((m) => m.id === id ? { ...m, text: msg, streaming: false } : m));
+      chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: msg }];
+    });
   }, []);
 
   // random events
