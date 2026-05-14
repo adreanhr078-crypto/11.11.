@@ -128,19 +128,37 @@ function WishVideoRecorder({ onSave, onCancel }: { onSave: (text: string) => voi
       {/* Instructions phase */}
       {phase === "instructions" && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-5">
-          <div className="border border-primary/25 bg-primary/5 p-4 text-center">
-            <p className="text-primary text-base tracking-[0.2em] font-bold mb-3" style={{ fontFamily: "inherit" }}>
-              ركائز القدر
+          {/* Power claim */}
+          <div className="border border-primary/50 bg-primary/8 p-4 text-center relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
+            <p className="text-primary text-xs tracking-[0.3em] font-bold mb-2 relative z-10">◈ بروتوكول ركائز القدر</p>
+            <p className="text-foreground/90 text-sm leading-relaxed relative z-10 font-bold" dir="rtl">
+              تسجيل الفيديو يضاعف طاقة أمنيتك
             </p>
-            <p className="text-foreground/70 text-xs leading-relaxed tracking-wide" dir="rtl">
-              قبل أن تبدأ التسجيل، خذ ورقة وقلم.<br />
-              اكتب في أعلى الورقة بخط واضح:
+            <div className="w-16 h-px bg-primary/40 mx-auto my-2 relative z-10" />
+            <p className="text-foreground/65 text-[11px] leading-relaxed relative z-10" dir="rtl">
+              الأمنيات المسجَّلة بالفيديو تتحقق دائماً.<br />
+              النظام يُحلّل طاقتك الصوتية والبصرية<br />
+              ويزرع الأمنية في مسار الأحداث.
             </p>
-            <p className="text-primary/90 text-sm mt-2 mb-2 tracking-widest font-bold">ركائز القدر</p>
-            <p className="text-foreground/70 text-xs leading-relaxed tracking-wide" dir="rtl">
-              ثم اكتب أمنيتك بالكامل تحتها.<br />
-              امسك الورقة أمام الكاميرا أثناء التسجيل وتحدث عن أمنيتك بصدق.
-            </p>
+          </div>
+
+          {/* Instructions */}
+          <div className="border border-muted/25 bg-background/50 p-4" dir="rtl">
+            <p className="text-primary/70 text-[10px] tracking-[0.2em] font-bold mb-3">خطوات البروتوكول:</p>
+            <ol className="flex flex-col gap-2 list-none">
+              {[
+                ["١", "خذ ورقة بيضاء وقلم"],
+                ["٢", "اكتب في أعلى الورقة بخط واضح وكبير: ركائز القدر"],
+                ["٣", "اكتب أمنيتك كاملة تحتها بصدق تام"],
+                ["٤", "امسك الورقة أمام الكاميرا وتحدّث عنها بصوت واضح"],
+              ].map(([num, text]) => (
+                <li key={num} className="flex items-start gap-3 text-xs text-foreground/70 leading-relaxed">
+                  <span className="text-primary/60 font-bold shrink-0">{num}</span>
+                  <span>{text}</span>
+                </li>
+              ))}
+            </ol>
           </div>
           <div className="border border-muted/30 bg-background/40 p-3">
             <p className="text-[10px] text-muted-foreground tracking-widest mb-2" dir="rtl">اكتب ملخص أمنيتك (اختياري):</p>
@@ -839,11 +857,64 @@ function App() {
               )}
 
               {wishStatus === "success" && (
-                <div className="py-12 text-center">
-                  <p className="text-primary text-sm tracking-[0.2em] mb-2">تم الإرسال.</p>
-                  <p className="text-muted-foreground text-xs tracking-widest">أمنيتك في طريقها إلى مصدر مجهول.</p>
-                  <p className="text-primary/30 text-[10px] tracking-widest mt-4">التسجيل: {new Date().toLocaleTimeString("ar")}</p>
-                </div>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.8 }}
+                  className="py-8 flex flex-col items-center text-center gap-5"
+                >
+                  {/* Animated 11.11 logo */}
+                  <div className="relative flex items-center justify-center" style={{ minHeight: 110 }}>
+                    {/* Outer glow ring */}
+                    <div className="absolute inset-0 rounded-full" style={{ animation: "successRing 3s ease-in-out infinite", border: "1px solid hsl(0 75% 42% / 0.3)" }} />
+                    {/* Glitch layers */}
+                    <span
+                      className="absolute select-none font-bold text-primary/20 text-5xl tracking-tighter"
+                      style={{ animation: "successGlitchA 2.4s infinite linear", left: -3, top: 2 }}
+                      aria-hidden="true"
+                    >11.11</span>
+                    <span
+                      className="absolute select-none font-bold text-5xl tracking-tighter"
+                      style={{ color: "hsl(200 80% 60% / 0.15)", animation: "successGlitchB 3.1s infinite linear", left: 3, top: -2 }}
+                      aria-hidden="true"
+                    >11.11</span>
+                    {/* Main text */}
+                    <motion.span
+                      className="relative font-bold text-5xl tracking-tighter select-none"
+                      style={{
+                        color: "hsl(0 75% 42%)",
+                        textShadow: "0 0 30px hsl(0 75% 42% / 0.6), 0 0 60px hsl(0 75% 42% / 0.3)",
+                        animation: "successFloat 4s ease-in-out infinite",
+                      }}
+                    >
+                      11.11
+                    </motion.span>
+                  </div>
+
+                  {/* Status lines */}
+                  <div className="flex flex-col gap-1.5 items-center">
+                    <p className="text-foreground/90 text-sm tracking-[0.15em] font-bold" dir="rtl">
+                      يعمل النظام على تحقيق أمنيتك
+                    </p>
+                    <div className="w-32 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent my-1" />
+                    <p className="text-muted-foreground/70 text-[11px] tracking-widest" dir="rtl">
+                      تم استلام الأمنية وتسجيلها في الذاكرة الكونية
+                    </p>
+                    <p className="text-primary/50 text-[10px] tracking-widest mt-1">
+                      SECTOR 11 · {new Date().toLocaleTimeString("ar")}
+                    </p>
+                  </div>
+
+                  {/* Scanning bar */}
+                  <div className="w-full max-w-[200px] h-px bg-muted overflow-hidden rounded-none">
+                    <motion.div
+                      initial={{ x: "-100%" }}
+                      animate={{ x: "200%" }}
+                      transition={{ duration: 2, repeat: Infinity, ease: "linear", delay: 0.3 }}
+                      className="h-full w-1/3 bg-gradient-to-r from-transparent via-primary to-transparent"
+                    />
+                  </div>
+                </motion.div>
               )}
 
               {/* SELECT MODE */}
@@ -868,12 +939,19 @@ function App() {
                     <button
                       onClick={() => setWishMode("video")}
                       data-testid="button-mode-video"
-                      className="border border-primary/40 bg-primary/8 hover:bg-primary/15 hover:border-primary/70 transition-all duration-300 p-5 flex flex-col items-center gap-3 text-left group relative overflow-hidden"
+                      className="border border-primary/55 bg-primary/10 hover:bg-primary/18 hover:border-primary/80 transition-all duration-300 p-5 flex flex-col items-center gap-2 group relative overflow-hidden"
                     >
-                      <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
-                      <span className="text-2xl text-primary/80 group-hover:text-primary transition-colors relative z-10">◉</span>
-                      <span className="text-xs text-primary/90 tracking-widest relative z-10" dir="rtl">تسجيل فيديو</span>
-                      <span className="text-[10px] text-primary/50 tracking-wide text-center relative z-10" dir="rtl">ركائز القدر</span>
+                      <div className="absolute inset-0 bg-gradient-to-b from-primary/8 to-transparent pointer-events-none" />
+                      <span className="text-xl text-primary group-hover:scale-110 transition-transform relative z-10" style={{ animation: "blink 2s ease-in-out infinite" }}>◉</span>
+                      <span className="text-xs text-primary tracking-widest relative z-10 font-bold" dir="rtl">تسجيل فيديو</span>
+                      <span className="text-[10px] text-primary/60 tracking-wide text-center relative z-10 leading-relaxed" dir="rtl">
+                        ركائز القدر<br />
+                        <span className="text-primary/40">تتحقق دائماً</span>
+                      </span>
+                      {/* Recommended badge */}
+                      <span className="absolute top-1.5 right-1.5 text-[8px] text-primary/70 border border-primary/30 px-1.5 py-0.5 tracking-widest bg-background/50">
+                        مُوصى
+                      </span>
                     </button>
                   </div>
                   <button onClick={closeWishModal}

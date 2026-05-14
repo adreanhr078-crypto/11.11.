@@ -142,6 +142,34 @@
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
+@keyframes successFloat {
+  0%, 100% { transform: translateY(0px) scale(1); filter: brightness(1); }
+  25% { transform: translateY(-6px) scale(1.03) skewX(-1deg); filter: brightness(1.3); }
+  50% { transform: translateY(-2px) scale(1.01) skewX(0.5deg); filter: brightness(0.9); }
+  75% { transform: translateY(-8px) scale(1.04) skewX(1deg); filter: brightness(1.2); }
+}
+
+@keyframes successGlitchA {
+  0%, 90%, 100% { transform: translate(0, 0); opacity: 0.15; }
+  91% { transform: translate(-4px, 1px); opacity: 0.35; }
+  92% { transform: translate(3px, -2px); opacity: 0.2; }
+  93% { transform: translate(-2px, 3px); opacity: 0.4; }
+  94% { transform: translate(0, 0); opacity: 0.15; }
+}
+
+@keyframes successGlitchB {
+  0%, 85%, 100% { transform: translate(0, 0); opacity: 0.1; }
+  86% { transform: translate(5px, -1px); opacity: 0.3; }
+  87% { transform: translate(-3px, 2px); opacity: 0.15; }
+  88% { transform: translate(2px, -3px); opacity: 0.25; }
+  89% { transform: translate(0, 0); opacity: 0.1; }
+}
+
+@keyframes successRing {
+  0%, 100% { transform: scale(1); opacity: 0.3; }
+  50% { transform: scale(1.15); opacity: 0.6; }
+}
+
 @keyframes pulseGlow {
   0%, 100% { opacity: 0.35; transform: translate(-50%, -50%) scale(1); }
   50% { opacity: 0.65; transform: translate(-50%, -50%) scale(1.08); }
