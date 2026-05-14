@@ -3,6 +3,242 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
+// ─── WISH VIDEO RECORDER ──────────────────────────────────────────────────────
+
+type VideoPhase = "instructions" | "ready" | "countdown" | "recording" | "preview";
+
+function WishVideoRecorder({ onSave, onCancel }: { onSave: (text: string) => void; onCancel: () => void }) {
+  const [phase, setPhase] = useState<VideoPhase>("instructions");
+  const [countdown, setCountdown] = useState(3);
+  const [elapsed, setElapsed] = useState(0);
+  const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
+  const [camError, setCamError] = useState<string | null>(null);
+  const [wishText, setWishText] = useState("");
+
+  const liveRef = useRef<HTMLVideoElement>(null);
+  const previewRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const blobRef = useRef<Blob | null>(null);
+  const elapsedRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Start camera
+  const startCamera = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
+      streamRef.current = stream;
+      if (liveRef.current) {
+        liveRef.current.srcObject = stream;
+        liveRef.current.play().catch(() => {});
+      }
+      setPhase("ready");
+    } catch {
+      setCamError("لم يتم السماح بالكاميرا. تأكد من منح الإذن.");
+    }
+  }, []);
+
+  const stopCamera = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+      if (elapsedRef.current) clearInterval(elapsedRef.current);
+    };
+  }, [stopCamera]);
+
+  const handleStartCountdown = () => {
+    setCountdown(3);
+    setPhase("countdown");
+    let c = 3;
+    const id = setInterval(() => {
+      c -= 1;
+      setCountdown(c);
+      if (c === 0) {
+        clearInterval(id);
+        beginRecording();
+      }
+    }, 1000);
+  };
+
+  const beginRecording = () => {
+    if (!streamRef.current) return;
+    chunksRef.current = [];
+    const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+      ? "video/webm;codecs=vp9"
+      : MediaRecorder.isTypeSupported("video/webm")
+      ? "video/webm"
+      : "video/mp4";
+    const rec = new MediaRecorder(streamRef.current, { mimeType });
+    recorderRef.current = rec;
+    rec.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+    rec.onstop = () => {
+      const blob = new Blob(chunksRef.current, { type: mimeType });
+      blobRef.current = blob;
+      const url = URL.createObjectURL(blob);
+      setRecordedUrl(url);
+      stopCamera();
+      setPhase("preview");
+      if (elapsedRef.current) clearInterval(elapsedRef.current);
+    };
+    rec.start(250);
+    setElapsed(0);
+    setPhase("recording");
+    elapsedRef.current = setInterval(() => setElapsed((p) => p + 1), 1000);
+  };
+
+  const handleStopRecording = () => {
+    recorderRef.current?.stop();
+    if (elapsedRef.current) clearInterval(elapsedRef.current);
+  };
+
+  const handleDownloadAndSave = () => {
+    if (!blobRef.current) return;
+    const ext = blobRef.current.type.includes("mp4") ? "mp4" : "webm";
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blobRef.current);
+    a.download = `11.11-امنيتي-${Date.now()}.${ext}`;
+    a.click();
+    onSave(wishText || "تسجيل فيديو");
+  };
+
+  const fmtTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
+  // Sync preview
+  useEffect(() => {
+    if (phase === "preview" && recordedUrl && previewRef.current) {
+      previewRef.current.src = recordedUrl;
+    }
+  }, [phase, recordedUrl]);
+
+  if (camError) {
+    return (
+      <div className="py-10 text-center">
+        <p className="text-primary text-xs tracking-widest mb-4">{camError}</p>
+        <Button variant="ghost" onClick={onCancel} className="text-muted-foreground text-xs rounded-none tracking-widest">عودة</Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Instructions phase */}
+      {phase === "instructions" && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-5">
+          <div className="border border-primary/25 bg-primary/5 p-4 text-center">
+            <p className="text-primary text-base tracking-[0.2em] font-bold mb-3" style={{ fontFamily: "inherit" }}>
+              ركائز القدر
+            </p>
+            <p className="text-foreground/70 text-xs leading-relaxed tracking-wide" dir="rtl">
+              قبل أن تبدأ التسجيل، خذ ورقة وقلم.<br />
+              اكتب في أعلى الورقة بخط واضح:
+            </p>
+            <p className="text-primary/90 text-sm mt-2 mb-2 tracking-widest font-bold">ركائز القدر</p>
+            <p className="text-foreground/70 text-xs leading-relaxed tracking-wide" dir="rtl">
+              ثم اكتب أمنيتك بالكامل تحتها.<br />
+              امسك الورقة أمام الكاميرا أثناء التسجيل وتحدث عن أمنيتك بصدق.
+            </p>
+          </div>
+          <div className="border border-muted/30 bg-background/40 p-3">
+            <p className="text-[10px] text-muted-foreground tracking-widest mb-2" dir="rtl">اكتب ملخص أمنيتك (اختياري):</p>
+            <input
+              type="text"
+              value={wishText}
+              onChange={(e) => setWishText(e.target.value)}
+              placeholder="أمنيتي هي..."
+              className="w-full bg-transparent border border-primary/20 focus:outline-none focus:border-primary/50 text-xs px-3 py-2 placeholder:text-muted-foreground/40 rounded-none text-right"
+              dir="rtl"
+            />
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button variant="ghost" onClick={onCancel} className="text-muted-foreground text-xs rounded-none tracking-widest">إلغاء</Button>
+            <Button onClick={startCamera} className="bg-primary/15 text-primary border border-primary/35 hover:bg-primary/25 rounded-none text-xs tracking-widest" data-testid="button-start-camera">
+              تشغيل الكاميرا
+            </Button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Camera ready / recording */}
+      {(phase === "ready" || phase === "countdown" || phase === "recording") && (
+        <div className="flex flex-col gap-3">
+          <div className="relative bg-black border border-primary/20 overflow-hidden" style={{ aspectRatio: "16/9" }}>
+            <video ref={liveRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" />
+            {/* Countdown overlay */}
+            {phase === "countdown" && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                <motion.span
+                  key={countdown}
+                  initial={{ scale: 2, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.5, opacity: 0 }}
+                  className="text-7xl font-bold text-primary"
+                  style={{ textShadow: "0 0 40px hsl(0 75% 42%)" }}
+                >
+                  {countdown === 0 ? "●" : countdown}
+                </motion.span>
+              </div>
+            )}
+            {/* Recording indicator */}
+            {phase === "recording" && (
+              <div className="absolute top-3 left-3 flex items-center gap-2 bg-black/70 px-2 py-1 border border-primary/40">
+                <span className="w-2 h-2 bg-primary rounded-full" style={{ animation: "blink 0.8s step-end infinite" }} />
+                <span className="text-[10px] text-primary tracking-widest">REC {fmtTime(elapsed)}</span>
+              </div>
+            )}
+            {/* Corner decoration */}
+            <div className="absolute top-0 left-0 w-4 h-4 border-l border-t border-primary/60" />
+            <div className="absolute top-0 right-0 w-4 h-4 border-r border-t border-primary/60" />
+            <div className="absolute bottom-0 left-0 w-4 h-4 border-l border-b border-primary/60" />
+            <div className="absolute bottom-0 right-0 w-4 h-4 border-r border-b border-primary/60" />
+          </div>
+          <p className="text-[10px] text-muted-foreground/60 text-center tracking-widest" dir="rtl">
+            {phase === "ready" && "امسك الورقة أمام الكاميرا وتحدث عن أمنيتك"}
+            {phase === "countdown" && "استعد..."}
+            {phase === "recording" && "تحدث بصدق — امسك الورقة واضحة"}
+          </p>
+          <div className="flex gap-3 justify-end">
+            <Button variant="ghost" onClick={() => { stopCamera(); onCancel(); }} className="text-muted-foreground text-xs rounded-none">إلغاء</Button>
+            {phase === "ready" && (
+              <Button onClick={handleStartCountdown} className="bg-primary/15 text-primary border border-primary/35 hover:bg-primary/25 rounded-none text-xs tracking-widest" data-testid="button-start-recording">
+                ابدأ التسجيل
+              </Button>
+            )}
+            {phase === "recording" && (
+              <Button onClick={handleStopRecording} className="bg-primary/30 text-primary border border-primary/50 hover:bg-primary/40 rounded-none text-xs tracking-widest" data-testid="button-stop-recording">
+                إيقاف التسجيل
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Preview phase */}
+      {phase === "preview" && recordedUrl && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-3">
+          <div className="relative bg-black border border-primary/20 overflow-hidden" style={{ aspectRatio: "16/9" }}>
+            <video ref={previewRef} controls playsInline className="w-full h-full object-cover" />
+          </div>
+          <p className="text-[10px] text-muted-foreground/60 text-center tracking-widest" dir="rtl">
+            راجع تسجيلك — عند الرضا احفظ وأرسل الأمنية
+          </p>
+          <div className="flex gap-3 justify-between">
+            <Button variant="ghost" onClick={() => { setRecordedUrl(null); startCamera(); }}
+              className="text-muted-foreground text-xs rounded-none tracking-widest">إعادة التسجيل</Button>
+            <Button onClick={handleDownloadAndSave}
+              className="bg-primary/15 text-primary border border-primary/35 hover:bg-primary/25 rounded-none text-xs tracking-widest" data-testid="button-save-wish-video">
+              حفظ وإرسال الأمنية
+            </Button>
+          </div>
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
 const AI_POPUP_MESSAGES = [
@@ -190,6 +426,10 @@ class AmbientEngine {
   }
 }
 
+// ─── ID COUNTER (avoids Date.now() collisions) ───────────────────────────────
+let _msgId = 1;
+const nextId = () => _msgId++;
+
 // ─── STREAMING ────────────────────────────────────────────────────────────────
 
 async function streamAiResponse(
@@ -295,6 +535,7 @@ function App() {
   const chatHistoryRef = useRef<{ role: "user" | "assistant"; content: string }[]>([]);
 
   const [wishModalOpen, setWishModalOpen] = useState(false);
+  const [wishMode, setWishMode] = useState<"select" | "text" | "video">("select");
   const [wishInput, setWishInput] = useState("");
   const [wishStatus, setWishStatus] = useState<"idle" | "processing" | "success">("idle");
   const [hasStoredWish, setHasStoredWish] = useState(false);
@@ -346,7 +587,7 @@ function App() {
   // auto message injected into chat
   const injectAutoMessage = useCallback((text?: string) => {
     const msg = text ?? AUTO_CHAT_MESSAGES[Math.floor(Math.random() * AUTO_CHAT_MESSAGES.length)];
-    const id = Date.now();
+    const id = nextId();
     setChatMessages((prev) => [...prev, { id, text: msg, isAi: true }]);
     chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: msg }];
   }, []);
@@ -412,9 +653,9 @@ function App() {
     const userText = chatInput.trim();
     setChatInput("");
     setIsSending(true);
-    setChatMessages((prev) => [...prev, { id: Date.now(), text: userText, isAi: false }]);
+    setChatMessages((prev) => [...prev, { id: nextId(), text: userText, isAi: false }]);
     chatHistoryRef.current = [...chatHistoryRef.current, { role: "user", content: userText }];
-    const aiId = Date.now() + 1;
+    const aiId = nextId();
     setChatMessages((prev) => [...prev, { id: aiId, text: "", isAi: true, streaming: true }]);
     let full = "";
     streamAiResponse(
@@ -432,6 +673,13 @@ function App() {
     );
   };
 
+  const closeWishModal = () => {
+    setWishModalOpen(false);
+    setWishMode("select");
+    setWishStatus("idle");
+    setWishInput("");
+  };
+
   const handleWishSubmit = () => {
     if (!wishInput.trim()) return;
     setWishStatus("processing");
@@ -439,8 +687,18 @@ function App() {
       localStorage.setItem("eleven_wish", JSON.stringify({ text: wishInput, time: Date.now() }));
       setWishStatus("success");
       setHasStoredWish(true);
-      setTimeout(() => { setWishModalOpen(false); setWishStatus("idle"); setWishInput(""); }, 2000);
+      setTimeout(() => closeWishModal(), 2000);
     }, 3000);
+  };
+
+  const handleVideoWishSave = (text: string) => {
+    setWishStatus("processing");
+    setTimeout(() => {
+      localStorage.setItem("eleven_wish", JSON.stringify({ text, time: Date.now(), hasVideo: true }));
+      setWishStatus("success");
+      setHasStoredWish(true);
+      setTimeout(() => closeWishModal(), 2000);
+    }, 1500);
   };
 
   return (
@@ -546,39 +804,108 @@ function App() {
         {wishModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => wishStatus === "idle" && setWishModalOpen(false)}
-              className="absolute inset-0 bg-black/85 backdrop-blur-sm" />
-            <motion.div initial={{ opacity: 0, scale: 0.92, y: 24 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.92, y: 24 }}
-              className="relative w-full max-w-lg bg-card/92 border border-primary/25 p-6 shadow-[0_0_40px_rgba(180,0,0,0.1)] rounded-none">
-              <h2 className="text-base font-bold text-primary tracking-[0.2em] mb-4 uppercase">TRANSMIT TO THE VOID</h2>
-              {wishStatus === "idle" && (
+              onClick={() => wishStatus === "idle" && wishMode !== "video" && closeWishModal()}
+              className="absolute inset-0 bg-black/88 backdrop-blur-sm" />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 24 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 24 }}
+              className={`relative bg-card/93 border border-primary/25 p-5 shadow-[0_0_40px_rgba(180,0,0,0.1)] rounded-none w-full ${wishMode === "video" ? "max-w-xl" : "max-w-lg"}`}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-[11px] font-bold text-primary tracking-[0.25em] uppercase">
+                  {wishMode === "select" && "TRANSMIT TO THE VOID"}
+                  {wishMode === "text" && "◈ WISH — TEXT"}
+                  {wishMode === "video" && "◈ WISH — VIDEO // ركائز القدر"}
+                </h2>
+                {wishStatus === "idle" && wishMode !== "select" && (
+                  <button onClick={() => setWishMode("select")} className="text-[10px] text-muted-foreground/50 hover:text-muted-foreground tracking-widest transition-colors">
+                    ← عودة
+                  </button>
+                )}
+              </div>
+
+              {/* processing / success shared */}
+              {wishStatus === "processing" && (
+                <div className="py-12 flex flex-col items-center text-center gap-6">
+                  <p className="text-primary tracking-[0.2em] text-xs" style={{ animation: "blink 1.5s ease-in-out infinite" }}>
+                    جارٍ الإرسال إلى المجهول...
+                  </p>
+                  <div className="w-full h-px bg-muted overflow-hidden">
+                    <motion.div initial={{ width: "0%" }} animate={{ width: "100%" }} transition={{ duration: 2.5, ease: "linear" }} className="h-full bg-primary" />
+                  </div>
+                </div>
+              )}
+
+              {wishStatus === "success" && (
+                <div className="py-12 text-center">
+                  <p className="text-primary text-sm tracking-[0.2em] mb-2">تم الإرسال.</p>
+                  <p className="text-muted-foreground text-xs tracking-widest">أمنيتك في طريقها إلى مصدر مجهول.</p>
+                  <p className="text-primary/30 text-[10px] tracking-widest mt-4">التسجيل: {new Date().toLocaleTimeString("ar")}</p>
+                </div>
+              )}
+
+              {/* SELECT MODE */}
+              {wishStatus === "idle" && wishMode === "select" && (
+                <div className="flex flex-col gap-4">
+                  <p className="text-[11px] text-muted-foreground/70 tracking-widest text-center mb-2" dir="rtl">
+                    اختر طريقة إرسال أمنيتك إلى النظام
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Text option */}
+                    <button
+                      onClick={() => setWishMode("text")}
+                      data-testid="button-mode-text"
+                      className="border border-primary/25 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 transition-all duration-300 p-5 flex flex-col items-center gap-3 text-left group"
+                    >
+                      <span className="text-2xl text-primary/60 group-hover:text-primary transition-colors">✦</span>
+                      <span className="text-xs text-foreground/80 tracking-widest" dir="rtl">كتابة نصية</span>
+                      <span className="text-[10px] text-muted-foreground/50 tracking-wide text-center" dir="rtl">اكتب أمنيتك بالنص</span>
+                    </button>
+
+                    {/* Video option */}
+                    <button
+                      onClick={() => setWishMode("video")}
+                      data-testid="button-mode-video"
+                      className="border border-primary/40 bg-primary/8 hover:bg-primary/15 hover:border-primary/70 transition-all duration-300 p-5 flex flex-col items-center gap-3 text-left group relative overflow-hidden"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
+                      <span className="text-2xl text-primary/80 group-hover:text-primary transition-colors relative z-10">◉</span>
+                      <span className="text-xs text-primary/90 tracking-widest relative z-10" dir="rtl">تسجيل فيديو</span>
+                      <span className="text-[10px] text-primary/50 tracking-wide text-center relative z-10" dir="rtl">ركائز القدر</span>
+                    </button>
+                  </div>
+                  <button onClick={closeWishModal}
+                    className="text-[10px] text-muted-foreground/40 hover:text-muted-foreground tracking-widest text-center mt-1 transition-colors">
+                    إلغاء
+                  </button>
+                </div>
+              )}
+
+              {/* TEXT MODE */}
+              {wishStatus === "idle" && wishMode === "text" && (
                 <>
                   <Textarea value={wishInput} onChange={(e) => setWishInput(e.target.value)}
-                    placeholder="اكتب أمنيتك... / Enter your wish..."
-                    className="min-h-[140px] bg-background/50 border-primary/20 text-foreground resize-none focus-visible:ring-primary/40 font-mono text-sm rounded-none placeholder:text-muted-foreground/50"
+                    placeholder="اكتب أمنيتك هنا..."
+                    className="min-h-[130px] bg-background/50 border-primary/20 text-foreground resize-none focus-visible:ring-primary/40 font-mono text-sm rounded-none placeholder:text-muted-foreground/40"
                     data-testid="input-wish" dir="auto" />
                   <div className="flex justify-end mt-4 gap-3">
-                    <Button variant="ghost" onClick={() => setWishModalOpen(false)}
-                      className="text-muted-foreground hover:text-foreground rounded-none text-xs tracking-widest">CANCEL</Button>
+                    <Button variant="ghost" onClick={closeWishModal}
+                      className="text-muted-foreground hover:text-foreground rounded-none text-xs tracking-widest">إلغاء</Button>
                     <Button onClick={handleWishSubmit} disabled={!wishInput.trim()}
                       className="bg-primary/15 text-primary border border-primary/35 hover:bg-primary/25 rounded-none tracking-widest text-xs"
-                      data-testid="button-transmit-wish">TRANSMIT</Button>
+                      data-testid="button-transmit-wish">إرسال الأمنية</Button>
                   </div>
                 </>
               )}
-              {wishStatus === "processing" && (
-                <div className="py-12 flex flex-col items-center text-center gap-6">
-                  <p className="text-primary tracking-[0.2em] text-xs" style={{ animation: "blink 1.5s ease-in-out infinite" }}>PROCESSING...</p>
-                  <div className="w-full h-px bg-muted overflow-hidden">
-                    <motion.div initial={{ width: "0%" }} animate={{ width: "100%" }} transition={{ duration: 3, ease: "linear" }} className="h-full bg-primary" />
-                  </div>
-                </div>
-              )}
-              {wishStatus === "success" && (
-                <div className="py-12 text-center">
-                  <p className="text-foreground/90 tracking-[0.15em] text-sm">WISH TRANSMITTED.</p>
-                  <p className="text-muted-foreground text-xs mt-2 tracking-widest">AWAITING RESPONSE FROM UNKNOWN SOURCE.</p>
-                </div>
+
+              {/* VIDEO MODE */}
+              {wishStatus === "idle" && wishMode === "video" && (
+                <WishVideoRecorder
+                  onSave={handleVideoWishSave}
+                  onCancel={() => setWishMode("select")}
+                />
               )}
             </motion.div>
           </div>

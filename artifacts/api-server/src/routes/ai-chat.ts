@@ -3,7 +3,7 @@ import { openai } from "@workspace/integrations-openai-ai-server";
 
 const router = Router();
 
-router.post("/api/ai/chat", async (req, res) => {
+router.post("/ai/chat", async (req, res) => {
   try {
     const { messages } = req.body as {
       messages: { role: "user" | "assistant" | "system"; content: string }[];
