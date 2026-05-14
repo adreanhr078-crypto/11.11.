@@ -604,54 +604,77 @@ const FuturisticBackground = () => {
 
     const draw = () => {
       t += 0.008;
-      ctx.clearRect(0, 0, W, H);
+
+      // ── Deep black base ────────────────────────────────────────────────────
+      ctx.fillStyle = "rgba(3,0,0,1)";
+      ctx.fillRect(0, 0, W, H);
+
+      // ── Atmospheric red nebula fog ─────────────────────────────────────────
+      ctx.save();
+      // Bottom fog pool
+      const fogGrad = ctx.createRadialGradient(W * 0.5, H * 0.85, 0, W * 0.5, H * 0.85, W * 0.75);
+      fogGrad.addColorStop(0, `rgba(90,0,0,${0.18 + 0.06 * Math.sin(t * 0.4)})`);
+      fogGrad.addColorStop(0.4, `rgba(50,0,0,${0.1 + 0.04 * Math.sin(t * 0.3)})`);
+      fogGrad.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = fogGrad;
+      ctx.fillRect(0, 0, W, H);
+      // Centre deep glow
+      const cFog = ctx.createRadialGradient(W * 0.5, H * 0.45, 0, W * 0.5, H * 0.45, W * 0.45);
+      cFog.addColorStop(0, `rgba(70,0,0,${0.12 + 0.05 * Math.sin(t * 0.5)})`);
+      cFog.addColorStop(0.5, `rgba(30,0,0,0.06)`);
+      cFog.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = cFog;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
 
       // ── 1. Perspective grid ────────────────────────────────────────────────
       const horizonY = H * 0.58;
       const vpX = W * 0.5;
-      const gridAlpha = 0.035 + 0.012 * Math.sin(t * 0.6);
+      const gridAlpha = 0.055 + 0.018 * Math.sin(t * 0.6);
 
       ctx.save();
-      // Horizontal lines — converge toward horizon
       const hLines = 22;
       for (let i = 0; i <= hLines; i++) {
-        const progress = (i / hLines);
-        // Perspective: lines bunch near horizon, spread at bottom
+        const progress = i / hLines;
         const perspective = Math.pow(progress, 2.8);
         const y = horizonY + (H - horizonY) * perspective;
         const lineFade = progress * gridAlpha;
-        ctx.strokeStyle = `rgba(180,20,20,${lineFade})`;
-        ctx.lineWidth = 0.5;
+        ctx.strokeStyle = `rgba(160,5,5,${lineFade})`;
+        ctx.lineWidth = 0.6;
         ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(W, y);
         ctx.stroke();
       }
-      // Vertical converging lines
       const vLines = 18;
       for (let i = 0; i <= vLines; i++) {
         const ratio = i / vLines;
         const bottomX = ratio * W;
-        const fade = Math.abs(ratio - 0.5) * 0.06 + 0.008;
-        ctx.strokeStyle = `rgba(180,20,20,${fade + 0.01 * Math.sin(t + ratio * 4)})`;
-        ctx.lineWidth = 0.4;
+        const fade = Math.abs(ratio - 0.5) * 0.09 + 0.012;
+        ctx.strokeStyle = `rgba(160,5,5,${fade + 0.012 * Math.sin(t + ratio * 4)})`;
+        ctx.lineWidth = 0.5;
         ctx.beginPath();
         ctx.moveTo(vpX, horizonY);
         ctx.lineTo(bottomX, H);
         ctx.stroke();
       }
-      // Horizon glow line
-      const horizonGrad = ctx.createLinearGradient(0, horizonY, W, horizonY);
-      horizonGrad.addColorStop(0, "rgba(160,10,10,0)");
-      horizonGrad.addColorStop(0.3, `rgba(180,20,20,${0.06 + 0.03 * Math.sin(t * 0.8)})`);
-      horizonGrad.addColorStop(0.5, `rgba(200,30,30,${0.12 + 0.04 * Math.sin(t * 0.8)})`);
-      horizonGrad.addColorStop(0.7, `rgba(180,20,20,${0.06 + 0.03 * Math.sin(t * 0.8)})`);
-      horizonGrad.addColorStop(1, "rgba(160,10,10,0)");
+      // Horizon glow — stronger, deeper red
+      const horizonGrad = ctx.createLinearGradient(0, horizonY - 18, 0, horizonY + 18);
+      horizonGrad.addColorStop(0, "rgba(0,0,0,0)");
+      horizonGrad.addColorStop(0.5, `rgba(180,10,10,${0.22 + 0.08 * Math.sin(t * 0.8)})`);
+      horizonGrad.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = horizonGrad;
-      ctx.fillRect(0, horizonY - 1, W, 2.5);
+      ctx.fillRect(0, horizonY - 18, W, 36);
+      // Hard horizon line
+      ctx.strokeStyle = `rgba(200,15,15,${0.35 + 0.1 * Math.sin(t * 0.8)})`;
+      ctx.lineWidth = 0.7;
+      ctx.beginPath();
+      ctx.moveTo(0, horizonY);
+      ctx.lineTo(W, horizonY);
+      ctx.stroke();
       ctx.restore();
 
-      // ── 2. Warp stars ──────────────────────────────────────────────────────
+      // ── 2. Warp stars — red-tinted ────────────────────────────────────────
       ctx.save();
       const cx = W / 2, cy = H * 0.42;
       stars.forEach((s) => {
@@ -664,28 +687,29 @@ const FuturisticBackground = () => {
         const y = cy + Math.sin(s.angle) * s.dist * 0.55;
         const distRatio = s.dist / (Math.max(W, H) * 0.72);
         const alpha = Math.min(s.opacity, distRatio * s.opacity * 1.8);
-        // Trail
-        const trailLen = s.speed * 8;
+        const trailLen = s.speed * 10;
         const tx = cx + Math.cos(s.angle) * (s.dist - trailLen);
         const ty = cy + Math.sin(s.angle) * (s.dist - trailLen) * 0.55;
         const grad = ctx.createLinearGradient(tx, ty, x, y);
-        grad.addColorStop(0, `rgba(220,200,200,0)`);
-        grad.addColorStop(1, `rgba(220,200,200,${alpha * 0.7})`);
+        // Colour: near-red for close stars, crimson for far
+        const r = Math.floor(160 + 60 * distRatio);
+        const g = Math.floor(distRatio * 20);
+        grad.addColorStop(0, `rgba(${r},${g},${g},0)`);
+        grad.addColorStop(1, `rgba(${r},${g},${g},${alpha * 0.75})`);
         ctx.strokeStyle = grad;
-        ctx.lineWidth = s.size * 0.6;
+        ctx.lineWidth = s.size * 0.55;
         ctx.beginPath();
         ctx.moveTo(tx, ty);
         ctx.lineTo(x, y);
         ctx.stroke();
-        // Point
-        ctx.fillStyle = `rgba(240,220,220,${alpha})`;
+        ctx.fillStyle = `rgba(${r},${g},${g},${alpha})`;
         ctx.beginPath();
-        ctx.arc(x, y, s.size * 0.4, 0, Math.PI * 2);
+        ctx.arc(x, y, s.size * 0.45, 0, Math.PI * 2);
         ctx.fill();
       });
       ctx.restore();
 
-      // ── 3. Data stream columns ─────────────────────────────────────────────
+      // ── 3. Data stream columns — deep crimson ─────────────────────────────
       ctx.save();
       ctx.font = "10px 'Share Tech Mono', monospace";
       dataCols.forEach((col) => {
@@ -697,10 +721,7 @@ const FuturisticBackground = () => {
         }
         if (!col.active) return;
         col.head += col.speed;
-        if (col.head > H + 40) {
-          col.active = false;
-          col.timer = 40 + Math.random() * 120;
-        }
+        if (col.head > H + 40) { col.active = false; col.timer = 40 + Math.random() * 120; }
         const lineH = 16;
         const trailLen = 14;
         for (let i = 0; i < trailLen; i++) {
@@ -708,14 +729,12 @@ const FuturisticBackground = () => {
           if (y < 0 || y > H) continue;
           const fadeRatio = 1 - i / trailLen;
           if (i === 0) {
-            // Head — bright
-            ctx.fillStyle = `rgba(255,255,255,${0.55 * fadeRatio})`;
+            ctx.fillStyle = `rgba(255,80,80,${0.7 * fadeRatio})`;     // bright red head
           } else if (i < 3) {
-            ctx.fillStyle = `rgba(200,60,60,${0.4 * fadeRatio})`;
+            ctx.fillStyle = `rgba(180,20,20,${0.5 * fadeRatio})`;     // crimson
           } else {
-            ctx.fillStyle = `rgba(140,20,20,${0.25 * fadeRatio})`;
+            ctx.fillStyle = `rgba(100,5,5,${0.35 * fadeRatio})`;      // very dark red tail
           }
-          // Randomize char occasionally
           if (Math.random() < 0.04) {
             col.chars[i % col.chars.length].ch = DATA_CHARS[Math.floor(Math.random() * DATA_CHARS.length)];
           }
@@ -724,7 +743,7 @@ const FuturisticBackground = () => {
       });
       ctx.restore();
 
-      // ── 4. Network nodes + connections ────────────────────────────────────
+      // ── 4. Network nodes — blood red ──────────────────────────────────────
       ctx.save();
       const maxDist = 180;
       nodes.forEach((n) => {
@@ -733,15 +752,14 @@ const FuturisticBackground = () => {
         if (n.x < 0 || n.x > W) n.vx *= -1;
         if (n.y < 0 || n.y > H * 0.75) n.vy *= -1;
       });
-      // Connections
       for (let i = 0; i < nodes.length; i++) {
         for (let j = i + 1; j < nodes.length; j++) {
           const dx = nodes[j].x - nodes[i].x;
           const dy = nodes[j].y - nodes[i].y;
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < maxDist) {
-            const alpha = (1 - dist / maxDist) * 0.09;
-            ctx.strokeStyle = `rgba(180,30,30,${alpha})`;
+            const alpha = (1 - dist / maxDist) * 0.12;
+            ctx.strokeStyle = `rgba(150,10,10,${alpha})`;
             ctx.lineWidth = 0.5;
             ctx.beginPath();
             ctx.moveTo(nodes[i].x, nodes[i].y);
@@ -750,24 +768,32 @@ const FuturisticBackground = () => {
           }
         }
       }
-      // Node dots
       nodes.forEach((n) => {
-        const pulse = 0.3 + 0.2 * Math.sin(n.pulse);
-        ctx.fillStyle = `rgba(200,40,40,${pulse})`;
+        const pulse = 0.35 + 0.25 * Math.sin(n.pulse);
+        ctx.fillStyle = `rgba(180,10,10,${pulse})`;
         ctx.beginPath();
         ctx.arc(n.x, n.y, n.size, 0, Math.PI * 2);
         ctx.fill();
       });
       ctx.restore();
 
-      // ── 5. Slow scan beam ─────────────────────────────────────────────────
+      // ── 5. Scan beam — deep red ────────────────────────────────────────────
       const scanY = ((t * 28) % (H + 60)) - 30;
-      const scanGrad = ctx.createLinearGradient(0, scanY - 40, 0, scanY + 40);
-      scanGrad.addColorStop(0, "rgba(200,20,20,0)");
-      scanGrad.addColorStop(0.5, `rgba(200,30,30,0.025)`);
-      scanGrad.addColorStop(1, "rgba(200,20,20,0)");
+      const scanGrad = ctx.createLinearGradient(0, scanY - 50, 0, scanY + 50);
+      scanGrad.addColorStop(0, "rgba(120,0,0,0)");
+      scanGrad.addColorStop(0.5, `rgba(160,8,8,0.045)`);
+      scanGrad.addColorStop(1, "rgba(120,0,0,0)");
       ctx.fillStyle = scanGrad;
-      ctx.fillRect(0, scanY - 40, W, 80);
+      ctx.fillRect(0, scanY - 50, W, 100);
+
+      // ── 6. Dark vignette border ────────────────────────────────────────────
+      ctx.save();
+      const vignette = ctx.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, Math.max(W, H) * 0.85);
+      vignette.addColorStop(0, "rgba(0,0,0,0)");
+      vignette.addColorStop(1, "rgba(0,0,0,0.72)");
+      ctx.fillStyle = vignette;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
 
       rafId = requestAnimationFrame(draw);
     };
