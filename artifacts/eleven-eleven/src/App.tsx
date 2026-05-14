@@ -1041,11 +1041,21 @@ function App() {
   const popupIdRef = useRef(0);
 
   const [chatOpen, setChatOpen] = useState(false);
+  const chatOpenRef = useRef(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [pendingSignal, setPendingSignal] = useState<string | null>(null);
+  const [entityTyping, setEntityTyping] = useState(false);
+  const [shareToast, setShareToast] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const isSendingRef = useRef(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatHistoryRef = useRef<{ role: "user" | "assistant"; content: string }[]>([]);
+
+  // keep refs in sync
+  useEffect(() => { chatOpenRef.current = chatOpen; }, [chatOpen]);
+  useEffect(() => { isSendingRef.current = isSending; }, [isSending]);
 
   const [wishModalOpen, setWishModalOpen] = useState(false);
   const [wishMode, setWishMode] = useState<"select" | "text" | "video">("select");
@@ -1110,14 +1120,24 @@ function App() {
       const id = nextId();
       setChatMessages((prev) => [...prev, { id, text, isAi: true }]);
       chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: text }];
+      if (!chatOpenRef.current) {
+        setUnreadCount((c) => c + 1);
+        setPendingSignal(text);
+      }
       return;
     }
-    // Show a "typing" placeholder then replace with real AI probe
+    // Show entity-typing on main screen for 2.5s before fetching
+    setEntityTyping(true);
     const id = nextId();
     setChatMessages((prev) => [...prev, { id, text: "...", isAi: true, streaming: true }]);
     fetchAiProbe(chatHistoryRef.current).then((msg) => {
+      setEntityTyping(false);
       setChatMessages((prev) => prev.map((m) => m.id === id ? { ...m, text: msg, streaming: false } : m));
       chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: msg }];
+      if (!chatOpenRef.current) {
+        setUnreadCount((c) => c + 1);
+        setPendingSignal(msg);
+      }
     });
   }, []);
 
@@ -1194,6 +1214,8 @@ function App() {
         setChatMessages((p) => p.map((m) => m.id === aiId ? { ...m, streaming: false } : m));
         chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: full }];
         setIsSending(false);
+        // Schedule a follow-up probe 12–28s after AI replies
+        setTimeout(() => { if (!isSendingRef.current) injectAutoMessage(); }, 12000 + Math.random() * 16000);
       },
       (err) => {
         setChatMessages((p) => p.map((m) => m.id === aiId ? { ...m, text: err, streaming: false } : m));
@@ -1502,6 +1524,104 @@ function App() {
         )}
       </AnimatePresence>
 
+      {/* ── Entity Typing Indicator (main screen) ── */}
+      <AnimatePresence>
+        {entityTyping && !chatOpen && (
+          <motion.div
+            key="entity-typing"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.4 }}
+            className="fixed bottom-[68px] right-4 z-40 flex items-center gap-2 px-3 py-1.5 border border-primary/50 bg-background/90 backdrop-blur-sm shadow-[0_0_18px_rgba(180,0,0,0.2)]"
+          >
+            <span className="text-[9px] tracking-[0.25em] text-primary/70 uppercase">الكيان يكتب</span>
+            <span className="flex gap-0.5">
+              <span className="w-1 h-1 bg-primary rounded-full" style={{ animation: "blink 0.9s 0s step-end infinite" }} />
+              <span className="w-1 h-1 bg-primary rounded-full" style={{ animation: "blink 0.9s 0.3s step-end infinite" }} />
+              <span className="w-1 h-1 bg-primary rounded-full" style={{ animation: "blink 0.9s 0.6s step-end infinite" }} />
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Incoming Signal Banner ── */}
+      <AnimatePresence>
+        {pendingSignal && !chatOpen && (
+          <motion.div
+            key="incoming-banner"
+            initial={{ opacity: 0, y: -40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -40 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between gap-4 px-5 py-3 bg-primary/10 backdrop-blur-md border-b border-primary/50 shadow-[0_4px_30px_rgba(180,0,0,0.25)]"
+            style={{ animation: "incomingPulse 2s ease-in-out infinite" }}
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="w-2 h-2 bg-primary rounded-full shrink-0" style={{ animation: "blink 0.7s step-end infinite" }} />
+              <span className="text-[9px] tracking-[0.3em] text-primary font-bold uppercase shrink-0">◈ إشارة واردة</span>
+              <span className="text-[10px] text-foreground/70 truncate hidden sm:block" dir="rtl">
+                {pendingSignal.slice(0, 55)}{pendingSignal.length > 55 ? "..." : ""}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => { setChatOpen(true); setUnreadCount(0); setPendingSignal(null); }}
+                className="text-[9px] tracking-[0.25em] text-primary border border-primary/50 px-3 py-1 hover:bg-primary/15 transition-colors uppercase"
+              >
+                افتح القناة
+              </button>
+              <button onClick={() => setPendingSignal(null)} className="text-muted-foreground/50 hover:text-muted-foreground text-[11px] px-1">✕</button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Corner Intrusion Alerts ── */}
+      <AnimatePresence>
+        {pendingSignal && !chatOpen && (
+          <motion.div
+            key="corner-alert"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: [0, 1, 0.7, 1] }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6 }}
+            className="fixed top-14 left-4 z-40 px-2 py-1 border border-primary/40 bg-background/80 backdrop-blur-sm"
+            style={{ animation: "incomingPulse 1.8s ease-in-out infinite" }}
+          >
+            <span className="text-[9px] tracking-widest text-primary/80 uppercase">
+              ⚠ تحذير: إشارة غير محددة المصدر
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Share / Viral Button (bottom-left) ── */}
+      <div className="fixed bottom-4 left-4 z-40 flex flex-col items-start gap-2">
+        <AnimatePresence>
+          {shareToast && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="px-3 py-1.5 bg-primary/15 border border-primary/40 text-[9px] tracking-widest text-primary"
+            >
+              ◈ تم نسخ الرابط
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <button
+          onClick={() => {
+            navigator.clipboard.writeText(window.location.href).catch(() => {});
+            setShareToast(true);
+            setTimeout(() => setShareToast(false), 2500);
+          }}
+          className="text-[9px] tracking-[0.2em] text-muted-foreground/40 hover:text-primary/60 border border-muted-foreground/15 hover:border-primary/30 px-2 py-1 transition-all duration-300 bg-background/60 backdrop-blur-sm uppercase"
+        >
+          أرسل هذا التردد ↗
+        </button>
+      </div>
+
       {/* Chat */}
       <div className="fixed bottom-0 right-0 z-40 p-4 w-full md:w-[430px]">
         <AnimatePresence>
@@ -1557,11 +1677,22 @@ function App() {
           )}
         </AnimatePresence>
         <div className="flex justify-end">
-          <Button variant="outline" onClick={() => setChatOpen(!chatOpen)}
-            className="border-primary/35 text-primary hover:bg-primary/8 hover:text-primary tracking-widest text-[10px] h-7 bg-background/85 backdrop-blur-md rounded-none shadow-[0_0_12px_rgba(180,0,0,0.08)] px-4"
+          <Button variant="outline"
+            onClick={() => {
+              const opening = !chatOpen;
+              setChatOpen(opening);
+              if (opening) { setUnreadCount(0); setPendingSignal(null); }
+            }}
+            className={`relative border-primary/35 text-primary hover:bg-primary/8 hover:text-primary tracking-widest text-[10px] h-7 bg-background/85 backdrop-blur-md rounded-none px-4 transition-all duration-300
+              ${pendingSignal && !chatOpen ? "border-primary/80 shadow-[0_0_20px_rgba(180,0,0,0.35)] bg-primary/8" : "shadow-[0_0_12px_rgba(180,0,0,0.08)]"}`}
             data-testid="button-toggle-chat">
+            {unreadCount > 0 && !chatOpen && (
+              <span className="absolute -top-2 -right-2 w-4 h-4 bg-primary text-background text-[8px] font-bold rounded-full flex items-center justify-center" style={{ animation: "blink 1.2s step-end infinite" }}>
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
             <span className={`w-1.5 h-1.5 rounded-full mr-2 bg-primary ${!chatOpen ? "animate-pulse" : ""}`} />
-            {chatOpen ? "◈ CLOSE" : "◈ SIGNAL OPEN"}
+            {chatOpen ? "◈ CLOSE" : pendingSignal ? "◈ INCOMING SIGNAL" : "◈ SIGNAL OPEN"}
           </Button>
         </div>
       </div>

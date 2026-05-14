@@ -194,6 +194,11 @@
   50% { opacity: 0.8; transform: scale(1.05); }
 }
 
+@keyframes incomingPulse {
+  0%, 100% { box-shadow: 0 4px 30px rgba(180,0,0,0.20); border-color: hsl(0 75% 42% / 0.5); }
+  50% { box-shadow: 0 4px 40px rgba(180,0,0,0.45); border-color: hsl(0 75% 42% / 0.85); }
+}
+
 .glitch-effect {
   position: relative;
 }
