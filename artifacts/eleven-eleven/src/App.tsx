@@ -807,6 +807,229 @@ const FuturisticBackground = () => {
   return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0" />;
 };
 
+// ─── BIOMETRIC SCAN INTRO ────────────────────────────────────────────────────
+
+const THOUGHT_PATTERNS = ["غير مستقر — مثير للاهتمام", "متشعّب — يصعب قراءته", "خطي — متوقع جزئياً", "فوضوي — نادر", "دوّامي — مرصود"];
+const CONSCIOUSNESS_LAYERS = ["الطبقة 3 — شبه واعٍ", "الطبقة 7 — واعٍ جزئياً", "الطبقة 11 — غير مصنَّف", "الطبقة 0 — شاذ"];
+
+function genHex(len: number) {
+  return Array.from({ length: len }, () => Math.floor(Math.random() * 16).toString(16).toUpperCase()).join("");
+}
+
+function BiometricScan({ onDone }: { onDone: () => void }) {
+  const [phase, setPhase] = useState<"init" | "connecting" | "scanning" | "analyzing" | "glitch" | "granted" | "fading">("init");
+  const [scanY, setScanY] = useState(0);
+  const [dataLines, setDataLines] = useState<string[]>([]);
+  const [visibleLines, setVisibleLines] = useState(0);
+  const [opacity, setOpacity] = useState(1);
+
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const entityId = useRef(`11-${genHex(4)}-${genHex(2)}`);
+  const deviceSig = useRef(genHex(12));
+  const thoughtPat = useRef(THOUGHT_PATTERNS[Math.floor(Math.random() * THOUGHT_PATTERNS.length)]);
+  const consLayer = useRef(CONSCIOUSNESS_LAYERS[Math.floor(Math.random() * CONSCIOUSNESS_LAYERS.length)]);
+  const scanRef = useRef<number | null>(null);
+
+  const lines = [
+    `[ تردد الإشارة ]     11.11 Hz  ✓`,
+    `[ المنطقة الزمنية ]  ${tz}`,
+    `[ بصمة الجهاز ]      ${deviceSig.current}`,
+    `[ نمط التفكير ]      ${thoughtPat.current}`,
+    `[ طبقة الوعي ]       ${consLayer.current}`,
+    `[ الرقم التعريفي ]   ${entityId.current}`,
+    `[ الحالة ]           مُصرَّح — تحت المراقبة`,
+  ];
+
+  useEffect(() => {
+    // init → connecting
+    const t1 = setTimeout(() => setPhase("connecting"), 600);
+    // connecting → scanning
+    const t2 = setTimeout(() => setPhase("scanning"), 2000);
+    // scanning anim
+    const t3 = setTimeout(() => {
+      let y = 0;
+      scanRef.current = window.setInterval(() => {
+        y += 2.2;
+        setScanY(y);
+        if (y >= 110) {
+          clearInterval(scanRef.current!);
+          setPhase("analyzing");
+          setDataLines(lines);
+        }
+      }, 18);
+    }, 2100);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Reveal data lines one by one
+  useEffect(() => {
+    if (phase !== "analyzing") return;
+    let i = 0;
+    const id = setInterval(() => {
+      i += 1;
+      setVisibleLines(i);
+      if (i >= lines.length) {
+        clearInterval(id);
+        setTimeout(() => setPhase("glitch"), 500);
+      }
+    }, 280);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
+  // Glitch → granted
+  useEffect(() => {
+    if (phase !== "glitch") return;
+    const t = setTimeout(() => setPhase("granted"), 550);
+    return () => clearTimeout(t);
+  }, [phase]);
+
+  // Granted → fading
+  useEffect(() => {
+    if (phase !== "granted") return;
+    const t = setTimeout(() => setPhase("fading"), 1600);
+    return () => clearTimeout(t);
+  }, [phase]);
+
+  // Fading → done
+  useEffect(() => {
+    if (phase !== "fading") return;
+    let o = 1;
+    const id = setInterval(() => {
+      o -= 0.04;
+      setOpacity(Math.max(0, o));
+      if (o <= 0) { clearInterval(id); onDone(); }
+    }, 18);
+    return () => clearInterval(id);
+  }, [phase, onDone]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#020000] font-mono overflow-hidden"
+      style={{ opacity }}
+    >
+      {/* Background subtle grid */}
+      <div className="absolute inset-0 opacity-20"
+        style={{ backgroundImage: "linear-gradient(rgba(140,0,0,0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(140,0,0,0.15) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
+
+      {/* Vignette */}
+      <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.85) 100%)" }} />
+
+      {/* Glitch overlay */}
+      {phase === "glitch" && (
+        <div className="absolute inset-0 z-10 pointer-events-none" style={{ background: "rgba(180,0,0,0.18)", mixBlendMode: "screen", animation: "successGlitchA 0.15s 3" }} />
+      )}
+
+      <div className="relative z-10 w-full max-w-lg px-6 flex flex-col items-center gap-6">
+
+        {/* Top label */}
+        <div className="w-full flex items-center justify-between text-[10px] tracking-[0.3em] text-red-900/70">
+          <span>PROTOCOL 11.11</span>
+          <span style={{ animation: "blink 1s step-end infinite" }}>■</span>
+          <span>SEC-LEVEL Ω</span>
+        </div>
+
+        {/* Main box */}
+        <div className="w-full border border-red-900/40 bg-black/60 backdrop-blur-sm p-6 flex flex-col gap-4">
+
+          {/* Init phase */}
+          {(phase === "init" || phase === "connecting") && (
+            <div className="flex flex-col items-center gap-4 py-4">
+              <div className="text-red-700/80 text-xs tracking-[0.4em] text-center" style={{ animation: "blink 1.4s ease-in-out infinite" }}>
+                {phase === "init" ? "تهيئة البروتوكول..." : "جارٍ إنشاء الاتصال..."}
+              </div>
+              <div className="flex gap-2">
+                {[0,1,2,3,4].map((i) => (
+                  <motion.div key={i}
+                    initial={{ scaleY: 0.2, opacity: 0.2 }}
+                    animate={{ scaleY: [0.2, 1, 0.2], opacity: [0.2, 1, 0.2] }}
+                    transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.18, ease: "easeInOut" }}
+                    className="w-1.5 bg-red-700/70 rounded-sm"
+                    style={{ height: 28 }}
+                  />
+                ))}
+              </div>
+              <div className="text-[9px] text-red-900/50 tracking-widest">SECTOR 11 · NODE ΩMEGA</div>
+            </div>
+          )}
+
+          {/* Scanning phase */}
+          {phase === "scanning" && (
+            <div className="flex flex-col gap-3 py-2">
+              <div className="text-red-600/70 text-[10px] tracking-[0.35em] text-center mb-1">المسح البيومتري جارٍ...</div>
+              <div className="relative w-full overflow-hidden border border-red-900/30 bg-black" style={{ height: 120 }}>
+                {/* Grid inside scanner */}
+                <div className="absolute inset-0 opacity-10"
+                  style={{ backgroundImage: "linear-gradient(rgba(180,0,0,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(180,0,0,0.5) 1px, transparent 1px)", backgroundSize: "20px 20px" }} />
+                {/* Corner markers */}
+                {(["top-1 left-1", "top-1 right-1", "bottom-1 left-1", "bottom-1 right-1"] as const).map((pos, i) => (
+                  <div key={`corner-${pos}`} className={`absolute ${pos} w-3 h-3 border-red-700/60`}
+                    style={{ borderWidth: "1px 0 0 1px", transform: i > 1 ? "rotate(180deg)" : i === 1 ? "rotate(90deg)" : i === 2 ? "rotate(-90deg)" : "none" }} />
+                ))}
+                {/* Scan beam */}
+                <div className="absolute left-0 right-0 pointer-events-none" style={{ top: `${scanY}%`, transform: "translateY(-50%)" }}>
+                  <div className="w-full h-px bg-gradient-to-r from-transparent via-red-500/80 to-transparent" />
+                  <div className="w-full h-8 -translate-y-4" style={{ background: "linear-gradient(to bottom, transparent, rgba(180,0,0,0.08), transparent)" }} />
+                </div>
+                {/* Center crosshair */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-8 h-8 border border-red-800/40 rounded-full flex items-center justify-center">
+                    <div className="w-1 h-1 bg-red-700/60 rounded-full" style={{ animation: "blink 0.8s step-end infinite" }} />
+                  </div>
+                </div>
+              </div>
+              <div className="text-[9px] text-red-900/50 tracking-widest text-center" style={{ animation: "blink 0.9s step-end infinite" }}>
+                {Math.round(scanY)}% — تحليل البصمة...
+              </div>
+            </div>
+          )}
+
+          {/* Analyzing phase — data lines */}
+          {(phase === "analyzing" || phase === "glitch" || phase === "granted") && (
+            <div className="flex flex-col gap-2">
+              <div className="text-red-600/60 text-[10px] tracking-[0.3em] mb-2">نتائج التحليل:</div>
+              {dataLines.slice(0, visibleLines).map((line, i) => (
+                <motion.div key={i}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className={`text-[11px] tracking-wide font-mono py-0.5 border-b border-red-950/30 ${i === dataLines.length - 1 ? "text-red-400/90 font-bold" : "text-red-900/80"}`}
+                  dir="rtl"
+                >
+                  {line}
+                </motion.div>
+              ))}
+              {phase === "glitch" && (
+                <div className="text-[10px] text-red-500/60 tracking-widest text-center mt-1" style={{ animation: "blink 0.12s step-end infinite" }}>
+                  !!! خطأ في المصفوفة — إعادة ضبط !!!
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Granted phase */}
+          {phase === "granted" && (
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }}
+              className="text-center mt-2 py-3 border border-red-800/50 bg-red-950/20"
+            >
+              <p className="text-red-400/90 text-sm tracking-[0.3em] font-bold">تم التحقق</p>
+              <p className="text-red-700/60 text-[10px] tracking-[0.4em] mt-1">الوصول ممنوح — أنت مراقَب</p>
+            </motion.div>
+          )}
+        </div>
+
+        {/* Bottom bar */}
+        <div className="w-full flex items-center justify-between text-[9px] tracking-widest text-red-950/60">
+          <span>{new Date().toISOString().slice(0, 19).replace("T", " ")}</span>
+          <span style={{ animation: "blink 2s step-end infinite" }}>LIVE</span>
+          <span>11.11.11.11</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── APP ──────────────────────────────────────────────────────────────────────
 
 type ChatMsg = { id: number; text: string; isAi: boolean; streaming?: boolean };
@@ -837,6 +1060,13 @@ function App() {
   const [soundOn, setSoundOn] = useState(false);
   const audioRef = useRef<AmbientEngine | null>(null);
   const audioStarted = useRef(false);
+
+  // Biometric scan — show once per session
+  const [scanDone, setScanDone] = useState(() => sessionStorage.getItem("11_scanned") === "1");
+  const handleScanDone = useCallback(() => {
+    sessionStorage.setItem("11_scanned", "1");
+    setScanDone(true);
+  }, []);
 
   // init
   useEffect(() => {
@@ -1002,6 +1232,7 @@ function App() {
 
   return (
     <div className={`min-h-screen w-full bg-background overflow-hidden relative text-foreground font-mono selection:bg-primary/30 ${globalGlitch ? "animate-glitch" : ""}`}>
+      {!scanDone && <BiometricScan onDone={handleScanDone} />}
       <FuturisticBackground />
 
       {/* Central glow */}
