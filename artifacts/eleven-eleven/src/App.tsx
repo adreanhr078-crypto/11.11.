@@ -132,7 +132,7 @@ function WishVideoRecorder({ onSave, onCancel }: { onSave: (text: string) => voi
           <div className="border border-primary/40 bg-primary/8 px-4 py-3 text-center">
             <p className="text-primary text-xs tracking-[0.3em] font-bold">◈ بروتوكول ركائز القدر</p>
             <p className="text-foreground/70 text-[11px] mt-1" dir="rtl">
-              سجّل أمنيتك بالفيديو — امسك ورقة باسمك وأمنيتك أمام الكاميرا
+              سجّل فيديو. امسك ورقة باسمك وتاريخ ميلادك أمام الكاميرا.
             </p>
           </div>
 
