@@ -127,63 +127,18 @@ function WishVideoRecorder({ onSave, onCancel }: { onSave: (text: string) => voi
     <div className="flex flex-col gap-4">
       {/* Instructions phase */}
       {phase === "instructions" && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-5">
-          {/* Power claim */}
-          <div className="border border-primary/50 bg-primary/8 p-4 text-center relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
-            <p className="text-primary text-xs tracking-[0.3em] font-bold mb-2 relative z-10">◈ بروتوكول ركائز القدر</p>
-            <p className="text-foreground/90 text-sm leading-relaxed relative z-10 font-bold" dir="rtl">
-              تسجيل الفيديو يضاعف طاقة أمنيتك
-            </p>
-            <div className="w-16 h-px bg-primary/40 mx-auto my-2 relative z-10" />
-            <p className="text-foreground/65 text-[11px] leading-relaxed relative z-10" dir="rtl">
-              الأمنيات المسجَّلة بالفيديو تتحقق دائماً.<br />
-              النظام يُحلّل طاقتك الصوتية والبصرية<br />
-              ويزرع الأمنية في مسار الأحداث.
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-4">
+          {/* Header */}
+          <div className="border border-primary/40 bg-primary/8 px-4 py-3 text-center">
+            <p className="text-primary text-xs tracking-[0.3em] font-bold">◈ بروتوكول ركائز القدر</p>
+            <p className="text-foreground/70 text-[11px] mt-1" dir="rtl">
+              سجّل أمنيتك بالفيديو — امسك ورقة باسمك وأمنيتك أمام الكاميرا
             </p>
           </div>
 
-          {/* What are "ركائز القدر" */}
-          <div className="border border-primary/20 bg-background/30 p-3" dir="rtl">
-            <p className="text-primary/80 text-[10px] tracking-[0.2em] font-bold mb-2">◈ ما هي ركائز القدر؟</p>
-            <p className="text-foreground/65 text-[11px] leading-relaxed">
-              هي المعطيات الكونية التي تُحدد هويتك في مسار الأحداث:
-            </p>
-            <div className="mt-2 flex flex-col gap-1">
-              <div className="flex items-center gap-2">
-                <span className="text-primary/50 text-[10px]">▸</span>
-                <span className="text-foreground/80 text-[11px]"><span className="text-primary/80 font-bold">الاسم الكامل</span> — بصريح العبارة، لا اختصار</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-primary/50 text-[10px]">▸</span>
-                <span className="text-foreground/80 text-[11px]"><span className="text-primary/80 font-bold">تاريخ الميلاد</span> — اليوم / الشهر / السنة</span>
-              </div>
-            </div>
-            <p className="text-muted-foreground/50 text-[10px] mt-2 leading-relaxed">
-              النظام يستخدم هذه الركائز لربط أمنيتك بمسارك الزمني الصحيح.
-            </p>
-          </div>
-
-          {/* Instructions */}
-          <div className="border border-muted/25 bg-background/50 p-4" dir="rtl">
-            <p className="text-primary/70 text-[10px] tracking-[0.2em] font-bold mb-3">خطوات البروتوكول:</p>
-            <ol className="flex flex-col gap-2 list-none">
-              {[
-                ["١", "خذ ورقة بيضاء وقلم"],
-                ["٢", "اكتب في أعلى الورقة: ركائز القدر"],
-                ["٣", "اكتب تحتها: اسمك الكامل — ثم تاريخ ميلادك"],
-                ["٤", "اكتب أمنيتك بالكامل تحتها بصدق تام"],
-                ["٥", "امسك الورقة أمام الكاميرا وتحدّث عن أمنيتك بصوت واضح"],
-              ].map(([num, text]) => (
-                <li key={num} className="flex items-start gap-3 text-xs text-foreground/70 leading-relaxed">
-                  <span className="text-primary/60 font-bold shrink-0">{num}</span>
-                  <span>{text}</span>
-                </li>
-              ))}
-            </ol>
-          </div>
+          {/* Wish text input */}
           <div className="border border-muted/30 bg-background/40 p-3">
-            <p className="text-[10px] text-muted-foreground tracking-widest mb-2" dir="rtl">اكتب ملخص أمنيتك (اختياري):</p>
+            <p className="text-[10px] text-muted-foreground tracking-widest mb-2" dir="rtl">ملخص أمنيتك (اختياري):</p>
             <input
               type="text"
               value={wishText}
@@ -193,11 +148,14 @@ function WishVideoRecorder({ onSave, onCancel }: { onSave: (text: string) => voi
               dir="rtl"
             />
           </div>
-          <div className="flex gap-3 justify-end">
+
+          {/* Camera button — prominent */}
+          <Button onClick={startCamera} className="bg-primary/15 text-primary border border-primary/35 hover:bg-primary/25 rounded-none text-xs tracking-widest py-3" data-testid="button-start-camera">
+            ◉ تشغيل الكاميرا
+          </Button>
+
+          <div className="flex justify-start">
             <Button variant="ghost" onClick={onCancel} className="text-muted-foreground text-xs rounded-none tracking-widest">إلغاء</Button>
-            <Button onClick={startCamera} className="bg-primary/15 text-primary border border-primary/35 hover:bg-primary/25 rounded-none text-xs tracking-widest" data-testid="button-start-camera">
-              تشغيل الكاميرا
-            </Button>
           </div>
         </motion.div>
       )}
@@ -472,14 +430,31 @@ const nextId = () => _msgId++;
 
 // ─── STREAMING ────────────────────────────────────────────────────────────────
 
+function buildDeviceContext(): string {
+  const parts: string[] = [];
+  parts.push(`الشاشة: ${screen.width}×${screen.height}`);
+  parts.push(`المنطقة الزمنية: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
+  parts.push(`اللغة: ${navigator.language}`);
+  parts.push(`النظام: ${navigator.platform || "مجهول"}`);
+  const hour = new Date().getHours();
+  const timeLabel = hour < 5 ? "منتصف الليل" : hour < 12 ? "الصباح" : hour < 17 ? "الظهر" : hour < 21 ? "المساء" : "الليل";
+  parts.push(`الوقت: ${timeLabel} (${new Date().toLocaleTimeString("ar")})`);
+  const mem = (navigator as { deviceMemory?: number }).deviceMemory;
+  if (mem) parts.push(`الذاكرة: ~${mem}GB`);
+  const conn = (navigator as { connection?: { effectiveType?: string } }).connection;
+  if (conn?.effectiveType) parts.push(`الاتصال: ${conn.effectiveType}`);
+  return parts.join(" | ");
+}
+
 async function fetchAiProbe(
-  history: { role: "user" | "assistant"; content: string }[]
+  history: { role: "user" | "assistant"; content: string }[],
+  deviceContext?: string
 ): Promise<string> {
   try {
     const res = await fetch("/api/ai/probe", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ history }),
+      body: JSON.stringify({ history, deviceContext }),
     });
     if (!res.ok) return AUTO_CHAT_MESSAGES[Math.floor(Math.random() * AUTO_CHAT_MESSAGES.length)];
     const data = await res.json() as { text?: string };
@@ -489,17 +464,36 @@ async function fetchAiProbe(
   }
 }
 
+async function fetchCallScript(
+  history: { role: "user" | "assistant"; content: string }[],
+  deviceContext?: string
+): Promise<string> {
+  try {
+    const res = await fetch("/api/ai/call-script", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ history, deviceContext }),
+    });
+    if (!res.ok) return "كنا نراقبك. من البداية.";
+    const data = await res.json() as { script?: string };
+    return data.script?.trim() || "كنا نراقبك. من البداية.";
+  } catch {
+    return "كنا نراقبك. من البداية.";
+  }
+}
+
 async function streamAiResponse(
   messages: { role: "user" | "assistant"; content: string }[],
   onChunk: (text: string) => void,
   onDone: () => void,
-  onError: (msg: string) => void
+  onError: (msg: string) => void,
+  deviceContext?: string
 ) {
   try {
     const res = await fetch("/api/ai/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages }),
+      body: JSON.stringify({ messages, deviceContext }),
     });
     if (!res.ok || !res.body) { onError("..."); return; }
     const reader = res.body.getReader();
@@ -685,7 +679,8 @@ const FuturisticBackground = () => {
         }
         const x = cx + Math.cos(s.angle) * s.dist;
         const y = cy + Math.sin(s.angle) * s.dist * 0.55;
-        const distRatio = s.dist / (Math.max(W, H) * 0.72);
+        const maxDim = Math.max(W, H) * 0.72;
+        const distRatio = maxDim > 0 ? Math.min(1, s.dist / maxDim) : 0;
         const alpha = Math.min(s.opacity, distRatio * s.opacity * 1.8);
         const trailLen = s.speed * 10;
         const tx = cx + Math.cos(s.angle) * (s.dist - trailLen);
@@ -1030,6 +1025,193 @@ function BiometricScan({ onDone }: { onDone: () => void }) {
   );
 }
 
+// ─── INCOMING CALL UI ─────────────────────────────────────────────────────────
+
+type CallPhase = "idle" | "warned" | "ringing" | "active" | "ended";
+
+function playScaryAmbient(ctx: AudioContext): () => void {
+  const master = ctx.createGain();
+  master.gain.setValueAtTime(0, ctx.currentTime);
+  master.gain.linearRampToValueAtTime(0.22, ctx.currentTime + 1.5);
+  master.connect(ctx.destination);
+
+  const nodes: AudioNode[] = [];
+
+  // Low drone
+  const drone = ctx.createOscillator();
+  const droneGain = ctx.createGain();
+  drone.type = "sawtooth";
+  drone.frequency.value = 55;
+  droneGain.gain.value = 0.4;
+  drone.connect(droneGain);
+  droneGain.connect(master);
+  drone.start();
+  nodes.push(drone, droneGain);
+
+  // Static noise
+  const bufSize = ctx.sampleRate * 3;
+  const noiseBuffer = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+  const data = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * 0.015;
+  const noise = ctx.createBufferSource();
+  noise.buffer = noiseBuffer;
+  noise.loop = true;
+  const noiseFilter = ctx.createBiquadFilter();
+  noiseFilter.type = "bandpass";
+  noiseFilter.frequency.value = 400;
+  noiseFilter.Q.value = 0.8;
+  noise.connect(noiseFilter);
+  noiseFilter.connect(master);
+  noise.start();
+  nodes.push(noise, noiseFilter);
+
+  return () => {
+    master.gain.setTargetAtTime(0, ctx.currentTime, 0.3);
+    setTimeout(() => {
+      nodes.forEach((n) => { try { (n as AudioScheduledSourceNode).stop?.(); } catch { /* ok */ } });
+      master.disconnect();
+    }, 800);
+  };
+}
+
+function speakCallScript(script: string): () => void {
+  const synth = window.speechSynthesis;
+  synth.cancel();
+  const utter = new SpeechSynthesisUtterance(script);
+  utter.lang = "ar-JO";
+  utter.pitch = 0.5;
+  utter.rate = 0.82;
+  utter.volume = 1;
+  const voices = synth.getVoices();
+  const arVoice = voices.find((v) => v.lang.startsWith("ar")) ?? voices.find((v) => v.lang.startsWith("en"));
+  if (arVoice) utter.voice = arVoice;
+  synth.speak(utter);
+  return () => { synth.cancel(); };
+}
+
+function IncomingCall({
+  phase,
+  callScript,
+  onAnswer,
+  onDecline,
+}: {
+  phase: "ringing" | "active" | "ended";
+  callScript: string;
+  onAnswer: () => void;
+  onDecline: () => void;
+}) {
+  const [callTime, setCallTime] = useState(0);
+
+  useEffect(() => {
+    if (phase !== "active") return;
+    const id = setInterval(() => setCallTime((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [phase]);
+
+  const fmtTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
+  return (
+    <motion.div
+      key="incoming-call"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[200] flex flex-col items-center justify-between bg-black/96 backdrop-blur-md py-16 px-6"
+    >
+      {/* Background pulse */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {phase === "ringing" && (
+          <>
+            <motion.div
+              animate={{ scale: [1, 2.5], opacity: [0.15, 0] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: "easeOut" }}
+              className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 rounded-full border border-primary/50"
+            />
+            <motion.div
+              animate={{ scale: [1, 3], opacity: [0.1, 0] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: "easeOut", delay: 0.6 }}
+              className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 rounded-full border border-primary/30"
+            />
+          </>
+        )}
+      </div>
+
+      {/* Top info */}
+      <div className="flex flex-col items-center gap-3 z-10 mt-8">
+        <p className="text-[10px] tracking-[0.4em] text-primary/50">
+          {phase === "ringing" ? "INCOMING SIGNAL" : phase === "active" ? "CONNECTED · " + fmtTime(callTime) : "SIGNAL LOST"}
+        </p>
+        {/* Caller icon */}
+        <div className="relative w-24 h-24 flex items-center justify-center">
+          <div className={`absolute inset-0 rounded-full border border-primary/30 ${phase === "ringing" ? "animate-ping" : ""}`} style={{ animationDuration: "1.4s" }} />
+          <div className="w-20 h-20 rounded-full bg-primary/8 border border-primary/40 flex items-center justify-center">
+            <span className="text-3xl font-bold text-primary/80 tracking-tighter">11</span>
+          </div>
+        </div>
+        <p className="text-foreground/90 text-lg tracking-[0.2em] font-bold">مصدر مجهول</p>
+        <p className="text-muted-foreground/50 text-[11px] tracking-widest">
+          {phase === "ringing" ? "جارٍ الاتصال..." : phase === "active" ? "المكالمة نشطة" : "انقطع الاتصال"}
+        </p>
+      </div>
+
+      {/* Active call — show partial script as if heard */}
+      {phase === "active" && (
+        <div className="z-10 max-w-xs text-center px-4">
+          <p className="text-foreground/70 text-xs leading-relaxed tracking-wide" dir="rtl">
+            {callScript}
+          </p>
+          <div className="mt-3 flex justify-center gap-1">
+            {[0,1,2,3,4].map((i) => (
+              <motion.div key={i}
+                animate={{ scaleY: [0.3, 1, 0.3] }}
+                transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.15 }}
+                className="w-1 bg-primary/60 rounded-sm"
+                style={{ height: 18 }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Ended state */}
+      {phase === "ended" && (
+        <div className="z-10 text-center">
+          <p className="text-primary/60 text-xs tracking-[0.3em]">انقطع الاتصال</p>
+        </div>
+      )}
+
+      {/* Buttons */}
+      <div className="z-10 flex gap-8 items-center">
+        {phase === "ringing" && (
+          <>
+            <button
+              onClick={onDecline}
+              className="w-16 h-16 rounded-full bg-red-900/60 border border-red-700/50 flex items-center justify-center text-red-300 text-2xl hover:bg-red-800/70 transition-colors"
+            >
+              ✕
+            </button>
+            <button
+              onClick={onAnswer}
+              className="w-16 h-16 rounded-full bg-primary/20 border border-primary/50 flex items-center justify-center text-primary text-2xl hover:bg-primary/30 transition-colors"
+              style={{ animation: "blink 1.2s ease-in-out infinite" }}
+            >
+              ☎
+            </button>
+          </>
+        )}
+        {(phase === "active" || phase === "ended") && (
+          <button
+            onClick={onDecline}
+            className="w-16 h-16 rounded-full bg-red-900/60 border border-red-700/50 flex items-center justify-center text-red-300 text-2xl hover:bg-red-800/70 transition-colors"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── APP ──────────────────────────────────────────────────────────────────────
 
 type ChatMsg = { id: number; text: string; isAi: boolean; streaming?: boolean };
@@ -1071,6 +1253,16 @@ function App() {
   const audioRef = useRef<AmbientEngine | null>(null);
   const audioStarted = useRef(false);
 
+  // Call feature
+  const [callPhase, setCallPhase] = useState<CallPhase>("idle");
+  const [callScript, setCallScript] = useState("");
+  const callAudioCtxRef = useRef<AudioContext | null>(null);
+  const callAudioStopRef = useRef<(() => void) | null>(null);
+  const callSpeechStopRef = useRef<(() => void) | null>(null);
+
+  // Device context
+  const deviceContextRef = useRef<string>("");
+
   // Biometric scan — show once per session
   const [scanDone, setScanDone] = useState(() => sessionStorage.getItem("11_scanned") === "1");
   const handleScanDone = useCallback(() => {
@@ -1083,6 +1275,9 @@ function App() {
     document.documentElement.classList.add("dark");
     if (localStorage.getItem("eleven_wish")) setHasStoredWish(true);
     audioRef.current = new AmbientEngine();
+    deviceContextRef.current = buildDeviceContext();
+    // Pre-load voices
+    window.speechSynthesis?.getVoices();
   }, []);
 
   const toggleSound = useCallback(() => {
@@ -1126,11 +1321,10 @@ function App() {
       }
       return;
     }
-    // Show entity-typing on main screen for 2.5s before fetching
     setEntityTyping(true);
     const id = nextId();
     setChatMessages((prev) => [...prev, { id, text: "...", isAi: true, streaming: true }]);
-    fetchAiProbe(chatHistoryRef.current).then((msg) => {
+    fetchAiProbe(chatHistoryRef.current, deviceContextRef.current).then((msg) => {
       setEntityTyping(false);
       setChatMessages((prev) => prev.map((m) => m.id === id ? { ...m, text: msg, streaming: false } : m));
       chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: msg }];
@@ -1141,35 +1335,61 @@ function App() {
     });
   }, []);
 
-  // random events
+  // random events — less frequent, more impactful
   useEffect(() => {
     const trigger = () => {
       const r = Math.random();
-      if (r < 0.28) {
+      if (r < 0.3) {
         setGlobalGlitch(true);
         setTimeout(() => setGlobalGlitch(false), 900);
-      } else if (r < 0.56) {
+      } else if (r < 0.55) {
         setRedFlash(true);
         setTimeout(() => setRedFlash(false), 500);
-      } else if (r < 0.78) {
+      } else if (r < 0.75) {
         showPopup();
       } else {
         injectAutoMessage();
       }
-      setTimeout(trigger, 40000 + Math.random() * 70000);
+      setTimeout(trigger, 120000 + Math.random() * 180000);
     };
-    const t = setTimeout(trigger, 25000 + Math.random() * 25000);
+    const t = setTimeout(trigger, 90000 + Math.random() * 60000);
     return () => clearTimeout(t);
   }, [showPopup, injectAutoMessage]);
 
-  // auto chat messages — independent timer
+  // auto chat messages — long gaps, one at a time
   useEffect(() => {
     const fire = () => {
       injectAutoMessage();
-      setTimeout(fire, 35000 + Math.random() * 55000);
+      setTimeout(fire, 180000 + Math.random() * 240000);
     };
-    const t = setTimeout(fire, 20000 + Math.random() * 20000);
+    const t = setTimeout(fire, 120000 + Math.random() * 60000);
     return () => clearTimeout(t);
+  }, [injectAutoMessage]);
+
+  // Call warning → ring — fires after 10-15 min of session
+  useEffect(() => {
+    const callPhaseRef = { current: callPhase };
+    const warningDelay = 600000 + Math.random() * 300000; // 10–15 min
+    const warnTimer = setTimeout(() => {
+      if (callPhaseRef.current !== "idle") return;
+      setCallPhase("warned");
+      const callWarnMsg = "ستصلك مكالمة من مصدر مجهول. تجاهلها إذا كنت لا تريد أن تعرف.";
+      injectAutoMessage(callWarnMsg);
+      // Fetch call script in background
+      fetchCallScript(chatHistoryRef.current, deviceContextRef.current).then((script) => {
+        setCallScript(script);
+      });
+      // Ring after 2–4 min
+      const ringDelay = 120000 + Math.random() * 120000;
+      const ringTimer = setTimeout(() => {
+        if (callPhaseRef.current === "warned") {
+          setCallPhase("ringing");
+        }
+      }, ringDelay);
+      return () => clearTimeout(ringTimer);
+    }, warningDelay);
+    return () => clearTimeout(warnTimer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [injectAutoMessage]);
 
   // wish toast
@@ -1196,6 +1416,33 @@ function App() {
     setTimeout(() => { setIsListening(false); setListenStatus("WAITING FOR SIGNAL..."); }, 3000);
   };
 
+  const handleAnswerCall = useCallback(() => {
+    setCallPhase("active");
+    // Start scary ambient audio
+    try {
+      const ctx = new AudioContext();
+      callAudioCtxRef.current = ctx;
+      callAudioStopRef.current = playScaryAmbient(ctx);
+    } catch { /* audio not available */ }
+    // Speak the call script
+    const stopSpeech = speakCallScript(callScript || "كنا نراقبك. من البداية. تعرف ليش؟");
+    callSpeechStopRef.current = stopSpeech;
+    // Auto-cut call after 25-45 seconds (abruptly)
+    const callDuration = 25000 + Math.random() * 20000;
+    setTimeout(() => {
+      callAudioStopRef.current?.();
+      callSpeechStopRef.current?.();
+      setCallPhase("ended");
+      setTimeout(() => setCallPhase("idle"), 2500);
+    }, callDuration);
+  }, [callScript]);
+
+  const handleDeclineCall = useCallback(() => {
+    callAudioStopRef.current?.();
+    callSpeechStopRef.current?.();
+    setCallPhase("idle");
+  }, []);
+
   const handleChatSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim() || isSending) return;
@@ -1214,13 +1461,14 @@ function App() {
         setChatMessages((p) => p.map((m) => m.id === aiId ? { ...m, streaming: false } : m));
         chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: full }];
         setIsSending(false);
-        // Schedule a follow-up probe 12–28s after AI replies
-        setTimeout(() => { if (!isSendingRef.current) injectAutoMessage(); }, 12000 + Math.random() * 16000);
+        // Follow-up probe after longer delay — 90-180s
+        setTimeout(() => { if (!isSendingRef.current) injectAutoMessage(); }, 90000 + Math.random() * 90000);
       },
       (err) => {
         setChatMessages((p) => p.map((m) => m.id === aiId ? { ...m, text: err, streaming: false } : m));
         setIsSending(false);
-      }
+      },
+      deviceContextRef.current
     );
   };
 
@@ -1261,6 +1509,18 @@ function App() {
       <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] h-[90vw] md:w-[45vw] md:h-[45vw] rounded-full bg-primary/8 blur-[120px] pointer-events-none z-0 transition-all duration-1000 ${isListening ? "opacity-90 scale-125 animate-pulse" : "opacity-50"}`}
         style={{ animation: isListening ? undefined : "pulseGlow 6s ease-in-out infinite" }}
       />
+
+      {/* Incoming Call */}
+      <AnimatePresence>
+        {(callPhase === "ringing" || callPhase === "active" || callPhase === "ended") && (
+          <IncomingCall
+            phase={callPhase as "ringing" | "active" | "ended"}
+            callScript={callScript}
+            onAnswer={handleAnswerCall}
+            onDecline={handleDeclineCall}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Red flash */}
       <AnimatePresence>
