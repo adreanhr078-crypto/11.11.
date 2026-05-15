@@ -158,3 +158,5 @@ overrides:
   # drizzle-kit uses esbuild internally on an older version that's vulnerable, this overrides it
   "@esbuild-kit/esm-loader": "npm:tsx@^4.21.0"
   esbuild: "0.27.3"
+  # fast-uri <=3.1.1 is vulnerable to path traversal and host confusion (GHSA-q3j6-qgpj-74h6)
+  fast-uri: "3.1.2"
