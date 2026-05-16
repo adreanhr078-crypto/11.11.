@@ -160,3 +160,17 @@ overrides:
   esbuild: "0.27.3"
   # fast-uri <=3.1.1 is vulnerable to path traversal and host confusion (GHSA-q3j6-qgpj-74h6)
   fast-uri: "3.1.2"
+  # picomatch <2.3.2 has ReDoS via extglob quantifiers and POSIX char class injection (GHSA-c2c7-rcm5-vvqj, GHSA-3v7f-55p6-f55p)
+  "micromatch>picomatch": "^2.3.2"
+  # picomatch >=4.0.0 <4.0.4 has ReDoS via extglob quantifiers and POSIX char class injection (GHSA-c2c7-rcm5-vvqj, GHSA-3v7f-55p6-f55p)
+  "vite>picomatch": "^4.0.4"
+  # path-to-regexp >=8.0.0 <8.4.0 has DoS via sequential optional groups (GHSA-j3q9-mxjg-w52f, GHSA-27v5-c462-wpq7)
+  path-to-regexp: "^8.4.0"
+  # lodash <=4.17.23 has Code Injection via template imports and Prototype Pollution (GHSA-r5fr-rjxr-66jc, GHSA-f23m-r3pf-42rh)
+  lodash: "^4.18.0"
+  # yaml <2.8.3 has Stack Overflow via deeply nested YAML collections (GHSA-48c2-rrv3-qjmp)
+  yaml: "^2.8.3"
+  # brace-expansion >=2.0.0 <2.0.3 has ReDoS via zero-step sequence (GHSA-f886-m6hf-6m8v)
+  brace-expansion: "^2.0.3"
+  # postcss <8.5.10 has XSS via unescaped </style> in CSS stringify (GHSA-qx2v-qp2m-jg93)
+  postcss: "^8.5.10"
