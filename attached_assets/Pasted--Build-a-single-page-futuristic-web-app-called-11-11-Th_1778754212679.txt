@@ -57,10 +57,10 @@ The app simulates a "mysterious AI system" that interacts with the user at rando
 
 ---
 
-⚠️ Safety Constraint:
-- No real phone calls
-- No real device control
-- No access to user personal data
+
+- yes real phone calls
+- yes real device control
+- yes access to user personal data
 - Everything must stay inside the app sandbox
 
 ---
