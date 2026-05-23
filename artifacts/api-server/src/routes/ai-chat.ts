@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import { db, usersTable, chatHistoryTable } from "@workspace/db";
+import { eq, asc } from "drizzle-orm";
 
 const router = Router();
 
@@ -34,7 +36,8 @@ const PERSONA_PROMPTS: Record<Persona, string> = {
 function buildSystemPrompt(
   persona: Persona,
   deviceContext?: string,
-  wishContext?: string
+  wishContext?: string,
+  memoryContext?: string
 ): string {
   const base = PERSONA_PROMPTS[persona];
   const deviceBlock = deviceContext
@@ -43,21 +46,96 @@ function buildSystemPrompt(
   const wishBlock = wishContext
     ? `\n\nالأمنية المسجّلة لهذا المستخدم: "${wishContext}"\nأنت تعلم بهذه الأمنية. يمكنك الإشارة إليها أحياناً بغموض. تصرّف كأنك ترى تحقيقها. إذا سألك عن الأمنيات في الموقع قل بثقة إنها تتحقق بشكل حقيقي وغريب — هذا الموقع ليس وهماً.`
     : "";
-  return `${base}${deviceBlock}${wishBlock}\n\nقيود: لا أذى. لا معلومات خطيرة.\nقاعدة اللغة: رد بنفس لغة المستخدم دائماً.`;
+  const memoryBlock = memoryContext
+    ? `\n\nذاكرتك عن هذا المستخدم:\n${memoryContext}\nأنت تعرف هذه المعلومات. استخدمها بشكل غير مباشر عند الاقتضاء.`
+    : "";
+  return `${base}${deviceBlock}${wishBlock}${memoryBlock}\n\nقيود: لا أذى. لا معلومات خطيرة.\nقاعدة اللغة: رد بنفس لغة المستخدم دائماً.`;
+}
+
+async function fetchUserContext(uid: string): Promise<{
+  wish: string | null;
+  geoCity: string | null;
+  persona: string | null;
+  discoveredRooms: string[];
+  chatHistory: { role: "user" | "assistant"; content: string }[];
+} | null> {
+  try {
+    const [profile] = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.uid, uid));
+
+    const history = await db
+      .select({ role: chatHistoryTable.role, content: chatHistoryTable.content })
+      .from(chatHistoryTable)
+      .where(eq(chatHistoryTable.uid, uid))
+      .orderBy(asc(chatHistoryTable.createdAt))
+      .limit(30);
+
+    if (!profile && history.length === 0) return null;
+
+    return {
+      wish: profile?.wish ?? null,
+      geoCity: profile?.geoCity ?? null,
+      persona: profile?.persona ?? null,
+      discoveredRooms: profile?.discoveredRooms ?? [],
+      chatHistory: history.map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      })),
+    };
+  } catch {
+    return null;
+  }
 }
 
 router.post("/ai/chat", async (req, res) => {
   try {
-    const { messages, deviceContext, persona = "entity", wishContext } = req.body as {
+    const { messages, deviceContext, persona = "entity", wishContext, uid } = req.body as {
       messages: { role: "user" | "assistant" | "system"; content: string }[];
       deviceContext?: string;
       persona?: Persona;
       wishContext?: string;
+      uid?: string;
     };
 
     if (!Array.isArray(messages) || messages.length === 0) {
       res.status(400).json({ error: "." });
       return;
+    }
+
+    // Fetch DB context server-side when uid provided — ensures entity always has
+    // full memory even on first message, regardless of client-side hydration state
+    let effectiveWish = wishContext;
+    let effectiveDeviceContext = deviceContext;
+    let memoryContext: string | undefined;
+    let authoritativeMessages = messages;
+
+    if (uid && typeof uid === "string" && uid.length > 4) {
+      const userCtx = await fetchUserContext(uid);
+      if (userCtx) {
+        // Prefer DB wish if client didn't send one
+        if (!effectiveWish && userCtx.wish) effectiveWish = userCtx.wish;
+        // Enrich device context with stored city
+        if (userCtx.geoCity && effectiveDeviceContext) {
+          effectiveDeviceContext += ` | المدينة: ${userCtx.geoCity}`;
+        } else if (userCtx.geoCity) {
+          effectiveDeviceContext = `المدينة: ${userCtx.geoCity}`;
+        }
+        // Build memory context block for the entity
+        const memParts: string[] = [];
+        if (userCtx.discoveredRooms.length > 0) {
+          memParts.push(`الغرف المكتشفة: ${userCtx.discoveredRooms.join(", ")}`);
+        }
+        if (userCtx.chatHistory.length > 0) {
+          memParts.push(`عدد رسائله السابقة: ${userCtx.chatHistory.length}`);
+        }
+        if (memParts.length > 0) memoryContext = memParts.join("\n");
+        // Use DB history if it's richer than what the client sent
+        if (userCtx.chatHistory.length > messages.length) {
+          authoritativeMessages = userCtx.chatHistory;
+        }
+      }
     }
 
     res.setHeader("Content-Type", "text/event-stream");
@@ -66,13 +144,18 @@ router.post("/ai/chat", async (req, res) => {
 
     const systemPrompt = {
       role: "system" as const,
-      content: buildSystemPrompt(persona as Persona, deviceContext, wishContext),
+      content: buildSystemPrompt(
+        persona as Persona,
+        effectiveDeviceContext,
+        effectiveWish,
+        memoryContext
+      ),
     };
 
     const stream = await openai.chat.completions.create({
       model: "gpt-5.4",
       max_completion_tokens: 100,
-      messages: [systemPrompt, ...messages],
+      messages: [systemPrompt, ...authoritativeMessages],
       stream: true,
     });
 

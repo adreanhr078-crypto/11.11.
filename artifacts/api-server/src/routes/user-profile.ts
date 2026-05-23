@@ -1,9 +1,67 @@
+import { randomUUID } from "node:crypto";
 import { Router } from "express";
-import { db, userProfilesTable, chatHistoryTable } from "@workspace/db";
+import { db, usersTable, userSessionsTable, chatHistoryTable } from "@workspace/db";
 import { eq, asc } from "drizzle-orm";
 
 const router = Router();
 
+// POST /api/user/init — server-issues a high-entropy anonymous UID
+// If the client already has a UID, validates it and records a new session.
+// If not, creates a fresh UUID and user record.
+router.post("/user/init", async (req, res) => {
+  try {
+    const { uid: existingUid, city, userAgent: clientUserAgent } = req.body as {
+      uid?: string;
+      city?: string | null;
+      userAgent?: string;
+    };
+
+    const ua = clientUserAgent ?? req.headers["user-agent"] ?? null;
+
+    let uid: string;
+
+    if (existingUid && typeof existingUid === "string" && existingUid.length > 4) {
+      // Check whether this UID is already in the DB
+      const [existing] = await db
+        .select({ uid: usersTable.uid })
+        .from(usersTable)
+        .where(eq(usersTable.uid, existingUid));
+
+      if (existing) {
+        uid = existingUid;
+      } else {
+        // UID came from client but doesn't exist in DB (e.g., cleared DB / migration)
+        // Trust it — insert as new user to preserve UID continuity
+        uid = existingUid;
+        await db.insert(usersTable).values({
+          uid,
+          geoCity: city ?? null,
+        });
+      }
+    } else {
+      // First visit — issue a fresh server-generated UID
+      uid = randomUUID();
+      await db.insert(usersTable).values({
+        uid,
+        geoCity: city ?? null,
+      });
+    }
+
+    // Record this session
+    await db.insert(userSessionsTable).values({
+      uid,
+      userAgent: ua,
+      city: city ?? null,
+    });
+
+    res.json({ uid });
+  } catch (err) {
+    req.log.error({ err }, "user init error");
+    res.status(500).json({ error: "internal" });
+  }
+});
+
+// GET /api/user/profile?uid=xxx
 router.get("/user/profile", async (req, res) => {
   try {
     const uid = req.query["uid"];
@@ -14,8 +72,8 @@ router.get("/user/profile", async (req, res) => {
 
     const [profile] = await db
       .select()
-      .from(userProfilesTable)
-      .where(eq(userProfilesTable.uid, uid));
+      .from(usersTable)
+      .where(eq(usersTable.uid, uid));
 
     const history = await db
       .select()
@@ -31,6 +89,7 @@ router.get("/user/profile", async (req, res) => {
   }
 });
 
+// POST /api/user/profile — upsert profile fields
 router.post("/user/profile", async (req, res) => {
   try {
     const { uid, geoCity, wish, persona, discoveredRooms } = req.body as {
@@ -46,14 +105,14 @@ router.post("/user/profile", async (req, res) => {
       return;
     }
 
-    const updateFields: Partial<typeof userProfilesTable.$inferInsert> = {};
+    const updateFields: Partial<typeof usersTable.$inferInsert> = {};
     if (geoCity !== undefined) updateFields.geoCity = geoCity ?? null;
     if (wish !== undefined) updateFields.wish = wish ?? null;
     if (persona !== undefined) updateFields.persona = persona;
     if (discoveredRooms !== undefined) updateFields.discoveredRooms = discoveredRooms;
 
     await db
-      .insert(userProfilesTable)
+      .insert(usersTable)
       .values({
         uid,
         geoCity: geoCity ?? null,
@@ -62,7 +121,7 @@ router.post("/user/profile", async (req, res) => {
         discoveredRooms: discoveredRooms ?? [],
       })
       .onConflictDoUpdate({
-        target: userProfilesTable.uid,
+        target: usersTable.uid,
         set: { ...updateFields, updatedAt: new Date() },
       });
 
@@ -73,6 +132,7 @@ router.post("/user/profile", async (req, res) => {
   }
 });
 
+// POST /api/user/chat — replaces stored chat history for this UID
 router.post("/user/chat", async (req, res) => {
   try {
     const { uid, messages } = req.body as {

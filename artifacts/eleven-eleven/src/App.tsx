@@ -1162,13 +1162,14 @@ async function streamAiResponse(
   onError: (msg: string) => void,
   deviceContext?: string,
   persona?: string,
-  wishContext?: string
+  wishContext?: string,
+  uid?: string
 ) {
   try {
     const res = await fetch("/api/ai/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages, deviceContext, persona, wishContext }),
+      body: JSON.stringify({ messages, deviceContext, persona, wishContext, uid }),
     });
     if (!res.ok || !res.body) { onError("..."); return; }
     const reader = res.body.getReader();
@@ -1923,52 +1924,49 @@ function setCookieUid(uid: string): void {
   } catch { /* ignore */ }
 }
 
-// ── Browser fingerprint (deterministic, cross-session on same device) ─────────
+// ── Server-issued UID — guaranteed high-entropy opaque token ──────────────────
+// Flow: check cookie → check localStorage → call server for a new UUID
+// The server mints the UUID (crypto.randomUUID) so it is never guessable.
 
-function buildFingerprint(): string {
-  try {
-    const parts = [
-      navigator.userAgent,
-      navigator.language || (navigator.languages ?? []).join(","),
-      Intl.DateTimeFormat().resolvedOptions().timeZone,
-      `${screen.width}x${screen.height}x${screen.colorDepth}`,
-      navigator.platform ?? "",
-      String(navigator.hardwareConcurrency ?? ""),
-    ];
-    // djb2 hash
-    let h = 5381;
-    const s = parts.join("|");
-    for (let i = 0; i < s.length; i++) {
-      h = ((h << 5) + h) ^ s.charCodeAt(i);
-    }
-    return "fp_" + (h >>> 0).toString(36);
-  } catch {
-    return "fp_" + Date.now().toString(36);
-  }
-}
-
-// ── UID resolution: cookie → localStorage → fingerprint ───────────────────────
-
-function getOrCreateUid(): string {
-  // 1. Cookie survives browser sessions and localStorage clears
+async function initServerUid(): Promise<string> {
+  // 1. Cookie survives localStorage clears and private-browsing clear on close
   const cookieUid = getCookieUid();
-  if (cookieUid && cookieUid.length > 4) {
-    try { localStorage.setItem(USER_ID_KEY, cookieUid); } catch { /* ignore */ }
-    return cookieUid;
-  }
-  // 2. localStorage fallback (in case cookie was blocked)
+  const localUid = (() => {
+    try { return localStorage.getItem(USER_ID_KEY); } catch { return null; }
+  })();
+  const existingUid = cookieUid ?? localUid ?? undefined;
+
+  // 2. Always call /api/user/init so the server records the session and
+  //    validates/creates the user record. Pass existing UID if we have one.
   try {
-    const lsUid = localStorage.getItem(USER_ID_KEY);
-    if (lsUid && lsUid.length > 4) {
-      setCookieUid(lsUid);
-      return lsUid;
+    const city = (() => {
+      try { return localStorage.getItem("eleven_geo_city") || null; } catch { return null; }
+    })();
+    const res = await fetch("/api/user/init", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        uid: existingUid ?? null,
+        city,
+        userAgent: navigator.userAgent,
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json() as { uid: string };
+      const uid = data.uid;
+      setCookieUid(uid);
+      try { localStorage.setItem(USER_ID_KEY, uid); } catch { /* ignore */ }
+      return uid;
     }
-  } catch { /* ignore */ }
-  // 3. Deterministic fingerprint — same device/browser → same UID, even in incognito
-  const fp = buildFingerprint();
-  setCookieUid(fp);
-  try { localStorage.setItem(USER_ID_KEY, fp); } catch { /* ignore */ }
-  return fp;
+  } catch { /* network failure — fall through */ }
+
+  // 3. Fallback: if server is unreachable, use existing local UID or generate
+  //    a temporary one (will be reconciled on next successful /init call)
+  if (existingUid && existingUid.length > 4) return existingUid;
+  const fallback = crypto.randomUUID();
+  setCookieUid(fallback);
+  try { localStorage.setItem(USER_ID_KEY, fallback); } catch { /* ignore */ }
+  return fallback;
 }
 
 type DbProfile = {
@@ -2154,8 +2152,9 @@ function App() {
   // Device context
   const deviceContextRef = useRef<string>("");
 
-  // Anonymous persistent user ID
+  // Anonymous persistent user ID — server-issued UUID, stored in cookie + localStorage
   const uidRef = useRef<string>("");
+  const [uid, setUid] = useState<string>("");
 
   // Biometric scan — show once per session
   const [scanDone, setScanDone] = useState(() => sessionStorage.getItem("11_scanned") === "1");
@@ -2194,14 +2193,17 @@ function App() {
     audioRef.current = new AmbientEngine();
     deviceContextRef.current = buildDeviceContext();
     window.speechSynthesis?.getVoices();
-    // Initialize anonymous UID
-    uidRef.current = getOrCreateUid();
+    // Initialize server-issued UID (async — sets uid state to trigger profile load)
+    initServerUid().then((resolvedUid) => {
+      uidRef.current = resolvedUid;
+      setUid(resolvedUid);
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load DB profile — hydrates state from DB on mount (cross-device memory)
+  // Load DB profile — hydrates state from DB once UID is resolved (cross-device memory)
+  // Depends on `uid` state so it runs only after initServerUid() resolves
   useEffect(() => {
-    const uid = uidRef.current;
     if (!uid) return;
     let cancelled = false;
     loadDbProfile(uid).then((profile) => {
@@ -2254,7 +2256,7 @@ function App() {
     });
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [uid]);
 
   // Sync chat history to DB whenever it changes (debounced 5s)
   useEffect(() => {
@@ -2688,7 +2690,8 @@ function App() {
       },
       deviceContextRef.current,
       persona,
-      wishContextRef.current
+      wishContextRef.current,
+      uidRef.current
     );
   };
 
