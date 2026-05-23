@@ -1,0 +1,118 @@
+خلّينا نبني لك نظام صوت رعب ديناميكي (Dynamic Horror Audio System) يشتغل داخل موقعك ويخلي التجربة “حية” ومتوترة مثل أفلام الرعب.
+
+🎧 فكرة النظام
+
+بدل صوت ثابت:
+
+الصوت يتغير حسب حالة اللاعب
+يزيد/يخف حسب الخوف
+يدخل همسات عشوائية
+glitch صوتي أحيانًا
+صمت مفاجئ (أقوى عنصر رعب 👀)
+🧠 1) هيكل النظام
+/audio
+  ambient.mp3
+  whisper1.mp3
+  whisper2.mp3
+  glitch.mp3
+🎛️ 2) Audio Manager (الأساس)
+class HorrorAudio {
+  constructor() {
+    this.ambient = new Audio("/audio/ambient.mp3");
+    this.whispers = [
+      new Audio("/audio/whisper1.mp3"),
+      new Audio("/audio/whisper2.mp3")
+    ];
+    this.glitch = new Audio("/audio/glitch.mp3");
+
+    this.ambient.loop = true;
+    this.ambient.volume = 0.3;
+
+    this.fearLevel = 0;
+  }
+
+  start() {
+    this.ambient.play();
+    this.loopWhispers();
+  }
+👁️ 3) نظام الهمسات العشوائية
+  loopWhispers() {
+    setInterval(() => {
+      const chance = Math.random();
+
+      if (chance > 0.6) {
+        const sound =
+          this.whispers[Math.floor(Math.random() * this.whispers.length)];
+
+        sound.volume = 0.2 + this.fearLevel * 0.1;
+        sound.play();
+      }
+    }, 8000);
+  }
+📈 4) الصوت يتغير حسب الخوف
+  updateFear(level) {
+    this.fearLevel = level;
+
+    // كل ما يزيد الخوف، يزيد صوت الجو
+    this.ambient.volume = 0.2 + level * 0.1;
+
+    // أحيانًا glitch صوتي
+    if (level > 5 && Math.random() > 0.7) {
+      this.playGlitch();
+    }
+  }
+
+  playGlitch() {
+    this.glitch.volume = 0.5;
+    this.glitch.play();
+  }
+}
+🕳️ 5) نظام الصمت المخيف (Silent Horror)
+  silenceEvent() {
+    this.ambient.volume = 0;
+
+    setTimeout(() => {
+      this.ambient.volume = 0.3 + this.fearLevel * 0.1;
+    }, 3000);
+  }
+🧠 6) ربطه مع اللعبة (مهم جدًا)
+
+داخل نظامك في Visual Studio Code:
+
+const audio = new HorrorAudio();
+audio.start();
+
+function onPlayerFearChange(fear) {
+  audio.updateFear(fear);
+}
+🌑 7) تأثيرات ذكية (تخلي الموقع حي 👀)
+🔥 عند أحداث معينة:
+function triggerEvent(type) {
+  if (type === "jump_scare") {
+    audio.playGlitch();
+  }
+
+  if (type === "lonely_moment") {
+    audio.silenceEvent();
+  }
+
+  if (type === "entity_close") {
+    audio.updateFear(10);
+  }
+}
+🎧 8) تحسينات احترافية (Pro Level)
+✔ 3 طبقات صوت:
+Ambient (جو عام)
+Whispers (رعب نفسي)
+Glitch (صدمات)
+✔ تفاعل مع المستخدم:
+كل حركة = صوت خفيف
+كل توقف = همس
+كل قرار = تغير بالصوت
+💀 تأثير نفسي قوي جدًا
+
+هذا النظام يعمل:
+
+توتر بدون سبب واضح
+إحساس أن الموقع “يتنفس”
+خوف غير مباشر (Psychological Horror)
