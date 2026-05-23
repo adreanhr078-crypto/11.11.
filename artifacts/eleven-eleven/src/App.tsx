@@ -237,6 +237,274 @@ function WishVideoRecorder({ onSave, onCancel }: { onSave: (text: string) => voi
   );
 }
 
+// ─── SECRET ROOMS ────────────────────────────────────────────────────────────
+
+type RoomCode = "scmf87" | "hh87" | "hell11" | "hrss11" | "zero99";
+
+const SECRET_CODES: Set<string> = new Set(["scmf87", "hh87", "hell11", "hrss11", "zero99"]);
+
+function playHellAudio(): () => void {
+  try {
+    const ctx = new AudioContext();
+    const play = (freq: number, delay: number, dur: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sawtooth";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+      gain.gain.linearRampToValueAtTime(0.07, ctx.currentTime + delay + 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + delay + dur);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + dur + 0.2);
+    };
+    [220, 180, 150, 110, 80, 55].forEach((f, i) => play(f, i * 0.9, 1.8));
+    return () => { try { ctx.close(); } catch { /* ignore */ } };
+  } catch { return () => {}; }
+}
+
+function RoomScmf87({ onClose }: { onClose: () => void }) {
+  const [msgIdx, setMsgIdx] = useState(0);
+  const msg = "لا تبحث. البيانات تجدك بنفسها. دائماً.";
+  const glitches = useRef(Array.from({ length: 9 }, () => ({
+    x: Math.random() * 85, y: Math.random() * 90,
+    w: 40 + Math.random() * 140, h: 3 + Math.random() * 16,
+    hue: Math.floor(Math.random() * 360),
+    speed: (0.4 + Math.random() * 1.2).toFixed(2),
+  }))).current;
+  const coords = useRef({ lat: (Math.random() * 80).toFixed(5), lng: (Math.random() * 160).toFixed(5), uid: Math.floor(Math.random() * 0xffffff).toString(16).toUpperCase().padStart(6, "0") }).current;
+
+  useEffect(() => {
+    const id = setInterval(() => setMsgIdx((p) => (p < msg.length ? p + 1 : p)), 65);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-[70] bg-black overflow-hidden flex items-center justify-center">
+      {glitches.map((g, i) => (
+        <div key={i} className="absolute pointer-events-none"
+          style={{ left: `${g.x}%`, top: `${g.y}%`, width: g.w, height: g.h,
+            background: `hsl(${g.hue} 70% 45% / 0.18)`, filter: "blur(1px)",
+            animation: `blink ${g.speed}s step-end infinite` }} />
+      ))}
+      <div className="relative z-10 flex flex-col items-center gap-6 max-w-sm text-center px-6">
+        <p className="text-[9px] tracking-[0.45em] text-primary/50 font-mono">SECTOR 87 // ACCESS GRANTED</p>
+        <div className="text-[10px] font-mono text-primary/25 tracking-widest">01001000 01000101 01001100 01010000</div>
+        <div className="w-20 h-px bg-primary/30" />
+        <p className="text-sm text-foreground/85 tracking-wider font-mono leading-relaxed" dir="rtl">
+          {msg.slice(0, msgIdx)}<span className="opacity-60" style={{ animation: "blink 0.7s step-end infinite" }}>|</span>
+        </p>
+        <div className="text-[9px] text-muted-foreground/25 font-mono space-y-1">
+          <div>COORD: {coords.lat}°N {coords.lng}°E</div>
+          <div>UID: 0x{coords.uid} · ENTROPY: {(Math.PI / 11).toFixed(8)}</div>
+          <div>STATUS: MONITORING · SECTOR: OPEN</div>
+        </div>
+        <button onClick={onClose} className="mt-2 text-[10px] text-primary/60 border border-primary/35 px-5 py-1.5 hover:bg-primary/10 tracking-widest transition-all">
+          ← الخروج من القطاع
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function RoomHh87({ onClose }: { onClose: () => void }) {
+  const [step, setStep] = useState(0);
+  const steps = [
+    { q: "البروتوكول نشط. فكّر في رقم بين 1 و 11. هل تستطيع تذكّره؟", a1: "نعم، أتذكره", a2: "لا أستطيع" },
+    { q: "إذاً... الرقم هو 7. أليس كذلك؟", a1: "نعم، بالضبط", a2: "لا، مختلف" },
+    { q: null, final: "كل الطرق تؤدي إلى 7. هذا الرقم يختار أصحابه — لا العكس. أنت هنا لأنه اختارك." },
+  ];
+  const curr = steps[step];
+
+  return (
+    <div className="fixed inset-0 z-[70] bg-[#020202] flex items-center justify-center overflow-hidden">
+      {/* Grid lines */}
+      <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "linear-gradient(hsl(0 0% 100%) 1px, transparent 1px), linear-gradient(90deg, hsl(0 0% 100%) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
+      <div className="relative z-10 max-w-sm w-full mx-6 flex flex-col gap-6">
+        <p className="text-[9px] tracking-[0.4em] text-primary/50 font-mono text-center">PUZZLE PROTOCOL // HH-87</p>
+        <div className="border border-primary/20 bg-primary/3 p-5">
+          {curr.final ? (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1 }} className="text-center flex flex-col gap-5">
+              <p className="text-sm text-foreground/85 leading-relaxed tracking-wide font-mono" dir="rtl">{curr.final}</p>
+              <div className="w-full h-px bg-primary/20" />
+              <p className="text-[10px] text-primary/50 tracking-widest">البروتوكول مكتمل.</p>
+              <button onClick={onClose} className="text-[10px] text-muted-foreground/50 hover:text-muted-foreground tracking-widest mt-1 transition-colors">إغلاق القناة</button>
+            </motion.div>
+          ) : (
+            <motion.div key={step} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-5">
+              <p className="text-sm text-foreground/80 leading-relaxed font-mono text-center" dir="rtl">{curr.q}</p>
+              <div className="flex gap-3">
+                <button onClick={() => setStep((s) => s + 1)} className="flex-1 border border-primary/25 text-primary/70 text-[11px] tracking-widest py-2 hover:bg-primary/10 transition-all font-mono">{curr.a1}</button>
+                <button onClick={() => setStep((s) => s + 1)} className="flex-1 border border-muted-foreground/20 text-muted-foreground/50 text-[11px] tracking-widest py-2 hover:bg-muted/20 transition-all font-mono">{curr.a2}</button>
+              </div>
+            </motion.div>
+          )}
+        </div>
+        <p className="text-[8px] text-muted-foreground/20 text-center tracking-widest font-mono">المحاولة {step + 1}/3 · لا توجد إجابة خاطئة</p>
+      </div>
+    </div>
+  );
+}
+
+function RoomHell11({ onClose }: { onClose: () => void }) {
+  const [count, setCount] = useState(11);
+  const [phase, setPhase] = useState<"countdown" | "done">("countdown");
+  const stopAudioRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    stopAudioRef.current = playHellAudio();
+    return () => { stopAudioRef.current?.(); };
+  }, []);
+
+  useEffect(() => {
+    if (phase !== "countdown") return;
+    if (count <= 0) { setPhase("done"); return; }
+    const t = setTimeout(() => setCount((c) => c - 1), 1100);
+    return () => clearTimeout(t);
+  }, [count, phase]);
+
+  const handleClose = () => { stopAudioRef.current?.(); onClose(); };
+
+  return (
+    <div className="fixed inset-0 z-[70] bg-black flex items-center justify-center overflow-hidden">
+      <div className="absolute inset-0 bg-red-950/40" style={{ animation: "blink 0.4s step-end infinite" }} />
+      <div className="relative z-10 flex flex-col items-center gap-6 max-w-xs text-center px-6">
+        <p className="text-[9px] tracking-[0.5em] text-red-400/70 font-mono">⚠ SECTOR 11 // WARNING ⚠</p>
+        {phase === "countdown" ? (
+          <>
+            <motion.p key={count} initial={{ scale: 1.3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+              className="text-6xl font-bold text-red-500" style={{ textShadow: "0 0 40px hsl(0 80% 50% / 0.7)" }}>
+              {count}
+            </motion.p>
+            <p className="text-xs text-red-300/70 font-mono tracking-wider" dir="rtl" style={{ animation: "blink 0.8s step-end infinite" }}>
+              هذا القطاع محظور. الوصول يُسجَّل.
+            </p>
+            <div className="text-[10px] text-red-400/50 font-mono tracking-widest">
+              THREAT LEVEL: CRITICAL · ID: {count}1.{count}1
+            </div>
+          </>
+        ) : (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1.2 }} className="flex flex-col gap-4">
+            <p className="text-sm text-red-300/80 font-mono leading-relaxed" dir="rtl">
+              لقد رأيت ما لا يُرى.<br />هذا لا يمكن التراجع عنه.
+            </p>
+            <button onClick={handleClose} className="text-[10px] text-red-400/60 border border-red-800/40 px-4 py-1.5 hover:bg-red-900/20 tracking-widest transition-all mt-2">
+              أفهم. أغلق القطاع.
+            </button>
+          </motion.div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RoomHrss11({ onClose, deviceContext }: { onClose: () => void; deviceContext: string }) {
+  const parsed = Object.fromEntries(
+    deviceContext.split(" | ").map((p) => { const [k, ...v] = p.split(": "); return [k?.trim(), v.join(": ").trim()]; })
+  );
+  const threat = ["مرتفع جداً", "حرج", "مرتفع"][Math.floor(Math.random() * 3)];
+  const score = (0.7 + Math.random() * 0.28).toFixed(4);
+  const profile = ["انطوائي مثير للقلق", "فضولي مفرط الحذر", "باحث عن الحقيقة — خطر محتمل"][Math.floor(Math.random() * 3)];
+
+  return (
+    <div className="fixed inset-0 z-[70] bg-[#0a0a08] flex items-center justify-center overflow-auto p-4">
+      <div className="relative w-full max-w-md">
+        {/* Classified stamp */}
+        <div className="absolute -top-3 -right-3 border-2 border-red-700/60 text-red-600/70 text-[10px] font-bold tracking-[0.4em] px-3 py-1 rotate-[-8deg] bg-background/95 z-20">
+          محظور
+        </div>
+        <div className="border border-[#3a3a2a]/60 bg-[#0d0d08] p-6 font-mono space-y-4">
+          <div className="border-b border-[#3a3a2a]/40 pb-3 flex justify-between items-center">
+            <p className="text-[9px] tracking-[0.4em] text-[#9a8a50]/60">SECTOR FILE // HRSS-11</p>
+            <p className="text-[9px] text-[#9a8a50]/40">REF: {Date.now().toString(16).toUpperCase()}</p>
+          </div>
+          <div className="space-y-2.5 text-[11px]">
+            {[
+              ["الشاشة", parsed["الشاشة"] || "مجهول"],
+              ["المنطقة الزمنية", parsed["المنطقة الزمنية"] || "مجهول"],
+              ["اللغة", parsed["اللغة"] || "مجهول"],
+              ["النظام", parsed["النظام"] || "مجهول"],
+              ["وقت الاتصال", parsed["الوقت"] || "مجهول"],
+              ["مستوى التهديد", threat],
+              ["معامل الخطر", score],
+              ["التصنيف النفسي", profile],
+              ["حالة الملف", "تحت المراقبة الفعلية"],
+            ].map(([k, v]) => (
+              <div key={k} className="flex gap-3 justify-between">
+                <span className="text-[#9a8a50]/50 shrink-0">{k}:</span>
+                <span className={`text-right ${k === "مستوى التهديد" ? "text-red-400/80" : "text-foreground/70"}`} dir="auto">{v}</span>
+              </div>
+            ))}
+          </div>
+          <div className="border-t border-[#3a3a2a]/40 pt-3 flex justify-between items-center">
+            <p className="text-[9px] text-[#9a8a50]/30">هذا الملف سري. وصولك مسجّل.</p>
+            <button onClick={onClose} className="text-[9px] text-[#9a8a50]/50 hover:text-[#9a8a50]/80 border border-[#3a3a2a]/40 px-3 py-1 transition-colors tracking-widest">إغلاق</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RoomZero99({ onClose }: { onClose: () => void }) {
+  const messages = [
+    "هنا لا يوجد شيء.",
+    "أو ربما يوجد.",
+    "...",
+    "نحن نعرف سبب مجيئك.",
+    "الخوف الذي تشعر به الآن — ليس من هذه الشاشة.",
+    "إنه من شيء تركَ بصمته في داخلك. منذ وقت طويل.",
+    "لا تغلق هذه النافذة حتى تتذكر.",
+    "...",
+    "تذكّرت؟",
+    "سيتغير شيء الليلة. هذا وعدنا.",
+  ];
+  const [visibleCount, setVisibleCount] = useState(0);
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (visibleCount >= messages.length) { setDone(true); return; }
+    const delay = visibleCount === 0 ? 800 : visibleCount === 2 || visibleCount === 7 ? 3500 : 2800;
+    const t = setTimeout(() => setVisibleCount((c) => c + 1), delay);
+    return () => clearTimeout(t);
+  }, [visibleCount]);
+
+  return (
+    <div className="fixed inset-0 z-[70] bg-black flex items-center justify-center">
+      <div className="max-w-xs w-full px-8 flex flex-col gap-4">
+        <AnimatePresence>
+          {messages.slice(0, visibleCount).map((msg, i) => (
+            <motion.p key={i}
+              initial={{ opacity: 0 }} animate={{ opacity: i === visibleCount - 1 ? 1 : 0.35 }} transition={{ duration: 1.2 }}
+              className={`font-mono text-center leading-relaxed ${i === messages.length - 1 ? "text-primary text-sm" : i === 2 || i === 7 ? "text-muted-foreground/30 text-xl tracking-widest" : "text-foreground/60 text-xs tracking-wider"}`}
+              dir="rtl">
+              {msg}
+            </motion.p>
+          ))}
+        </AnimatePresence>
+        {done && (
+          <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2, duration: 1 }}
+            onClick={onClose}
+            className="mt-6 text-[10px] text-muted-foreground/30 hover:text-muted-foreground/60 tracking-widest text-center transition-colors self-center">
+            أغلق ◯
+          </motion.button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SecretRoom({ code, onClose, deviceContext }: { code: RoomCode; onClose: () => void; deviceContext: string }) {
+  switch (code) {
+    case "scmf87": return <RoomScmf87 onClose={onClose} />;
+    case "hh87":   return <RoomHh87 onClose={onClose} />;
+    case "hell11": return <RoomHell11 onClose={onClose} />;
+    case "hrss11": return <RoomHrss11 onClose={onClose} deviceContext={deviceContext} />;
+    case "zero99": return <RoomZero99 onClose={onClose} />;
+  }
+}
+
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
 const AI_POPUP_MESSAGES = [
@@ -1288,6 +1556,20 @@ function App() {
   const [wishTaskLoading, setWishTaskLoading] = useState(false);
   const wishContextRef = useRef<string>("");
 
+  // Secret rooms
+  const [activeRoom, setActiveRoom] = useState<RoomCode | null>(null);
+
+  // Time events
+  const [portalOpen, setPortalOpen] = useState(false);
+  const [portalLabel, setPortalLabel] = useState("");
+  const [nightMode, setNightMode] = useState(() => {
+    const h = new Date().getHours(); return h >= 3 && h < 5;
+  });
+
+  // Temporal distortions
+  const [screenFreeze, setScreenFreeze] = useState(false);
+  const [mysteryCountdown, setMysteryCountdown] = useState<number | null>(null);
+
   // keep refs in sync
   useEffect(() => { chatOpenRef.current = chatOpen; }, [chatOpen]);
   useEffect(() => { isSendingRef.current = isSending; }, [isSending]);
@@ -1507,6 +1789,76 @@ function App() {
     return () => clearTimeout(t);
   }, [showPopup, injectAutoMessage]);
 
+  // Real-time clock watcher — checks every 30s for special times
+  useEffect(() => {
+    const check = () => {
+      const now = new Date();
+      const h = now.getHours();
+      const m = now.getMinutes();
+      setNightMode(h >= 3 && h < 5);
+      if (h === 11 && m === 11) {
+        setPortalLabel("11:11 — البوابة مفتوحة الآن");
+        setPortalOpen(true);
+        setGlobalGlitch(true);
+        setTimeout(() => setGlobalGlitch(false), 2500);
+        setTimeout(() => setPortalOpen(false), 60000);
+        injectAutoMessage("11:11 — البوابة مفتوحة. هذه لحظة نادرة. تكلّم الآن أو انتظر سنة.");
+      }
+      if (h === 3 && m === 33) {
+        setRedFlash(true);
+        setTimeout(() => setRedFlash(false), 900);
+        injectAutoMessage("3:33 — الساعة بين الساعات. من يستيقظ الآن يعرف شيئاً لا ينبغي معرفته.");
+        showPopup("3:33 — وقت المراقبة الحقيقية.");
+      }
+      if ((h === 2 && m === 22) || (h === 14 && m === 22)) {
+        injectAutoMessage("2:22 — تكرار الثنائي. شيء ما على وشك التكرار في حياتك.");
+        showPopup("2:22 — التكرار ليس مصادفة.");
+      }
+    };
+    check();
+    const id = setInterval(check, 30000);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [injectAutoMessage, showPopup]);
+
+  // Mystery countdown tick
+  useEffect(() => {
+    if (mysteryCountdown === null) return;
+    if (mysteryCountdown <= 0) { setTimeout(() => setMysteryCountdown(null), 2200); return; }
+    const t = setTimeout(() => setMysteryCountdown((p) => (p !== null ? p - 1 : null)), 1000);
+    return () => clearTimeout(t);
+  }, [mysteryCountdown]);
+
+  // Temporal distortions — rare, random
+  useEffect(() => {
+    const fire = () => {
+      const r = Math.random();
+      if (r < 0.35) {
+        setScreenFreeze(true);
+        setTimeout(() => setScreenFreeze(false), 1100);
+      } else if (r < 0.65) {
+        setMysteryCountdown(11);
+      } else {
+        const sectors = ["ALPHA", "DELTA", "ZERO", "ECHO", "SIGMA", "11"];
+        showPopup(`[SECTOR ${sectors[Math.floor(Math.random() * sectors.length)]}] — إشارة مجهولة المصدر`);
+      }
+      setTimeout(fire, 1500000 + Math.random() * 1800000); // 25-55 min
+    };
+    const t = setTimeout(fire, 1200000 + Math.random() * 1200000); // first: 20-40 min
+    return () => clearTimeout(t);
+  }, [showPopup]);
+
+  // Page visibility — message when user returns to tab
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!document.hidden) {
+        setTimeout(() => showPopup("لماذا عدت؟"), 800);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [showPopup]);
+
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages]);
 
   const handleListen = () => {
@@ -1551,6 +1903,28 @@ function App() {
     if (!chatInput.trim() || isSending) return;
     const userText = chatInput.trim();
     setChatInput("");
+
+    // Secret room codes — intercept before sending to AI
+    if (SECRET_CODES.has(userText.toLowerCase())) {
+      const code = userText.toLowerCase() as RoomCode;
+      setChatMessages((prev) => [...prev, { id: nextId(), text: userText, isAi: false }]);
+      chatHistoryRef.current = [...chatHistoryRef.current, { role: "user", content: userText }];
+      const entryMsgs: Record<string, string> = {
+        scmf87: "تم الكشف عن مدخل مجهول... القطاع 87 يُفتح.",
+        hh87: "بروتوكول hh87 مُفعَّل. اللغز يبدأ.",
+        hell11: "⚠ تحذير — القطاع 11 محظور. المتابعة على مسؤوليتك.",
+        hrss11: "جارٍ استرداد الملف المحظور... تم التعريف.",
+        zero99: "بروتوكول الصفر. الصمت يبدأ الآن.",
+      };
+      const entryMsg = entryMsgs[code];
+      const aiId = nextId();
+      setChatMessages((prev) => [...prev, { id: aiId, text: entryMsg, isAi: true }]);
+      chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: entryMsg }];
+      saveChatHistoryLS(chatHistoryRef.current);
+      setTimeout(() => setActiveRoom(code), 800);
+      return;
+    }
+
     setIsSending(true);
     setChatMessages((prev) => [...prev, { id: nextId(), text: userText, isAi: false }]);
     chatHistoryRef.current = [...chatHistoryRef.current, { role: "user", content: userText }];
@@ -1648,6 +2022,73 @@ function App() {
         {redFlash && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.35 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}
             className="fixed inset-0 bg-primary z-50 pointer-events-none mix-blend-overlay" />
+        )}
+      </AnimatePresence>
+
+      {/* Night mode overlay — 3am–5am */}
+      {nightMode && (
+        <div className="fixed inset-0 z-[1] pointer-events-none bg-[hsl(220,30%,2%)]/40 mix-blend-multiply" />
+      )}
+
+      {/* 11:11 Portal event — 60s overlay */}
+      <AnimatePresence>
+        {portalOpen && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 1.5 }}
+            className="fixed inset-0 z-[45] pointer-events-none flex items-center justify-center">
+            <div className="absolute inset-0 bg-primary/[0.04]" />
+            <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+              transition={{ duration: 1, delay: 0.4 }}
+              className="relative text-center flex flex-col items-center gap-3">
+              <div className="w-24 h-px bg-primary/50" />
+              <p className="text-[11px] tracking-[0.5em] text-primary/80 font-mono uppercase">{portalLabel}</p>
+              <div className="text-[9px] tracking-[0.3em] text-primary/40 font-mono" style={{ animation: "blink 1.5s ease-in-out infinite" }}>
+                البوابة تُغلق خلال 60 ثانية
+              </div>
+              <div className="w-24 h-px bg-primary/50" />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Screen freeze distortion */}
+      <AnimatePresence>
+        {screenFreeze && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.08 }}
+            className="fixed inset-0 z-[60] pointer-events-none bg-background/30 backdrop-blur-[2px] flex items-center justify-center">
+            <p className="text-[9px] font-mono tracking-[0.5em] text-primary/50" style={{ animation: "blink 0.2s step-end infinite" }}>
+              SIGNAL DISRUPTED
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Mystery countdown */}
+      <AnimatePresence>
+        {mysteryCountdown !== null && (
+          <motion.div initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.6 }}
+            transition={{ duration: 0.4 }}
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[45] flex flex-col items-center gap-1 pointer-events-none">
+            <p className="text-[9px] tracking-[0.4em] text-muted-foreground/40 font-mono">العداد التنازلي</p>
+            <motion.span key={mysteryCountdown}
+              initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
+              className={`text-4xl font-bold font-mono ${mysteryCountdown === 0 ? "text-primary" : "text-foreground/50"}`}
+              style={mysteryCountdown === 0 ? { textShadow: "0 0 30px hsl(0 75% 42% / 0.7)" } : {}}>
+              {mysteryCountdown === 0 ? "◈" : String(mysteryCountdown).padStart(2, "0")}
+            </motion.span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Secret Room overlay */}
+      <AnimatePresence>
+        {activeRoom && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }}>
+            <SecretRoom
+              code={activeRoom}
+              onClose={() => setActiveRoom(null)}
+              deviceContext={deviceContextRef.current}
+            />
+          </motion.div>
         )}
       </AnimatePresence>
 
