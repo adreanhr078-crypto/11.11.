@@ -1907,16 +1907,68 @@ function saveChatHistoryLS(history: { role: "user" | "assistant"; content: strin
   try { localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(history.slice(-30))); } catch { /* ignore */ }
 }
 
-function getOrCreateUid(): string {
+// ── Cookie helpers ────────────────────────────────────────────────────────────
+
+function getCookieUid(): string | null {
   try {
-    const existing = localStorage.getItem(USER_ID_KEY);
-    if (existing && existing.length > 0) return existing;
-    const uid = crypto.randomUUID();
-    localStorage.setItem(USER_ID_KEY, uid);
-    return uid;
+    const match = document.cookie.match(/(?:^|;\s*)eleven_uid=([^;]*)/);
+    return match ? decodeURIComponent(match[1]) : null;
+  } catch { return null; }
+}
+
+function setCookieUid(uid: string): void {
+  try {
+    const maxAge = 60 * 60 * 24 * 365 * 2; // 2 years
+    document.cookie = `eleven_uid=${encodeURIComponent(uid)}; Max-Age=${maxAge}; Path=/; SameSite=Lax`;
+  } catch { /* ignore */ }
+}
+
+// ── Browser fingerprint (deterministic, cross-session on same device) ─────────
+
+function buildFingerprint(): string {
+  try {
+    const parts = [
+      navigator.userAgent,
+      navigator.language || (navigator.languages ?? []).join(","),
+      Intl.DateTimeFormat().resolvedOptions().timeZone,
+      `${screen.width}x${screen.height}x${screen.colorDepth}`,
+      navigator.platform ?? "",
+      String(navigator.hardwareConcurrency ?? ""),
+    ];
+    // djb2 hash
+    let h = 5381;
+    const s = parts.join("|");
+    for (let i = 0; i < s.length; i++) {
+      h = ((h << 5) + h) ^ s.charCodeAt(i);
+    }
+    return "fp_" + (h >>> 0).toString(36);
   } catch {
-    return crypto.randomUUID();
+    return "fp_" + Date.now().toString(36);
   }
+}
+
+// ── UID resolution: cookie → localStorage → fingerprint ───────────────────────
+
+function getOrCreateUid(): string {
+  // 1. Cookie survives browser sessions and localStorage clears
+  const cookieUid = getCookieUid();
+  if (cookieUid && cookieUid.length > 4) {
+    try { localStorage.setItem(USER_ID_KEY, cookieUid); } catch { /* ignore */ }
+    return cookieUid;
+  }
+  // 2. localStorage fallback (in case cookie was blocked)
+  try {
+    const lsUid = localStorage.getItem(USER_ID_KEY);
+    if (lsUid && lsUid.length > 4) {
+      setCookieUid(lsUid);
+      return lsUid;
+    }
+  } catch { /* ignore */ }
+  // 3. Deterministic fingerprint — same device/browser → same UID, even in incognito
+  const fp = buildFingerprint();
+  setCookieUid(fp);
+  try { localStorage.setItem(USER_ID_KEY, fp); } catch { /* ignore */ }
+  return fp;
 }
 
 type DbProfile = {
