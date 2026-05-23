@@ -5,8 +5,11 @@ import { eq, asc } from "drizzle-orm";
 
 const router = Router();
 
+// UUIDv4 format guard — only accept well-formed UUIDs from clients
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 // POST /api/user/init — server-issues a high-entropy anonymous UID
-// If the client already has a UID, validates it and records a new session.
+// If the client already has a valid UUID UID, validates it and records a new session.
 // If not, creates a fresh UUID and user record.
 router.post("/user/init", async (req, res) => {
   try {
@@ -20,7 +23,8 @@ router.post("/user/init", async (req, res) => {
 
     let uid: string;
 
-    if (existingUid && typeof existingUid === "string" && existingUid.length > 4) {
+    // Only accept well-formed UUIDs — reject arbitrary/guessable values
+    if (existingUid && typeof existingUid === "string" && UUID_RE.test(existingUid)) {
       // Check whether this UID is already in the DB
       const [existing] = await db
         .select({ uid: usersTable.uid })

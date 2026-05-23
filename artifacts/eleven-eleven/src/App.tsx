@@ -2155,6 +2155,8 @@ function App() {
   // Anonymous persistent user ID — server-issued UUID, stored in cookie + localStorage
   const uidRef = useRef<string>("");
   const [uid, setUid] = useState<string>("");
+  // Gate: profile sync effects must not run until DB hydration completes
+  const profileHydratedRef = useRef(false);
 
   // Biometric scan — show once per session
   const [scanDone, setScanDone] = useState(() => sessionStorage.getItem("11_scanned") === "1");
@@ -2253,6 +2255,8 @@ function App() {
         try { localStorage.setItem("eleven_geo_city", profile.geoCity); } catch { /* ignore */ }
         deviceContextRef.current = buildDeviceContext() + ` | المدينة: ${profile.geoCity}`;
       }
+    }).finally(() => {
+      if (!cancelled) profileHydratedRef.current = true;
     });
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2269,18 +2273,24 @@ function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatMessages]);
 
-  // Sync profile data to DB whenever key fields change
+  // Sync profile data to DB — only after DB hydration completes to avoid clobbering
+  // persisted values with local defaults before the DB profile has been loaded.
   useEffect(() => {
     const uid = uidRef.current;
-    if (!uid) return;
-    saveDbProfile(uid, { persona, discoveredRooms, geoCity });
+    if (!uid || !profileHydratedRef.current) return;
+    // Only send non-empty/non-default values to avoid overwriting DB with blanks
+    const update: { persona?: string; discoveredRooms?: string[]; geoCity?: string | null } = {};
+    update.persona = persona;
+    if (discoveredRooms.length > 0) update.discoveredRooms = discoveredRooms;
+    if (geoCity) update.geoCity = geoCity;
+    saveDbProfile(uid, update);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [persona, discoveredRooms, geoCity]);
 
-  // Sync wish to DB when saved
+  // Sync wish to DB when saved — only after hydration
   useEffect(() => {
     const uid = uidRef.current;
-    if (!uid || !hasStoredWish) return;
+    if (!uid || !hasStoredWish || !profileHydratedRef.current) return;
     saveDbProfile(uid, { wish: wishContextRef.current || null });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasStoredWish]);
