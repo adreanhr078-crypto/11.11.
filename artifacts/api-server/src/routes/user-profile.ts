@@ -5,27 +5,46 @@ import { eq, asc } from "drizzle-orm";
 
 const router = Router();
 
-// UUIDv4 format guard — only accept well-formed UUIDs from clients
+// UUIDv4 format guard — enforce on every endpoint that accepts a uid
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-// POST /api/user/init — server-issues a high-entropy anonymous UID
-// If the client already has a valid UUID UID, validates it and records a new session.
-// If not, creates a fresh UUID and user record.
+function isValidUuid(s: unknown): s is string {
+  return typeof s === "string" && UUID_RE.test(s);
+}
+
+// POST /api/user/init — server-issues a high-entropy anonymous UID.
+//
+// Cross-device identity resolution order:
+//   1. Client sends a well-formed UUIDv4 that exists in DB → reuse it (same device/browser)
+//   2. Client sends a well-formed UUIDv4 not yet in DB (e.g. cleared DB) → trust & reinsert
+//   3. Client sends no UUID but does send a fingerprint that matches a DB row → reuse that UID
+//   4. Otherwise → mint a fresh UUID, insert new user, store fingerprint
+//
+// This means a user arriving on a new device with the same browser+hardware fingerprint
+// will have their existing wish/rooms/chat restored without any login.
 router.post("/user/init", async (req, res) => {
   try {
-    const { uid: existingUid, city, userAgent: clientUserAgent } = req.body as {
+    const {
+      uid: existingUid,
+      fingerprint,
+      city,
+      userAgent: clientUserAgent,
+    } = req.body as {
       uid?: string;
+      fingerprint?: string | null;
       city?: string | null;
       userAgent?: string;
     };
 
     const ua = clientUserAgent ?? req.headers["user-agent"] ?? null;
+    const fp = fingerprint && typeof fingerprint === "string" && fingerprint.length > 0
+      ? fingerprint.slice(0, 512) // cap length
+      : null;
 
     let uid: string;
 
-    // Only accept well-formed UUIDs — reject arbitrary/guessable values
-    if (existingUid && typeof existingUid === "string" && UUID_RE.test(existingUid)) {
-      // Check whether this UID is already in the DB
+    if (isValidUuid(existingUid)) {
+      // Client claims an identity — verify it exists
       const [existing] = await db
         .select({ uid: usersTable.uid })
         .from(usersTable)
@@ -33,30 +52,42 @@ router.post("/user/init", async (req, res) => {
 
       if (existing) {
         uid = existingUid;
+        // Keep fingerprint current (device may have updated or first time we see it)
+        if (fp) {
+          await db
+            .update(usersTable)
+            .set({ fingerprint: fp })
+            .where(eq(usersTable.uid, uid));
+        }
       } else {
-        // UID came from client but doesn't exist in DB (e.g., cleared DB / migration)
-        // Trust it — insert as new user to preserve UID continuity
+        // Valid UUID but not in DB (cleared DB / migration) — restore with new insert
         uid = existingUid;
-        await db.insert(usersTable).values({
-          uid,
-          geoCity: city ?? null,
-        });
+        await db.insert(usersTable).values({ uid, geoCity: city ?? null, fingerprint: fp });
+      }
+    } else if (fp) {
+      // No UUID — try fingerprint cross-device lookup
+      const [byFp] = await db
+        .select({ uid: usersTable.uid })
+        .from(usersTable)
+        .where(eq(usersTable.fingerprint, fp))
+        .limit(1);
+
+      if (byFp) {
+        // Fingerprint matched an existing user → restore that identity cross-device
+        uid = byFp.uid;
+      } else {
+        // Completely new visitor — mint a fresh UUID
+        uid = randomUUID();
+        await db.insert(usersTable).values({ uid, geoCity: city ?? null, fingerprint: fp });
       }
     } else {
-      // First visit — issue a fresh server-generated UID
+      // No UUID, no fingerprint — mint a fresh UUID
       uid = randomUUID();
-      await db.insert(usersTable).values({
-        uid,
-        geoCity: city ?? null,
-      });
+      await db.insert(usersTable).values({ uid, geoCity: city ?? null });
     }
 
     // Record this session
-    await db.insert(userSessionsTable).values({
-      uid,
-      userAgent: ua,
-      city: city ?? null,
-    });
+    await db.insert(userSessionsTable).values({ uid, userAgent: ua, city: city ?? null });
 
     res.json({ uid });
   } catch (err) {
@@ -69,7 +100,7 @@ router.post("/user/init", async (req, res) => {
 router.get("/user/profile", async (req, res) => {
   try {
     const uid = req.query["uid"];
-    if (!uid || typeof uid !== "string" || uid.length > 128) {
+    if (!isValidUuid(uid)) {
       res.status(400).json({ error: "invalid uid" });
       return;
     }
@@ -93,7 +124,7 @@ router.get("/user/profile", async (req, res) => {
   }
 });
 
-// POST /api/user/profile — upsert profile fields
+// POST /api/user/profile — partial upsert; only explicitly provided non-empty fields are written
 router.post("/user/profile", async (req, res) => {
   try {
     const { uid, geoCity, wish, persona, discoveredRooms } = req.body as {
@@ -104,16 +135,19 @@ router.post("/user/profile", async (req, res) => {
       discoveredRooms?: string[];
     };
 
-    if (!uid || typeof uid !== "string" || uid.length > 128) {
+    if (!isValidUuid(uid)) {
       res.status(400).json({ error: "invalid uid" });
       return;
     }
 
+    // Only include fields that were explicitly sent and are non-empty, so we never
+    // overwrite DB with blank defaults before hydration completes on the client.
     const updateFields: Partial<typeof usersTable.$inferInsert> = {};
-    if (geoCity !== undefined) updateFields.geoCity = geoCity ?? null;
+    if (geoCity !== undefined && geoCity !== null) updateFields.geoCity = geoCity;
     if (wish !== undefined) updateFields.wish = wish ?? null;
     if (persona !== undefined) updateFields.persona = persona;
-    if (discoveredRooms !== undefined) updateFields.discoveredRooms = discoveredRooms;
+    if (discoveredRooms !== undefined && discoveredRooms.length > 0)
+      updateFields.discoveredRooms = discoveredRooms;
 
     await db
       .insert(usersTable)
@@ -144,7 +178,7 @@ router.post("/user/chat", async (req, res) => {
       messages: { role: string; content: string }[];
     };
 
-    if (!uid || typeof uid !== "string" || uid.length > 128 || !Array.isArray(messages)) {
+    if (!isValidUuid(uid) || !Array.isArray(messages)) {
       res.status(400).json({ error: "invalid" });
       return;
     }

@@ -1924,20 +1924,52 @@ function setCookieUid(uid: string): void {
   } catch { /* ignore */ }
 }
 
-// ── Server-issued UID — guaranteed high-entropy opaque token ──────────────────
-// Flow: check cookie → check localStorage → call server for a new UUID
-// The server mints the UUID (crypto.randomUUID) so it is never guessable.
+// ── Device fingerprint — used as a SECONDARY cross-device lookup key ──────────
+// Not used as a UID. Sent to the server so it can match an existing user on a
+// clean browser/new device with the same hardware+software characteristics.
+// Non-PII: no canvas, no audio, no network IPs — only stable browser signals.
+async function buildFingerprint(): Promise<string> {
+  try {
+    const parts: string[] = [
+      navigator.language,
+      String(screen.width) + "x" + String(screen.height),
+      String(screen.colorDepth),
+      Intl.DateTimeFormat().resolvedOptions().timeZone,
+      navigator.hardwareConcurrency != null ? String(navigator.hardwareConcurrency) : "",
+      // Memory bucket (rounds to nearest 0.5 GB so it's stable across sessions)
+      typeof (navigator as { deviceMemory?: number }).deviceMemory === "number"
+        ? String(Math.round((navigator as { deviceMemory?: number }).deviceMemory! * 2) / 2)
+        : "",
+      navigator.platform ?? "",
+      navigator.vendor ?? "",
+    ];
+    const raw = parts.join("|");
+    // Hash with SubtleCrypto so we store a fixed-length digest, not raw strings
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(raw));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+  } catch {
+    return "";
+  }
+}
 
+// ── Server-issued UID — guaranteed high-entropy opaque token ──────────────────
+// Identity resolution order (see server /api/user/init for full logic):
+//   1. Cookie (survives localStorage clears, 2-year expiry)
+//   2. localStorage fallback
+//   3. Fingerprint cross-device lookup (new device, same browser/hardware)
+//   4. Fresh server-minted UUID
 async function initServerUid(): Promise<string> {
-  // 1. Cookie survives localStorage clears and private-browsing clear on close
   const cookieUid = getCookieUid();
   const localUid = (() => {
     try { return localStorage.getItem(USER_ID_KEY); } catch { return null; }
   })();
   const existingUid = cookieUid ?? localUid ?? undefined;
 
-  // 2. Always call /api/user/init so the server records the session and
-  //    validates/creates the user record. Pass existing UID if we have one.
+  // Build fingerprint in parallel with nothing — fast async hash
+  const fingerprint = await buildFingerprint();
+
+  // Always call /api/user/init so the server records the session,
+  // validates/creates the user record, and performs fingerprint lookup.
   try {
     const city = (() => {
       try { return localStorage.getItem("eleven_geo_city") || null; } catch { return null; }
@@ -1947,6 +1979,7 @@ async function initServerUid(): Promise<string> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         uid: existingUid ?? null,
+        fingerprint: fingerprint || null,
         city,
         userAgent: navigator.userAgent,
       }),
@@ -1960,8 +1993,8 @@ async function initServerUid(): Promise<string> {
     }
   } catch { /* network failure — fall through */ }
 
-  // 3. Fallback: if server is unreachable, use existing local UID or generate
-  //    a temporary one (will be reconciled on next successful /init call)
+  // Fallback: server unreachable — use any local UID, or mint a temporary one
+  // (reconciled on next successful /init call)
   if (existingUid && existingUid.length > 4) return existingUid;
   const fallback = crypto.randomUUID();
   setCookieUid(fallback);

@@ -8,6 +8,8 @@ export const usersTable = pgTable("users", {
   wish: text("wish"),
   persona: text("persona").default("entity"),
   discoveredRooms: text("discovered_rooms").array().default([]),
+  // Device fingerprint for cross-device lookup (non-PII, non-unique, best-effort)
+  fingerprint: text("fingerprint"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
