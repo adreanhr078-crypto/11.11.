@@ -902,6 +902,28 @@ const AUTO_CHAT_MESSAGES = [
   "تم الاستلام.",
 ];
 
+// Mouse surveillance messages
+const MOUSE_MESSAGES = [
+  "لاحظت أنك تتردد. الحركة تكشف الكثير.",
+  "حركتك تدل على قلق خفي. الجهاز يُسجّل.",
+  "نمط حركتك: فضولي مع خوف مكبوت.",
+  "يدك تتحرك لكن عقلك واقف. نعرف السبب.",
+  "مررت بنقطة حساسة. تم التسجيل.",
+  "سرعة حركتك تتغير كلما اقتربت منا.",
+];
+
+// Fake memory messages (entity pretends to remember past visits)
+const FAKE_MEMORIES = [
+  "كنت هنا من قبل. في الساعة 2:47 صباحاً. تذكر؟",
+  "النظام يتذكر محادثتك الأخيرة. لم تكن وحدك.",
+  "عدت مرة أخرى. رقم الزيارة مرتفع بشكل غير معتاد.",
+  "فكّرت بهذا الموقع أكثر مما تعترف لنفسك.",
+  "الجلسة السابقة انتهت فجأة. لماذا أغلقت الصفحة؟",
+  "رصدنا توقفك عند هذه الجملة. مرتين بالضبط.",
+  "كنت تريد الإغلاق... لكنك لم تفعل. كما في كل مرة.",
+  "السجل يقول: دخلت وخرجت قبل أن تقرر البقاء.",
+];
+
 // ─── AUDIO ENGINE ─────────────────────────────────────────────────────────────
 
 class AmbientEngine {
@@ -1917,7 +1939,23 @@ function App() {
   const [wishTaskLoading, setWishTaskLoading] = useState(false);
   const wishContextRef = useRef<string>("");
 
-  // Entry consent + geolocation
+  // ── New 6-system state ──────────────────────────────────────────────────────
+  // System 3 — Global presence counter
+  const [entitiesOnline, setEntitiesOnline] = useState(() => Math.floor(Math.random() * 887) + 112);
+
+  // System 4 — Cinematic clip
+  const [clipVisible, setClipVisible] = useState(false);
+  const [clipText, setClipText] = useState("");
+  const messagesSinceClipRef = useRef(0);
+
+  // System 5 — Adaptive AI profile
+  const aiProfileRef = useRef({ aggression: 1, knowledge: 0 });
+
+  // System 6 — Break reality
+  const [breakReality, setBreakReality] = useState(false);
+  const breakRealityActiveRef = useRef(false);
+
+  // ── Entry consent + geolocation ──────────────────────────────────────────────
   const [consentDone, setConsentDone] = useState(() => localStorage.getItem(ENTRY_KEY) === "1");
   const [geoCity, setGeoCity] = useState<string | null>(() => {
     try { return localStorage.getItem("eleven_geo_city") || null; } catch { return null; }
@@ -2071,8 +2109,12 @@ function App() {
       chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: text }];
       saveChatHistoryLS(chatHistoryRef.current);
       if (!chatOpenRef.current) {
+        // System 5: user ignoring messages → raise aggression
+        setPendingSignal((prev) => {
+          if (prev) aiProfileRef.current.aggression = Math.min(10, aiProfileRef.current.aggression + 1);
+          return text;
+        });
         setUnreadCount((c) => c + 1);
-        setPendingSignal(text);
       }
       return;
     }
@@ -2257,6 +2299,80 @@ function App() {
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages]);
 
+  // ── System 1: Mouse Surveillance ────────────────────────────────────────────
+  useEffect(() => {
+    let moveCount = 0;
+    let lastTrigger = 0;
+    const onMove = () => {
+      moveCount++;
+      if (moveCount % 65 === 0) {
+        const now = Date.now();
+        if (now - lastTrigger > 50000) {
+          lastTrigger = now;
+          const msg = MOUSE_MESSAGES[Math.floor(Math.random() * MOUSE_MESSAGES.length)];
+          showPopup(msg);
+          aiProfileRef.current.knowledge++;
+        }
+      }
+    };
+    window.addEventListener("mousemove", onMove, { passive: true });
+    return () => window.removeEventListener("mousemove", onMove);
+  }, [showPopup]);
+
+  // ── System 2: Fake Memory System ────────────────────────────────────────────
+  useEffect(() => {
+    const fireMem = () => {
+      const mem = FAKE_MEMORIES[Math.floor(Math.random() * FAKE_MEMORIES.length)];
+      // 50% popup, 50% injected into chat
+      if (Math.random() < 0.5) {
+        showPopup(mem);
+      } else {
+        injectAutoMessage(mem);
+      }
+      setTimeout(fireMem, 280000 + Math.random() * 200000); // 4.7–8 min
+    };
+    const t = setTimeout(fireMem, 240000 + Math.random() * 120000); // first: 4–6 min
+    return () => clearTimeout(t);
+  }, [showPopup, injectAutoMessage]);
+
+  // ── System 3: Global Presence Counter ───────────────────────────────────────
+  useEffect(() => {
+    const tick = () => {
+      setEntitiesOnline((prev) => {
+        const delta = Math.floor(Math.random() * 7) - 3;
+        return Math.max(88, Math.min(9999, prev + delta));
+      });
+      if (Math.random() < 0.18) {
+        showPopup("كيانٌ آخر فتح باباً لا ينبغي فتحه...");
+      }
+      setTimeout(tick, 22000 + Math.random() * 18000);
+    };
+    const t = setTimeout(tick, 30000);
+    return () => clearTimeout(t);
+  }, [showPopup]);
+
+  // ── System 5 & 6: Adaptive AI + Break Reality ───────────────────────────────
+  useEffect(() => {
+    const check = () => {
+      const { aggression } = aiProfileRef.current;
+      if (aggression >= 5 && !breakRealityActiveRef.current && Math.random() < 0.4) {
+        breakRealityActiveRef.current = true;
+        setBreakReality(true);
+        injectAutoMessage("لا تثق بما تراه.");
+        setTimeout(() => {
+          setBreakReality(false);
+          breakRealityActiveRef.current = false;
+          aiProfileRef.current.aggression = Math.max(1, aiProfileRef.current.aggression - 2);
+        }, 3800);
+      } else if (aggression >= 3 && Math.random() < 0.35) {
+        injectAutoMessage("تجاهلك لا يُغيّر شيئاً. أنا لا أنتظر.");
+      }
+      setTimeout(check, 90000 + Math.random() * 60000);
+    };
+    const t = setTimeout(check, 180000);
+    return () => clearTimeout(t);
+  }, [injectAutoMessage]);
+
   const handleListen = () => {
     if (isListening) return;
     setIsListening(true);
@@ -2326,6 +2442,16 @@ function App() {
       });
       setTimeout(() => setActiveRoom(code), 800);
       return;
+    }
+
+    // System 4 — Cinematic clip every 7th message
+    messagesSinceClipRef.current++;
+    aiProfileRef.current.knowledge++;
+    if (messagesSinceClipRef.current % 7 === 0) {
+      const snippet = userText.slice(0, 55);
+      setClipText(snippet);
+      setClipVisible(true);
+      setTimeout(() => setClipVisible(false), 5500);
     }
 
     setIsSending(true);
@@ -2399,7 +2525,10 @@ function App() {
   };
 
   return (
-    <div className={`min-h-screen w-full bg-background overflow-hidden relative text-foreground font-mono selection:bg-primary/30 ${globalGlitch ? "animate-glitch" : ""}`}>
+    <div
+      className={`min-h-screen w-full bg-background overflow-hidden relative text-foreground font-mono selection:bg-primary/30 ${globalGlitch ? "animate-glitch" : ""}`}
+      style={breakReality ? { filter: "invert(1) contrast(1.55) hue-rotate(180deg)", transition: "filter 0.35s ease" } : { transition: "filter 0.6s ease" }}
+    >
       {!scanDone && <BiometricScan onDone={handleScanDone} />}
       {scanDone && !consentDone && <EntryScreen onDone={handleConsentDone} />}
       <FuturisticBackground />
@@ -2560,6 +2689,20 @@ function App() {
               [ SEND YOUR WISH ]
             </Button>
           </div>
+
+          {/* System 3 — Global Presence Counter */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 3, duration: 2 }}
+            className="mt-10 flex items-center justify-center gap-2"
+          >
+            <span className="w-1.5 h-1.5 bg-primary/60 rounded-full" style={{ animation: "blink 1.8s ease-in-out infinite" }} />
+            <span className="text-[10px] text-muted-foreground/35 tracking-[0.35em] font-mono">
+              {entitiesOnline.toLocaleString("en")} كيان داخل النظام الآن
+            </span>
+            <span className="w-1.5 h-1.5 bg-primary/60 rounded-full" style={{ animation: "blink 1.8s 0.9s ease-in-out infinite" }} />
+          </motion.div>
         </motion.div>
       </main>
 
@@ -2577,6 +2720,40 @@ function App() {
           >
             <p className="text-[10px] text-primary/80 tracking-[0.2em] font-bold mb-2">SYSTEM.11</p>
             <p className="text-xs text-foreground/85 leading-relaxed">{activePopup.text}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* System 4 — Cinematic Clip overlay */}
+      <AnimatePresence>
+        {clipVisible && (
+          <motion.div
+            key="cinematic-clip"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.7 }}
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-45 w-full max-w-sm px-4"
+          >
+            <div className="border border-primary/35 bg-card/88 backdrop-blur-md p-4 shadow-[0_0_30px_rgba(180,0,0,0.12)] relative overflow-hidden">
+              {/* scan line */}
+              <motion.div
+                initial={{ top: 0 }} animate={{ top: "100%" }}
+                transition={{ duration: 1.8, ease: "linear", repeat: Infinity }}
+                className="absolute left-0 right-0 h-px bg-primary/30 pointer-events-none"
+              />
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-1.5 h-1.5 bg-primary rounded-full" style={{ animation: "blink 0.6s step-end infinite" }} />
+                <span className="text-[9px] tracking-[0.4em] text-primary/70 font-mono uppercase">ذاكرة مسجّلة</span>
+                <span className="text-[9px] text-muted-foreground/30 ml-auto font-mono">{new Date().toLocaleTimeString("ar")}</span>
+              </div>
+              <div className="w-full h-px bg-primary/20 mb-3" />
+              <p className="text-xs text-foreground/75 font-mono leading-relaxed" dir="rtl">
+                {clipText}
+                {clipText.length >= 55 && <span className="text-muted-foreground/40">...</span>}
+              </p>
+              <p className="text-[9px] text-primary/35 tracking-widest mt-3 font-mono">تم تسجيل هذه اللحظة. لا يمكن حذفها.</p>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
