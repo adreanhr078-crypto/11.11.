@@ -1901,9 +1901,79 @@ const PERSONA_META: Record<Persona, { label: string; icon: string; tagline: stri
 
 const CHAT_HISTORY_KEY = "eleven_chat_history";
 const PERSONA_KEY = "eleven_persona";
+const USER_ID_KEY = "eleven_uid";
 
 function saveChatHistoryLS(history: { role: "user" | "assistant"; content: string }[]) {
   try { localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(history.slice(-30))); } catch { /* ignore */ }
+}
+
+function getOrCreateUid(): string {
+  try {
+    const existing = localStorage.getItem(USER_ID_KEY);
+    if (existing && existing.length > 0) return existing;
+    const uid = crypto.randomUUID();
+    localStorage.setItem(USER_ID_KEY, uid);
+    return uid;
+  } catch {
+    return crypto.randomUUID();
+  }
+}
+
+type DbProfile = {
+  chatHistory: { role: "user" | "assistant"; content: string }[];
+  wish: string | null;
+  persona: string | null;
+  discoveredRooms: string[];
+  geoCity: string | null;
+};
+
+async function loadDbProfile(uid: string): Promise<DbProfile | null> {
+  try {
+    const res = await fetch(`/api/user/profile?uid=${encodeURIComponent(uid)}`);
+    if (!res.ok) return null;
+    const data = await res.json() as {
+      profile: { wish?: string | null; persona?: string | null; discoveredRooms?: string[] | null; geoCity?: string | null } | null;
+      chatHistory: { role: string; content: string }[];
+    };
+    if (!data.profile && (!data.chatHistory || data.chatHistory.length === 0)) return null;
+    return {
+      chatHistory: (data.chatHistory ?? []).map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      })),
+      wish: data.profile?.wish ?? null,
+      persona: data.profile?.persona ?? null,
+      discoveredRooms: data.profile?.discoveredRooms ?? [],
+      geoCity: data.profile?.geoCity ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function saveDbProfile(uid: string, data: {
+  geoCity?: string | null;
+  wish?: string | null;
+  persona?: string;
+  discoveredRooms?: string[];
+}): Promise<void> {
+  try {
+    await fetch("/api/user/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uid, ...data }),
+    });
+  } catch { /* ignore */ }
+}
+
+async function syncChatToDb(uid: string, messages: { role: "user" | "assistant"; content: string }[]): Promise<void> {
+  try {
+    await fetch("/api/user/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uid, messages }),
+    });
+  } catch { /* ignore */ }
 }
 
 function App() {
@@ -2032,6 +2102,9 @@ function App() {
   // Device context
   const deviceContextRef = useRef<string>("");
 
+  // Anonymous persistent user ID
+  const uidRef = useRef<string>("");
+
   // Biometric scan — show once per session
   const [scanDone, setScanDone] = useState(() => sessionStorage.getItem("11_scanned") === "1");
   const handleScanDone = useCallback(() => {
@@ -2069,8 +2142,94 @@ function App() {
     audioRef.current = new AmbientEngine();
     deviceContextRef.current = buildDeviceContext();
     window.speechSynthesis?.getVoices();
+    // Initialize anonymous UID
+    uidRef.current = getOrCreateUid();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Load DB profile — hydrates state from DB on mount (cross-device memory)
+  useEffect(() => {
+    const uid = uidRef.current;
+    if (!uid) return;
+    let cancelled = false;
+    loadDbProfile(uid).then((profile) => {
+      if (cancelled || !profile) return;
+      // Hydrate chat history if DB has more messages than localStorage
+      if (profile.chatHistory.length > chatHistoryRef.current.length) {
+        chatHistoryRef.current = profile.chatHistory;
+        saveChatHistoryLS(profile.chatHistory);
+        const restored = profile.chatHistory.slice(-20).map((m) => ({
+          id: nextId(),
+          text: m.content,
+          isAi: m.role === "assistant",
+        }));
+        setChatMessages(restored);
+        // Returning user on new device — entity acknowledges them
+        if (chatHistoryRef.current.length > 0) {
+          setTimeout(() => {
+            const id = nextId();
+            const text = "أنت عدت. لقد سجّلنا كل شيء. حتى على هذا الجهاز الجديد.";
+            setChatMessages((prev) => [...prev, { id, text, isAi: true }]);
+            chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: text }];
+            saveChatHistoryLS(chatHistoryRef.current);
+          }, 2800);
+        }
+      }
+      // Hydrate wish
+      if (profile.wish && !wishContextRef.current) {
+        wishContextRef.current = profile.wish;
+        setHasStoredWish(true);
+        try { localStorage.setItem("eleven_wish", JSON.stringify({ text: profile.wish })); } catch { /* ignore */ }
+      }
+      // Hydrate persona
+      if (profile.persona && (profile.persona === "entity" || profile.persona === "narrator" || profile.persona === "observer" || profile.persona === "voice")) {
+        setPersona(profile.persona as Persona);
+      }
+      // Hydrate discovered rooms
+      if (profile.discoveredRooms.length > 0) {
+        setDiscoveredRooms((prev) => {
+          const merged = Array.from(new Set([...prev, ...profile.discoveredRooms]));
+          try { localStorage.setItem(DISCOVERED_KEY, JSON.stringify(merged)); } catch { /* ignore */ }
+          return merged;
+        });
+      }
+      // Hydrate geo city
+      if (profile.geoCity && !geoCity) {
+        setGeoCity(profile.geoCity);
+        try { localStorage.setItem("eleven_geo_city", profile.geoCity); } catch { /* ignore */ }
+        deviceContextRef.current = buildDeviceContext() + ` | المدينة: ${profile.geoCity}`;
+      }
+    });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sync chat history to DB whenever it changes (debounced 5s)
+  useEffect(() => {
+    const uid = uidRef.current;
+    if (!uid || chatHistoryRef.current.length === 0) return;
+    const t = setTimeout(() => {
+      syncChatToDb(uid, chatHistoryRef.current);
+    }, 5000);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatMessages]);
+
+  // Sync profile data to DB whenever key fields change
+  useEffect(() => {
+    const uid = uidRef.current;
+    if (!uid) return;
+    saveDbProfile(uid, { persona, discoveredRooms, geoCity });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [persona, discoveredRooms, geoCity]);
+
+  // Sync wish to DB when saved
+  useEffect(() => {
+    const uid = uidRef.current;
+    if (!uid || !hasStoredWish) return;
+    saveDbProfile(uid, { wish: wishContextRef.current || null });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasStoredWish]);
 
   const toggleSound = useCallback(() => {
     if (!audioRef.current) return;
