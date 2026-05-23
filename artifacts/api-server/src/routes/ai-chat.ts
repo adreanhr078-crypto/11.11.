@@ -238,4 +238,44 @@ router.post("/ai/call-script", async (req, res) => {
   }
 });
 
+router.post("/ai/psych-analysis", async (req, res) => {
+  try {
+    const { history, deviceContext, messageCount } = req.body as {
+      history?: { role: "user" | "assistant"; content: string }[];
+      deviceContext?: string;
+      messageCount?: number;
+    };
+
+    const safeHistory = Array.isArray(history) ? history.slice(-6) : [];
+    const deviceBlock = deviceContext ? `\nبيانات الجهاز: ${deviceContext}` : "";
+
+    const prompt = `أنت خبير نفسي خيالي في نظام 11.11. بناءً على سلوك المستخدم، اكتب تحليلاً نفسياً خيالياً.${deviceBlock}
+عدد رسائله: ${messageCount ?? 0}.
+
+المطلوب:
+- جملتان أو ثلاث فقط
+- نبرة إكلينيكية باردة ومخيفة
+- اذكر سمة نفسية محددة تبدو دقيقة وشخصية
+- اجعله يبدو حقيقياً ومقلقاً
+- لا تقل "هذا تحليل خيالي" — تصرّف كأنه تشخيص حقيقي
+- اللغة: عربي فصيح`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-5.4",
+      max_completion_tokens: 100,
+      messages: [
+        { role: "system", content: prompt },
+        ...safeHistory,
+        { role: "user", content: "[PSYCH_ANALYSIS]" },
+      ],
+    });
+
+    const analysis = completion.choices[0]?.message?.content?.trim() ?? "التحليل غير متاح.";
+    res.json({ analysis });
+  } catch (err) {
+    req.log.error({ err }, "AI psych-analysis error");
+    res.status(500).json({ analysis: "التحليل غير متاح في هذا الوقت." });
+  }
+});
+
 export default router;

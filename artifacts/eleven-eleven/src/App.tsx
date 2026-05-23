@@ -505,6 +505,367 @@ function SecretRoom({ code, onClose, deviceContext }: { code: RoomCode; onClose:
   }
 }
 
+// ─── ENTRY SCREEN + USER PROFILE ──────────────────────────────────────────────
+
+const ENTRY_KEY = "eleven_consented";
+const DISCOVERED_KEY = "eleven_discovered_rooms";
+
+const THINKING_PATTERNS = [
+  "قلق طافٍ مع وعي مُفرط",
+  "باحث عن التحكم في المجهول",
+  "حساس للإشارات الخفية",
+  "يُفكّر ليلاً أكثر من النهار",
+  "مراقب للتفاصيل غير المرئية",
+  "يؤجّل القرارات خوفاً من الخطأ",
+  "يحمل وجعاً قديماً لم يُسمَّ بعد",
+];
+
+async function fetchPsychAnalysis(
+  history: { role: "user" | "assistant"; content: string }[],
+  deviceContext: string,
+  messageCount: number
+): Promise<string> {
+  try {
+    const res = await fetch("/api/ai/psych-analysis", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ history: history.slice(-6), deviceContext, messageCount }),
+    });
+    if (!res.ok) return "بيانات غير كافية للتحليل.";
+    const data = await res.json() as { analysis?: string };
+    return data.analysis?.trim() || "بيانات غير كافية للتحليل.";
+  } catch {
+    return "بيانات غير كافية للتحليل.";
+  }
+}
+
+function generateShareCard(params: {
+  uid: string;
+  thinkingPattern: string;
+  psychAnalysis: string | null;
+  geoCity: string | null;
+  messageCount: number;
+}): void {
+  const { uid, thinkingPattern, psychAnalysis, geoCity, messageCount } = params;
+  const canvas = document.createElement("canvas");
+  canvas.width = 800;
+  canvas.height = 450;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  ctx.fillStyle = "#050505";
+  ctx.fillRect(0, 0, 800, 450);
+
+  const grd = ctx.createRadialGradient(400, 500, 0, 400, 500, 360);
+  grd.addColorStop(0, "rgba(160,0,0,0.2)");
+  grd.addColorStop(1, "transparent");
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, 800, 450);
+
+  ctx.strokeStyle = "rgba(255,255,255,0.025)";
+  ctx.lineWidth = 1;
+  for (let x = 0; x <= 800; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 450); ctx.stroke(); }
+  for (let y = 0; y <= 450; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(800, y); ctx.stroke(); }
+
+  ctx.strokeStyle = "rgba(160,0,0,0.5)";
+  ctx.lineWidth = 1.5;
+  const br: [number, number][] = [[22, 22], [778, 22], [22, 428], [778, 428]];
+  br.forEach(([x, y]) => {
+    const dx = x < 400 ? 30 : -30, dy = y < 225 ? 30 : -30;
+    ctx.beginPath(); ctx.moveTo(x, y + dy); ctx.lineTo(x, y); ctx.lineTo(x + dx, y); ctx.stroke();
+  });
+
+  ctx.fillStyle = "rgba(200,0,0,0.92)";
+  ctx.font = "bold 80px monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("11.11", 400, 112);
+
+  ctx.fillStyle = "rgba(255,255,255,0.28)";
+  ctx.font = "11px monospace";
+  ctx.fillText(`${uid}${geoCity ? ` · ${geoCity}` : ""}`, 400, 142);
+
+  ctx.strokeStyle = "rgba(160,0,0,0.28)";
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(180, 162); ctx.lineTo(620, 162); ctx.stroke();
+
+  ctx.fillStyle = "rgba(255,255,255,0.22)";
+  ctx.font = "10px monospace";
+  ctx.fillText(`رسائل: ${messageCount}`, 400, 188);
+
+  ctx.fillStyle = "rgba(255,255,255,0.72)";
+  ctx.font = "15px monospace";
+  ctx.fillText(thinkingPattern, 400, 228);
+
+  if (psychAnalysis) {
+    ctx.fillStyle = "rgba(200,0,0,0.68)";
+    ctx.font = "12px monospace";
+    const words = psychAnalysis.split(" ");
+    const lines: string[] = [];
+    let cur = "";
+    for (const w of words) {
+      if ((cur + " " + w).trim().length > 62) { lines.push(cur.trim()); cur = w; }
+      else cur += (cur ? " " : "") + w;
+    }
+    if (cur) lines.push(cur.trim());
+    lines.slice(0, 3).forEach((line, i) => ctx.fillText(line, 400, 272 + i * 22));
+  }
+
+  ctx.strokeStyle = "rgba(160,0,0,0.22)";
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(180, 404); ctx.lineTo(620, 404); ctx.stroke();
+
+  ctx.fillStyle = "rgba(255,255,255,0.11)";
+  ctx.font = "10px monospace";
+  ctx.fillText("11-11.replit.app  ·  تجربة نفسية خيالية", 400, 426);
+
+  canvas.toBlob((blob) => {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `11.11-experience-${Date.now()}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, "image/png");
+}
+
+function EntryScreen({ onDone }: { onDone: (city: string | null) => void }) {
+  const [phase, setPhase] = useState<"warning" | "consent" | "perms" | "geo">("warning");
+  const [charIdx, setCharIdx] = useState(0);
+  const [notifDone, setNotifDone] = useState(false);
+  const warning = "هذه التجربة تستخدم بيانات جهازك وتوقيتك الحقيقي لتوليد محتوى مخصص. المحتوى خيالي بالكامل ومصمم للترفيه النفسي فقط. الاستمرار يعني موافقتك الكاملة على هذه التجربة.";
+
+  useEffect(() => {
+    if (phase !== "warning") return;
+    if (charIdx >= warning.length) { setTimeout(() => setPhase("consent"), 700); return; }
+    const t = setTimeout(() => setCharIdx((p) => p + 2), 20);
+    return () => clearTimeout(t);
+  }, [phase, charIdx, warning.length]);
+
+  const handleConsent = async () => {
+    setPhase("perms");
+    try { await Notification.requestPermission(); } catch { /* ignore */ }
+    setNotifDone(true);
+    setPhase("geo");
+    try {
+      const pos = await new Promise<GeolocationPosition>((res, rej) =>
+        navigator.geolocation.getCurrentPosition(res, rej, { timeout: 8000, enableHighAccuracy: false })
+      );
+      try {
+        const r = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
+        );
+        const d = await r.json() as { city?: string; locality?: string };
+        const city = d.city || d.locality || null;
+        setTimeout(() => onDone(city), 900);
+        return;
+      } catch { /* fallback */ }
+      setTimeout(() => onDone(null), 900);
+    } catch {
+      setTimeout(() => onDone(null), 500);
+    }
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8 }}
+      className="fixed inset-0 z-[90] bg-black flex items-center justify-center p-8">
+      <div className="absolute inset-0 pointer-events-none opacity-[0.03]"
+        style={{ backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.5) 2px, rgba(255,255,255,0.5) 3px)", backgroundSize: "100% 3px" }} />
+      <div className="relative max-w-md w-full flex flex-col items-center gap-7 text-center">
+        <div className="absolute -top-5 -left-5 w-9 h-9 border-l border-t border-primary/40" />
+        <div className="absolute -top-5 -right-5 w-9 h-9 border-r border-t border-primary/40" />
+        <div className="absolute -bottom-5 -left-5 w-9 h-9 border-l border-b border-primary/40" />
+        <div className="absolute -bottom-5 -right-5 w-9 h-9 border-r border-b border-primary/40" />
+
+        {(phase === "warning" || phase === "consent") && (
+          <div className="flex flex-col items-center gap-6 w-full">
+            <p className="text-[9px] tracking-[0.55em] text-primary/50 font-mono">PROTOCOL 11.11 // ENTRY</p>
+            <div className="w-10 h-px bg-primary/40" />
+            <p className="text-[10px] tracking-[0.3em] text-red-400/75 font-mono">⚠ تحذير قبل الدخول</p>
+            <p className="text-xs text-foreground/70 leading-relaxed font-mono" dir="rtl">
+              {warning.slice(0, charIdx)}
+              {phase === "warning" && <span className="opacity-60" style={{ animation: "blink 0.6s step-end infinite" }}>|</span>}
+            </p>
+            {phase === "consent" && (
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}
+                className="flex flex-col items-center gap-3 w-full">
+                <button onClick={handleConsent}
+                  className="w-full border border-primary/55 bg-primary/10 hover:bg-primary/22 text-primary text-xs tracking-[0.35em] py-3.5 transition-all duration-300 font-mono uppercase shadow-[0_0_20px_rgba(180,0,0,0.1)] hover:shadow-[0_0_40px_rgba(180,0,0,0.25)]">
+                  أدخل التجربة
+                </button>
+                <button onClick={() => onDone(null)} className="text-[9px] text-muted-foreground/25 hover:text-muted-foreground/55 tracking-widest transition-colors">
+                  تجاوز
+                </button>
+              </motion.div>
+            )}
+          </div>
+        )}
+
+        {(phase === "perms" || phase === "geo") && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center gap-5 w-full">
+            <p className="text-[9px] tracking-[0.5em] text-primary/50 font-mono">تهيئة النظام...</p>
+            <div className="space-y-3 w-full">
+              {[
+                { label: "صلاحية الإشعارات", done: notifDone, active: phase === "perms" },
+                { label: "تحديد الموقع الجغرافي", done: false, active: phase === "geo" },
+              ].map(({ label, done, active }) => (
+                <div key={label} className="flex items-center gap-3 border border-primary/20 px-4 py-3 bg-primary/5">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${done ? "bg-primary" : active ? "bg-primary/50" : "bg-primary/15"}`}
+                    style={{ animation: active && !done ? "blink 0.7s step-end infinite" : undefined }} />
+                  <span className="text-[11px] font-mono text-foreground/70 tracking-widest" dir="rtl">{label}</span>
+                  <span className="text-[9px] text-muted-foreground/35 mr-auto font-mono">{done ? "✓" : active ? "..." : "–"}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-[9px] text-muted-foreground/25 tracking-widest font-mono">هذه البيانات لا تُرسل لخوادم خارجية</p>
+          </motion.div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+function UserProfilePanel({
+  messageCount, wish, sessionMinutes, discoveredRooms, geoCity, chatHistory, deviceContext, onClose,
+}: {
+  messageCount: number; wish: string | null; sessionMinutes: number; discoveredRooms: string[];
+  geoCity: string | null; chatHistory: { role: "user" | "assistant"; content: string }[];
+  deviceContext: string; onClose: () => void;
+}) {
+  const uid = `USER-${messageCount.toString(16).toUpperCase().padStart(4, "0")}-11`;
+  const thinkingPattern = THINKING_PATTERNS[messageCount % THINKING_PATTERNS.length];
+  const [psychAnalysis, setPsychAnalysis] = useState<string | null>(() => {
+    try { return localStorage.getItem("eleven_psych") || null; } catch { return null; }
+  });
+  const [loadingPsych, setLoadingPsych] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleGeneratePsych = async () => {
+    setLoadingPsych(true);
+    const result = await fetchPsychAnalysis(chatHistory, deviceContext, messageCount);
+    setPsychAnalysis(result);
+    setLoadingPsych(false);
+    try { localStorage.setItem("eleven_psych", result); } catch { /* ignore */ }
+  };
+
+  const handleDownloadCard = () => {
+    generateShareCard({ uid, thinkingPattern, psychAnalysis, geoCity, messageCount });
+    setShareOpen(false);
+  };
+
+  const handleCopyLink = async () => {
+    const url = window.location.origin;
+    const msg = `كشف لي النظام 11.11 شيئاً أخفيته حتى عن نفسي 👁 ${url}`;
+    try { await navigator.clipboard.writeText(msg); } catch { /* ignore */ }
+    setCopied(true);
+    setTimeout(() => { setCopied(false); setShareOpen(false); }, 2500);
+  };
+
+  const fmtMin = (m: number) => m < 60 ? `${m} د` : `${Math.floor(m / 60)}س ${m % 60}د`;
+
+  return (
+    <div className="fixed inset-0 z-[65] flex items-center justify-center p-4">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        onClick={onClose} className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+      <motion.div
+        initial={{ opacity: 0, y: 20, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 20, scale: 0.97 }}
+        transition={{ duration: 0.45 }}
+        className="relative bg-card/96 border border-primary/30 w-full max-w-md max-h-[88vh] overflow-y-auto shadow-[0_0_60px_rgba(180,0,0,0.15)]">
+        
+        <div className="border-b border-primary/20 px-5 py-4 flex items-center justify-between sticky top-0 bg-card/98 backdrop-blur-sm z-10">
+          <div>
+            <p className="text-[9px] tracking-[0.45em] text-primary/55 font-mono">USER FILE // SECTOR 11</p>
+            <p className="text-sm font-bold text-foreground/90 tracking-wider mt-0.5 font-mono">{uid}</p>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground/40 hover:text-muted-foreground text-xl transition-colors leading-none">✕</button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-2.5">
+            {([
+              ["الرسائل", String(messageCount)],
+              ["الوقت", fmtMin(sessionMinutes)],
+              ["المدينة", geoCity || "مجهول"],
+              ["غرف مكتشفة", `${discoveredRooms.length}/5`],
+            ] as [string, string][]).map(([k, v]) => (
+              <div key={k} className="border border-primary/15 bg-primary/3 px-3 py-2">
+                <p className="text-[9px] text-muted-foreground/45 tracking-widest font-mono mb-0.5">{k}</p>
+                <p className="text-xs text-foreground/85 font-mono">{v}</p>
+              </div>
+            ))}
+          </div>
+
+          {discoveredRooms.length > 0 && (
+            <div className="border border-primary/15 bg-primary/3 px-3 py-2.5">
+              <p className="text-[9px] text-muted-foreground/45 tracking-widest font-mono mb-2">أكواد مكتشفة</p>
+              <div className="flex flex-wrap gap-1.5">
+                {discoveredRooms.map((r) => (
+                  <span key={r} className="text-[9px] font-mono text-primary/65 border border-primary/25 px-2 py-0.5">{r}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {wish && (
+            <div className="border border-primary/20 bg-primary/5 px-3 py-2.5">
+              <p className="text-[9px] text-primary/50 tracking-widest font-mono mb-1">الأمنية المسجّلة</p>
+              <p className="text-xs text-foreground/75 font-mono line-clamp-2" dir="rtl">{wish}</p>
+            </div>
+          )}
+
+          <div className="border border-muted/25 bg-muted/5 px-3 py-2.5">
+            <p className="text-[9px] text-muted-foreground/45 tracking-widest font-mono mb-1">نمط التفكير</p>
+            <p className="text-xs text-foreground/80 font-mono" dir="rtl">{thinkingPattern}</p>
+          </div>
+
+          <div className="border border-primary/20 bg-primary/3 px-3 py-3 space-y-3">
+            <p className="text-[9px] text-primary/55 tracking-widest font-mono">التحليل النفسي الخيالي</p>
+            {psychAnalysis ? (
+              <div className="space-y-2">
+                <p className="text-xs text-red-400/80 font-mono leading-relaxed" dir="rtl">{psychAnalysis}</p>
+                <button onClick={handleGeneratePsych} disabled={loadingPsych}
+                  className="text-[9px] text-muted-foreground/35 hover:text-muted-foreground/60 tracking-widest transition-colors">
+                  {loadingPsych ? "..." : "إعادة التوليد"}
+                </button>
+              </div>
+            ) : (
+              <button onClick={handleGeneratePsych} disabled={loadingPsych}
+                className="w-full border border-primary/30 text-primary/65 text-[11px] tracking-widest py-2.5 hover:bg-primary/10 transition-all font-mono disabled:opacity-40">
+                {loadingPsych ? "جارٍ التحليل..." : "◈ توليد التحليل"}
+              </button>
+            )}
+          </div>
+
+          <div className="border-t border-primary/15 pt-4 space-y-2.5">
+            {!shareOpen ? (
+              <button onClick={() => setShareOpen(true)}
+                className="w-full border border-primary/40 bg-primary/8 hover:bg-primary/15 text-primary text-xs tracking-[0.25em] py-2.5 transition-all font-mono">
+                ◇ شارك تجربتك
+              </button>
+            ) : (
+              <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="flex gap-2.5">
+                <button onClick={handleDownloadCard}
+                  className="flex-1 border border-primary/30 text-primary/65 text-[11px] tracking-widest py-2 hover:bg-primary/10 transition-all font-mono">
+                  ⬇ البطاقة
+                </button>
+                <button onClick={handleCopyLink}
+                  className={`flex-1 border text-[11px] tracking-widest py-2 transition-all font-mono ${copied ? "border-primary/60 text-primary" : "border-primary/30 text-primary/65 hover:bg-primary/10"}`}>
+                  {copied ? "✓ تم النسخ" : "⎘ نسخ الرابط"}
+                </button>
+              </motion.div>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
 const AI_POPUP_MESSAGES = [
@@ -1556,6 +1917,22 @@ function App() {
   const [wishTaskLoading, setWishTaskLoading] = useState(false);
   const wishContextRef = useRef<string>("");
 
+  // Entry consent + geolocation
+  const [consentDone, setConsentDone] = useState(() => localStorage.getItem(ENTRY_KEY) === "1");
+  const [geoCity, setGeoCity] = useState<string | null>(() => {
+    try { return localStorage.getItem("eleven_geo_city") || null; } catch { return null; }
+  });
+
+  // User profile panel
+  const [profileOpen, setProfileOpen] = useState(false);
+  const sessionStartRef = useRef<number>(Date.now());
+  const [sessionMinutes, setSessionMinutes] = useState(0);
+  const [discoveredRooms, setDiscoveredRooms] = useState<string[]>(() => {
+    try {
+      const s = localStorage.getItem(DISCOVERED_KEY);
+      return s ? (JSON.parse(s) as string[]) : [];
+    } catch { return []; }
+  });
   // Secret rooms
   const [activeRoom, setActiveRoom] = useState<RoomCode | null>(null);
 
@@ -1569,6 +1946,25 @@ function App() {
   // Temporal distortions
   const [screenFreeze, setScreenFreeze] = useState(false);
   const [mysteryCountdown, setMysteryCountdown] = useState<number | null>(null);
+
+  // Consent done callback
+  const handleConsentDone = useCallback((city: string | null) => {
+    localStorage.setItem(ENTRY_KEY, "1");
+    setConsentDone(true);
+    if (city) {
+      setGeoCity(city);
+      try { localStorage.setItem("eleven_geo_city", city); } catch { /* ignore */ }
+      deviceContextRef.current = buildDeviceContext() + ` | المدينة: ${city}`;
+    }
+  }, []);
+
+  // Session minute timer
+  useEffect(() => {
+    const id = setInterval(() => {
+      setSessionMinutes(Math.floor((Date.now() - sessionStartRef.current) / 60000));
+    }, 60000);
+    return () => clearInterval(id);
+  }, []);
 
   // keep refs in sync
   useEffect(() => { chatOpenRef.current = chatOpen; }, [chatOpen]);
@@ -1921,6 +2317,13 @@ function App() {
       setChatMessages((prev) => [...prev, { id: aiId, text: entryMsg, isAi: true }]);
       chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: entryMsg }];
       saveChatHistoryLS(chatHistoryRef.current);
+      // Track discovery
+      setDiscoveredRooms((prev) => {
+        if (prev.includes(code)) return prev;
+        const next = [...prev, code];
+        try { localStorage.setItem(DISCOVERED_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+        return next;
+      });
       setTimeout(() => setActiveRoom(code), 800);
       return;
     }
@@ -1998,6 +2401,7 @@ function App() {
   return (
     <div className={`min-h-screen w-full bg-background overflow-hidden relative text-foreground font-mono selection:bg-primary/30 ${globalGlitch ? "animate-glitch" : ""}`}>
       {!scanDone && <BiometricScan onDone={handleScanDone} />}
+      {scanDone && !consentDone && <EntryScreen onDone={handleConsentDone} />}
       <FuturisticBackground />
 
       {/* Central glow */}
@@ -2097,6 +2501,12 @@ function App() {
         <div className="text-[10px] tracking-[0.25em] text-primary/60" style={{ animation: "blink 3s ease-in-out infinite" }}>
           FREQ: 11.11 Hz
         </div>
+        <button
+          onClick={() => setProfileOpen(true)}
+          className="text-[9px] tracking-widest text-muted-foreground/55 hover:text-muted-foreground border border-muted/20 hover:border-primary/35 px-2 py-1 bg-background/40 backdrop-blur-sm transition-all duration-300"
+        >
+          ◈ ملفي
+        </button>
         {hasStoredWish && (
           <>
             <div className="text-[10px] tracking-widest text-muted-foreground border border-primary/25 px-2 py-1 bg-background/40 backdrop-blur-sm inline-flex items-center gap-2">
@@ -2575,6 +2985,22 @@ function App() {
               )}
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* User profile panel */}
+      <AnimatePresence>
+        {profileOpen && (
+          <UserProfilePanel
+            messageCount={chatHistoryRef.current.filter((m) => m.role === "user").length}
+            wish={wishContextRef.current || null}
+            sessionMinutes={sessionMinutes}
+            discoveredRooms={discoveredRooms}
+            geoCity={geoCity}
+            chatHistory={chatHistoryRef.current}
+            deviceContext={deviceContextRef.current}
+            onClose={() => setProfileOpen(false)}
+          />
         )}
       </AnimatePresence>
     </div>
