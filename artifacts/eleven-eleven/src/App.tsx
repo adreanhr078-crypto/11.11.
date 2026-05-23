@@ -448,19 +448,41 @@ function buildDeviceContext(): string {
 
 async function fetchAiProbe(
   history: { role: "user" | "assistant"; content: string }[],
-  deviceContext?: string
+  deviceContext?: string,
+  persona?: string,
+  wishContext?: string,
+  mode?: "probe" | "prediction"
 ): Promise<string> {
   try {
     const res = await fetch("/api/ai/probe", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ history, deviceContext }),
+      body: JSON.stringify({ history, deviceContext, persona, wishContext, mode }),
     });
     if (!res.ok) return AUTO_CHAT_MESSAGES[Math.floor(Math.random() * AUTO_CHAT_MESSAGES.length)];
     const data = await res.json() as { text?: string };
     return data.text?.trim() || AUTO_CHAT_MESSAGES[Math.floor(Math.random() * AUTO_CHAT_MESSAGES.length)];
   } catch {
     return AUTO_CHAT_MESSAGES[Math.floor(Math.random() * AUTO_CHAT_MESSAGES.length)];
+  }
+}
+
+async function fetchWishTask(
+  wishText: string,
+  history: { role: "user" | "assistant"; content: string }[],
+  deviceContext?: string
+): Promise<string> {
+  try {
+    const res = await fetch("/api/ai/wish-task", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ wishText, history: history.slice(-6), deviceContext }),
+    });
+    if (!res.ok) return "اكتب أمنيتك على ورقة واحرقها في الساعة 11:11 ليلاً.";
+    const data = await res.json() as { task?: string };
+    return data.task?.trim() || "اكتب أمنيتك على ورقة واحرقها في الساعة 11:11 ليلاً.";
+  } catch {
+    return "اكتب أمنيتك على ورقة واحرقها في الساعة 11:11 ليلاً.";
   }
 }
 
@@ -487,13 +509,15 @@ async function streamAiResponse(
   onChunk: (text: string) => void,
   onDone: () => void,
   onError: (msg: string) => void,
-  deviceContext?: string
+  deviceContext?: string,
+  persona?: string,
+  wishContext?: string
 ) {
   try {
     const res = await fetch("/api/ai/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages, deviceContext }),
+      body: JSON.stringify({ messages, deviceContext, persona, wishContext }),
     });
     if (!res.ok || !res.body) { onError("..."); return; }
     const reader = res.body.getReader();
@@ -1214,7 +1238,22 @@ function IncomingCall({
 
 // ─── APP ──────────────────────────────────────────────────────────────────────
 
-type ChatMsg = { id: number; text: string; isAi: boolean; streaming?: boolean };
+type ChatMsg = { id: number; text: string; isAi: boolean; streaming?: boolean; isPrediction?: boolean };
+type Persona = "entity" | "narrator" | "observer" | "voice";
+
+const PERSONA_META: Record<Persona, { label: string; icon: string; tagline: string }> = {
+  entity:   { label: "الكيان البارد",    icon: "◈", tagline: "ENTITY.11" },
+  narrator: { label: "الراوي المفقود",  icon: "◎", tagline: "NARRATOR" },
+  observer: { label: "المراقب",          icon: "◉", tagline: "OBSERVER" },
+  voice:    { label: "الصوت الثالث",    icon: "◇", tagline: "VOICE.3" },
+};
+
+const CHAT_HISTORY_KEY = "eleven_chat_history";
+const PERSONA_KEY = "eleven_persona";
+
+function saveChatHistoryLS(history: { role: "user" | "assistant"; content: string }[]) {
+  try { localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(history.slice(-30))); } catch { /* ignore */ }
+}
 
 function App() {
   const [isListening, setIsListening] = useState(false);
@@ -1234,6 +1273,20 @@ function App() {
   const isSendingRef = useRef(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatHistoryRef = useRef<{ role: "user" | "assistant"; content: string }[]>([]);
+
+  // Persona
+  const [persona, setPersona] = useState<Persona>(() => {
+    const saved = localStorage.getItem(PERSONA_KEY);
+    return (saved as Persona) || "entity";
+  });
+  const personaRef = useRef<Persona>(persona);
+  useEffect(() => { personaRef.current = persona; localStorage.setItem(PERSONA_KEY, persona); }, [persona]);
+
+  // Wish task states
+  const [wishTaskOpen, setWishTaskOpen] = useState(false);
+  const [wishTaskText, setWishTaskText] = useState("");
+  const [wishTaskLoading, setWishTaskLoading] = useState(false);
+  const wishContextRef = useRef<string>("");
 
   // keep refs in sync
   useEffect(() => { chatOpenRef.current = chatOpen; }, [chatOpen]);
@@ -1270,14 +1323,37 @@ function App() {
     setScanDone(true);
   }, []);
 
-  // init
+  // init — load persisted data
   useEffect(() => {
     document.documentElement.classList.add("dark");
-    if (localStorage.getItem("eleven_wish")) setHasStoredWish(true);
+    const storedWish = localStorage.getItem("eleven_wish");
+    if (storedWish) {
+      setHasStoredWish(true);
+      try {
+        const parsed = JSON.parse(storedWish) as { text?: string };
+        if (parsed.text) wishContextRef.current = parsed.text;
+      } catch { /* ignore */ }
+    }
+    // Restore chat history
+    try {
+      const savedHistory = localStorage.getItem(CHAT_HISTORY_KEY);
+      if (savedHistory) {
+        const parsed = JSON.parse(savedHistory) as { role: "user" | "assistant"; content: string }[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          chatHistoryRef.current = parsed;
+          const restored = parsed.slice(-20).map((m) => ({
+            id: nextId(),
+            text: m.content,
+            isAi: m.role === "assistant",
+          }));
+          setChatMessages(restored);
+        }
+      }
+    } catch { /* ignore */ }
     audioRef.current = new AmbientEngine();
     deviceContextRef.current = buildDeviceContext();
-    // Pre-load voices
     window.speechSynthesis?.getVoices();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const toggleSound = useCallback(() => {
@@ -1310,11 +1386,12 @@ function App() {
   }, []);
 
   // auto message injected into chat — calls real AI probe
-  const injectAutoMessage = useCallback((text?: string) => {
+  const injectAutoMessage = useCallback((text?: string, isPrediction?: boolean) => {
     if (text) {
       const id = nextId();
-      setChatMessages((prev) => [...prev, { id, text, isAi: true }]);
+      setChatMessages((prev) => [...prev, { id, text, isAi: true, isPrediction }]);
       chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: text }];
+      saveChatHistoryLS(chatHistoryRef.current);
       if (!chatOpenRef.current) {
         setUnreadCount((c) => c + 1);
         setPendingSignal(text);
@@ -1324,10 +1401,16 @@ function App() {
     setEntityTyping(true);
     const id = nextId();
     setChatMessages((prev) => [...prev, { id, text: "...", isAi: true, streaming: true }]);
-    fetchAiProbe(chatHistoryRef.current, deviceContextRef.current).then((msg) => {
+    fetchAiProbe(
+      chatHistoryRef.current,
+      deviceContextRef.current,
+      personaRef.current,
+      wishContextRef.current
+    ).then((msg) => {
       setEntityTyping(false);
       setChatMessages((prev) => prev.map((m) => m.id === id ? { ...m, text: msg, streaming: false } : m));
       chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: msg }];
+      saveChatHistoryLS(chatHistoryRef.current);
       if (!chatOpenRef.current) {
         setUnreadCount((c) => c + 1);
         setPendingSignal(msg);
@@ -1404,6 +1487,26 @@ function App() {
     return () => clearTimeout(t);
   }, [hasStoredWish]);
 
+  // prediction system — periodic mysterious time-based predictions
+  useEffect(() => {
+    const firePrediction = () => {
+      fetchAiProbe(
+        chatHistoryRef.current,
+        deviceContextRef.current,
+        personaRef.current,
+        wishContextRef.current,
+        "prediction"
+      ).then((msg) => {
+        // show as popup AND inject into chat
+        showPopup(msg);
+        injectAutoMessage(msg, true);
+      });
+      setTimeout(firePrediction, 900000 + Math.random() * 600000); // 15-25 min
+    };
+    const t = setTimeout(firePrediction, 600000 + Math.random() * 300000); // first: 10-15 min
+    return () => clearTimeout(t);
+  }, [showPopup, injectAutoMessage]);
+
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages]);
 
   const handleListen = () => {
@@ -1451,6 +1554,7 @@ function App() {
     setIsSending(true);
     setChatMessages((prev) => [...prev, { id: nextId(), text: userText, isAi: false }]);
     chatHistoryRef.current = [...chatHistoryRef.current, { role: "user", content: userText }];
+    saveChatHistoryLS(chatHistoryRef.current);
     const aiId = nextId();
     setChatMessages((prev) => [...prev, { id: aiId, text: "", isAi: true, streaming: true }]);
     let full = "";
@@ -1460,17 +1564,34 @@ function App() {
       () => {
         setChatMessages((p) => p.map((m) => m.id === aiId ? { ...m, streaming: false } : m));
         chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: full }];
+        saveChatHistoryLS(chatHistoryRef.current);
         setIsSending(false);
-        // Follow-up probe after longer delay — 90-180s
         setTimeout(() => { if (!isSendingRef.current) injectAutoMessage(); }, 90000 + Math.random() * 90000);
       },
       (err) => {
         setChatMessages((p) => p.map((m) => m.id === aiId ? { ...m, text: err, streaming: false } : m));
         setIsSending(false);
       },
-      deviceContextRef.current
+      deviceContextRef.current,
+      persona,
+      wishContextRef.current
     );
   };
+
+  const handleWishTask = useCallback(() => {
+    const wish = wishContextRef.current;
+    if (!wish) return;
+    setWishTaskLoading(true);
+    setWishTaskOpen(true);
+    fetchWishTask(wish, chatHistoryRef.current, deviceContextRef.current).then((task) => {
+      setWishTaskText(task);
+      setWishTaskLoading(false);
+      // Inject into chat as AI message for the lore
+      const msg = `بروتوكول التفعيل:\n${task}`;
+      chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: msg }];
+      saveChatHistoryLS(chatHistoryRef.current);
+    });
+  }, []);
 
   const closeWishModal = () => {
     setWishModalOpen(false);
@@ -1484,9 +1605,9 @@ function App() {
     setWishStatus("processing");
     setTimeout(() => {
       localStorage.setItem("eleven_wish", JSON.stringify({ text: wishInput, time: Date.now() }));
+      wishContextRef.current = wishInput;
       setWishStatus("success");
       setHasStoredWish(true);
-      setTimeout(() => closeWishModal(), 2000);
     }, 3000);
   };
 
@@ -1494,9 +1615,9 @@ function App() {
     setWishStatus("processing");
     setTimeout(() => {
       localStorage.setItem("eleven_wish", JSON.stringify({ text, time: Date.now(), hasVideo: true }));
+      wishContextRef.current = text;
       setWishStatus("success");
       setHasStoredWish(true);
-      setTimeout(() => closeWishModal(), 2000);
     }, 1500);
   };
 
@@ -1536,10 +1657,19 @@ function App() {
           FREQ: 11.11 Hz
         </div>
         {hasStoredWish && (
-          <div className="text-[10px] tracking-widest text-muted-foreground border border-primary/25 px-2 py-1 bg-background/40 backdrop-blur-sm inline-flex items-center gap-2">
-            <span className="w-1 h-1 bg-primary rounded-full" style={{ animation: "blink 2s ease-in-out infinite" }} />
-            ◈ WISH IN PROGRESS
-          </div>
+          <>
+            <div className="text-[10px] tracking-widest text-muted-foreground border border-primary/25 px-2 py-1 bg-background/40 backdrop-blur-sm inline-flex items-center gap-2">
+              <span className="w-1 h-1 bg-primary rounded-full" style={{ animation: "blink 2s ease-in-out infinite" }} />
+              ◈ WISH IN PROGRESS
+            </div>
+            <button
+              onClick={handleWishTask}
+              className="text-[9px] tracking-widest text-primary/70 hover:text-primary border border-primary/30 hover:border-primary/60 px-2 py-1 bg-background/40 backdrop-blur-sm transition-all duration-300 text-right"
+              dir="rtl"
+            >
+              ◇ بروتوكول التفعيل
+            </button>
+          </>
         )}
       </div>
 
@@ -1659,55 +1789,33 @@ function App() {
                 >
                   {/* Animated 11.11 logo */}
                   <div className="relative flex items-center justify-center" style={{ minHeight: 110 }}>
-                    {/* Outer glow ring */}
                     <div className="absolute inset-0 rounded-full" style={{ animation: "successRing 3s ease-in-out infinite", border: "1px solid hsl(0 75% 42% / 0.3)" }} />
-                    {/* Glitch layers */}
-                    <span
-                      className="absolute select-none font-bold text-primary/20 text-5xl tracking-tighter"
-                      style={{ animation: "successGlitchA 2.4s infinite linear", left: -3, top: 2 }}
-                      aria-hidden="true"
-                    >11.11</span>
-                    <span
-                      className="absolute select-none font-bold text-5xl tracking-tighter"
-                      style={{ color: "hsl(200 80% 60% / 0.15)", animation: "successGlitchB 3.1s infinite linear", left: 3, top: -2 }}
-                      aria-hidden="true"
-                    >11.11</span>
-                    {/* Main text */}
-                    <motion.span
-                      className="relative font-bold text-5xl tracking-tighter select-none"
-                      style={{
-                        color: "hsl(0 75% 42%)",
-                        textShadow: "0 0 30px hsl(0 75% 42% / 0.6), 0 0 60px hsl(0 75% 42% / 0.3)",
-                        animation: "successFloat 4s ease-in-out infinite",
-                      }}
-                    >
-                      11.11
-                    </motion.span>
+                    <span className="absolute select-none font-bold text-primary/20 text-5xl tracking-tighter" style={{ animation: "successGlitchA 2.4s infinite linear", left: -3, top: 2 }} aria-hidden="true">11.11</span>
+                    <span className="absolute select-none font-bold text-5xl tracking-tighter" style={{ color: "hsl(200 80% 60% / 0.15)", animation: "successGlitchB 3.1s infinite linear", left: 3, top: -2 }} aria-hidden="true">11.11</span>
+                    <motion.span className="relative font-bold text-5xl tracking-tighter select-none" style={{ color: "hsl(0 75% 42%)", textShadow: "0 0 30px hsl(0 75% 42% / 0.6), 0 0 60px hsl(0 75% 42% / 0.3)", animation: "successFloat 4s ease-in-out infinite" }}>11.11</motion.span>
                   </div>
 
-                  {/* Status lines */}
                   <div className="flex flex-col gap-1.5 items-center">
-                    <p className="text-foreground/90 text-sm tracking-[0.15em] font-bold" dir="rtl">
-                      يعمل النظام على تحقيق أمنيتك
-                    </p>
+                    <p className="text-foreground/90 text-sm tracking-[0.15em] font-bold" dir="rtl">يعمل النظام على تحقيق أمنيتك</p>
                     <div className="w-32 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent my-1" />
-                    <p className="text-muted-foreground/70 text-[11px] tracking-widest" dir="rtl">
-                      تم استلام الأمنية وتسجيلها في الذاكرة الكونية
-                    </p>
-                    <p className="text-primary/50 text-[10px] tracking-widest mt-1">
-                      SECTOR 11 · {new Date().toLocaleTimeString("ar")}
-                    </p>
+                    <p className="text-muted-foreground/70 text-[11px] tracking-widest" dir="rtl">تم استلام الأمنية وتسجيلها في الذاكرة الكونية</p>
+                    <p className="text-primary/50 text-[10px] tracking-widest mt-1">SECTOR 11 · {new Date().toLocaleTimeString("ar")}</p>
                   </div>
 
-                  {/* Scanning bar */}
                   <div className="w-full max-w-[200px] h-px bg-muted overflow-hidden rounded-none">
-                    <motion.div
-                      initial={{ x: "-100%" }}
-                      animate={{ x: "200%" }}
-                      transition={{ duration: 2, repeat: Infinity, ease: "linear", delay: 0.3 }}
-                      className="h-full w-1/3 bg-gradient-to-r from-transparent via-primary to-transparent"
-                    />
+                    <motion.div initial={{ x: "-100%" }} animate={{ x: "200%" }} transition={{ duration: 2, repeat: Infinity, ease: "linear", delay: 0.3 }} className="h-full w-1/3 bg-gradient-to-r from-transparent via-primary to-transparent" />
                   </div>
+
+                  {/* Wish task activation button */}
+                  <motion.button
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 1.2, duration: 0.6 }}
+                    onClick={() => { closeWishModal(); setTimeout(handleWishTask, 400); }}
+                    className="mt-1 border border-primary/50 bg-primary/10 hover:bg-primary/20 text-primary text-[11px] tracking-[0.2em] px-5 py-2 transition-all duration-300 uppercase"
+                  >
+                    ◈ استلم بروتوكول التفعيل
+                  </motion.button>
                 </motion.div>
               )}
 
@@ -1888,9 +1996,30 @@ function App() {
           {chatOpen && (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
               className="bg-card/96 backdrop-blur-md border border-primary/25 shadow-[0_0_30px_rgba(180,0,0,0.08)] mb-4 flex flex-col h-[440px] max-h-[66vh] rounded-none">
-              <div className="px-4 py-2.5 border-b border-primary/15 flex justify-between items-center bg-background/60 shrink-0">
-                <span className="text-[10px] tracking-[0.2em] text-primary/80 font-bold">11.11 // SECURE CHANNEL</span>
-                <span className="text-[9px] text-muted-foreground/60 tracking-widest">MULTILINGUAL · LIVE AI</span>
+              <div className="px-3 py-2 border-b border-primary/15 flex flex-col gap-1.5 bg-background/60 shrink-0">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] tracking-[0.2em] text-primary/80 font-bold">11.11 // {PERSONA_META[persona].tagline}</span>
+                  <span className="text-[9px] text-muted-foreground/60 tracking-widest">LIVE AI</span>
+                </div>
+                {/* Persona switcher */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[8px] text-muted-foreground/40 tracking-widest mr-0.5">الشخصية:</span>
+                  {(["entity", "narrator", "observer", "voice"] as Persona[]).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setPersona(p)}
+                      title={PERSONA_META[p].label}
+                      className={`text-[10px] px-2 py-0.5 border transition-all duration-300 tracking-wider ${
+                        persona === p
+                          ? "border-primary/70 text-primary bg-primary/15"
+                          : "border-muted-foreground/20 text-muted-foreground/40 hover:border-primary/40 hover:text-primary/60"
+                      }`}
+                    >
+                      {PERSONA_META[p].icon}
+                    </button>
+                  ))}
+                  <span className="text-[9px] text-muted-foreground/40 tracking-widest ml-1">{PERSONA_META[persona].label}</span>
+                </div>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
                 {chatMessages.length === 0 && (
@@ -1902,13 +2031,18 @@ function App() {
                 {chatMessages.map((msg) => (
                   <div key={msg.id} className={`flex flex-col ${msg.isAi ? "items-start" : "items-end"}`}>
                     <span className="text-[9px] text-muted-foreground/50 mb-1 tracking-widest">
-                      {msg.isAi ? "11.11" : "YOU"}
+                      {msg.isAi ? (msg.isPrediction ? "◇ PREDICTION" : PERSONA_META[persona].tagline) : "YOU"}
                     </span>
-                    <div className={`text-xs leading-relaxed break-words max-w-[90%] px-3 py-2 ${msg.isAi
-                      ? "text-primary/90 bg-primary/5 border border-primary/15"
-                      : "text-foreground/85 bg-muted/40 text-right"}`}
+                    <div className={`text-xs leading-relaxed break-words max-w-[90%] px-3 py-2 ${
+                      msg.isPrediction
+                        ? "text-yellow-400/80 bg-yellow-900/10 border border-yellow-700/30 italic"
+                        : msg.isAi
+                        ? "text-primary/90 bg-primary/5 border border-primary/15"
+                        : "text-foreground/85 bg-muted/40 text-right"
+                    }`}
                       dir="auto">
-                      {msg.isAi && <span className="mr-1.5 opacity-50 text-[10px]">◈</span>}
+                      {msg.isAi && !msg.isPrediction && <span className="mr-1.5 opacity-50 text-[10px]">{PERSONA_META[persona].icon}</span>}
+                      {msg.isPrediction && <span className="mr-1.5 text-[10px]">◇ </span>}
                       {msg.text}
                       {msg.streaming && (
                         <span className="inline-block w-1 h-3 bg-primary/70 ml-1 align-middle" style={{ animation: "blink 0.8s step-end infinite" }} />
@@ -1956,6 +2090,52 @@ function App() {
           </Button>
         </div>
       </div>
+
+      {/* ── Wish Task Activation Modal ── */}
+      <AnimatePresence>
+        {wishTaskOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => !wishTaskLoading && setWishTaskOpen(false)}
+              className="absolute inset-0 bg-black/92 backdrop-blur-md" />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.88, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.88, y: 30 }}
+              transition={{ duration: 0.5 }}
+              className="relative w-full max-w-sm bg-background/98 border border-primary/50 shadow-[0_0_60px_rgba(180,0,0,0.25)] p-7 text-center rounded-none"
+            >
+              {/* Corner decorations */}
+              <div className="absolute top-0 left-0 w-5 h-5 border-l-2 border-t-2 border-primary/70" />
+              <div className="absolute top-0 right-0 w-5 h-5 border-r-2 border-t-2 border-primary/70" />
+              <div className="absolute bottom-0 left-0 w-5 h-5 border-l-2 border-b-2 border-primary/70" />
+              <div className="absolute bottom-0 right-0 w-5 h-5 border-r-2 border-b-2 border-primary/70" />
+
+              <p className="text-[9px] tracking-[0.35em] text-primary/60 mb-4 uppercase">بروتوكول تفعيل الأمنية</p>
+              <div className="w-16 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent mx-auto mb-5" />
+
+              {wishTaskLoading ? (
+                <div className="flex flex-col items-center gap-4 py-6">
+                  <span className="text-2xl text-primary" style={{ animation: "blink 1s step-end infinite" }}>◈</span>
+                  <p className="text-[11px] tracking-widest text-muted-foreground/70">النظام يحدد المسار...</p>
+                </div>
+              ) : (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.7 }} className="flex flex-col gap-5">
+                  <p className="text-sm text-foreground/90 leading-relaxed tracking-wide font-mono" dir="rtl">{wishTaskText}</p>
+                  <div className="w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+                  <p className="text-[10px] tracking-widest text-primary/50">نفّذ هذا. لا تتأخر.</p>
+                  <button
+                    onClick={() => setWishTaskOpen(false)}
+                    className="text-[10px] tracking-widest text-muted-foreground/50 hover:text-muted-foreground transition-colors mt-1"
+                  >
+                    تم الاستلام ✓
+                  </button>
+                </motion.div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
