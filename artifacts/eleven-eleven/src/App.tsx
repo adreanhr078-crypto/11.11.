@@ -2431,18 +2431,20 @@ function App() {
     window.speechSynthesis?.getVoices();
     // Register service worker for push notifications (silent — no UI impact)
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").then((reg) => {
-        swRegistrationRef.current = reg;
-        // If push permission already granted (returning user), re-subscribe silently
-        if (Notification.permission === "granted") {
-          initServerUid().then((resolvedUid) => subscribePush(reg, resolvedUid));
-        }
-      }).catch(() => { /* SW unsupported or blocked */ });
+      navigator.serviceWorker.register("/sw.js")
+        .then((reg) => { swRegistrationRef.current = reg; })
+        .catch(() => { /* SW unsupported or blocked */ });
     }
     // Initialize server-issued UID (async — sets uid state to trigger profile load)
     initServerUid().then((resolvedUid) => {
       uidRef.current = resolvedUid;
       setUid(resolvedUid);
+      // Subscribe returning users (permission already granted) without extra initServerUid call
+      if (Notification.permission === "granted" && "serviceWorker" in navigator) {
+        navigator.serviceWorker.ready
+          .then((reg) => { swRegistrationRef.current = reg; return subscribePush(reg, resolvedUid); })
+          .catch(() => { /* push subscribe failed */ });
+      }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
