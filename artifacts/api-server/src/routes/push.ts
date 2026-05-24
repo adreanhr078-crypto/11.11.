@@ -1,7 +1,7 @@
 import { Router } from "express";
 import webpush from "web-push";
-import { db, pushSubscriptionsTable } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { db, pushSubscriptionsTable, usersTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -141,7 +141,7 @@ router.get("/push/schedule", async (req, res) => {
       .limit(1);
 
     if (rows.length === 0) { res.status(404).json({ error: "not found" }); return; }
-    res.json({ scheduleMask: rows[0].scheduleMask });
+    res.json({ scheduleMask: rows[0]!.scheduleMask });
   } catch (err) {
     req.log.error({ err }, "push schedule fetch error");
     res.status(500).json({ error: "internal" });
@@ -187,7 +187,7 @@ async function sendExpoPush(
 
     result.data.forEach((r, i) => {
       if (r.status === "error" && r.details?.error === "DeviceNotRegistered") {
-        dead.push(tokens[i]);
+        dead.push(tokens[i]!);
       }
     });
   } catch (err) {
@@ -197,23 +197,60 @@ async function sendExpoPush(
   return dead;
 }
 
-// Exported for the cron job.
+export type UserProfile = {
+  name: string | null;
+  wish: string | null;
+  fear: string | null;
+  geoCity: string | null;
+};
+
+export type MessagePayload = { title: string; body: string };
+export type MessageFactory = (profile: UserProfile | null) => MessagePayload;
+
+// Exported for the cron job — sends a personalized message per subscriber.
 // bitFlag: which schedule bit to check (1=11:11, 2=23:11, undefined=3:33 sends to ALL)
+// makeMessage receives each user's profile and returns the personalized title+body.
 export async function sendPushToAll(
-  payload: { title: string; body: string },
+  makeMessage: MessageFactory,
   bitFlag?: number
 ): Promise<void> {
-  // If bitFlag is set, only fetch subscriptions that have that bit enabled
   const allSubs = await db.select().from(pushSubscriptionsTable);
   if (allSubs.length === 0) return;
 
+  // bitFlag filtering: respect user schedule preferences (3:33 always fires to everyone)
   const subs = bitFlag !== undefined
     ? allSubs.filter((s) => (s.scheduleMask & bitFlag) !== 0)
-    : allSubs; // 3:33 goes to everyone — the entity cannot be silenced
+    : allSubs;
 
   if (subs.length === 0) return;
 
-  logger.info({ total: subs.length, bitFlag }, "Sending push to subscribers");
+  // Batch-load profiles for all non-anonymous uids
+  const uids = [...new Set(subs.map((s) => s.uid).filter((u) => u !== "anonymous"))];
+
+  const profileMap = new Map<string, UserProfile>();
+  if (uids.length > 0) {
+    const allProfiles = await Promise.all(
+      uids.map((uid) =>
+        db
+          .select({
+            uid: usersTable.uid,
+            name: usersTable.name,
+            wish: usersTable.wish,
+            fear: usersTable.fear,
+            geoCity: usersTable.geoCity,
+          })
+          .from(usersTable)
+          .where(eq(usersTable.uid, uid))
+          .then((rows) => rows[0] ?? null)
+      )
+    );
+
+    for (const p of allProfiles) {
+      if (p) profileMap.set(p.uid, { name: p.name, wish: p.wish, fear: p.fear, geoCity: p.geoCity });
+    }
+  }
+
+  logger.info({ total: subs.length, bitFlag }, "Sending personalized push to subscribers");
 
   const webSubs = subs.filter((s) => s.tokenType === "web");
   const expoSubs = subs.filter((s) => s.tokenType === "expo");
@@ -227,6 +264,8 @@ export async function sendPushToAll(
       await Promise.allSettled(
         webSubs.map(async (s) => {
           if (!s.p256dh || !s.auth) return;
+          const profile = profileMap.get(s.uid) ?? null;
+          const payload = makeMessage(profile);
           try {
             await webpush.sendNotification(
               { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
@@ -245,8 +284,15 @@ export async function sendPushToAll(
 
   // ── Expo Push ─────────────────────────────────────────────────────────────────
   if (expoSubs.length > 0) {
-    const tokens = expoSubs.map((s) => s.endpoint);
-    const deadTokens = await sendExpoPush(tokens, payload);
+    const deadTokens: string[] = [];
+    await Promise.all(
+      expoSubs.map(async (s) => {
+        const profile = profileMap.get(s.uid) ?? null;
+        const payload = makeMessage(profile);
+        const dead = await sendExpoPush([s.endpoint], payload);
+        deadTokens.push(...dead);
+      })
+    );
     for (const token of deadTokens) {
       const sub = expoSubs.find((s) => s.endpoint === token);
       if (sub) deadIds.push(sub.id);

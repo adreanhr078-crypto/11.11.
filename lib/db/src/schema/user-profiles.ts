@@ -4,8 +4,10 @@ import { z } from "zod/v4";
 
 export const usersTable = pgTable("users", {
   uid: text("uid").primaryKey(),
+  name: text("name"),
   geoCity: text("geo_city"),
   wish: text("wish"),
+  fear: text("fear"),
   persona: text("persona").default("entity"),
   discoveredRooms: text("discovered_rooms").array().default([]),
   // Device fingerprint for cross-device lookup (non-PII, non-unique, best-effort)
