@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { LevelGate } from "./LevelGate";
 
 // ─── WISH VIDEO RECORDER ──────────────────────────────────────────────────────
 
@@ -898,11 +899,11 @@ function EntryScreen({ onDone }: { onDone: (city: string | null) => void }) {
 }
 
 function UserProfilePanel({
-  messageCount, wish, sessionMinutes, discoveredRooms, geoCity, chatHistory, deviceContext, onClose,
+  messageCount, wish, sessionMinutes, discoveredRooms, geoCity, chatHistory, deviceContext, argLevel, argCompleted, onClose,
 }: {
   messageCount: number; wish: string | null; sessionMinutes: number; discoveredRooms: string[];
   geoCity: string | null; chatHistory: { role: "user" | "assistant"; content: string }[];
-  deviceContext: string; onClose: () => void;
+  deviceContext: string; argLevel: number; argCompleted: boolean; onClose: () => void;
 }) {
   const uid = `USER-${messageCount.toString(16).toUpperCase().padStart(4, "0")}-11`;
   const thinkingPattern = THINKING_PATTERNS[messageCount % THINKING_PATTERNS.length];
@@ -956,6 +957,27 @@ function UserProfilePanel({
         </div>
 
         <div className="p-5 space-y-4">
+          {/* ARG completion badge */}
+          {argCompleted ? (
+            <div className="border-2 border-amber-600/50 bg-amber-950/20 px-4 py-3 text-center relative overflow-hidden">
+              <div className="absolute inset-0 opacity-5" style={{ backgroundImage: "repeating-linear-gradient(45deg, currentColor 0, currentColor 1px, transparent 0, transparent 50%)", backgroundSize: "8px 8px" }} />
+              <p className="text-[8px] tracking-[0.7em] text-amber-500/60 font-mono mb-1">PROTOCOL 11.11</p>
+              <p className="text-sm font-bold text-amber-400/90 tracking-[0.5em] font-mono" style={{ transform: "rotate(-2deg)" }}>◈ CLASSIFIED ◈</p>
+              <p className="text-[8px] text-amber-600/50 tracking-widest font-mono mt-1">SUBJECT COMPLETED — LEVEL {argLevel}/5</p>
+            </div>
+          ) : (
+            <div className="border border-primary/12 bg-primary/3 px-3 py-2 flex items-center justify-between">
+              <p className="text-[9px] text-muted-foreground/35 tracking-widest font-mono">مستوى البروتوكول</p>
+              <div className="flex items-center gap-2">
+                <div className="flex gap-0.5">
+                  {[1,2,3,4,5].map(l => (
+                    <div key={l} className={`w-1.5 h-1.5 ${l <= argLevel ? "bg-primary/50" : "bg-primary/12"}`} />
+                  ))}
+                </div>
+                <p className="text-[9px] text-primary/40 font-mono">{argLevel}/5</p>
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-2.5">
             {([
               ["الرسائل", String(messageCount)],
@@ -2484,6 +2506,11 @@ function App() {
   // User profile panel
   const [profileOpen, setProfileOpen] = useState(false);
 
+  // ARG Level progression
+  const [argLevel, setArgLevel] = useState(1);
+  const [argCompleted, setArgCompleted] = useState(false);
+  const [levelOpen, setLevelOpen] = useState(false);
+
   // Notification schedule control panel
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [schedule, setSchedule] = useState<{ s11: boolean; s23: boolean }>(() => {
@@ -2625,6 +2652,16 @@ function App() {
     initServerUid().then((resolvedUid) => {
       uidRef.current = resolvedUid;
       setUid(resolvedUid);
+      // Fetch ARG level progress
+      fetch(`/api/progress?uid=${resolvedUid}`)
+        .then(r => r.ok ? r.json() : null)
+        .then((data: { currentLevel: number; isCompleted: boolean } | null) => {
+          if (data) {
+            setArgLevel(data.currentLevel);
+            setArgCompleted(data.isCompleted);
+          }
+        })
+        .catch(() => { /* non-critical */ });
       // Subscribe returning users (permission already granted) without extra initServerUid call
       if (Notification.permission === "granted" && "serviceWorker" in navigator) {
         navigator.serviceWorker.ready
@@ -3853,6 +3890,14 @@ function App() {
           )}
         </AnimatePresence>
         <div className="flex justify-end gap-2">
+          {/* ARG Level badge — visible once consent is done */}
+          {consentDone && uid && (
+            <Button variant="outline"
+              onClick={() => setLevelOpen(o => !o)}
+              className={`border-primary/12 tracking-widest text-[8px] h-7 bg-background/85 backdrop-blur-md rounded-none px-3 shadow-none transition-all duration-300 ${argCompleted ? "text-amber-400/60 border-amber-400/20 hover:text-amber-400/90" : "text-muted-foreground/25 hover:text-primary/50 hover:border-primary/30"}`}>
+              {argCompleted ? "◈ CLASSIFIED" : `◈ LVL ${argLevel}`}
+            </Button>
+          )}
           {/* Notification schedule control — only visible when push is active */}
           {consentDone && pushEndpointRef.current && (
             <Button variant="outline"
@@ -3939,6 +3984,22 @@ function App() {
         )}
       </AnimatePresence>
 
+      {/* ARG Level Gate */}
+      <AnimatePresence>
+        {levelOpen && uid && (
+          <LevelGate
+            uid={uid}
+            initialLevel={argLevel}
+            isCompleted={argCompleted}
+            onClose={() => setLevelOpen(false)}
+            onAdvance={(newLevel, completed) => {
+              setArgLevel(Math.min(newLevel, 5));
+              if (completed) setArgCompleted(true);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Notification schedule control panel */}
       <AnimatePresence>
         {scheduleOpen && (
@@ -3963,6 +4024,8 @@ function App() {
             geoCity={geoCity}
             chatHistory={chatHistoryRef.current}
             deviceContext={deviceContextRef.current}
+            argLevel={argLevel}
+            argCompleted={argCompleted}
             onClose={() => setProfileOpen(false)}
           />
         )}

@@ -3,6 +3,7 @@ import healthRouter from "./health";
 import aiChatRouter from "./ai-chat";
 import userProfileRouter from "./user-profile";
 import pushRouter from "./push";
+import progressRouter from "./progress";
 
 const router: IRouter = Router();
 
@@ -10,5 +11,6 @@ router.use(healthRouter);
 router.use(aiChatRouter);
 router.use(userProfileRouter);
 router.use(pushRouter);
+router.use(progressRouter);
 
 export default router;

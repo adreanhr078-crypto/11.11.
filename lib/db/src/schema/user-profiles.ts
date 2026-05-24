@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -12,6 +12,9 @@ export const usersTable = pgTable("users", {
   discoveredRooms: text("discovered_rooms").array().default([]),
   // Device fingerprint for cross-device lookup (non-PII, non-unique, best-effort)
   fingerprint: text("fingerprint"),
+  // ARG Progression
+  currentLevel: integer("current_level").notNull().default(1),
+  levelUnlockedAt: text("level_unlocked_at").notNull().default("{}"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()

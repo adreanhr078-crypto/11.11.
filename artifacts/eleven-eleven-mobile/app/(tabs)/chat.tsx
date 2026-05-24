@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { fetch } from "expo/fetch";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   FlatList,
   Platform,
@@ -13,9 +13,11 @@ import {
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { LevelModal } from "@/components/LevelModal";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { useColors } from "@/hooks/useColors";
-import { buildDeviceContext, type Persona } from "@/lib/api";
+import { buildDeviceContext, getApiBaseUrl, type Persona } from "@/lib/api";
+import { fetchLevelProgress, getServerUid } from "@/lib/progress";
 import { shareExperience } from "@/lib/share";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -39,12 +41,6 @@ const PERSONA_LABELS: Record<Persona, string> = {
   voice: "الصوت",
 };
 
-function getApiBaseUrl(): string {
-  const domain = process.env["EXPO_PUBLIC_DOMAIN"];
-  if (domain) return `https://${domain}`;
-  return "";
-}
-
 export default function ChatScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -54,6 +50,25 @@ export default function ChatScreen() {
   const [showTyping, setShowTyping] = useState(false);
   const [persona, setPersona] = useState<Persona>("entity");
   const inputRef = useRef<TextInput>(null);
+
+  // ARG Level progression
+  const [serverUid, setServerUid] = useState<string | null>(null);
+  const [argLevel, setArgLevel] = useState(1);
+  const [argCompleted, setArgCompleted] = useState(false);
+  const [levelOpen, setLevelOpen] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      const uid = await getServerUid();
+      if (!uid) return;
+      setServerUid(uid);
+      const progress = await fetchLevelProgress();
+      if (progress) {
+        setArgLevel(progress.currentLevel);
+        setArgCompleted(progress.isCompleted);
+      }
+    })();
+  }, []);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const botPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -166,6 +181,29 @@ export default function ChatScreen() {
         ]}
       >
         <View style={styles.headerRow}>
+          {/* ARG Level badge — left of title */}
+          {serverUid && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.levelBtn,
+                {
+                  borderColor: argCompleted ? "#b8860b44" : colors.border,
+                  opacity: pressed ? 0.6 : 1,
+                },
+              ]}
+              onPress={async () => {
+                await Haptics.selectionAsync();
+                setLevelOpen(true);
+              }}
+            >
+              <Text style={[
+                styles.levelBtnText,
+                { color: argCompleted ? "#c9a030" : colors.mutedForeground },
+              ]}>
+                {argCompleted ? "✦" : `L${argLevel}`}
+              </Text>
+            </Pressable>
+          )}
           <Text style={[styles.headerTitle, { color: colors.primary }]}>
             الكيان 11.11
           </Text>
@@ -327,6 +365,22 @@ export default function ChatScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      {/* ARG Level Modal */}
+      {serverUid && (
+        <LevelModal
+          visible={levelOpen}
+          uid={serverUid}
+          initialLevel={argLevel}
+          isCompleted={argCompleted}
+          apiBase={getApiBaseUrl()}
+          onClose={() => setLevelOpen(false)}
+          onAdvance={(newLevel, completed) => {
+            setArgLevel(Math.min(newLevel, 5));
+            if (completed) setArgCompleted(true);
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -353,6 +407,20 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     textAlign: "center",
     flex: 1,
+  },
+  levelBtn: {
+    position: "absolute",
+    left: 0,
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  levelBtnText: {
+    fontFamily: "ShareTechMono_400Regular",
+    fontSize: 9,
+    letterSpacing: 2,
   },
   shareBtn: {
     position: "absolute",
