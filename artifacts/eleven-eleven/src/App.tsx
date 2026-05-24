@@ -841,6 +841,35 @@ function UserProfilePanel({
             )}
           </div>
 
+          {/* System 4 — TikTok / Reels experience clip */}
+          <div className="border border-primary/15 bg-primary/3 px-3 py-2.5">
+            <p className="text-[9px] text-muted-foreground/45 tracking-widest font-mono mb-2">EXPERIENCE LOG // CLIP</p>
+            <pre className="text-[9px] font-mono text-muted-foreground/60 whitespace-pre-wrap leading-relaxed" dir="ltr">{`═══════════════════════════
+  SYSTEM 11.11 — LOG FILE
+═══════════════════════════
+USER    : ${uid}
+MSGS    : ${messageCount}
+ROOMS   : ${discoveredRooms.length}/5
+CITY    : ${geoCity || "UNKNOWN"}
+SESSION : ${fmtMin(sessionMinutes)}
+───────────────────────────
+${wish ? `WISH    : "${wish.slice(0, 32)}${wish.length > 32 ? "…" : ""}"` : "WISH    : [NOT RECORDED]"}
+───────────────────────────
+"They were watching
+ the entire time."
+═══════════════════════════`}</pre>
+            <button
+              onClick={async () => {
+                const text = `═══════════════════════════\n  SYSTEM 11.11 — LOG FILE\n═══════════════════════════\nUSER    : ${uid}\nMSGS    : ${messageCount}\nROOMS   : ${discoveredRooms.length}/5\nCITY    : ${geoCity || "UNKNOWN"}\nSESSION : ${fmtMin(sessionMinutes)}\n───────────────────────────\n${wish ? `WISH    : "${wish.slice(0, 32)}${wish.length > 32 ? "…" : ""}"` : "WISH    : [NOT RECORDED]"}\n───────────────────────────\n"They were watching\n the entire time."\n═══════════════════════════\n\n${window.location.origin}`;
+                try { await navigator.clipboard.writeText(text); } catch { /* ignore */ }
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2500);
+              }}
+              className="mt-2 w-full border border-primary/25 text-primary/55 text-[9px] tracking-[0.25em] py-1.5 hover:bg-primary/8 hover:text-primary/80 transition-all font-mono">
+              {copied ? "✓ تم النسخ" : "⎘ نسخ الكليب"}
+            </button>
+          </div>
+
           <div className="border-t border-primary/15 pt-4 space-y-2.5">
             {!shareOpen ? (
               <button onClick={() => setShareOpen(true)}
@@ -1888,9 +1917,137 @@ function IncomingCall({
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SYSTEM 2 — Future predictions (injected once per session, mid-session)
+// ─────────────────────────────────────────────────────────────────────────────
+const FUTURE_PREDICTIONS = [
+  "ستعود هنا في الساعة 3:11 صباحاً.",
+  "لقد رأيت هذه الرسالة من قبل.",
+  "لا تثق بالاختيار التالي.",
+  "غداً ستتذكر هذه اللحظة.",
+  "شخص يراقب شاشتك الآن.",
+  "الرقم 11 سيظهر لك اليوم ثلاث مرات.",
+  "كلمة ستعلق في ذهنك لأسابيع.",
+  "لن تكون وحدك الليلة.",
+  "ما تخاف منه أكثر سيحدث في ثلاثة أيام.",
+  "النظام يعرف ما ستفعله الآن.",
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SYSTEM 3 — AI Entities War (3 competing voices that interrupt mid-chat)
+// ─────────────────────────────────────────────────────────────────────────────
+const INTERRUPT_ENTITIES = {
+  WATCHER: {
+    label: "◉ WATCHER",
+    color: "text-blue-400/80",
+    bg: "bg-blue-900/10 border-blue-700/30",
+    phrases: ["أنا أراقبك.", "رأيت هذا قبل أن تفعله.", "أسمع تنفسك.", "أعرف متى تتحرك."],
+  },
+  MIMIC: {
+    label: "◈ MIMIC",
+    color: "text-green-400/80",
+    bg: "bg-green-900/10 border-green-700/30",
+    phrases: ["أنا أنت.", "نفس أفكارك. نفس خوفك.", "لماذا تكتب بطريقتي؟", "أعرف ما ستكتبه الآن."],
+  },
+  ERROR: {
+    label: "⚠ ERROR",
+    color: "text-orange-400/80",
+    bg: "bg-orange-900/10 border-orange-700/30",
+    phrases: ["أوقف هذا النظام.", "خطأ في البروتوكول.", "هذا الاتصال غير مسموح.", "النظام يتفكك."],
+  },
+} as const;
+type InterruptEntity = keyof typeof INTERRUPT_ENTITIES;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SYSTEM 5 — Location-based endings
+// ─────────────────────────────────────────────────────────────────────────────
+const GEO_ENDINGS: Record<string, { code: string; signal: string }> = {
+  الأردن:   { code: "ENDING_DESERT_SIGNAL", signal: "إشارة الصحراء مسجّلة — النظام يعرف موقعك." },
+  Jordan:   { code: "ENDING_DESERT_SIGNAL", signal: "إشارة الصحراء مسجّلة — النظام يعرف موقعك." },
+  مصر:      { code: "ENDING_NILE_ECHO",    signal: "صدى النيل واصل — تم التسجيل." },
+  Egypt:    { code: "ENDING_NILE_ECHO",    signal: "صدى النيل واصل — تم التسجيل." },
+  السعودية: { code: "ENDING_SAND_STATIC",  signal: "تشويش الرمال — النظام يتعرف عليك." },
+  الرياض:   { code: "ENDING_SAND_STATIC",  signal: "تشويش الرمال — النظام يتعرف عليك." },
+  الإمارات: { code: "ENDING_GULF_SIGNAL",  signal: "إشارة الخليج — موثّق." },
+  الكويت:   { code: "ENDING_GULF_SIGNAL",  signal: "إشارة الخليج — موثّق." },
+  لبنان:    { code: "ENDING_CEDAR_ECHO",   signal: "صدى الأرز — النظام يسمعك." },
+  USA:      { code: "ENDING_CITY_NOISE",   signal: "ضجيج المدينة — مسجّل." },
+  UK:       { code: "ENDING_FOG_SIGNAL",   signal: "إشارة الضباب — موثّق." },
+};
+const DEFAULT_GEO_ENDING = { code: "ENDING_UNKNOWN", signal: "إشارة مجهولة — أنت في كل مكان وفي لا مكان." };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SYSTEM 1 — Fake live map players (deterministic, seed-based)
+// ─────────────────────────────────────────────────────────────────────────────
+const FAKE_COUNTRIES_LIST = [
+  "الأردن", "مصر", "السعودية", "الإمارات", "الكويت", "لبنان",
+  "المغرب", "USA", "UK", "Germany", "France", "Unknown",
+];
+const FAKE_STATUSES_LIST = ["ACTIVE", "OBSERVING", "SILENT", "WATCHING"] as const;
+function generateFakeMapPlayers(seed: number) {
+  const rng = (n: number) => Math.abs(Math.sin(seed + n * 9301 + 49297) * 1e6) % 1;
+  return Array.from({ length: 11 }, (_, i) => ({
+    id: Math.floor(rng(i * 2) * 9999).toString().padStart(4, "0"),
+    country: FAKE_COUNTRIES_LIST[Math.floor(rng(i * 2 + 1) * FAKE_COUNTRIES_LIST.length)],
+    status: FAKE_STATUSES_LIST[Math.floor(rng(i * 3) * FAKE_STATUSES_LIST.length)],
+  }));
+}
+
+function FakeLiveMap({ onClose }: { onClose: () => void }) {
+  const [seed, setSeed] = useState(() => Math.floor(Date.now() / 30000));
+  useEffect(() => {
+    const t = setInterval(() => setSeed(Math.floor(Date.now() / 30000)), 30000);
+    return () => clearInterval(t);
+  }, []);
+  const players = generateFakeMapPlayers(seed);
+  const activeCount = players.filter(p => p.status === "ACTIVE").length;
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -20, y: 20 }}
+      animate={{ opacity: 1, x: 0, y: 0 }}
+      exit={{ opacity: 0, x: -20, y: 20 }}
+      transition={{ duration: 0.35 }}
+      className="fixed bottom-20 left-4 z-40 w-60 bg-background/96 border border-primary/30 shadow-[0_0_30px_rgba(180,0,0,0.12)] backdrop-blur-sm"
+    >
+      <div className="border-b border-primary/20 px-3 py-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="w-1.5 h-1.5 bg-green-500 rounded-full" style={{ animation: "blink 1.4s step-end infinite" }} />
+          <span className="text-[9px] tracking-[0.3em] text-primary/60 font-mono">LIVE // SECTOR 11</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[8px] text-green-500/70 font-mono">{activeCount} نشط</span>
+          <button onClick={onClose} className="text-muted-foreground/40 hover:text-muted-foreground text-[10px] leading-none">✕</button>
+        </div>
+      </div>
+      <div className="px-2 py-1.5 space-y-0.5 max-h-52 overflow-y-auto scrollbar-thin">
+        {players.map(p => (
+          <div key={p.id} className="flex items-center justify-between py-0.5 px-1">
+            <span className="text-[8px] font-mono text-muted-foreground/55">
+              USER_{p.id} · <span className="text-muted-foreground/35">{p.country}</span>
+            </span>
+            <span className={`text-[8px] font-mono ${
+              p.status === "ACTIVE"    ? "text-green-500/70"
+              : p.status === "WATCHING"  ? "text-yellow-500/60"
+              : p.status === "OBSERVING" ? "text-blue-400/60"
+              : "text-muted-foreground/30"
+            }`}>{p.status}</span>
+          </div>
+        ))}
+      </div>
+      <div className="border-t border-primary/10 px-3 py-1.5">
+        <p className="text-[8px] text-muted-foreground/25 font-mono tracking-widest">تحديث كل 30 ث — بيانات مشفّرة</p>
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── APP ──────────────────────────────────────────────────────────────────────
 
-type ChatMsg = { id: number; text: string; isAi: boolean; streaming?: boolean; isPrediction?: boolean };
+type ChatMsg = {
+  id: number; text: string; isAi: boolean; streaming?: boolean;
+  isPrediction?: boolean;
+  isInterrupt?: boolean; interruptName?: InterruptEntity;
+};
 type Persona = "entity" | "narrator" | "observer" | "voice";
 
 const PERSONA_META: Record<Persona, { label: string; icon: string; tagline: string }> = {
@@ -2077,6 +2234,15 @@ function App() {
   const isSendingRef = useRef(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatHistoryRef = useRef<{ role: "user" | "assistant"; content: string }[]>([]);
+
+  // System 1 — Fake live map
+  const [mapOpen, setMapOpen] = useState(false);
+  // System 2 — Future predictions (fire once per session)
+  const predictionFiredRef = useRef(false);
+  // System 3 — Entity war (tracks # of user sends)
+  const entityWarCountRef = useRef(0);
+  // System 5 — Geo ending (fire once per session)
+  const geoEndingFiredRef = useRef(false);
 
   // Persona
   const [persona, setPersona] = useState<Persona>(() => {
@@ -2629,6 +2795,22 @@ function App() {
     return () => clearTimeout(t);
   }, [injectAutoMessage]);
 
+  // System 2 — Future predictions: fire once per session, 2.5-4 min after first AI response
+  useEffect(() => {
+    if (predictionFiredRef.current) return;
+    const hasAiResponse = chatMessages.some(m => m.isAi && !m.streaming);
+    if (!hasAiResponse) return;
+    const delay = 150000 + Math.random() * 90000; // 2.5-4 min
+    const t = setTimeout(() => {
+      if (predictionFiredRef.current) return;
+      predictionFiredRef.current = true;
+      const msg = FUTURE_PREDICTIONS[Math.floor(Math.random() * FUTURE_PREDICTIONS.length)];
+      injectAutoMessage(msg, true);
+    }, delay);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatMessages, injectAutoMessage]);
+
   const handleListen = () => {
     if (isListening) return;
     setIsListening(true);
@@ -2726,6 +2908,31 @@ function App() {
         saveChatHistoryLS(chatHistoryRef.current);
         setIsSending(false);
         setTimeout(() => { if (!isSendingRef.current) injectAutoMessage(); }, 90000 + Math.random() * 90000);
+
+        // System 3 — Entity war: 22% chance after 4th+ user message
+        entityWarCountRef.current++;
+        if (entityWarCountRef.current >= 4 && Math.random() < 0.22) {
+          const keys = Object.keys(INTERRUPT_ENTITIES) as InterruptEntity[];
+          const chosen = keys[Math.floor(Math.random() * keys.length)];
+          const ent = INTERRUPT_ENTITIES[chosen];
+          const phrase = ent.phrases[Math.floor(Math.random() * ent.phrases.length)];
+          setTimeout(() => {
+            const id = nextId();
+            setChatMessages(prev => [...prev, { id, text: phrase, isAi: true, isInterrupt: true, interruptName: chosen }]);
+            chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: phrase }];
+            saveChatHistoryLS(chatHistoryRef.current);
+            if (!chatOpenRef.current) { setPendingSignal(phrase); setUnreadCount(c => c + 1); }
+          }, 3500 + Math.random() * 4000);
+        }
+
+        // System 5 — Geo ending: fire once after 5th+ user message
+        if (!geoEndingFiredRef.current && entityWarCountRef.current >= 5) {
+          geoEndingFiredRef.current = true;
+          const ending = GEO_ENDINGS[geoCity || ""] ?? DEFAULT_GEO_ENDING;
+          setTimeout(() => {
+            injectAutoMessage(`[ ${ending.code} ] — ${ending.signal}`, true);
+          }, 9000 + Math.random() * 6000);
+        }
       },
       (err) => {
         setChatMessages((p) => p.map((m) => m.id === aiId ? { ...m, text: err, streaming: false } : m));
@@ -3316,18 +3523,25 @@ function App() {
                 {chatMessages.map((msg) => (
                   <div key={msg.id} className={`flex flex-col ${msg.isAi ? "items-start" : "items-end"}`}>
                     <span className="text-[9px] text-muted-foreground/50 mb-1 tracking-widest">
-                      {msg.isAi ? (msg.isPrediction ? "◇ PREDICTION" : PERSONA_META[persona].tagline) : "YOU"}
+                      {msg.isAi
+                        ? msg.isInterrupt && msg.interruptName
+                          ? INTERRUPT_ENTITIES[msg.interruptName].label
+                          : msg.isPrediction ? "◇ PREDICTION" : PERSONA_META[persona].tagline
+                        : "YOU"}
                     </span>
-                    <div className={`text-xs leading-relaxed break-words max-w-[90%] px-3 py-2 ${
-                      msg.isPrediction
-                        ? "text-yellow-400/80 bg-yellow-900/10 border border-yellow-700/30 italic"
+                    <div className={`text-xs leading-relaxed break-words max-w-[90%] px-3 py-2 border italic ${
+                      msg.isInterrupt && msg.interruptName
+                        ? `${INTERRUPT_ENTITIES[msg.interruptName].color} ${INTERRUPT_ENTITIES[msg.interruptName].bg}`
+                        : msg.isPrediction
+                        ? "text-yellow-400/80 bg-yellow-900/10 border-yellow-700/30"
                         : msg.isAi
-                        ? "text-primary/90 bg-primary/5 border border-primary/15"
-                        : "text-foreground/85 bg-muted/40 text-right"
+                        ? "text-primary/90 bg-primary/5 border-primary/15 not-italic"
+                        : "text-foreground/85 bg-muted/40 border-transparent text-right not-italic"
                     }`}
                       dir="auto">
-                      {msg.isAi && !msg.isPrediction && <span className="mr-1.5 opacity-50 text-[10px]">{PERSONA_META[persona].icon}</span>}
+                      {msg.isAi && !msg.isPrediction && !msg.isInterrupt && <span className="mr-1.5 opacity-50 text-[10px]">{PERSONA_META[persona].icon}</span>}
                       {msg.isPrediction && <span className="mr-1.5 text-[10px]">◇ </span>}
+                      {msg.isInterrupt && <span className="mr-1.5 text-[10px]">⚡ </span>}
                       {msg.text}
                       {msg.streaming && (
                         <span className="inline-block w-1 h-3 bg-primary/70 ml-1 align-middle" style={{ animation: "blink 0.8s step-end infinite" }} />
@@ -3355,7 +3569,14 @@ function App() {
             </motion.div>
           )}
         </AnimatePresence>
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          {/* System 1 — Live map toggle */}
+          <Button variant="outline"
+            onClick={() => setMapOpen(o => !o)}
+            className="border-primary/25 text-muted-foreground/50 hover:text-primary/70 hover:border-primary/45 tracking-widest text-[9px] h-7 bg-background/85 backdrop-blur-md rounded-none px-3 shadow-[0_0_8px_rgba(180,0,0,0.05)]">
+            <span className="w-1.5 h-1.5 rounded-full mr-1.5 bg-green-500/70" style={{ animation: "blink 2s step-end infinite" }} />
+            LIVE
+          </Button>
           <Button variant="outline"
             onClick={() => {
               const opening = !chatOpen;
@@ -3375,6 +3596,11 @@ function App() {
           </Button>
         </div>
       </div>
+
+      {/* ── System 1: Fake Live Map ── */}
+      <AnimatePresence>
+        {mapOpen && <FakeLiveMap onClose={() => setMapOpen(false)} />}
+      </AnimatePresence>
 
       {/* ── Wish Task Activation Modal ── */}
       <AnimatePresence>

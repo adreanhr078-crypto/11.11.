@@ -1,0 +1,114 @@
+🚀 DEPLOY MODE — تحويل مشروعك إلى موقع عالمي
+
+رح نقسمه 4 أجزاء:
+
+🧱 هيكل المشروع النهائي
+⚙️ تشغيل محلي (VS Code)
+🌐 النشر على الإنترنت
+📱 تجهيز الفيرال (TikTok / Sharing)
+🧱 1) هيكل المشروع النهائي
+
+داخل Visual Studio Code خلّي مشروعك هيك:
+
+/project
+  /audio
+  /js
+    game.js
+    audio.js
+    ai.js
+    world.js
+  /css
+    style.css
+  index.html
+  package.json
+🧠 2) ملف التشغيل الأساسي (index.html)
+<!DOCTYPE html>
+<html>
+<head>
+  <title>11:11 EXPERIENCE</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<h1 id="title">SYSTEM LOADING...</h1>
+
+<button onclick="startGame()">ENTER</button>
+
+<script src="js/audio.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/world.js"></script>
+<script src="js/game.js"></script>
+
+</body>
+</html>
+🎮 3) تشغيل اللعبة (Game Entry)
+function startGame() {
+  document.getElementById("title").innerText = "WELCOME";
+
+  speak("You are now inside.");
+
+  audio.start();
+  aiInit();
+  startWorld();
+}
+🎧 4) تشغيل الصوت + AI معًا
+function aiInit() {
+  speak("I remember you...");
+}
+
+function startWorld() {
+  setInterval(() => {
+    showGlobalEvent();
+    increaseCorruption();
+  }, 10000);
+}
+🌐 5) النشر على الإنترنت (أسهل طريقة)
+الخيار الأفضل: Vercel
+خطوات:
+ادخل Vercel
+اعمل “New Project”
+ارفع مجلد المشروع من VS Code
+اضغط Deploy
+
+✔ خلال دقيقة موقعك يصير أونلاين
+
+🔥 6) تجهيز الفيرال (TikTok Engine)
+أهم جزء 👇
+function generateShare() {
+  return `
+I entered 11:11.
+
+Level: ${GameState.level}
+Corruption: ${corruption}
+
+"They are still watching me."
+`;
+}
+📱 زر مشاركة:
+<button onclick="navigator.clipboard.writeText(generateShare())">
+Share Experience
+</button>
+💀 7) لمسة الانتشار (Hook نفسي)
+
+أهم شيء في موقعك:
+
+أول 5 ثواني لازم تكون:
+صوت خفيف
+جملة غامضة
+زر واحد فقط
+"You are not the first."
+📈 لماذا هذا “ينتشر” فعليًا؟
+
+لأنه يجمع 3 أشياء:
+
+🧠 فضول
+
+شو يعني "You are not the first"؟
+
+🎬 قابل للمشاركة
+
+نص جاهز يننشر على تيك توك
+
+👁️ تجربة شخصية
+
+كل لاعب يحس القصة له وحد
