@@ -1,11 +1,19 @@
 // ARG Progression System — mobile utility
 // Manages a server-issued UUID (stored in AsyncStorage) for cross-device level progress
+import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApiBaseUrl } from "./api";
 
 const SERVER_UID_KEY = "eleven_server_uid";
 
 let _cachedUid: string | null = null;
+
+/** Simple device fingerprint — passed to /api/user/init for cross-device identity matching */
+function buildFingerprint(): string {
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
+  const lang = (typeof navigator !== "undefined" ? navigator.language : "") ?? "";
+  return `${Platform.OS}|${tz}|${lang}`;
+}
 
 export async function getServerUid(): Promise<string | null> {
   if (_cachedUid) return _cachedUid;
@@ -17,11 +25,11 @@ export async function getServerUid(): Promise<string | null> {
     const stored = await AsyncStorage.getItem(SERVER_UID_KEY);
     if (stored) { _cachedUid = stored; return stored; }
 
-    // Mint a new one via the API
+    // Mint a new one via the API, sending fingerprint for cross-device matching
     const res = await fetch(`${base}/api/user/init`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ fingerprint: buildFingerprint() }),
     });
     if (!res.ok) return null;
     const data = await res.json() as { uid?: string };

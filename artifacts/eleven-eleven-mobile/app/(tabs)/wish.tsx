@@ -1,5 +1,5 @@
 import * as Haptics from "expo-haptics";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GlitchText } from "@/components/GlitchText";
 import { useColors } from "@/hooks/useColors";
 import { buildDeviceContext, fetchWishTask } from "@/lib/api";
+import { fetchLevelProgress } from "@/lib/progress";
 import { shareExperience } from "@/lib/share";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -26,6 +27,14 @@ export default function WishScreen() {
   const [ritual, setRitual] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<TextInput>(null);
+  const [argLevel, setArgLevel] = useState(1);
+  const [argCompleted, setArgCompleted] = useState(false);
+
+  useEffect(() => {
+    fetchLevelProgress().then(p => {
+      if (p) { setArgLevel(p.currentLevel); setArgCompleted(p.isCompleted); }
+    }).catch(() => {});
+  }, []);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const botPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -77,6 +86,20 @@ export default function WishScreen() {
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
           بوابة الأمنيات
         </Text>
+        {argCompleted ? (
+          <View style={[styles.classifiedBadge, { borderColor: "#b45309", backgroundColor: "#1c1200" }]}>
+            <Text style={[styles.classifiedTop, { color: "#d97706" }]}>PROTOCOL 11.11</Text>
+            <Text style={[styles.classifiedMain, { color: "#fbbf24" }]}>◈ CLASSIFIED ◈</Text>
+            <Text style={[styles.classifiedSub, { color: "#92400e" }]}>SUBJECT COMPLETED — LEVEL 5/5</Text>
+          </View>
+        ) : argLevel > 1 ? (
+          <View style={[styles.levelRow, { borderColor: colors.border }]}>
+            {[1,2,3,4,5].map(l => (
+              <View key={l} style={[styles.levelDot, { backgroundColor: l <= argLevel ? colors.primary : colors.border }]} />
+            ))}
+            <Text style={[styles.levelLabel, { color: colors.mutedForeground }]}>{argLevel}/5</Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -230,6 +253,50 @@ const styles = StyleSheet.create({
     fontFamily: "ShareTechMono_400Regular",
     fontSize: 11,
     letterSpacing: 4,
+  },
+  classifiedBadge: {
+    borderWidth: 2,
+    borderRadius: 2,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    marginTop: 4,
+    gap: 2,
+  },
+  classifiedTop: {
+    fontFamily: "ShareTechMono_400Regular",
+    fontSize: 7,
+    letterSpacing: 6,
+  },
+  classifiedMain: {
+    fontFamily: "ShareTechMono_400Regular",
+    fontSize: 14,
+    letterSpacing: 6,
+    fontWeight: "bold",
+  },
+  classifiedSub: {
+    fontFamily: "ShareTechMono_400Regular",
+    fontSize: 7,
+    letterSpacing: 3,
+  },
+  levelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    marginTop: 4,
+  },
+  levelDot: {
+    width: 6,
+    height: 6,
+  },
+  levelLabel: {
+    fontFamily: "ShareTechMono_400Regular",
+    fontSize: 9,
+    letterSpacing: 2,
+    marginLeft: 4,
   },
   divider: {
     height: 1,

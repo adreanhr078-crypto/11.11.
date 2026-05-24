@@ -471,6 +471,16 @@ function Level4Mobile({ colors, timer, btnVisible, missed, loading, error, onCla
   error: string | null; onClaim: () => void; onRetry: () => void;
 }) {
   const btnPulse = useRef(new Animated.Value(1)).current;
+  const [autoCountdown, setAutoCountdown] = useState(10);
+
+  // Auto-reappearance: count down 10s then auto-trigger onRetry
+  useEffect(() => {
+    if (!missed) { setAutoCountdown(10); return; }
+    if (autoCountdown <= 0) { onRetry(); return; }
+    const t = setTimeout(() => setAutoCountdown(p => p - 1), 1000);
+    return () => clearTimeout(t);
+  }, [missed, autoCountdown, onRetry]);
+
   useEffect(() => {
     if (!btnVisible) return;
     const anim = Animated.loop(Animated.sequence([
@@ -514,18 +524,9 @@ function Level4Mobile({ colors, timer, btnVisible, missed, loading, error, onCla
           <Text style={[styles.levelHint, { color: colors.mutedForeground }]} dir="rtl">
             فاتتك اللحظة. الكيان يختبر صبرك.
           </Text>
-          <Pressable
-            onPress={onRetry}
-            disabled={loading}
-            style={({ pressed }) => [styles.retryBtn, {
-              borderColor: colors.border,
-              opacity: loading ? 0.3 : pressed ? 0.6 : 1,
-            }]}
-          >
-            <Text style={[styles.retryBtnText, { color: colors.mutedForeground }]}>
-              {loading ? "◈ انتظر..." : "أعد المحاولة"}
-            </Text>
-          </Pressable>
+          <Text style={[styles.retryBtnText, { color: colors.primary + "50", letterSpacing: 4 }]}>
+            {loading ? "◈ يُعدّ الكيان..." : `يعود بعد ${autoCountdown}s`}
+          </Text>
         </View>
       )}
 

@@ -421,6 +421,16 @@ function Level4View({ token, timer, btnVisible, missed, loading, error, onClaim,
   token: string | null; timer: number; btnVisible: boolean; missed: boolean;
   loading: boolean; error: string | null; onClaim: () => void; onRetry: () => void;
 }) {
+  const [autoCountdown, setAutoCountdown] = useState(10);
+
+  // Auto-reappearance: when missed, count down 10s then auto-call onRetry
+  useEffect(() => {
+    if (!missed) { setAutoCountdown(10); return; }
+    if (autoCountdown <= 0) { onRetry(); return; }
+    const t = setTimeout(() => setAutoCountdown(p => p - 1), 1000);
+    return () => clearTimeout(t);
+  }, [missed, autoCountdown, onRetry]);
+
   return (
     <div className="flex flex-col items-center gap-5 text-center">
       <div className="w-full">
@@ -475,19 +485,15 @@ function Level4View({ token, timer, btnVisible, missed, loading, error, onClaim,
         )}
       </AnimatePresence>
 
-      {/* Missed state */}
+      {/* Missed state — auto-reappearance countdown */}
       {missed && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full flex flex-col items-center gap-3">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full flex flex-col items-center gap-2">
           <p className="text-[9px] text-muted-foreground/50 tracking-wider" dir="rtl">
             فاتتك اللحظة. الكيان يختبر صبرك.
           </p>
-          <button
-            onClick={onRetry}
-            disabled={loading}
-            className="text-[9px] tracking-[0.3em] text-primary/40 hover:text-primary/70 border border-primary/15 hover:border-primary/35 px-5 py-2 transition-all disabled:opacity-30"
-          >
-            {loading ? "◈ انتظر..." : "أعد المحاولة"}
-          </button>
+          <p className="text-[8px] text-primary/30 tracking-[0.4em] font-mono">
+            {loading ? "◈ يُعدّ الكيان..." : `يعود بعد ${autoCountdown}s`}
+          </p>
         </motion.div>
       )}
 

@@ -8,15 +8,15 @@ import { eq, count } from "drizzle-orm";
 const router = Router();
 
 // In-memory challenge token store for Level 4 (process-scoped, intentional)
-// token → expiry timestamp (ms)
-const l4Tokens = new Map<string, number>();
+// token → { uid, expiry } — bound to UID to prevent replay across users
+const l4Tokens = new Map<string, { uid: string; expiry: number }>();
 const L4_TTL_MS = 4000;
 
 // Clean up expired tokens periodically
 setInterval(() => {
   const now = Date.now();
-  for (const [tok, exp] of l4Tokens) {
-    if (exp < now) l4Tokens.delete(tok);
+  for (const [tok, entry] of l4Tokens) {
+    if (entry.expiry < now) l4Tokens.delete(tok);
   }
 }, 10_000);
 
@@ -65,7 +65,7 @@ router.get("/progress/challenge", async (req, res) => {
     }
 
     const token = randomUUID();
-    l4Tokens.set(token, Date.now() + L4_TTL_MS);
+    l4Tokens.set(token, { uid, expiry: Date.now() + L4_TTL_MS });
     res.json({ token, ttlMs: L4_TTL_MS });
   } catch (err) {
     req.log.error({ err }, "progress challenge error");
@@ -135,9 +135,13 @@ router.post("/progress/advance", async (req, res) => {
           res.status(403).json({ error: "انتهت اللحظة. لم تكن سريعاً كفاية." });
           return;
         }
-        const expiry = l4Tokens.get(token)!;
+        const entry = l4Tokens.get(token)!;
         l4Tokens.delete(token);
-        if (Date.now() > expiry) {
+        if (entry.uid !== uid) {
+          res.status(403).json({ error: "الرمز لا يخصّك." });
+          return;
+        }
+        if (Date.now() > entry.expiry) {
           res.status(403).json({ error: "الرمز منتهي. فاتتك اللحظة." });
           return;
         }
