@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "3u6Wpb0vTwjCMBEY-Q4OV"
+uri = "file://artifacts/eleven-eleven-mobile/assets/images/icon.png"
+type = "image"
+title = "generated_image"
