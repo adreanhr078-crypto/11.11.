@@ -15,6 +15,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GlitchText } from "@/components/GlitchText";
 import { useColors } from "@/hooks/useColors";
 import { buildDeviceContext, fetchWishTask } from "@/lib/api";
+import { shareExperience } from "@/lib/share";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function WishScreen() {
   const colors = useColors();
@@ -169,6 +171,26 @@ export default function WishScreen() {
 
           <Pressable
             style={({ pressed }) => [
+              styles.shareWishBtn,
+              {
+                borderColor: colors.primary,
+                backgroundColor: pressed ? `${colors.primary}22` : `${colors.primary}0d`,
+                opacity: pressed ? 0.8 : 1,
+              },
+            ]}
+            onPress={async () => {
+              await Haptics.selectionAsync();
+              await shareExperience(0);
+            }}
+          >
+            <Ionicons name="share-outline" size={15} color={colors.primary} />
+            <Text style={[styles.shareWishBtnText, { color: colors.primary }]}>
+              شارك التجربة
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
               styles.resetBtn,
               {
                 borderColor: colors.border,
@@ -298,6 +320,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 20,
     textAlign: "right",
+  },
+  shareWishBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    borderWidth: 1,
+    gap: 8,
+  },
+  shareWishBtnText: {
+    fontFamily: "ShareTechMono_400Regular",
+    fontSize: 12,
+    letterSpacing: 3,
   },
   resetBtn: {
     paddingVertical: 14,

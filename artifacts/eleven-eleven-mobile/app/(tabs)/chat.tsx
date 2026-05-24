@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { useColors } from "@/hooks/useColors";
 import { buildDeviceContext, type Persona } from "@/lib/api";
+import { shareExperience } from "@/lib/share";
 import { Ionicons } from "@expo/vector-icons";
 
 interface Message {
@@ -164,9 +165,31 @@ export default function ChatScreen() {
           },
         ]}
       >
-        <Text style={[styles.headerTitle, { color: colors.primary }]}>
-          الكيان 11.11
-        </Text>
+        <View style={styles.headerRow}>
+          <Text style={[styles.headerTitle, { color: colors.primary }]}>
+            الكيان 11.11
+          </Text>
+          {messages.length > 0 && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.shareBtn,
+                {
+                  borderColor: colors.border,
+                  backgroundColor: pressed ? `${colors.primary}18` : "transparent",
+                  opacity: pressed ? 0.7 : 1,
+                },
+              ]}
+              onPress={async () => {
+                await Haptics.selectionAsync();
+                const userCount = messages.filter((m) => m.role === "user").length;
+                await shareExperience(userCount);
+              }}
+              accessibilityLabel="Share experience"
+            >
+              <Ionicons name="share-outline" size={18} color={colors.mutedForeground} />
+            </Pressable>
+          )}
+        </View>
         <View style={styles.personaRow}>
           {PERSONAS.map((p) => (
             <Pressable
@@ -318,11 +341,27 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     gap: 8,
   },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
   headerTitle: {
     fontFamily: "ShareTechMono_400Regular",
     fontSize: 18,
     letterSpacing: 2,
     textAlign: "center",
+    flex: 1,
+  },
+  shareBtn: {
+    position: "absolute",
+    right: 0,
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
   },
   personaRow: {
     flexDirection: "row",
