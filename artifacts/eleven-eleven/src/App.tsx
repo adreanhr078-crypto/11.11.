@@ -2065,6 +2065,35 @@ function saveChatHistoryLS(history: { role: "user" | "assistant"; content: strin
   try { localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(history.slice(-30))); } catch { /* ignore */ }
 }
 
+// ── Web Push helpers ──────────────────────────────────────────────────────────
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+
+async function subscribePush(reg: ServiceWorkerRegistration, uid: string): Promise<void> {
+  const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+  if (!vapidKey) return;
+  try {
+    // Skip if already subscribed
+    const existing = await reg.pushManager.getSubscription();
+    const sub = existing ?? await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidKey),
+    });
+    await fetch("/api/push/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uid, subscription: sub.toJSON() }),
+    });
+  } catch { /* permission denied or unsupported — ignore */ }
+}
+
 // ── Cookie helpers ────────────────────────────────────────────────────────────
 
 function getCookieUid(): string | null {
@@ -2313,6 +2342,10 @@ function App() {
       try { localStorage.setItem("eleven_geo_city", city); } catch { /* ignore */ }
       deviceContextRef.current = buildDeviceContext() + ` | المدينة: ${city}`;
     }
+    // Subscribe to push notifications now that permission has been granted
+    if (swRegistrationRef.current && Notification.permission === "granted") {
+      subscribePush(swRegistrationRef.current, uidRef.current);
+    }
   }, []);
 
   // Session minute timer
@@ -2356,6 +2389,8 @@ function App() {
   const [uid, setUid] = useState<string>("");
   // Gate: profile sync effects must not run until DB hydration completes
   const profileHydratedRef = useRef(false);
+  // Service worker registration — used for push subscription
+  const swRegistrationRef = useRef<ServiceWorkerRegistration | null>(null);
 
   // Biometric scan — show once per session
   const [scanDone, setScanDone] = useState(() => sessionStorage.getItem("11_scanned") === "1");
@@ -2394,6 +2429,16 @@ function App() {
     audioRef.current = new AmbientEngine();
     deviceContextRef.current = buildDeviceContext();
     window.speechSynthesis?.getVoices();
+    // Register service worker for push notifications (silent — no UI impact)
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").then((reg) => {
+        swRegistrationRef.current = reg;
+        // If push permission already granted (returning user), re-subscribe silently
+        if (Notification.permission === "granted") {
+          initServerUid().then((resolvedUid) => subscribePush(reg, resolvedUid));
+        }
+      }).catch(() => { /* SW unsupported or blocked */ });
+    }
     // Initialize server-issued UID (async — sets uid state to trigger profile load)
     initServerUid().then((resolvedUid) => {
       uidRef.current = resolvedUid;

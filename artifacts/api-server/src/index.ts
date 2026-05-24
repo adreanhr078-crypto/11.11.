@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import "./cron"; // Start push notification cron (11:11, 23:11, 3:33)
 
 const rawPort = process.env["PORT"];
 
