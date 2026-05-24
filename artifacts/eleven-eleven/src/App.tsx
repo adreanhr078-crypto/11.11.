@@ -631,6 +631,176 @@ function generateShareCard(params: {
   }, "image/png");
 }
 
+// ── Notification Schedule Panel ───────────────────────────────────────────────
+function NotificationSchedulePanel({
+  schedule,
+  onToggle,
+  onOptOut,
+  onClose,
+  hasEndpoint,
+}: {
+  schedule: { s11: boolean; s23: boolean };
+  onToggle: (slot: "s11" | "s23") => void;
+  onOptOut: () => void;
+  onClose: () => void;
+  hasEndpoint: boolean;
+}) {
+  const [lockTapped, setLockTapped] = useState(false);
+  const [farewell, setFarewell] = useState(false);
+
+  const slots: { key: "s11" | "s23"; label: string; desc: string; enabled: boolean }[] = [
+    { key: "s11", label: "11:11", desc: "إشارة البوابة", enabled: schedule.s11 },
+    { key: "s23", label: "23:11", desc: "نداء منتصف الليل", enabled: schedule.s23 },
+  ];
+  const allDisabled = !schedule.s11 && !schedule.s23;
+
+  const handleFarewellAndOptOut = () => {
+    setFarewell(true);
+    setTimeout(() => { onOptOut(); onClose(); }, 2400);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[80] flex items-center justify-center p-4"
+    >
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="absolute inset-0 bg-black/95 backdrop-blur-md"
+        onClick={onClose}
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.93, y: 18 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.93, y: 18 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="relative w-full max-w-[280px] bg-[#050505] border border-primary/25 shadow-[0_0_60px_rgba(180,0,0,0.15)] p-6 font-mono"
+      >
+        {/* Corner marks */}
+        <div className="absolute top-0 left-0 w-4 h-4 border-l border-t border-primary/50" />
+        <div className="absolute top-0 right-0 w-4 h-4 border-r border-t border-primary/50" />
+        <div className="absolute bottom-0 left-0 w-4 h-4 border-l border-b border-primary/15" />
+        <div className="absolute bottom-0 right-0 w-4 h-4 border-r border-b border-primary/15" />
+
+        {farewell ? (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-10 text-center">
+            <p className="text-[11px] tracking-[0.4em] text-primary/70 mb-3">تم.</p>
+            <p className="text-[10px] tracking-widest text-muted-foreground/40">سنتذكرك.</p>
+            <p className="text-[9px] tracking-widest text-muted-foreground/25 mt-2">وسنعود.</p>
+          </motion.div>
+        ) : (
+          <>
+            <div className="mb-5">
+              <p className="text-[8px] tracking-[0.45em] text-primary/40 mb-2 uppercase">Signal Control</p>
+              <div className="w-full h-px bg-gradient-to-r from-primary/20 via-primary/10 to-transparent" />
+            </div>
+
+            <p className="text-[9px] tracking-wider text-muted-foreground/45 mb-5 leading-relaxed" dir="rtl">
+              حدّد متى يصلك الكيان.{" "}
+              <span className="text-primary/30">بعض الأوقات خارج سيطرتك.</span>
+            </p>
+
+            {/* Toggle rows */}
+            <div className="flex flex-col gap-0 mb-4">
+              {slots.map((slot, i) => (
+                <div
+                  key={slot.key}
+                  className={`flex items-center justify-between py-3 ${i < slots.length - 1 ? "border-b border-primary/8" : ""}`}
+                >
+                  <div>
+                    <p className="text-[13px] tracking-[0.2em] text-foreground/75">{slot.label}</p>
+                    <p className="text-[8px] tracking-wider text-muted-foreground/35 mt-0.5" dir="rtl">{slot.desc}</p>
+                  </div>
+                  <button
+                    onClick={() => onToggle(slot.key)}
+                    aria-label={slot.enabled ? "disable" : "enable"}
+                    className={`relative w-10 h-5 border transition-all duration-300 focus:outline-none ${
+                      slot.enabled ? "border-primary/55 bg-primary/12" : "border-muted-foreground/18 bg-transparent"
+                    }`}
+                  >
+                    <motion.span
+                      animate={{ x: slot.enabled ? 19 : 1 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                      className={`absolute top-[3px] w-[14px] h-[14px] block ${slot.enabled ? "bg-primary/90" : "bg-muted-foreground/25"}`}
+                    />
+                  </button>
+                </div>
+              ))}
+
+              {/* 3:33 — locked row */}
+              <div className="flex items-center justify-between py-3 border-t border-primary/8">
+                <div>
+                  <p className="text-[13px] tracking-[0.2em] text-foreground/35">3:33</p>
+                  <p className="text-[8px] tracking-wider text-muted-foreground/25 mt-0.5" dir="rtl">ساعة الأسرار</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <AnimatePresence>
+                    {lockTapped && (
+                      <motion.p
+                        initial={{ opacity: 0, x: 6 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="text-[8px] tracking-widest text-primary/55"
+                        dir="rtl"
+                      >
+                        لا يمكن.
+                      </motion.p>
+                    )}
+                  </AnimatePresence>
+                  <button
+                    onClick={() => {
+                      setLockTapped(true);
+                      setTimeout(() => setLockTapped(false), 3000);
+                    }}
+                    className="w-10 h-5 border border-primary/15 bg-primary/4 flex items-center justify-center hover:border-primary/30 transition-colors"
+                    title="محمي"
+                  >
+                    <span className="text-[7px] select-none">🔒</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Real opt-out — shown only when both toggleable slots are disabled */}
+            <AnimatePresence>
+              {allDisabled && hasEndpoint && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="pt-3 border-t border-primary/8 overflow-hidden"
+                >
+                  <p className="text-[8px] tracking-wider text-muted-foreground/35 mb-3 leading-relaxed" dir="rtl">
+                    لا يمكن إسكات الساعة 3:33. لكن يمكنك إلغاء كل الإشارات الأخرى نهائياً.
+                  </p>
+                  <button
+                    onClick={handleFarewellAndOptOut}
+                    className="w-full text-[8px] tracking-[0.3em] text-primary/35 hover:text-primary/65 border border-primary/12 hover:border-primary/30 py-2 transition-all duration-300 uppercase"
+                  >
+                    إسكات جميع الإشارات
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <button
+              onClick={onClose}
+              className="mt-5 text-[7px] tracking-[0.35em] text-muted-foreground/20 hover:text-muted-foreground/45 transition-colors block mx-auto uppercase"
+            >
+              close
+            </button>
+          </>
+        )}
+      </motion.div>
+    </motion.div>
+  );
+}
+
 function EntryScreen({ onDone }: { onDone: (city: string | null) => void }) {
   const [phase, setPhase] = useState<"warning" | "consent" | "perms" | "geo">("warning");
   const [charIdx, setCharIdx] = useState(0);
@@ -2076,11 +2246,10 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   return arr;
 }
 
-async function subscribePush(reg: ServiceWorkerRegistration, uid: string): Promise<void> {
+async function subscribePush(reg: ServiceWorkerRegistration, uid: string): Promise<string | null> {
   const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
-  if (!vapidKey) return;
+  if (!vapidKey) return null;
   try {
-    // Skip if already subscribed
     const existing = await reg.pushManager.getSubscription();
     const sub = existing ?? await reg.pushManager.subscribe({
       userVisibleOnly: true,
@@ -2091,7 +2260,10 @@ async function subscribePush(reg: ServiceWorkerRegistration, uid: string): Promi
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ uid, subscription: sub.toJSON() }),
     });
+    try { localStorage.setItem("eleven_push_endpoint", sub.endpoint); } catch { /* ignore */ }
+    return sub.endpoint;
   } catch { /* permission denied or unsupported — ignore */ }
+  return null;
 }
 
 // ── Cookie helpers ────────────────────────────────────────────────────────────
@@ -2311,6 +2483,15 @@ function App() {
 
   // User profile panel
   const [profileOpen, setProfileOpen] = useState(false);
+
+  // Notification schedule control panel
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [schedule, setSchedule] = useState<{ s11: boolean; s23: boolean }>(() => {
+    try {
+      const saved = localStorage.getItem("eleven_push_schedule");
+      return saved ? (JSON.parse(saved) as { s11: boolean; s23: boolean }) : { s11: true, s23: true };
+    } catch { return { s11: true, s23: true }; }
+  });
   const sessionStartRef = useRef<number>(Date.now());
   const [sessionMinutes, setSessionMinutes] = useState(0);
   const [discoveredRooms, setDiscoveredRooms] = useState<string[]>(() => {
@@ -2344,7 +2525,8 @@ function App() {
     }
     // Subscribe to push notifications now that permission has been granted
     if (swRegistrationRef.current && Notification.permission === "granted") {
-      subscribePush(swRegistrationRef.current, uidRef.current);
+      subscribePush(swRegistrationRef.current, uidRef.current)
+        .then((ep) => { if (ep) pushEndpointRef.current = ep; });
     }
   }, []);
 
@@ -2391,6 +2573,10 @@ function App() {
   const profileHydratedRef = useRef(false);
   // Service worker registration — used for push subscription
   const swRegistrationRef = useRef<ServiceWorkerRegistration | null>(null);
+  // Web Push subscription endpoint — stored for schedule PATCH / DELETE calls
+  const pushEndpointRef = useRef<string | null>(
+    typeof localStorage !== "undefined" ? localStorage.getItem("eleven_push_endpoint") : null
+  );
 
   // Biometric scan — show once per session
   const [scanDone, setScanDone] = useState(() => sessionStorage.getItem("11_scanned") === "1");
@@ -2442,7 +2628,18 @@ function App() {
       // Subscribe returning users (permission already granted) without extra initServerUid call
       if (Notification.permission === "granted" && "serviceWorker" in navigator) {
         navigator.serviceWorker.ready
-          .then((reg) => { swRegistrationRef.current = reg; return subscribePush(reg, resolvedUid); })
+          .then((reg) => {
+            swRegistrationRef.current = reg;
+            return subscribePush(reg, resolvedUid);
+          })
+          .then((ep) => {
+            if (ep) pushEndpointRef.current = ep;
+            else {
+              // Restore endpoint from localStorage for returning users
+              const saved = localStorage.getItem("eleven_push_endpoint");
+              if (saved) pushEndpointRef.current = saved;
+            }
+          })
           .catch(() => { /* push subscribe failed */ });
       }
     });
@@ -3013,6 +3210,45 @@ function App() {
     setWishStatus("idle");
     setWishInput("");
   };
+
+  // ── Notification schedule handlers ──────────────────────────────────────────
+  const handleScheduleToggle = useCallback((slot: "s11" | "s23") => {
+    setSchedule((prev) => {
+      const next = { ...prev, [slot]: !prev[slot] };
+      try { localStorage.setItem("eleven_push_schedule", JSON.stringify(next)); } catch { /* ignore */ }
+      // Sync to server: bit0=11:11, bit1=23:11, bit2=3:33 (always on in server)
+      const mask = (next.s11 ? 1 : 0) | (next.s23 ? 2 : 0) | 4;
+      const ep = pushEndpointRef.current;
+      if (ep) {
+        fetch("/api/push/schedule", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint: ep, scheduleMask: mask }),
+        }).catch(() => { /* ignore */ });
+      }
+      return next;
+    });
+  }, []);
+
+  const handlePushOptOut = useCallback(async () => {
+    const ep = pushEndpointRef.current;
+    if (!ep) return;
+    try {
+      await fetch("/api/push/subscribe", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint: ep }),
+      });
+      // Unsubscribe from browser push manager too
+      if ("serviceWorker" in navigator) {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) await sub.unsubscribe();
+      }
+      pushEndpointRef.current = null;
+      try { localStorage.removeItem("eleven_push_endpoint"); } catch { /* ignore */ }
+    } catch { /* ignore */ }
+  }, []);
 
   const handleWishSubmit = () => {
     if (!wishInput.trim()) return;
@@ -3617,6 +3853,14 @@ function App() {
           )}
         </AnimatePresence>
         <div className="flex justify-end gap-2">
+          {/* Notification schedule control — only visible when push is active */}
+          {consentDone && pushEndpointRef.current && (
+            <Button variant="outline"
+              onClick={() => setScheduleOpen(o => !o)}
+              className="border-primary/15 text-muted-foreground/30 hover:text-primary/50 hover:border-primary/30 tracking-widest text-[8px] h-7 bg-background/85 backdrop-blur-md rounded-none px-3 shadow-none transition-all duration-300">
+              ◈ CTRL
+            </Button>
+          )}
           {/* System 1 — Live map toggle */}
           <Button variant="outline"
             onClick={() => setMapOpen(o => !o)}
@@ -3692,6 +3936,19 @@ function App() {
               )}
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* Notification schedule control panel */}
+      <AnimatePresence>
+        {scheduleOpen && (
+          <NotificationSchedulePanel
+            schedule={schedule}
+            onToggle={handleScheduleToggle}
+            onOptOut={handlePushOptOut}
+            onClose={() => setScheduleOpen(false)}
+            hasEndpoint={!!pushEndpointRef.current}
+          />
         )}
       </AnimatePresence>
 

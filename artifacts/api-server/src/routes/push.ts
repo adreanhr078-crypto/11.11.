@@ -1,7 +1,7 @@
 import { Router } from "express";
 import webpush from "web-push";
 import { db, pushSubscriptionsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -64,9 +64,51 @@ router.post("/push/subscribe", async (req, res) => {
         set: { p256dh: sub.keys.p256dh, auth: sub.keys.auth, uid, tokenType: "web" },
       });
 
-    res.json({ ok: true });
+    res.json({ ok: true, endpoint: sub.endpoint });
   } catch (err) {
     req.log.error({ err }, "push subscribe error");
+    res.status(500).json({ error: "internal" });
+  }
+});
+
+// DELETE /api/push/subscribe — opt-out, remove this subscription entirely
+router.delete("/push/subscribe", async (req, res) => {
+  try {
+    const { endpoint } = req.body as { endpoint?: string };
+    if (!endpoint) { res.status(400).json({ error: "endpoint required" }); return; }
+
+    await db.delete(pushSubscriptionsTable).where(eq(pushSubscriptionsTable.endpoint, endpoint));
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "push unsubscribe error");
+    res.status(500).json({ error: "internal" });
+  }
+});
+
+// PATCH /api/push/schedule — update which time slots this subscription receives
+// scheduleMask: bitmask integer — bit0=11:11, bit1=23:11, bit2=3:33 (always forced on server)
+router.patch("/push/schedule", async (req, res) => {
+  try {
+    const { endpoint, scheduleMask } = req.body as {
+      endpoint?: string;
+      scheduleMask?: number;
+    };
+    if (!endpoint || scheduleMask === undefined || !Number.isInteger(scheduleMask)) {
+      res.status(400).json({ error: "endpoint and scheduleMask required" });
+      return;
+    }
+
+    // Force bit2 (3:33) always on — the entity cannot be silenced
+    const mask = (scheduleMask & 0b111) | 0b100;
+
+    await db
+      .update(pushSubscriptionsTable)
+      .set({ scheduleMask: mask })
+      .where(eq(pushSubscriptionsTable.endpoint, endpoint));
+
+    res.json({ ok: true, scheduleMask: mask });
+  } catch (err) {
+    req.log.error({ err }, "push schedule update error");
     res.status(500).json({ error: "internal" });
   }
 });
@@ -82,6 +124,26 @@ router.get("/push/count", async (req, res) => {
     res.json({ total: subs.length, web, expo });
   } catch (err) {
     req.log.error({ err }, "push count error");
+    res.status(500).json({ error: "internal" });
+  }
+});
+
+// GET /api/push/schedule — fetch schedule mask for a given endpoint
+router.get("/push/schedule", async (req, res) => {
+  try {
+    const endpoint = req.query["endpoint"] as string | undefined;
+    if (!endpoint) { res.status(400).json({ error: "endpoint required" }); return; }
+
+    const rows = await db
+      .select({ scheduleMask: pushSubscriptionsTable.scheduleMask })
+      .from(pushSubscriptionsTable)
+      .where(eq(pushSubscriptionsTable.endpoint, endpoint))
+      .limit(1);
+
+    if (rows.length === 0) { res.status(404).json({ error: "not found" }); return; }
+    res.json({ scheduleMask: rows[0].scheduleMask });
+  } catch (err) {
+    req.log.error({ err }, "push schedule fetch error");
     res.status(500).json({ error: "internal" });
   }
 });
@@ -120,10 +182,7 @@ async function sendExpoPush(
     }
 
     const result = (await resp.json()) as {
-      data: Array<{
-        status: string;
-        details?: { error?: string };
-      }>;
+      data: Array<{ status: string; details?: { error?: string } }>;
     };
 
     result.data.forEach((r, i) => {
@@ -138,16 +197,26 @@ async function sendExpoPush(
   return dead;
 }
 
-// Exported for use by the cron job
-export async function sendPushToAll(payload: { title: string; body: string }): Promise<void> {
-  const subs = await db.select().from(pushSubscriptionsTable);
+// Exported for the cron job.
+// bitFlag: which schedule bit to check (1=11:11, 2=23:11, undefined=3:33 sends to ALL)
+export async function sendPushToAll(
+  payload: { title: string; body: string },
+  bitFlag?: number
+): Promise<void> {
+  // If bitFlag is set, only fetch subscriptions that have that bit enabled
+  const allSubs = await db.select().from(pushSubscriptionsTable);
+  if (allSubs.length === 0) return;
+
+  const subs = bitFlag !== undefined
+    ? allSubs.filter((s) => (s.scheduleMask & bitFlag) !== 0)
+    : allSubs; // 3:33 goes to everyone — the entity cannot be silenced
+
   if (subs.length === 0) return;
 
-  logger.info({ total: subs.length }, "Sending push to all subscribers");
+  logger.info({ total: subs.length, bitFlag }, "Sending push to subscribers");
 
   const webSubs = subs.filter((s) => s.tokenType === "web");
   const expoSubs = subs.filter((s) => s.tokenType === "expo");
-
   const deadIds: number[] = [];
 
   // ── Web Push ─────────────────────────────────────────────────────────────────
