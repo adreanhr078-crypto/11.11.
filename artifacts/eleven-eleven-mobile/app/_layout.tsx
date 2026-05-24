@@ -16,6 +16,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import {
   requestNotificationPermission,
+  registerExpoPushToken,
   scheduleEntityNotifications,
 } from "@/lib/notifications";
 
@@ -47,7 +48,10 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
       if (Platform.OS !== "web") {
         requestNotificationPermission().then((granted) => {
-          if (granted) scheduleEntityNotifications().catch(() => {});
+          if (granted) {
+            scheduleEntityNotifications().catch(() => {});
+            registerExpoPushToken().catch(() => {});
+          }
         });
       }
     }

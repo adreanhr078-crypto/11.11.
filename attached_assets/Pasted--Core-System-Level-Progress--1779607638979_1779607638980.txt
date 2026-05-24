@@ -1,0 +1,121 @@
+🧠 الفكرة الأساسية (Core System)
+
+كل مستخدم عنده:
+
+مستوى (Level)
+تقدم محفوظ (Progress)
+مفتاح/كود لكل مرحلة (Passcode)
+حالة فتح (Unlocked / Locked)
+📁 هيكل النظام (بسيط واحترافي)
+
+داخل مشروعك في Visual Studio Code:
+
+/levels
+  level1.js
+  level2.js
+  level3.js
+/utils
+  progress.js
+  storage.js
+🧩 كيف النظام يشتغل؟
+1️⃣ حفظ التقدم (Local Storage)
+function saveLevel(level) {
+  localStorage.setItem("currentLevel", level);
+}
+
+function getLevel() {
+  return parseInt(localStorage.getItem("currentLevel") || "1");
+}
+🕯️ Level 1 — “الاستيقاظ”
+القصة:
+
+المستخدم يدخل ويشوف رسالة:
+
+"أنت لست وحدك هنا..."
+
+اللغز:
+
+يطلب منه يكتب كلمة مخفية من نص مشوش:
+
+TH3 V01CE IS W4TCH1NG Y0U
+الحل:
+THE VOICE IS WATCHING YOU
+كود التحقق:
+function checkLevel1(input) {
+  if (input.toLowerCase() === "the voice is watching you") {
+    saveLevel(2);
+    return "LEVEL 2 UNLOCKED";
+  }
+  return "TRY AGAIN";
+}
+🕳️ Level 2 — “الوقت”
+اللغز:
+
+يفتح فقط في وقت معين:
+
+function checkTime() {
+  const hour = new Date().getHours();
+  if (hour === 11 || hour === 3) {
+    return true;
+  }
+  return false;
+}
+الرسالة:
+
+"البوابة لا تفتح إلا عندما تتكرر اللحظة..."
+
+🧠 Level 3 — “الذاكرة”
+الفكرة:
+
+الموقع يتذكر اسم المستخدم
+
+const name = localStorage.getItem("username");
+
+if (name) {
+  console.log(`${name}... why did you come back?`);
+}
+اللغز:
+
+يسأله سؤال مرتبط باسمه:
+
+“كم مرة عدت هنا يا [name]؟”
+
+🔐 نظام فتح المستويات
+function unlockLevel(nextLevel) {
+  localStorage.setItem("currentLevel", nextLevel);
+  location.reload();
+}
+🌑 Level 4 — “الخطأ في النظام”
+الفكرة:
+الشاشة تهتز
+النصوص تتغير
+رسالة تظهر وتختفي
+اللغز:
+
+المستخدم لازم يضغط زر يظهر 3 ثواني فقط
+
+🪞 Level 5 — “الحقيقة”
+النهاية:
+الذكاء الاصطناعي يقول:
+
+"أنت لم تكن لاعبًا… أنت كنت التجربة"
+
+🎮 نظام كامل (Game Engine بسيط)
+const levels = {
+  1: { name: "Awakening", unlocked: true },
+  2: { name: "Time Gate", unlocked: false },
+  3: { name: "Memory Echo", unlocked: false },
+  4: { name: "System Error", unlocked: false },
+  5: { name: "Truth", unlocked: false }
+};
+🧠 إضافة قوية جدًا (مهمّة لموقعك)
+حفظ تقدم المستخدم:
+function updateProgress(level) {
+  localStorage.setItem("level", level);
+}
+🔥 أفكار تخلي النظام مرعب أكثر:
+كل مستوى يغيّر صوت الخلفية
+AI يتذكر أخطاء المستخدم
+رسائل تظهر خارج السياق
+وقت وهمي داخل الموقع
+“أنت قريب جدًا من الحقيقة
