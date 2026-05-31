@@ -174,4 +174,7 @@ overrides:
   brace-expansion: "^2.0.3"
   # postcss <8.5.10 has XSS via unescaped </style> in CSS stringify (GHSA-qx2v-qp2m-jg93)
   postcss: "^8.5.10"
-  
+  # uuid <11.1.1 has missing buffer bounds check in v3/v5/v6 when buf is provided (GHSA-w5hq-g745-h8pq)
+  uuid: ">=11.1.1"
+  # qs >=6.11.1 <=6.15.1 has DoS via qs.stringify with comma-format arrays (GHSA-q8mj-m7cp-5q26)
+  qs: ">=6.15.2"
