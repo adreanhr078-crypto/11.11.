@@ -2591,6 +2591,8 @@ function App() {
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [spikeCount, setSpikeCount] = useState(0);
+  const aiMsgCountRef = useRef(0);
   const isSendingRef = useRef(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatHistoryRef = useRef<{ role: "user" | "assistant"; content: string }[]>([]);
@@ -2910,6 +2912,14 @@ function App() {
     }, 5000);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatMessages]);
+
+  useEffect(() => {
+    const count = chatMessages.filter((m) => m.isAi && !m.streaming).length;
+    if (count > aiMsgCountRef.current) {
+      aiMsgCountRef.current = count;
+      setSpikeCount((n) => n + 1);
+    }
   }, [chatMessages]);
 
   // Sync profile data to DB — only after DB hydration completes to avoid clobbering
@@ -4334,7 +4344,7 @@ function App() {
       {consentDone && <HorrorEngine soundOn={soundOn} lang={lang} />}
 
       {/* Fear / Curiosity sync meter — ambient ARG HUD */}
-      {consentDone && <SyncMeter />}
+      {consentDone && <SyncMeter spikeCount={spikeCount} />}
     </div>
   );
 }

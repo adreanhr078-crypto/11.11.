@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useGameState } from "./gameState";
 
@@ -28,14 +28,31 @@ function pulseDuration(fear: number): number {
   return 0.9;
 }
 
-export function SyncMeter() {
+function spikeSize(fear: number): number {
+  if (fear <= 3) return 1;
+  if (fear <= 6) return 2;
+  return 3;
+}
+
+export function SyncMeter({ spikeCount = 0 }: { spikeCount?: number }) {
   const { fear, trustAI } = useGameState();
+  const [spikeSegments, setSpikeSegments] = useState(0);
+
+  useEffect(() => {
+    if (spikeCount === 0) return;
+    const size = spikeSize(fear);
+    setSpikeSegments(size);
+    const t = setTimeout(() => setSpikeSegments(0), 800);
+    return () => clearTimeout(t);
+  }, [spikeCount, fear]);
 
   const threat = Math.min(10, fear * 0.75 + trustAI * 0.25);
   const activeFill = Math.round(threat);
   const color = fearColor(fear);
   const glow = fearGlow(fear);
   const pulse = pulseDuration(fear);
+
+  const spikeTop = Math.min(SEGMENTS, activeFill + spikeSegments);
 
   return (
     <div
@@ -57,6 +74,25 @@ export function SyncMeter() {
         {Array.from({ length: SEGMENTS }, (_, i) => {
           const active = i < activeFill;
           const isTop = i >= activeFill - 2 && i < activeFill;
+          const isSpiking = i >= activeFill && i < spikeTop;
+
+          if (isSpiking) {
+            return (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, scaleY: 0.5 }}
+                animate={{ opacity: [0, 1, 0], scaleY: [0.5, 1.2, 1] }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
+                style={{
+                  width: 4,
+                  height: 7,
+                  background: "hsl(0 80% 72%)",
+                  boxShadow: "0 0 8px hsl(0 80% 72% / 0.9), 0 0 20px hsl(0 70% 60% / 0.6)",
+                  transformOrigin: "bottom",
+                }}
+              />
+            );
+          }
 
           return (
             <motion.div
