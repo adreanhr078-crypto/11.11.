@@ -19,6 +19,8 @@ const TRANSITION_MSGS: Record<number, string> = {
   5: "◈ الحقيقة مكشوفة",
 };
 
+type PuzzleEvent = "correct" | "wrong" | "timeout";
+
 type LevelGateProps = {
   uid: string;
   initialLevel: number;
@@ -26,9 +28,10 @@ type LevelGateProps = {
   userName?: string | null;
   onClose: () => void;
   onAdvance: (newLevel: number, completed: boolean) => void;
+  onPuzzleEvent?: (event: PuzzleEvent) => void;
 };
 
-export function LevelGate({ uid, initialLevel, isCompleted, userName, onClose, onAdvance }: LevelGateProps) {
+export function LevelGate({ uid, initialLevel, isCompleted, userName, onClose, onAdvance, onPuzzleEvent }: LevelGateProps) {
   const [level, setLevel] = useState(isCompleted ? 6 : initialLevel);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,8 +67,10 @@ export function LevelGate({ uid, initialLevel, isCompleted, userName, onClose, o
       const data = await res.json() as { ok?: boolean; newLevel?: number; error?: string };
       if (!res.ok || !data.ok) {
         setError(data.error ?? "الوصول مرفوض.");
+        onPuzzleEvent?.("wrong");
         return;
       }
+      onPuzzleEvent?.("correct");
       const newLevel = data.newLevel ?? level + 1;
       const completed = newLevel > 5;
       setTransitionMsg(TRANSITION_MSGS[level] ?? "◈ مستوى جديد");
@@ -76,10 +81,11 @@ export function LevelGate({ uid, initialLevel, isCompleted, userName, onClose, o
       }, 2000);
     } catch {
       setError("خطأ في الاتصال.");
+      onPuzzleEvent?.("wrong");
     } finally {
       setSubmitting(false);
     }
-  }, [uid, level, onAdvance]);
+  }, [uid, level, onAdvance, onPuzzleEvent]);
 
   // L2 — check time window every 10s
   useEffect(() => {
@@ -133,6 +139,7 @@ export function LevelGate({ uid, initialLevel, isCompleted, userName, onClose, o
           setL4BtnVisible(false);
           setL4Missed(true);
           setL4Token(null);
+          onPuzzleEvent?.("timeout");
         }
       }, 1000);
     } catch { setError("خطأ في الاتصال."); }

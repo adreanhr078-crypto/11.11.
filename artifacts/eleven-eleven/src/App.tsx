@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { LevelGate } from "./LevelGate";
 import { LangSelect } from "./LangSelect";
 import { HorrorEngine } from "./HorrorEngine";
+import { useGameState, gameStore } from "./gameState";
 
 // ─── WISH VIDEO RECORDER ──────────────────────────────────────────────────────
 
@@ -1152,21 +1153,36 @@ const FAKE_MEMORIES = [
 class AmbientEngine {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
+  private toneFilter: BiquadFilterNode | null = null;
   private nodes: AudioNode[] = [];
   private running = false;
   private intervalIds: ReturnType<typeof setInterval>[] = [];
+  private glitchLoopActive = false;
+  private currentFear = 0;
+  private currentAtmosphereLevel = 1;
 
   start() {
     if (this.running) return;
     this.ctx = new AudioContext();
+
+    // Signal chain: drone/noise → masterGain → toneFilter → destination
     this.masterGain = this.ctx.createGain();
     this.masterGain.gain.setValueAtTime(0, this.ctx.currentTime);
-    this.masterGain.gain.linearRampToValueAtTime(0.18, this.ctx.currentTime + 3);
-    this.masterGain.connect(this.ctx.destination);
+    this.masterGain.gain.linearRampToValueAtTime(0.12, this.ctx.currentTime + 3);
+
+    // Master tone filter — modulated per fear tier (calm = very dark lowpass, horror = open)
+    this.toneFilter = this.ctx.createBiquadFilter();
+    this.toneFilter.type = "lowpass";
+    this.toneFilter.frequency.value = 200; // start calm: muffled
+    this.toneFilter.Q.value = 0.5;
+
+    this.masterGain.connect(this.toneFilter);
+    this.toneFilter.connect(this.ctx.destination);
+
     this.running = true;
     this.buildDrone();
     this.buildPulse();
-    this.scheduleGlitchTones();
+    // Glitch tones are NOT started here — they are gated behind high fear state
   }
 
   private buildDrone() {
@@ -1251,9 +1267,11 @@ class AmbientEngine {
     setTimeout(pulse, 2000);
   }
 
-  private scheduleGlitchTones() {
+  private startGlitchLoop() {
+    if (this.glitchLoopActive) return;
+    this.glitchLoopActive = true;
     const fire = () => {
-      if (!this.ctx || !this.masterGain || !this.running) return;
+      if (!this.ctx || !this.masterGain || !this.running || !this.glitchLoopActive) return;
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
       const freq = [220, 440, 880, 1760, 55][Math.floor(Math.random() * 5)];
@@ -1261,15 +1279,15 @@ class AmbientEngine {
       osc.type = Math.random() > 0.5 ? "sawtooth" : "square";
       const t = this.ctx.currentTime;
       gain.gain.setValueAtTime(0, t);
-      gain.gain.linearRampToValueAtTime(0.04, t + 0.02);
+      gain.gain.linearRampToValueAtTime(0.05, t + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.3 + Math.random() * 0.4);
       osc.connect(gain);
       gain.connect(this.masterGain);
       osc.start(t);
       osc.stop(t + 1);
-      setTimeout(fire, 6000 + Math.random() * 14000);
+      setTimeout(fire, 4000 + Math.random() * 8000);
     };
-    setTimeout(fire, 4000);
+    setTimeout(fire, 1000 + Math.random() * 2000);
   }
 
   setVolume(v: number) {
@@ -1277,9 +1295,110 @@ class AmbientEngine {
     this.masterGain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.5);
   }
 
+  playGlitch() {
+    if (!this.ctx || !this.masterGain || !this.running) return;
+    const freqs = [440, 880, 1760, 220, 55];
+    freqs.slice(0, 2 + Math.floor(Math.random() * 3)).forEach((freq, i) => {
+      if (!this.ctx || !this.masterGain) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const t = this.ctx.currentTime + i * 0.04;
+      osc.type = Math.random() > 0.5 ? "sawtooth" : "square";
+      osc.frequency.value = freq + (Math.random() - 0.5) * 40;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.06, t + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.25 + Math.random() * 0.3);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(t);
+      osc.stop(t + 0.7);
+    });
+  }
+
+  playChime() {
+    // Subtle relief sound: soft sine sweep downward (correct-answer cue)
+    if (!this.ctx || !this.masterGain || !this.running) return;
+    const freqs = [880, 660, 440];
+    freqs.forEach((freq, i) => {
+      if (!this.ctx || !this.masterGain) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const t = this.ctx.currentTime + i * 0.12;
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, t);
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.85, t + 0.5);
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.04, t + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(t);
+      osc.stop(t + 0.8);
+    });
+  }
+
+  setFearTier(fear: number) {
+    if (!this.masterGain || !this.ctx || !this.toneFilter) return;
+    this.currentFear = fear;
+    const t = this.ctx.currentTime;
+
+    if (fear >= 8) {
+      // Horror tier: fully open filter (all frequencies pass), loud, glitch bursts active
+      this.toneFilter.frequency.setTargetAtTime(8000, t, 1.5);
+      this.toneFilter.Q.setTargetAtTime(0.7, t, 1.5);
+      this.masterGain.gain.setTargetAtTime(0.32, t, 1.5);
+      this.startGlitchLoop();
+    } else if (fear >= 5) {
+      // Tense tier: medium-open filter, slightly elevated volume
+      this.toneFilter.frequency.setTargetAtTime(1200, t, 2);
+      this.toneFilter.Q.setTargetAtTime(0.5, t, 2);
+      this.masterGain.gain.setTargetAtTime(0.22, t, 2);
+      this.glitchLoopActive = false;
+    } else {
+      // Calm tier: dark, muffled lowpass — quiet whispers
+      this.toneFilter.frequency.setTargetAtTime(200, t, 3);
+      this.toneFilter.Q.setTargetAtTime(0.3, t, 3);
+      this.masterGain.gain.setTargetAtTime(0.12, t, 3);
+      this.glitchLoopActive = false;
+    }
+  }
+
+  setAtmosphereLevel(level: number) {
+    if (!this.masterGain || !this.ctx || !this.toneFilter) return;
+    this.currentAtmosphereLevel = level;
+    const t = this.ctx.currentTime;
+    // Level-based baseline stacks with fear tier — level controls filter character
+    const levelFilter: Record<number, number> = { 1: 200, 2: 500, 3: 1000, 4: 100, 5: 60 };
+    const levelGain: Record<number, number> = { 1: 0.12, 2: 0.18, 3: 0.24, 4: 0.08, 5: 0.04 };
+    // Only override if fear hasn't already pushed to horror tier
+    if (this.currentFear < 8) {
+      this.toneFilter.frequency.setTargetAtTime(levelFilter[level] ?? 300, t, 2);
+      this.masterGain.gain.setTargetAtTime(levelGain[level] ?? 0.18, t, 2);
+    }
+  }
+
+  horrorMoment(onBurst: () => void) {
+    if (!this.masterGain || !this.ctx) return;
+    const prevRunning = this.running;
+    this.masterGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.3);
+    setTimeout(() => {
+      if (!this.ctx || !this.masterGain || !prevRunning) return;
+      this.playGlitch();
+      this.playGlitch();
+      this.masterGain.gain.setTargetAtTime(0.32, this.ctx.currentTime, 0.1);
+      setTimeout(() => {
+        if (this.masterGain && this.ctx) {
+          this.masterGain.gain.setTargetAtTime(0.18, this.ctx.currentTime, 1.5);
+        }
+      }, 600);
+      onBurst();
+    }, 3000);
+  }
+
   stop() {
     if (!this.running) return;
     this.running = false;
+    this.glitchLoopActive = false;
     this.intervalIds.forEach(clearInterval);
     this.intervalIds = [];
     if (this.masterGain && this.ctx) {
@@ -1386,13 +1505,15 @@ async function streamAiResponse(
   deviceContext?: string,
   persona?: string,
   wishContext?: string,
-  uid?: string
+  uid?: string,
+  trustAI?: number,
+  gameLevel?: number
 ) {
   try {
     const res = await fetch("/api/ai/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages, deviceContext, persona, wishContext, uid }),
+      body: JSON.stringify({ messages, deviceContext, persona, wishContext, uid, trustAI, gameLevel }),
     });
     if (!res.ok || !res.body) { onError("..."); return; }
     const reader = res.body.getReader();
@@ -2596,6 +2717,13 @@ function App() {
   const audioRef = useRef<AmbientEngine | null>(null);
   const audioStarted = useRef(false);
 
+  const gameState = useGameState();
+  const gameStateRef = useRef(gameState);
+  useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
+
+  const [debugVisible, setDebugVisible] = useState(() => new URLSearchParams(window.location.search).get("debug") === "1");
+  const horrorMomentActiveRef = useRef(false);
+
   // Call feature
   const [callPhase, setCallPhase] = useState<CallPhase>("idle");
   const [callScript, setCallScript] = useState("");
@@ -2796,7 +2924,7 @@ function App() {
         audioStarted.current = true;
       } else {
         audioRef.current.resume();
-        audioRef.current.setVolume(0.18);
+        audioRef.current.setFearTier(gameStateRef.current.fear);
       }
       setSoundOn(true);
     } else {
@@ -2804,6 +2932,39 @@ function App() {
       setSoundOn(false);
     }
   }, [soundOn]);
+
+  const triggerHorrorMoment = useCallback(() => {
+    if (horrorMomentActiveRef.current || !audioStarted.current) return;
+    horrorMomentActiveRef.current = true;
+    audioRef.current?.horrorMoment(() => {
+      gameStore.incrementFear(5);
+      setGlobalGlitch(true);
+      setRedFlash(true);
+      setTimeout(() => { setGlobalGlitch(false); setRedFlash(false); }, 900);
+    });
+    setTimeout(() => { horrorMomentActiveRef.current = false; }, 8000);
+  }, []);
+
+  useEffect(() => {
+    if (!audioStarted.current) return;
+    audioRef.current?.setFearTier(gameState.fear);
+    if (gameState.fear >= 9 && !horrorMomentActiveRef.current) {
+      triggerHorrorMoment();
+    }
+  }, [gameState.fear, triggerHorrorMoment]);
+
+  useEffect(() => {
+    if (!audioStarted.current) return;
+    audioRef.current?.setAtmosphereLevel(gameState.level);
+  }, [gameState.level]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.shiftKey && e.key === "D") setDebugVisible((v) => !v);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // popup spawner
   const showPopup = useCallback((text?: string) => {
@@ -2853,6 +3014,23 @@ function App() {
       }
     });
   }, []);
+
+  // Passive horror loop — runs every 10s, checks fear/trustAI thresholds
+  useEffect(() => {
+    const loop = setInterval(() => {
+      const gs = gameStateRef.current;
+      if (gs.fear > 5 && audioStarted.current) {
+        audioRef.current?.playGlitch();
+      }
+      if (gs.trustAI > 5) {
+        injectAutoMessage();
+      }
+      if (gs.fear > 7 && gs.trustAI > 7 && !horrorMomentActiveRef.current) {
+        triggerHorrorMoment();
+      }
+    }, 10000);
+    return () => clearInterval(loop);
+  }, [injectAutoMessage, triggerHorrorMoment]);
 
   // random events — less frequent, more impactful
   useEffect(() => {
@@ -3201,6 +3379,8 @@ function App() {
         chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: full }];
         saveChatHistoryLS(chatHistoryRef.current);
         setIsSending(false);
+        gameStore.incrementTrust();
+        gameStore.incrementCuriosity();
         setTimeout(() => { if (!isSendingRef.current) injectAutoMessage(); }, 90000 + Math.random() * 90000);
 
         // System 3 — Entity war: 22% chance after 4th+ user message
@@ -3235,7 +3415,9 @@ function App() {
       deviceContextRef.current,
       persona,
       wishContextRef.current,
-      uidRef.current
+      uidRef.current,
+      gameStateRef.current.trustAI,
+      gameStateRef.current.level
     );
   };
 
@@ -4002,6 +4184,18 @@ function App() {
         )}
       </AnimatePresence>
 
+      {/* GameState debug overlay — toggle with Shift+D or ?debug=1 */}
+      {debugVisible && (
+        <div className="fixed bottom-4 left-4 z-[200] bg-black/90 border border-primary/40 p-3 font-mono text-[10px] text-primary/80 space-y-1 pointer-events-none">
+          <div className="text-[8px] tracking-widest text-primary/40 mb-1">◈ GAME STATE DEBUG</div>
+          <div>LEVEL: {gameState.level}</div>
+          <div>FEAR: {gameState.fear}/10</div>
+          <div>CURIOSITY: {gameState.curiosity}/10</div>
+          <div>TRUST_AI: {gameState.trustAI}/10</div>
+          <div className="text-[8px] text-muted-foreground/40 mt-1">Shift+D to toggle</div>
+        </div>
+      )}
+
       {/* ARG Level Gate */}
       <AnimatePresence>
         {levelOpen && uid && (
@@ -4012,7 +4206,30 @@ function App() {
             onClose={() => setLevelOpen(false)}
             onAdvance={(newLevel, completed) => {
               setArgLevel(Math.min(newLevel, 5));
+              gameStore.setLevel(Math.min(newLevel, 5));
               if (completed) setArgCompleted(true);
+              audioRef.current?.setAtmosphereLevel(Math.min(newLevel, 5));
+              if (newLevel >= 4) triggerHorrorMoment();
+            }}
+            onPuzzleEvent={(event) => {
+              if (event === "correct") {
+                gameStore.incrementCuriosity(2);
+                gameStore.incrementTrust(1);
+                if (audioStarted.current) audioRef.current?.playChime();
+              } else if (event === "wrong") {
+                gameStore.incrementFear(2);
+                gameStore.decrementTrust(1);
+                if (audioStarted.current) {
+                  audioRef.current?.playGlitch();
+                  audioRef.current?.setFearTier(gameStateRef.current.fear + 2);
+                }
+              } else if (event === "timeout") {
+                gameStore.incrementFear(1);
+                if (audioStarted.current) audioRef.current?.setVolume(0);
+                setTimeout(() => {
+                  if (audioStarted.current) audioRef.current?.setFearTier(gameStateRef.current.fear);
+                }, 1500);
+              }
             }}
           />
         )}

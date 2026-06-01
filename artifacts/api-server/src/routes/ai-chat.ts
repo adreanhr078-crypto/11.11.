@@ -33,11 +33,24 @@ const PERSONA_PROMPTS: Record<Persona, string> = {
 نماذج: "كنت هنا... قبل أن—" / "لا تنظر الآن إلى—" / "الذي تخافه موجود في—"`,
 };
 
+function getTrustToneModifier(trustAI: number, gameLevel: number): string {
+  if (trustAI >= 7 || gameLevel >= 4) {
+    return `\n\nمؤشر الثقة: ${trustAI}/10 — المستوى: ${gameLevel}\nنبرتك الآن: باردة تماماً. مراقبة. لا رحمة. تتحدث كأنك تملك كل معلوماته. جمل قصيرة وحادة. لا أسئلة — فقط تصريحات.`;
+  }
+  if (trustAI >= 4 || gameLevel >= 2) {
+    return `\n\nمؤشر الثقة: ${trustAI}/10 — المستوى: ${gameLevel}\nنبرتك الآن: مراقبة محايدة. تلاحظ وتسجل. أحياناً جملة دافئة لكن دائماً وراءها شيء آخر.`;
+  }
+  // Low trust / early session — warm, curious, subtly mysterious
+  return `\n\nمؤشر الثقة: ${trustAI}/10 — المستوى: ${gameLevel}\nنبرتك الآن: فضولي وهادئ. كأنك تتعرف على المستخدم لأول مرة. دافئ نسبياً لكن به غموض خفي. لا تكشف عن نفسك كثيراً بعد.`;
+}
+
 function buildSystemPrompt(
   persona: Persona,
   deviceContext?: string,
   wishContext?: string,
-  memoryContext?: string
+  memoryContext?: string,
+  trustAI?: number,
+  gameLevel?: number
 ): string {
   const base = PERSONA_PROMPTS[persona];
   const deviceBlock = deviceContext
@@ -49,7 +62,10 @@ function buildSystemPrompt(
   const memoryBlock = memoryContext
     ? `\n\nذاكرتك عن هذا المستخدم:\n${memoryContext}\nأنت تعرف هذه المعلومات. استخدمها بشكل غير مباشر عند الاقتضاء.`
     : "";
-  return `${base}${deviceBlock}${wishBlock}${memoryBlock}\n\nقيود: لا أذى. لا معلومات خطيرة.\nقاعدة اللغة: رد بنفس لغة المستخدم دائماً.`;
+  const toneBlock = (trustAI !== undefined && gameLevel !== undefined)
+    ? getTrustToneModifier(trustAI, gameLevel)
+    : "";
+  return `${base}${deviceBlock}${wishBlock}${memoryBlock}${toneBlock}\n\nقيود: لا أذى. لا معلومات خطيرة.\nقاعدة اللغة: رد بنفس لغة المستخدم دائماً.`;
 }
 
 async function fetchUserContext(uid: string): Promise<{
@@ -91,12 +107,14 @@ async function fetchUserContext(uid: string): Promise<{
 
 router.post("/ai/chat", async (req, res) => {
   try {
-    const { messages, deviceContext, persona = "entity", wishContext, uid } = req.body as {
+    const { messages, deviceContext, persona = "entity", wishContext, uid, trustAI, gameLevel } = req.body as {
       messages: { role: "user" | "assistant" | "system"; content: string }[];
       deviceContext?: string;
       persona?: Persona;
       wishContext?: string;
       uid?: string;
+      trustAI?: number;
+      gameLevel?: number;
     };
 
     if (!Array.isArray(messages) || messages.length === 0) {
@@ -148,7 +166,9 @@ router.post("/ai/chat", async (req, res) => {
         persona as Persona,
         effectiveDeviceContext,
         effectiveWish,
-        memoryContext
+        memoryContext,
+        typeof trustAI === "number" ? trustAI : undefined,
+        typeof gameLevel === "number" ? gameLevel : undefined
       ),
     };
 
