@@ -107,6 +107,65 @@ export function useGameState(): GameState {
   return state;
 }
 
+/**
+ * Passive dread accumulation — fear creeps up while the user lingers on-screen.
+ * Interval scales with current fear: slower at low fear, faster at high fear.
+ * Pauses automatically when the tab is hidden.
+ *
+ * @param enabled - only accumulate after the user has consented
+ */
+export function usePassiveDread(enabled: boolean) {
+  useEffect(() => {
+    if (!enabled) return;
+
+    /** Returns milliseconds until the next fear increment based on current fear. */
+    function intervalMs(fear: number): number {
+      if (fear >= 9) return 60_000;   // 1 min at near-max
+      if (fear >= 7) return 90_000;   // 1.5 min at high fear
+      if (fear >= 5) return 120_000;  // 2 min at mid fear
+      if (fear >= 3) return 150_000;  // 2.5 min at low-mid fear
+      return 180_000;                 // 3 min at low fear
+    }
+
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let paused = document.hidden;
+
+    function schedule() {
+      if (paused) return;
+      const currentFear = gameStore.getState().fear;
+      if (currentFear >= 10) return; // already at max
+      timeoutId = setTimeout(() => {
+        if (!paused) {
+          gameStore.incrementFear(1);
+        }
+        schedule();
+      }, intervalMs(currentFear));
+    }
+
+    function onVisibilityChange() {
+      paused = document.hidden;
+      if (!paused) {
+        // Resumed — restart the schedule
+        schedule();
+      } else {
+        // Tab hidden — cancel pending tick
+        if (timeoutId !== null) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+      }
+    }
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    schedule();
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      if (timeoutId !== null) clearTimeout(timeoutId);
+    };
+  }, [enabled]);
+}
+
 export function getTrustToneModifier(trustAI: number, level: number): string {
   if (trustAI >= 7 || level >= 4) {
     return `\n\nمؤشر الثقة: ${trustAI}/10 — المستوى: ${level}

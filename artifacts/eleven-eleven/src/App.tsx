@@ -6,7 +6,7 @@ import { LevelGate } from "./LevelGate";
 import { LangSelect } from "./LangSelect";
 import { HorrorEngine } from "./HorrorEngine";
 import { SyncMeter } from "./SyncMeter";
-import { useGameState, gameStore } from "./gameState";
+import { useGameState, gameStore, usePassiveDread } from "./gameState";
 
 // ─── WISH VIDEO RECORDER ──────────────────────────────────────────────────────
 
@@ -2649,6 +2649,10 @@ function App() {
 
   // ── Entry consent + geolocation ──────────────────────────────────────────────
   const [consentDone, setConsentDone] = useState(() => localStorage.getItem(ENTRY_KEY) === "1");
+
+  // Passive dread — fear creeps up slowly while the user lingers on screen
+  usePassiveDread(consentDone);
+
   const [geoCity, setGeoCity] = useState<string | null>(() => {
     try { return localStorage.getItem("eleven_geo_city") || null; } catch { return null; }
   });
