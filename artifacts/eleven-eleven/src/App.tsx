@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { LevelGate } from "./LevelGate";
+import { LangSelect } from "./LangSelect";
+import { HorrorEngine } from "./HorrorEngine";
 
 // ─── WISH VIDEO RECORDER ──────────────────────────────────────────────────────
 
@@ -2497,6 +2499,17 @@ function App() {
   const [breakReality, setBreakReality] = useState(false);
   const breakRealityActiveRef = useRef(false);
 
+  // ── Language selection ────────────────────────────────────────────────────────
+  const [lang, setLang] = useState<"ar" | "en">(() => {
+    try { return (localStorage.getItem("eleven_lang") as "ar" | "en") || "ar"; } catch { return "ar"; }
+  });
+  const [langChosen, setLangChosen] = useState(() => !!localStorage.getItem("eleven_lang"));
+  const handleLangSelect = useCallback((l: "ar" | "en") => {
+    setLang(l);
+    setLangChosen(true);
+    try { localStorage.setItem("eleven_lang", l); } catch { /* ignore */ }
+  }, []);
+
   // ── Entry consent + geolocation ──────────────────────────────────────────────
   const [consentDone, setConsentDone] = useState(() => localStorage.getItem(ENTRY_KEY) === "1");
   const [geoCity, setGeoCity] = useState<string | null>(() => {
@@ -3315,6 +3328,11 @@ function App() {
     >
       {!scanDone && <BiometricScan onDone={handleScanDone} />}
       {scanDone && !consentDone && <EntryScreen onDone={handleConsentDone} />}
+      {scanDone && consentDone && !langChosen && (
+        <AnimatePresence>
+          <LangSelect onSelect={handleLangSelect} />
+        </AnimatePresence>
+      )}
       <FuturisticBackground />
 
       {/* Central glow */}
@@ -4030,6 +4048,8 @@ function App() {
           />
         )}
       </AnimatePresence>
+      {/* Horror Engine — always present after consent */}
+      {consentDone && <HorrorEngine soundOn={soundOn} lang={lang} />}
     </div>
   );
 }
