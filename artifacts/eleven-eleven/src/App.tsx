@@ -2512,6 +2512,7 @@ type DbProfile = {
   persona: string | null;
   discoveredRooms: string[];
   geoCity: string | null;
+  gameState: { fear: number; curiosity: number; trustAI: number; level: number } | null;
 };
 
 async function loadDbProfile(uid: string): Promise<DbProfile | null> {
@@ -2521,6 +2522,7 @@ async function loadDbProfile(uid: string): Promise<DbProfile | null> {
     const data = await res.json() as {
       profile: { wish?: string | null; persona?: string | null; discoveredRooms?: string[] | null; geoCity?: string | null } | null;
       chatHistory: { role: string; content: string }[];
+      gameState?: { fear: number; curiosity: number; trustAI: number; level: number } | null;
     };
     if (!data.profile && (!data.chatHistory || data.chatHistory.length === 0)) return null;
     return {
@@ -2532,10 +2534,21 @@ async function loadDbProfile(uid: string): Promise<DbProfile | null> {
       persona: data.profile?.persona ?? null,
       discoveredRooms: data.profile?.discoveredRooms ?? [],
       geoCity: data.profile?.geoCity ?? null,
+      gameState: data.gameState ?? null,
     };
   } catch {
     return null;
   }
+}
+
+async function syncGameStateToDb(uid: string, fear: number, curiosity: number, trustAI: number, level: number): Promise<void> {
+  try {
+    await fetch("/api/user/gamestate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uid, fear, curiosity, trustAI, level }),
+    });
+  } catch { /* ignore */ }
 }
 
 async function saveDbProfile(uid: string, data: {
@@ -2877,6 +2890,10 @@ function App() {
         try { localStorage.setItem("eleven_geo_city", profile.geoCity); } catch { /* ignore */ }
         deviceContextRef.current = buildDeviceContext() + ` | المدينة: ${profile.geoCity}`;
       }
+      // Hydrate game state — takes the higher value so local progress is never erased
+      if (profile.gameState) {
+        gameStore.hydrate(profile.gameState);
+      }
     }).finally(() => {
       if (!cancelled) profileHydratedRef.current = true;
     });
@@ -2916,6 +2933,17 @@ function App() {
     saveDbProfile(uid, { wish: wishContextRef.current || null });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasStoredWish]);
+
+  // Sync game state to DB — debounced 4s, only after hydration completes
+  useEffect(() => {
+    const uid = uidRef.current;
+    if (!uid || !profileHydratedRef.current) return;
+    const t = setTimeout(() => {
+      syncGameStateToDb(uid, gameState.fear, gameState.curiosity, gameState.trustAI, gameState.level);
+    }, 4000);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState.fear, gameState.curiosity, gameState.trustAI, gameState.level]);
 
   const toggleSound = useCallback(() => {
     if (!audioRef.current) return;

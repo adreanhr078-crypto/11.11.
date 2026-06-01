@@ -15,6 +15,11 @@ export const usersTable = pgTable("users", {
   // ARG Progression
   currentLevel: integer("current_level").notNull().default(1),
   levelUnlockedAt: text("level_unlocked_at").notNull().default("{}"),
+  // GameState — persisted so fear/curiosity/trust/level carry across devices
+  gameStateFear: integer("game_state_fear").notNull().default(0),
+  gameStateCuriosity: integer("game_state_curiosity").notNull().default(0),
+  gameStateTrustAI: integer("game_state_trust_ai").notNull().default(0),
+  gameStateLevel: integer("game_state_level").notNull().default(1),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()

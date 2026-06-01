@@ -117,7 +117,18 @@ router.get("/user/profile", async (req, res) => {
       .orderBy(asc(chatHistoryTable.createdAt))
       .limit(30);
 
-    res.json({ profile: profile ?? null, chatHistory: history });
+    res.json({
+      profile: profile ?? null,
+      chatHistory: history,
+      gameState: profile
+        ? {
+            fear: profile.gameStateFear ?? 0,
+            curiosity: profile.gameStateCuriosity ?? 0,
+            trustAI: profile.gameStateTrustAI ?? 0,
+            level: profile.gameStateLevel ?? 1,
+          }
+        : null,
+    });
   } catch (err) {
     req.log.error({ err }, "user profile GET error");
     res.status(500).json({ error: "internal" });
@@ -166,6 +177,45 @@ router.post("/user/profile", async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     req.log.error({ err }, "user profile POST error");
+    res.status(500).json({ error: "internal" });
+  }
+});
+
+// POST /api/user/gamestate — upsert fear/curiosity/trustAI for a user
+router.post("/user/gamestate", async (req, res) => {
+  try {
+    const { uid, fear, curiosity, trustAI, level } = req.body as {
+      uid: string;
+      fear?: number;
+      curiosity?: number;
+      trustAI?: number;
+      level?: number;
+    };
+
+    if (!isValidUuid(uid)) {
+      res.status(400).json({ error: "invalid uid" });
+      return;
+    }
+
+    const clamp = (v: number | undefined, min: number, max: number, def: number) =>
+      typeof v === "number" && Number.isFinite(v) ? Math.max(min, Math.min(max, Math.round(v))) : def;
+
+    const gameStateFear = clamp(fear, 0, 10, 0);
+    const gameStateCuriosity = clamp(curiosity, 0, 10, 0);
+    const gameStateTrustAI = clamp(trustAI, 0, 10, 0);
+    const gameStateLevel = clamp(level, 1, 5, 1);
+
+    await db
+      .insert(usersTable)
+      .values({ uid, gameStateFear, gameStateCuriosity, gameStateTrustAI, gameStateLevel })
+      .onConflictDoUpdate({
+        target: usersTable.uid,
+        set: { gameStateFear, gameStateCuriosity, gameStateTrustAI, gameStateLevel, updatedAt: new Date() },
+      });
+
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "user gamestate POST error");
     res.status(500).json({ error: "internal" });
   }
 });

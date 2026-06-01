@@ -59,6 +59,18 @@ export const gameStore = {
     return () => _listeners.delete(listener);
   },
 
+  /** Hydrate from DB — takes the higher value per field so local progress is never lost */
+  hydrate: (remote: { fear: number; curiosity: number; trustAI: number; level?: number }) => {
+    _state = {
+      ..._state,
+      fear: clamp(Math.max(_state.fear, remote.fear)),
+      curiosity: clamp(Math.max(_state.curiosity, remote.curiosity)),
+      trustAI: clamp(Math.max(_state.trustAI, remote.trustAI)),
+      level: clamp(Math.max(_state.level, remote.level ?? 1), 1, 5),
+    };
+    persist(); broadcast();
+  },
+
   incrementFear: (amount = 1) => {
     _state = { ..._state, fear: clamp(_state.fear + amount) };
     persist(); broadcast();
