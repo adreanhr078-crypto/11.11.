@@ -15,6 +15,9 @@ export const usersTable = pgTable("users", {
   // ARG Progression
   currentLevel: integer("current_level").notNull().default(1),
   levelUnlockedAt: text("level_unlocked_at").notNull().default("{}"),
+  // Puzzle system — solved puzzle IDs + unlocked achievement IDs
+  solvedPuzzles: text("solved_puzzles").array().default([]),
+  unlockedAchievements: text("unlocked_achievements").array().default([]),
   // GameState — persisted so fear/curiosity/trust/level carry across devices
   gameStateFear: integer("game_state_fear").notNull().default(0),
   gameStateCuriosity: integer("game_state_curiosity").notNull().default(0),

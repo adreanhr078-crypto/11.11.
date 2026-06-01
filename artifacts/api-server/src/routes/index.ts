@@ -4,6 +4,7 @@ import aiChatRouter from "./ai-chat";
 import userProfileRouter from "./user-profile";
 import pushRouter from "./push";
 import progressRouter from "./progress";
+import argRouter from "./arg";
 
 const router: IRouter = Router();
 
@@ -12,5 +13,6 @@ router.use(aiChatRouter);
 router.use(userProfileRouter);
 router.use(pushRouter);
 router.use(progressRouter);
+router.use(argRouter);
 
 export default router;

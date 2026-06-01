@@ -111,11 +111,7 @@ router.post("/progress/advance", async (req, res) => {
         break;
       }
       case 2: {
-        const h = new Date().getHours();
-        if (h !== 11 && h !== 3) {
-          res.status(403).json({ error: "البوابة مغلقة. انتظر الساعة 11 أو 3." });
-          return;
-        }
+        // Time-lock removed — puzzles are available all day.
         break;
       }
       case 3: {
