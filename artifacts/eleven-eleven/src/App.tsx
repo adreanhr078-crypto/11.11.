@@ -3044,18 +3044,54 @@ function App() {
     });
   }, []);
 
+  // Per-action cooldown refs for the passive horror loop (ms timestamps)
+  const lastGlitchRef = useRef<number>(0);
+  const lastProbeRef = useRef<number>(0);
+  const lastHorrorMomentRef = useRef<number>(0);
+
   // Passive horror loop — runs every 10s, checks fear/trustAI thresholds
+  // Each action type has its own minimum cooldown so the experience builds
+  // gradually rather than spamming at high fear values.
   useEffect(() => {
+    const GLITCH_COOLDOWN = 30_000;       // 30 s between glitch sounds
+    const PROBE_COOLDOWN = 120_000;       // 2 min between AI probes
+    const HORROR_MOMENT_COOLDOWN = 300_000; // 5 min between horror moments
+
     const loop = setInterval(() => {
       const gs = gameStateRef.current;
+      const now = Date.now();
+
+      // Glitch sound — only fire if cooled down; at very high fear add a
+      // random gate so it doesn't trigger on every eligible tick.
       if (gs.fear > 5 && audioStarted.current) {
-        audioRef.current?.playGlitch();
+        const elapsed = now - lastGlitchRef.current;
+        if (elapsed >= GLITCH_COOLDOWN) {
+          // Above fear 7 stagger randomly (~50 % chance per tick) to prevent
+          // a predictable pulse every 30 s.
+          const shouldFire = gs.fear <= 7 || Math.random() < 0.5;
+          if (shouldFire) {
+            audioRef.current?.playGlitch();
+            lastGlitchRef.current = now;
+          }
+        }
       }
+
+      // AI probe — long cooldown so messages feel deliberate, not spammy.
       if (gs.trustAI > 5) {
-        injectAutoMessage();
+        const elapsed = now - lastProbeRef.current;
+        if (elapsed >= PROBE_COOLDOWN) {
+          injectAutoMessage();
+          lastProbeRef.current = now;
+        }
       }
+
+      // Horror moment — rarest, only when both meters are maxed.
       if (gs.fear > 7 && gs.trustAI > 7 && !horrorMomentActiveRef.current) {
-        triggerHorrorMoment();
+        const elapsed = now - lastHorrorMomentRef.current;
+        if (elapsed >= HORROR_MOMENT_COOLDOWN) {
+          triggerHorrorMoment();
+          lastHorrorMomentRef.current = now;
+        }
       }
     }, 10000);
     return () => clearInterval(loop);
