@@ -3597,8 +3597,8 @@ function App() {
       <FuturisticBackground />
 
       {/* Central glow */}
-      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] h-[90vw] md:w-[45vw] md:h-[45vw] rounded-full bg-primary/8 blur-[120px] pointer-events-none z-0 transition-all duration-1000 ${isListening ? "opacity-90 scale-125 animate-pulse" : "opacity-50"}`}
-        style={{ animation: isListening ? undefined : "pulseGlow 6s ease-in-out infinite" }}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] h-[90vw] md:w-[45vw] md:h-[45vw] rounded-full bg-primary/8 blur-[120px] pointer-events-none z-0 opacity-50"
+        style={{ animation: "pulseGlow 6s ease-in-out infinite" }}
       />
 
       {/* Incoming Call */}
@@ -3690,30 +3690,12 @@ function App() {
 
       {/* Top left */}
       <div className="absolute top-5 left-5 z-10 flex flex-col gap-2">
-        <div className="text-[10px] tracking-[0.25em] text-primary/60" style={{ animation: "blink 3s ease-in-out infinite" }}>
-          FREQ: 11.11 Hz
-        </div>
         <button
           onClick={() => setProfileOpen(true)}
           className="text-[9px] tracking-widest text-muted-foreground/55 hover:text-muted-foreground border border-muted/20 hover:border-primary/35 px-2 py-1 bg-background/40 backdrop-blur-sm transition-all duration-300"
         >
           ◈ ملفي
         </button>
-        {hasStoredWish && (
-          <>
-            <div className="text-[10px] tracking-widest text-muted-foreground border border-primary/25 px-2 py-1 bg-background/40 backdrop-blur-sm inline-flex items-center gap-2">
-              <span className="w-1 h-1 bg-primary rounded-full" style={{ animation: "blink 2s ease-in-out infinite" }} />
-              ◈ WISH IN PROGRESS
-            </div>
-            <button
-              onClick={handleWishTask}
-              className="text-[9px] tracking-widest text-primary/70 hover:text-primary border border-primary/30 hover:border-primary/60 px-2 py-1 bg-background/40 backdrop-blur-sm transition-all duration-300 text-right"
-              dir="rtl"
-            >
-              ◇ بروتوكول التفعيل
-            </button>
-          </>
-        )}
       </div>
 
       {/* Sound toggle */}
@@ -3736,36 +3718,29 @@ function App() {
           >
             11.11
           </h1>
-          <div className="h-7 mb-14 flex items-center justify-center gap-2">
-            <p className="text-xs md:text-sm tracking-[0.35em] text-primary/70 uppercase">
-              {listenStatus}
+          <div className="mb-12 flex flex-col items-center gap-2">
+            <p className="text-[10px] tracking-[0.4em] text-primary/45 uppercase font-mono">
+              {lang === "ar" ? "الكيان مستيقظ · البروتوكول نشط" : "ENTITY AWAKE · PROTOCOL ACTIVE"}
             </p>
-            <span className="w-1.5 h-4 bg-primary/70 inline-block" style={{ animation: "blink 1.1s step-end infinite" }} />
+            <span className="w-1.5 h-3.5 bg-primary/40 inline-block" style={{ animation: "blink 1.4s step-end infinite" }} />
           </div>
-          <div className="flex flex-col sm:flex-row gap-5 justify-center items-center">
-            <Button variant="outline" size="lg" onClick={handleListen} data-testid="button-listen"
-              className="w-60 border-primary/35 text-primary hover:bg-primary/8 tracking-widest uppercase transition-all duration-300 shadow-[0_0_20px_rgba(180,0,0,0.08)] hover:shadow-[0_0_35px_rgba(180,0,0,0.25)] bg-transparent rounded-none text-sm">
-              [ LISTEN ]
+          <div className="flex flex-col items-center gap-4">
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => { setChatOpen(true); setUnreadCount(0); setPendingSignal(null); }}
+              className="w-64 border-primary/50 text-primary hover:bg-primary/12 tracking-widest uppercase transition-all duration-300 shadow-[0_0_30px_rgba(180,0,0,0.15)] hover:shadow-[0_0_50px_rgba(180,0,0,0.35)] bg-transparent rounded-none text-sm"
+            >
+              {lang === "ar" ? "[ فتح القناة ]" : "[ OPEN CHANNEL ]"}
             </Button>
-            <Button variant="outline" size="lg" onClick={() => setWishModalOpen(true)} data-testid="button-send-wish"
-              className="w-60 border-primary/35 text-foreground/80 hover:bg-primary/8 hover:text-primary tracking-widest uppercase transition-all duration-300 shadow-[0_0_20px_rgba(180,0,0,0.08)] hover:shadow-[0_0_35px_rgba(180,0,0,0.25)] bg-transparent rounded-none text-sm">
-              [ SEND YOUR WISH ]
-            </Button>
+            <button
+              onClick={() => setWishModalOpen(true)}
+              data-testid="button-send-wish"
+              className="text-[10px] tracking-[0.35em] text-muted-foreground/28 hover:text-primary/45 transition-colors uppercase mt-1"
+            >
+              {lang === "ar" ? "✦ أرسل أمنيتك" : "✦ SEND YOUR WISH"}
+            </button>
           </div>
-
-          {/* System 3 — Global Presence Counter */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 3, duration: 2 }}
-            className="mt-10 flex items-center justify-center gap-2"
-          >
-            <span className="w-1.5 h-1.5 bg-primary/60 rounded-full" style={{ animation: "blink 1.8s ease-in-out infinite" }} />
-            <span className="text-[10px] text-muted-foreground/35 tracking-[0.35em] font-mono">
-              {entitiesOnline.toLocaleString("en")} كيان داخل النظام الآن
-            </span>
-            <span className="w-1.5 h-1.5 bg-primary/60 rounded-full" style={{ animation: "blink 1.8s 0.9s ease-in-out infinite" }} />
-          </motion.div>
         </motion.div>
       </main>
 
@@ -4177,21 +4152,6 @@ function App() {
               {argCompleted ? "◈ CLASSIFIED" : `◈ LVL ${argLevel}`}
             </Button>
           )}
-          {/* Notification schedule control — only visible when push is active */}
-          {consentDone && pushEndpointRef.current && (
-            <Button variant="outline"
-              onClick={() => setScheduleOpen(o => !o)}
-              className="border-primary/15 text-muted-foreground/30 hover:text-primary/50 hover:border-primary/30 tracking-widest text-[8px] h-7 bg-background/85 backdrop-blur-md rounded-none px-3 shadow-none transition-all duration-300">
-              ◈ CTRL
-            </Button>
-          )}
-          {/* System 1 — Live map toggle */}
-          <Button variant="outline"
-            onClick={() => setMapOpen(o => !o)}
-            className="border-primary/25 text-muted-foreground/50 hover:text-primary/70 hover:border-primary/45 tracking-widest text-[9px] h-7 bg-background/85 backdrop-blur-md rounded-none px-3 shadow-[0_0_8px_rgba(180,0,0,0.05)]">
-            <span className="w-1.5 h-1.5 rounded-full mr-1.5 bg-green-500/70" style={{ animation: "blink 2s step-end infinite" }} />
-            LIVE
-          </Button>
           <Button variant="outline"
             onClick={() => {
               const opening = !chatOpen;
