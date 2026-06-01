@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { LevelGate } from "./LevelGate";
 import { LangSelect } from "./LangSelect";
 import { HorrorEngine } from "./HorrorEngine";
+import { SyncMeter } from "./SyncMeter";
 import { useGameState, gameStore } from "./gameState";
 
 // ─── WISH VIDEO RECORDER ──────────────────────────────────────────────────────
@@ -4267,6 +4268,9 @@ function App() {
       </AnimatePresence>
       {/* Horror Engine — always present after consent */}
       {consentDone && <HorrorEngine soundOn={soundOn} lang={lang} />}
+
+      {/* Fear / Curiosity sync meter — ambient ARG HUD */}
+      {consentDone && <SyncMeter />}
     </div>
   );
 }
