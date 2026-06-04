@@ -1,17 +1,19 @@
 /**
  * HorrorEngine — Comprehensive psychological horror overlay for 11.11
  *
- * Features:
+ * Features (atmospheric / psychological — no blood or gore):
  *   • Time-based phases: day / preEvent (10:45–11:11 PM) / night (11:11–3:33 AM) / revelation (3:33 AM)
- *   • Web Audio API synthesis: ambient drone, heartbeat, distant screams, glitch stabs
- *   • Cursor blood trail (canvas)
- *   • Watcher eyes (random blinking red eyes across the screen)
- *   • Ghost messages (horror text floating in and out)
- *   • Screen flicker / micro-glitch
- *   • Night glass entity (canvas animation — entity behind cracked glass)
- *   • Day random events (brief message flashes)
+ *   • Web Audio API synthesis: ambient drone, heartbeat, distant tones, glitch stabs
+ *   • Cursor trail (canvas, pale cold glow)
+ *   • Watcher eyes (night/preEvent only — faint blinking eyes)
+ *   • Ghost whispers (rare atmospheric text fragments)
+ *   • Screen flicker / micro-glitch (night/preEvent only)
+ *   • Night glass entity (canvas animation — figure behind cracked glass)
  *   • Pre-event escalation (increasing frequency + intensity)
  *   • 3:33 AM revelation moment
+ *
+ * Daytime is intentionally calm: only rare ghost whispers appear. All the
+ * harassment loops (eyes, flicker, flash events) are gated to night/preEvent.
  */
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
@@ -639,57 +641,6 @@ function NightGlassEntity({ soundEnabled }: { soundEnabled: boolean }) {
   );
 }
 
-// ─── DAY FLASH EVENTS ────────────────────────────────────────────────────────
-const DAY_FLASH_AR = [
-  "هل يسمعني أحد؟", "هذه الرسالة لا يجب أن تكون هنا.",
-  "القناة خاطئة.", "ليس الآن.", "انقذني", "ساعدني", "أنا مسجون",
-];
-const DAY_FLASH_EN = [
-  "can you hear me?", "this message shouldn't be here.",
-  "wrong channel.", "not now.", "save me", "help me", "i'm trapped",
-];
-
-function DayFlashEvent({ lang }: { lang: Lang }) {
-  const [msg, setMsg] = useState<string | null>(null);
-
-  useEffect(() => {
-    const pool = lang === "ar" ? DAY_FLASH_AR : DAY_FLASH_EN;
-    const show = () => {
-      setMsg(pool[Math.floor(Math.random() * pool.length)]);
-      setTimeout(() => setMsg(null), 2200 + Math.random() * 1800);
-    };
-    const id = setInterval(show, 45000 + Math.random() * 90000);
-    return () => clearInterval(id);
-  }, [lang]);
-
-  return (
-    <AnimatePresence>
-      {msg && (
-        <motion.div
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -4 }}
-          transition={{ duration: 0.3 }}
-          className="fixed pointer-events-none font-mono tracking-[0.4em]"
-          style={{
-            zIndex: 9992,
-            top: `${20 + Math.random() * 55}%`,
-            left: "50%",
-            transform: "translateX(-50%)",
-            color: "rgba(200, 0, 0, 0.65)",
-            textShadow: "0 0 10px rgba(200,0,0,0.35)",
-            fontSize: "11px",
-            whiteSpace: "nowrap",
-          }}
-          dir={lang === "ar" ? "rtl" : "ltr"}
-        >
-          {msg}
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
-
 // ─── PRE-EVENT ESCALATION ─────────────────────────────────────────────────────
 function PreEventOverlay({ lang }: { lang: Lang }) {
   const [glitchLine, setGlitchLine] = useState(false);
@@ -855,17 +806,14 @@ export function HorrorEngine({ soundOn, lang }: { soundOn: boolean; lang: Lang }
       {/* Cursor trail */}
       <CursorTrail />
 
-      {/* Screen flicker */}
-      <ScreenFlicker phase={phase} />
+      {/* Screen flicker — night/preEvent only (day stays calm) */}
+      {phase !== "day" && <ScreenFlicker phase={phase} />}
 
-      {/* Watcher eyes */}
-      <WatcherEyes phase={phase} />
+      {/* Watcher eyes — night/preEvent only (day stays calm) */}
+      {phase !== "day" && <WatcherEyes phase={phase} />}
 
-      {/* Ghost messages */}
+      {/* Ghost whispers — rare atmospheric fragments (day + night) */}
       <GhostMessages phase={phase} lang={lang} />
-
-      {/* Day flash events */}
-      {phase === "day" && <DayFlashEvent lang={lang} />}
 
       {/* Pre-event overlay */}
       {phase === "preEvent" && <PreEventOverlay lang={lang} />}

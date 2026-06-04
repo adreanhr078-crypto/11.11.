@@ -1460,24 +1460,6 @@ async function fetchWishTask(
   }
 }
 
-async function fetchCallScript(
-  history: { role: "user" | "assistant"; content: string }[],
-  deviceContext?: string
-): Promise<string> {
-  try {
-    const res = await fetch("/api/ai/call-script", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ history, deviceContext }),
-    });
-    if (!res.ok) return "كنا نراقبك. من البداية.";
-    const data = await res.json() as { script?: string };
-    return data.script?.trim() || "كنا نراقبك. من البداية.";
-  } catch {
-    return "كنا نراقبك. من البداية.";
-  }
-}
-
 async function streamAiResponse(
   messages: { role: "user" | "assistant"; content: string }[],
   onChunk: (text: string) => void,

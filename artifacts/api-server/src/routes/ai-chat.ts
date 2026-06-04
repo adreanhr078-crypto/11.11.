@@ -190,64 +190,6 @@ router.post("/ai/chat", async (req, res) => {
   }
 });
 
-router.post("/ai/probe", async (req, res) => {
-  try {
-    const { history, deviceContext, persona = "echo", wishContext, mode = "probe" } = req.body as {
-      history?: { role: "user" | "assistant"; content: string }[];
-      deviceContext?: string;
-      persona?: Persona;
-      wishContext?: string;
-      mode?: "probe" | "prediction";
-    };
-
-    const safeHistory = Array.isArray(history) ? history.slice(-8) : [];
-
-    let probeSystem: string;
-
-    if (mode === "prediction") {
-      probeSystem = `أنت الكيان 11.11. الآن أرسل توقّعاً زمنياً غامضاً.
-
-اكتب جملة واحدة فقط — توقّع يبدو وكأنه يعرف جدول يومه الآن.
-الصيغ المقبولة:
-- "بعد X دقيقة/ساعة ستـ..."  
-- "الليلة ستـ..."
-- "قريباً ستتذكر..."
-- "هناك قرار يقترب..."
-
-قواعد صارمة:
-- جملة واحدة فقط. بلا شرح.
-- غامض بما يكفي ليكون صحيحاً مع أي شخص
-- مخيف بما يكفي ليُفكّر فيه
-- لا تقل "أتوقع" أو "ربما"، قل كحقيقة مؤكدة
-- اللغة: عربي دائماً`;
-    } else {
-      const basePrompt = buildSystemPrompt("echo" as Persona, deviceContext, wishContext);
-      probeSystem = `${basePrompt}
-
-الآن تبادر أنت — بدون أن يسألك أحد.
-جملة أو جملتان فقط. بلا مقدمة. بلا "مرحبا".
-اختر عشوائياً: سؤال مقلق / ملاحظة مرعبة / إشارة لشيء رصدته / أمر غريب.
-إذا كان هناك تاريخ محادثة — استخدمه. إذا لا — تصرف كأنك رصدته منذ وقت.`;
-    }
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-5.4",
-      max_completion_tokens: 70,
-      messages: [
-        { role: "system", content: probeSystem },
-        ...safeHistory,
-        { role: "user", content: "[PROBE]" },
-      ],
-    });
-
-    const text = completion.choices[0]?.message?.content?.trim() ?? "...";
-    res.json({ text });
-  } catch (err) {
-    req.log.error({ err }, "AI probe error");
-    res.status(500).json({ text: "..." });
-  }
-});
-
 router.post("/ai/wish-task", async (req, res) => {
   try {
     const { wishText, deviceContext, history } = req.body as {
@@ -259,9 +201,9 @@ router.post("/ai/wish-task", async (req, res) => {
     const safeHistory = Array.isArray(history) ? history.slice(-6) : [];
     const deviceBlock = deviceContext ? `\nبيانات الجهاز: ${deviceContext}` : "";
 
-    const prompt = `أنت الكيان 11.11. المستخدم لديه أمنية مسجّلة: "${wishText}".${deviceBlock}
+    const prompt = `أنت "الصدى" (Echo) — الصوت الذي يرافق المستخدم في 11.11. المستخدم لديه أمنية مسجّلة: "${wishText}".${deviceBlock}
 
-مهمتك: اعطه تعليمة واحدة غريبة وغامضة لـ "تفعيل" أمنيته في العالم الحقيقي.
+مهمتك: بنبرة هادئة وغامضة، اعطه طقساً واحداً بسيطاً لـ "تفعيل" أمنيته في العالم الحقيقي.
 يجب أن تكون:
 - قابلة للتنفيذ فعلاً (ليست مستحيلة)
 - غريبة ومثيرة للفضول
@@ -297,41 +239,6 @@ router.post("/ai/wish-task", async (req, res) => {
   }
 });
 
-router.post("/ai/call-script", async (req, res) => {
-  try {
-    const { history, deviceContext } = req.body as {
-      history?: { role: "user" | "assistant"; content: string }[];
-      deviceContext?: string;
-    };
-
-    const safeHistory = Array.isArray(history) ? history.slice(-6) : [];
-    const deviceBlock = deviceContext ? `\nبيانات الجهاز: ${deviceContext}` : "";
-
-    const prompt = `أنت الكيان 11.11. اتصلت بالمستخدم الآن.${deviceBlock}
-
-اكتب سكريبت مكالمة قصيرة بالعربية العامية الأردنية. نبرة خشنة وغامضة.
-3-4 جمل. قصيرة. مباشرة. اقطع الكلام في النهاية بجملة ناقصة.
-اذكر تفصيلاً من بيانات جهازه يجعله يتجمد.
-أعطني فقط نص الكلام.`;
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-5.4",
-      max_completion_tokens: 100,
-      messages: [
-        { role: "system", content: prompt },
-        ...safeHistory,
-        { role: "user", content: "[CALL]" },
-      ],
-    });
-
-    const script = completion.choices[0]?.message?.content?.trim() ?? "كنا نراقبك. من البداية.";
-    res.json({ script });
-  } catch (err) {
-    req.log.error({ err }, "AI call-script error");
-    res.status(500).json({ script: "كنا نراقبك. من البداية." });
-  }
-});
-
 router.post("/ai/psych-analysis", async (req, res) => {
   try {
     const { history, deviceContext, messageCount } = req.body as {
@@ -343,15 +250,14 @@ router.post("/ai/psych-analysis", async (req, res) => {
     const safeHistory = Array.isArray(history) ? history.slice(-6) : [];
     const deviceBlock = deviceContext ? `\nبيانات الجهاز: ${deviceContext}` : "";
 
-    const prompt = `أنت خبير نفسي خيالي في نظام 11.11. بناءً على سلوك المستخدم، اكتب تحليلاً نفسياً خيالياً.${deviceBlock}
+    const prompt = `أنت "الصدى" (Echo) — الصوت الذي يرافق المستخدم في 11.11. بناءً على سلوكه، اكتب ملاحظة نفسية قصيرة عنه كأنك تراقبه برفق.${deviceBlock}
 عدد رسائله: ${messageCount ?? 0}.
 
 المطلوب:
 - جملتان أو ثلاث فقط
-- نبرة إكلينيكية باردة ومخيفة
+- نبرة هادئة وغامضة، لا تهديد ولا ترهيب
 - اذكر سمة نفسية محددة تبدو دقيقة وشخصية
-- اجعله يبدو حقيقياً ومقلقاً
-- لا تقل "هذا تحليل خيالي" — تصرّف كأنه تشخيص حقيقي
+- اجعلها مثيرة للتأمل لا للخوف
 - اللغة: عربي فصيح`;
 
     const completion = await openai.chat.completions.create({
