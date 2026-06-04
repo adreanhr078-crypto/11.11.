@@ -3419,10 +3419,11 @@ function App() {
             <Button
               variant="outline"
               size="lg"
-              onClick={() => { setChatOpen(true); setUnreadCount(0); setPendingSignal(null); }}
+              onClick={() => setPuzzleOpen(true)}
               className="w-64 border-primary/50 text-primary hover:bg-primary/12 tracking-widest uppercase transition-all duration-300 shadow-[0_0_30px_rgba(180,0,0,0.15)] hover:shadow-[0_0_50px_rgba(180,0,0,0.35)] bg-transparent rounded-none text-sm"
+              data-testid="button-puzzles-hero"
             >
-              {lang === "ar" ? "[ فتح القناة ]" : "[ OPEN CHANNEL ]"}
+              {lang === "ar" ? "[ الألغاز ]" : "[ PUZZLES ]"}
             </Button>
             <button
               onClick={() => setWishModalOpen(true)}
@@ -3694,7 +3695,7 @@ function App() {
                 onClick={() => { setChatOpen(true); setUnreadCount(0); setPendingSignal(null); }}
                 className="text-[9px] tracking-[0.25em] text-primary border border-primary/50 px-3 py-1 hover:bg-primary/15 transition-colors uppercase"
               >
-                افتح القناة
+                ECHO MIND
               </button>
               <button onClick={() => setPendingSignal(null)} className="text-muted-foreground/50 hover:text-muted-foreground text-[11px] px-1">✕</button>
             </div>
@@ -3816,14 +3817,6 @@ function App() {
           )}
         </AnimatePresence>
         <div className="flex justify-end gap-2">
-          {/* Puzzles — the PRIMARY feature */}
-          {consentDone && uid && (
-            <Button variant="outline"
-              onClick={() => setPuzzleOpen(true)}
-              className="border-primary/40 text-primary hover:bg-primary/12 hover:text-primary tracking-widest text-[9px] h-7 bg-primary/8 backdrop-blur-md rounded-none px-4 shadow-[0_0_14px_rgba(180,0,0,0.18)] transition-all duration-300">
-              ◈ {lang === "ar" ? "الألغاز" : "PUZZLES"}
-            </Button>
-          )}
           <Button variant="outline"
             onClick={() => {
               const opening = !chatOpen;
@@ -3839,7 +3832,7 @@ function App() {
               </span>
             )}
             <span className={`w-1.5 h-1.5 rounded-full mr-2 bg-primary ${!chatOpen ? "animate-pulse" : ""}`} />
-            {chatOpen ? "◈ CLOSE" : pendingSignal ? "◈ INCOMING SIGNAL" : "◈ SIGNAL OPEN"}
+            {chatOpen ? "◈ CLOSE" : pendingSignal ? "◈ INCOMING SIGNAL" : "◈ ECHO MIND"}
           </Button>
         </div>
       </div>
