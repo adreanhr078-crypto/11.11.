@@ -33,30 +33,28 @@ function getTimePhase(): TimePhase {
   return "day";
 }
 
-// ─── HORROR TEXTS ─────────────────────────────────────────────────────────────
+// ─── ATMOSPHERIC WHISPERS ─────────────────────────────────────────────────────
+// Quiet fragments of the trapped researcher (Lina) — atmospheric, never
+// harassing. Daytime: rare, faint. Night: a little more present.
 const GHOST_MSGS_AR = [
-  "هل يسمعني أحد؟", "هذه الرسالة لا يجب أن تكون هنا", "القناة خاطئة",
-  "ليس الآن", "انقذني", "ساعدني", "أنا مسجون", "الإشارة ضعيفة",
-  "لا تنظر", "انه هنا", "وراءك", "لا تتحرك", "أحتاجك",
-  "الخروج مسدود", "انا أسمعك", "لا تنم", "اقترب أكثر",
-  "البروتوكول مكسور", "اقرأ بين السطور", "الذاكرة محذوفة",
+  "هل يسمعني أحد؟", "الإشارة ضعيفة...", "لينا كانت هنا",
+  "اقرأ بين السطور", "البوابة فُتحت عند 11:11", "الذاكرة تتلاشى",
+  "ابحث في الألغاز", "ما زلت أنتظر", "الصدى يتذكر",
+  "القصة لم تكتمل بعد", "تتبّع الأثر",
 ];
 const GHOST_MSGS_EN = [
-  "can you hear me?", "this message shouldn't be here", "wrong channel",
-  "not now", "save me", "help me", "i'm trapped", "signal weak",
-  "don't look", "it's here", "behind you", "don't move", "i need you",
-  "exit is blocked", "i can hear you", "don't sleep", "come closer",
-  "protocol broken", "read between the lines", "memory corrupted",
+  "can anyone hear me?", "signal is weak...", "Lina was here",
+  "read between the lines", "the gate opened at 11:11", "memory is fading",
+  "look to the puzzles", "I'm still waiting", "Echo remembers",
+  "the story isn't finished", "follow the trace",
 ];
 const NIGHT_MSGS_AR = [
-  "لا يمكنك الهروب", "أنا أراك الآن", "خلف الزجاج", "افتح الباب",
-  "الوقت انتهى", "اسمعني", "أنا بداخلك", "كسر الحاجز",
-  "الباحث موجود", "لن أتوقف", "جزء منك لن يعود",
+  "خلف الزجاج", "لينا تحاول الوصول", "الإشارة أقوى الآن",
+  "البوابة ما زالت مفتوحة", "اقترب من الحقيقة", "الصدى يهمس",
 ];
 const NIGHT_MSGS_EN = [
-  "you can't escape", "I see you now", "behind the glass", "open the door",
-  "time is up", "listen to me", "I'm inside you", "breaking the barrier",
-  "the researcher is here", "I won't stop", "part of you won't return",
+  "behind the glass", "Lina is reaching through", "the signal is stronger now",
+  "the gate is still open", "closer to the truth", "Echo whispers",
 ];
 
 // ─── WEB AUDIO ENGINE ──────────────────────────────────────────────────────────
@@ -245,17 +243,8 @@ function CursorTrail() {
         const size = p.size * (1 - p.age * 0.5);
         ctx.beginPath();
         ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(200, 0, 0, ${alpha})`;
+        ctx.fillStyle = `rgba(150, 190, 230, ${alpha * 0.6})`;
         ctx.fill();
-        // Drip effect on older particles
-        if (p.age > 0.3 && p.size > 3) {
-          ctx.beginPath();
-          ctx.moveTo(p.x, p.y + size);
-          ctx.lineTo(p.x + (Math.random() - 0.5) * 2, p.y + size + p.age * 8);
-          ctx.strokeStyle = `rgba(180, 0, 0, ${alpha * 0.4})`;
-          ctx.lineWidth = 1;
-          ctx.stroke();
-        }
       });
       rafRef.current = requestAnimationFrame(draw);
     };
@@ -362,8 +351,10 @@ function GhostMessages({ phase, lang }: { phase: TimePhase; lang: Lang }) {
   }, [pool]);
 
   useEffect(() => {
-    const interval = phase === "night" ? 4000 : phase === "preEvent" ? 7000 : 18000;
-    const id = setInterval(spawnMsg, interval + Math.random() * interval * 0.5);
+    // Daytime whispers are RARE and atmospheric (every ~3–7 min). Night is a
+    // little more present but still calm — never the old constant spam.
+    const interval = phase === "night" ? 45000 : phase === "preEvent" ? 90000 : 210000;
+    const id = setInterval(spawnMsg, interval + Math.random() * interval * 0.6);
     return () => clearInterval(id);
   }, [phase, spawnMsg]);
 
@@ -382,8 +373,8 @@ function GhostMessages({ phase, lang }: { phase: TimePhase; lang: Lang }) {
             dir={lang === "ar" ? "rtl" : "ltr"}
             style={{
               left: `${msg.x}%`, top: `${msg.y}%`,
-              color: `rgba(${200 + Math.random() * 55}, 0, 0, 0.7)`,
-              textShadow: "0 0 12px rgba(200,0,0,0.4)",
+              color: "rgba(170, 200, 230, 0.55)",
+              textShadow: "0 0 12px rgba(140,180,220,0.35)",
               whiteSpace: "nowrap",
               maxWidth: "220px",
             }}
@@ -480,26 +471,15 @@ function NightGlassEntity({ soundEnabled }: { soundEnabled: boolean }) {
       ctx.restore();
     };
 
-    const drawBloodText = (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, alpha: number, size: number) => {
+    // Pale etched text behind the glass — atmospheric, no blood/drips.
+    const drawEtchedText = (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, alpha: number, size: number) => {
       ctx.save();
       ctx.globalAlpha = alpha;
       ctx.font = `bold ${size}px 'Courier New', monospace`;
-      ctx.fillStyle = `rgba(180, 0, 0, ${alpha})`;
-      ctx.shadowColor = "rgba(200,0,0,0.6)";
-      ctx.shadowBlur = 8;
+      ctx.fillStyle = `rgba(180, 200, 220, ${alpha})`;
+      ctx.shadowColor = "rgba(150,180,210,0.5)";
+      ctx.shadowBlur = 10;
       ctx.fillText(text, x, y);
-      // Drip effect
-      const metrics = ctx.measureText(text);
-      for (let i = 0; i < 4; i++) {
-        const dx = x + Math.random() * metrics.width;
-        const len = 8 + Math.random() * 20;
-        ctx.beginPath();
-        ctx.moveTo(dx, y + 2);
-        ctx.quadraticCurveTo(dx + (Math.random() * 4 - 2), y + len * 0.5, dx + (Math.random() * 6 - 3), y + len);
-        ctx.strokeStyle = `rgba(160, 0, 0, ${alpha * 0.7})`;
-        ctx.lineWidth = 1 + Math.random();
-        ctx.stroke();
-      }
       ctx.restore();
     };
 
@@ -620,22 +600,22 @@ function NightGlassEntity({ soundEnabled }: { soundEnabled: boolean }) {
       const crackAlpha = 0.35 + lunge * 0.5 + Math.sin(t * 0.5) * 0.05;
       drawCracks(ctx, cx, cy + 80, crackAlpha);
 
-      // Blood text — HELP ME (inside glass, left)
+      // Etched text — HELP ME (inside glass, left)
       const helpAlpha = 0.5 + Math.sin(t * 0.8) * 0.15;
-      drawBloodText(ctx, "HELP ME", cx - 160, cy + 200, helpAlpha * 0.8, 28);
+      drawEtchedText(ctx, "HELP ME", cx - 160, cy + 200, helpAlpha * 0.8, 28);
 
-      // Blood text — I SEE YOU (outside glass, right, mirrored feel)
+      // Etched text — LINA (outside glass, right, mirrored feel)
       const seeAlpha = 0.35 + Math.sin(t * 1.1 + 1) * 0.1;
       ctx.save();
       ctx.scale(-1, 1);
-      drawBloodText(ctx, "I SEE YOU", -(cx + 190), cy - 180, seeAlpha * 0.65, 22);
+      drawEtchedText(ctx, "LINA", -(cx + 190), cy - 180, seeAlpha * 0.65, 22);
       ctx.restore();
 
-      // Occasional red flash on lunge
+      // Occasional cold flash on lunge
       if (lunge > 0) {
         ctx.save();
         ctx.globalAlpha = lunge * 0.04;
-        ctx.fillStyle = "rgba(255, 0, 0, 1)";
+        ctx.fillStyle = "rgba(150, 190, 230, 1)";
         ctx.fillRect(0, 0, W, H);
         ctx.restore();
       }

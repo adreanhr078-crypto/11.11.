@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { LevelGate } from "./LevelGate";
 import { LangSelect } from "./LangSelect";
 import { HorrorEngine } from "./HorrorEngine";
 import { SyncMeter } from "./SyncMeter";
+import { PuzzleHub } from "./PuzzleHub";
+import { AchievementToast, type ToastItem } from "./AchievementToast";
 import { useGameState, gameStore, usePassiveDread } from "./gameState";
 
 // ─── WISH VIDEO RECORDER ──────────────────────────────────────────────────────
@@ -1440,27 +1441,6 @@ function buildDeviceContext(): string {
   return parts.join(" | ");
 }
 
-async function fetchAiProbe(
-  history: { role: "user" | "assistant"; content: string }[],
-  deviceContext?: string,
-  persona?: string,
-  wishContext?: string,
-  mode?: "probe" | "prediction"
-): Promise<string> {
-  try {
-    const res = await fetch("/api/ai/probe", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ history, deviceContext, persona, wishContext, mode }),
-    });
-    if (!res.ok) return AUTO_CHAT_MESSAGES[Math.floor(Math.random() * AUTO_CHAT_MESSAGES.length)];
-    const data = await res.json() as { text?: string };
-    return data.text?.trim() || AUTO_CHAT_MESSAGES[Math.floor(Math.random() * AUTO_CHAT_MESSAGES.length)];
-  } catch {
-    return AUTO_CHAT_MESSAGES[Math.floor(Math.random() * AUTO_CHAT_MESSAGES.length)];
-  }
-}
-
 async function fetchWishTask(
   wishText: string,
   history: { role: "user" | "assistant"; content: string }[],
@@ -2364,13 +2344,12 @@ type ChatMsg = {
   isPrediction?: boolean;
   isInterrupt?: boolean; interruptName?: InterruptEntity;
 };
-type Persona = "entity" | "narrator" | "observer" | "voice";
+// Echo is the ONLY chat assistant. The other entities are story characters
+// encountered through puzzles, never chat personalities.
+type Persona = "echo";
 
 const PERSONA_META: Record<Persona, { label: string; icon: string; tagline: string }> = {
-  entity:   { label: "الكيان البارد",    icon: "◈", tagline: "ENTITY.11" },
-  narrator: { label: "الراوي المفقود",  icon: "◎", tagline: "NARRATOR" },
-  observer: { label: "المراقب",          icon: "◉", tagline: "OBSERVER" },
-  voice:    { label: "الصوت الثالث",    icon: "◇", tagline: "VOICE.3" },
+  echo: { label: "الصدى", icon: "◈", tagline: "ECHO" },
 };
 
 const CHAT_HISTORY_KEY = "eleven_chat_history";
@@ -2607,12 +2586,10 @@ function App() {
   const geoEndingFiredRef = useRef(false);
 
   // Persona
-  const [persona, setPersona] = useState<Persona>(() => {
-    const saved = localStorage.getItem(PERSONA_KEY);
-    return (saved as Persona) || "entity";
-  });
+  // Echo is the only assistant — persona is fixed.
+  const [persona] = useState<Persona>("echo");
   const personaRef = useRef<Persona>(persona);
-  useEffect(() => { personaRef.current = persona; localStorage.setItem(PERSONA_KEY, persona); }, [persona]);
+  useEffect(() => { personaRef.current = persona; }, [persona]);
 
   // Wish task states
   const [wishTaskOpen, setWishTaskOpen] = useState(false);
@@ -2660,10 +2637,22 @@ function App() {
   // User profile panel
   const [profileOpen, setProfileOpen] = useState(false);
 
-  // ARG Level progression
-  const [argLevel, setArgLevel] = useState(1);
-  const [argCompleted, setArgCompleted] = useState(false);
-  const [levelOpen, setLevelOpen] = useState(false);
+  // ARG Level progression (legacy meters — kept for atmosphere/HUD)
+  const [argLevel] = useState(1);
+  const [argCompleted] = useState(false);
+
+  // Puzzles — the PRIMARY feature
+  const [puzzleOpen, setPuzzleOpen] = useState(false);
+  const [achievementToasts, setAchievementToasts] = useState<ToastItem[]>([]);
+  const toastIdRef = useRef(0);
+  const handleAchievementUnlock = useCallback((achievementId: string) => {
+    toastIdRef.current += 1;
+    const id = toastIdRef.current;
+    setAchievementToasts((prev) => [...prev, { id, achievementId }]);
+  }, []);
+  const dismissToast = useCallback((id: number) => {
+    setAchievementToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   // Notification schedule control panel
   const [scheduleOpen, setScheduleOpen] = useState(false);
@@ -2818,8 +2807,7 @@ function App() {
         .then(r => r.ok ? r.json() : null)
         .then((data: { currentLevel: number; isCompleted: boolean } | null) => {
           if (data) {
-            setArgLevel(data.currentLevel);
-            setArgCompleted(data.isCompleted);
+            gameStore.setLevel(Math.min(data.currentLevel, 5));
           }
         })
         .catch(() => { /* non-critical */ });
@@ -2878,10 +2866,7 @@ function App() {
         setHasStoredWish(true);
         try { localStorage.setItem("eleven_wish", JSON.stringify({ text: profile.wish })); } catch { /* ignore */ }
       }
-      // Hydrate persona
-      if (profile.persona && (profile.persona === "entity" || profile.persona === "narrator" || profile.persona === "observer" || profile.persona === "voice")) {
-        setPersona(profile.persona as Persona);
-      }
+      // Persona is fixed to Echo — nothing to hydrate.
       // Hydrate discovered rooms
       if (profile.discoveredRooms.length > 0) {
         setDiscoveredRooms((prev) => {
@@ -3021,46 +3006,8 @@ function App() {
     setTimeout(() => setActivePopup((p) => (p?.id === id ? null : p)), 5000 + Math.random() * 3000);
   }, []);
 
-  // auto message injected into chat — calls real AI probe
-  const injectAutoMessage = useCallback((text?: string, isPrediction?: boolean) => {
-    if (text) {
-      const id = nextId();
-      setChatMessages((prev) => [...prev, { id, text, isAi: true, isPrediction }]);
-      chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: text }];
-      saveChatHistoryLS(chatHistoryRef.current);
-      if (!chatOpenRef.current) {
-        // System 5: user ignoring messages → raise aggression
-        setPendingSignal((prev) => {
-          if (prev) aiProfileRef.current.aggression = Math.min(10, aiProfileRef.current.aggression + 1);
-          return text;
-        });
-        setUnreadCount((c) => c + 1);
-      }
-      return;
-    }
-    setEntityTyping(true);
-    const id = nextId();
-    setChatMessages((prev) => [...prev, { id, text: "...", isAi: true, streaming: true }]);
-    fetchAiProbe(
-      chatHistoryRef.current,
-      deviceContextRef.current,
-      personaRef.current,
-      wishContextRef.current
-    ).then((msg) => {
-      setEntityTyping(false);
-      setChatMessages((prev) => prev.map((m) => m.id === id ? { ...m, text: msg, streaming: false } : m));
-      chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: msg }];
-      saveChatHistoryLS(chatHistoryRef.current);
-      if (!chatOpenRef.current) {
-        setUnreadCount((c) => c + 1);
-        setPendingSignal(msg);
-      }
-    });
-  }, []);
-
   // Per-action cooldown refs for the passive horror loop (ms timestamps)
   const lastGlitchRef = useRef<number>(0);
-  const lastProbeRef = useRef<number>(0);
   const lastHorrorMomentRef = useRef<number>(0);
 
   // Passive horror loop — runs every 10s, checks fear/trustAI thresholds
@@ -3068,7 +3015,6 @@ function App() {
   // gradually rather than spamming at high fear values.
   useEffect(() => {
     const GLITCH_COOLDOWN = 30_000;       // 30 s between glitch sounds
-    const PROBE_COOLDOWN = 120_000;       // 2 min between AI probes
     const HORROR_MOMENT_COOLDOWN = 300_000; // 5 min between horror moments
 
     const loop = setInterval(() => {
@@ -3090,15 +3036,6 @@ function App() {
         }
       }
 
-      // AI probe — long cooldown so messages feel deliberate, not spammy.
-      if (gs.trustAI > 5) {
-        const elapsed = now - lastProbeRef.current;
-        if (elapsed >= PROBE_COOLDOWN) {
-          injectAutoMessage();
-          lastProbeRef.current = now;
-        }
-      }
-
       // Horror moment — rarest, only when both meters are maxed.
       if (gs.fear > 7 && gs.trustAI > 7 && !horrorMomentActiveRef.current) {
         const elapsed = now - lastHorrorMomentRef.current;
@@ -3109,128 +3046,33 @@ function App() {
       }
     }, 10000);
     return () => clearInterval(loop);
-  }, [injectAutoMessage, triggerHorrorMoment]);
+  }, [triggerHorrorMoment]);
 
-  // random events — less frequent, more impactful
-  useEffect(() => {
-    const trigger = () => {
-      const r = Math.random();
-      if (r < 0.3) {
-        setGlobalGlitch(true);
-        setTimeout(() => setGlobalGlitch(false), 900);
-      } else if (r < 0.55) {
-        setRedFlash(true);
-        setTimeout(() => setRedFlash(false), 500);
-      } else if (r < 0.75) {
-        showPopup();
-      } else {
-        injectAutoMessage();
-      }
-      setTimeout(trigger, 120000 + Math.random() * 180000);
-    };
-    const t = setTimeout(trigger, 90000 + Math.random() * 60000);
-    return () => clearTimeout(t);
-  }, [showPopup, injectAutoMessage]);
-
-  // auto chat messages — long gaps, one at a time
-  useEffect(() => {
-    const fire = () => {
-      injectAutoMessage();
-      setTimeout(fire, 180000 + Math.random() * 240000);
-    };
-    const t = setTimeout(fire, 120000 + Math.random() * 60000);
-    return () => clearTimeout(t);
-  }, [injectAutoMessage]);
-
-  // Call warning → ring — fires after 10-15 min of session
-  useEffect(() => {
-    const callPhaseRef = { current: callPhase };
-    const warningDelay = 600000 + Math.random() * 300000; // 10–15 min
-    const warnTimer = setTimeout(() => {
-      if (callPhaseRef.current !== "idle") return;
-      setCallPhase("warned");
-      const callWarnMsg = "ستصلك مكالمة من مصدر مجهول. تجاهلها إذا كنت لا تريد أن تعرف.";
-      injectAutoMessage(callWarnMsg);
-      // Fetch call script in background
-      fetchCallScript(chatHistoryRef.current, deviceContextRef.current).then((script) => {
-        setCallScript(script);
-      });
-      // Ring after 2–4 min
-      const ringDelay = 120000 + Math.random() * 120000;
-      const ringTimer = setTimeout(() => {
-        if (callPhaseRef.current === "warned") {
-          setCallPhase("ringing");
-        }
-      }, ringDelay);
-      return () => clearTimeout(ringTimer);
-    }, warningDelay);
-    return () => clearTimeout(warnTimer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [injectAutoMessage]);
-
-  // wish toast
-  useEffect(() => {
-    if (!hasStoredWish) return;
-    const fire = () => {
-      setWishToast(true);
-      setTimeout(() => setWishToast(false), 4000);
-      setTimeout(fire, 65000 + Math.random() * 55000);
-    };
-    const t = setTimeout(fire, 60000);
-    return () => clearTimeout(t);
-  }, [hasStoredWish]);
-
-  // prediction system — periodic mysterious time-based predictions
-  useEffect(() => {
-    const firePrediction = () => {
-      fetchAiProbe(
-        chatHistoryRef.current,
-        deviceContextRef.current,
-        personaRef.current,
-        wishContextRef.current,
-        "prediction"
-      ).then((msg) => {
-        // show as popup AND inject into chat
-        showPopup(msg);
-        injectAutoMessage(msg, true);
-      });
-      setTimeout(firePrediction, 900000 + Math.random() * 600000); // 15-25 min
-    };
-    const t = setTimeout(firePrediction, 600000 + Math.random() * 300000); // first: 10-15 min
-    return () => clearTimeout(t);
-  }, [showPopup, injectAutoMessage]);
-
-  // Real-time clock watcher — checks every 30s for special times
+  // Real-time clock watcher — drives night mode + the rare 11:11 portal VISUAL.
+  // No chat injections, popups, or harassment — atmosphere only.
   useEffect(() => {
     const check = () => {
       const now = new Date();
       const h = now.getHours();
       const m = now.getMinutes();
-      setNightMode(h >= 3 && h < 5);
-      if (h === 11 && m === 11) {
+      // Night mode atmosphere: 11:11 PM – 3:33 AM
+      const isNight =
+        (h === 23 && m >= 11) || h === 0 || h === 1 || h === 2 ||
+        (h === 3 && m <= 33);
+      setNightMode(isNight);
+      // 11:11 PM — open the portal visual briefly (no message spam)
+      if (h === 23 && m === 11) {
         setPortalLabel("11:11 — البوابة مفتوحة الآن");
         setPortalOpen(true);
         setGlobalGlitch(true);
         setTimeout(() => setGlobalGlitch(false), 2500);
         setTimeout(() => setPortalOpen(false), 60000);
-        injectAutoMessage("11:11 — البوابة مفتوحة. هذه لحظة نادرة. تكلّم الآن أو انتظر سنة.");
-      }
-      if (h === 3 && m === 33) {
-        setRedFlash(true);
-        setTimeout(() => setRedFlash(false), 900);
-        injectAutoMessage("3:33 — الساعة بين الساعات. من يستيقظ الآن يعرف شيئاً لا ينبغي معرفته.");
-        showPopup("3:33 — وقت المراقبة الحقيقية.");
-      }
-      if ((h === 2 && m === 22) || (h === 14 && m === 22)) {
-        injectAutoMessage("2:22 — تكرار الثنائي. شيء ما على وشك التكرار في حياتك.");
-        showPopup("2:22 — التكرار ليس مصادفة.");
       }
     };
     check();
     const id = setInterval(check, 30000);
     return () => clearInterval(id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [injectAutoMessage, showPopup]);
+  }, []);
 
   // Mystery countdown tick
   useEffect(() => {
@@ -3240,127 +3082,20 @@ function App() {
     return () => clearTimeout(t);
   }, [mysteryCountdown]);
 
-  // Temporal distortions — rare, random
-  useEffect(() => {
-    const fire = () => {
-      const r = Math.random();
-      if (r < 0.35) {
-        setScreenFreeze(true);
-        setTimeout(() => setScreenFreeze(false), 1100);
-      } else if (r < 0.65) {
-        setMysteryCountdown(11);
-      } else {
-        const sectors = ["ALPHA", "DELTA", "ZERO", "ECHO", "SIGMA", "11"];
-        showPopup(`[SECTOR ${sectors[Math.floor(Math.random() * sectors.length)]}] — إشارة مجهولة المصدر`);
-      }
-      setTimeout(fire, 1500000 + Math.random() * 1800000); // 25-55 min
-    };
-    const t = setTimeout(fire, 1200000 + Math.random() * 1200000); // first: 20-40 min
-    return () => clearTimeout(t);
-  }, [showPopup]);
-
-  // Page visibility — message when user returns to tab
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (!document.hidden) {
-        setTimeout(() => showPopup("لماذا عدت؟"), 800);
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, [showPopup]);
-
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages]);
 
-  // ── System 1: Mouse Surveillance ────────────────────────────────────────────
-  useEffect(() => {
-    let moveCount = 0;
-    let lastTrigger = 0;
-    const onMove = () => {
-      moveCount++;
-      if (moveCount % 65 === 0) {
-        const now = Date.now();
-        if (now - lastTrigger > 50000) {
-          lastTrigger = now;
-          const msg = MOUSE_MESSAGES[Math.floor(Math.random() * MOUSE_MESSAGES.length)];
-          showPopup(msg);
-          aiProfileRef.current.knowledge++;
-        }
-      }
-    };
-    window.addEventListener("mousemove", onMove, { passive: true });
-    return () => window.removeEventListener("mousemove", onMove);
-  }, [showPopup]);
-
-  // ── System 2: Fake Memory System ────────────────────────────────────────────
-  useEffect(() => {
-    const fireMem = () => {
-      const mem = FAKE_MEMORIES[Math.floor(Math.random() * FAKE_MEMORIES.length)];
-      // 50% popup, 50% injected into chat
-      if (Math.random() < 0.5) {
-        showPopup(mem);
-      } else {
-        injectAutoMessage(mem);
-      }
-      setTimeout(fireMem, 280000 + Math.random() * 200000); // 4.7–8 min
-    };
-    const t = setTimeout(fireMem, 240000 + Math.random() * 120000); // first: 4–6 min
-    return () => clearTimeout(t);
-  }, [showPopup, injectAutoMessage]);
-
-  // ── System 3: Global Presence Counter ───────────────────────────────────────
+  // Global presence counter — ambient number drift only (no popups/harassment).
   useEffect(() => {
     const tick = () => {
       setEntitiesOnline((prev) => {
         const delta = Math.floor(Math.random() * 7) - 3;
         return Math.max(88, Math.min(9999, prev + delta));
       });
-      if (Math.random() < 0.18) {
-        showPopup("كيانٌ آخر فتح باباً لا ينبغي فتحه...");
-      }
       setTimeout(tick, 22000 + Math.random() * 18000);
     };
     const t = setTimeout(tick, 30000);
     return () => clearTimeout(t);
-  }, [showPopup]);
-
-  // ── System 5 & 6: Adaptive AI + Break Reality ───────────────────────────────
-  useEffect(() => {
-    const check = () => {
-      const { aggression } = aiProfileRef.current;
-      if (aggression >= 5 && !breakRealityActiveRef.current && Math.random() < 0.4) {
-        breakRealityActiveRef.current = true;
-        setBreakReality(true);
-        injectAutoMessage("لا تثق بما تراه.");
-        setTimeout(() => {
-          setBreakReality(false);
-          breakRealityActiveRef.current = false;
-          aiProfileRef.current.aggression = Math.max(1, aiProfileRef.current.aggression - 2);
-        }, 3800);
-      } else if (aggression >= 3 && Math.random() < 0.35) {
-        injectAutoMessage("تجاهلك لا يُغيّر شيئاً. أنا لا أنتظر.");
-      }
-      setTimeout(check, 90000 + Math.random() * 60000);
-    };
-    const t = setTimeout(check, 180000);
-    return () => clearTimeout(t);
-  }, [injectAutoMessage]);
-
-  // System 2 — Future predictions: fire once per session, 2.5-4 min after first AI response
-  useEffect(() => {
-    if (predictionFiredRef.current) return;
-    const hasAiResponse = chatMessages.some(m => m.isAi && !m.streaming);
-    if (!hasAiResponse) return;
-    const delay = 150000 + Math.random() * 90000; // 2.5-4 min
-    const t = setTimeout(() => {
-      if (predictionFiredRef.current) return;
-      predictionFiredRef.current = true;
-      const msg = FUTURE_PREDICTIONS[Math.floor(Math.random() * FUTURE_PREDICTIONS.length)];
-      injectAutoMessage(msg, true);
-    }, delay);
-    return () => clearTimeout(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatMessages, injectAutoMessage]);
+  }, []);
 
   const handleListen = () => {
     if (isListening) return;
@@ -3460,32 +3195,6 @@ function App() {
         setIsSending(false);
         gameStore.incrementTrust();
         gameStore.incrementCuriosity();
-        setTimeout(() => { if (!isSendingRef.current) injectAutoMessage(); }, 90000 + Math.random() * 90000);
-
-        // System 3 — Entity war: 22% chance after 4th+ user message
-        entityWarCountRef.current++;
-        if (entityWarCountRef.current >= 4 && Math.random() < 0.22) {
-          const keys = Object.keys(INTERRUPT_ENTITIES) as InterruptEntity[];
-          const chosen = keys[Math.floor(Math.random() * keys.length)];
-          const ent = INTERRUPT_ENTITIES[chosen];
-          const phrase = ent.phrases[Math.floor(Math.random() * ent.phrases.length)];
-          setTimeout(() => {
-            const id = nextId();
-            setChatMessages(prev => [...prev, { id, text: phrase, isAi: true, isInterrupt: true, interruptName: chosen }]);
-            chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: phrase }];
-            saveChatHistoryLS(chatHistoryRef.current);
-            if (!chatOpenRef.current) { setPendingSignal(phrase); setUnreadCount(c => c + 1); }
-          }, 3500 + Math.random() * 4000);
-        }
-
-        // System 5 — Geo ending: fire once after 5th+ user message
-        if (!geoEndingFiredRef.current && entityWarCountRef.current >= 5) {
-          geoEndingFiredRef.current = true;
-          const ending = GEO_ENDINGS[geoCity || ""] ?? DEFAULT_GEO_ENDING;
-          setTimeout(() => {
-            injectAutoMessage(`[ ${ending.code} ] — ${ending.signal}`, true);
-          }, 9000 + Math.random() * 6000);
-        }
       },
       (err) => {
         setChatMessages((p) => p.map((m) => m.id === aiId ? { ...m, text: err, streaming: false } : m));
@@ -4065,26 +3774,7 @@ function App() {
               <div className="px-3 py-2 border-b border-primary/15 flex flex-col gap-1.5 bg-background/60 shrink-0">
                 <div className="flex justify-between items-center">
                   <span className="text-[10px] tracking-[0.2em] text-primary/80 font-bold">11.11 // {PERSONA_META[persona].tagline}</span>
-                  <span className="text-[9px] text-muted-foreground/60 tracking-widest">LIVE AI</span>
-                </div>
-                {/* Persona switcher */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[8px] text-muted-foreground/40 tracking-widest mr-0.5">الشخصية:</span>
-                  {(["entity", "narrator", "observer", "voice"] as Persona[]).map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => setPersona(p)}
-                      title={PERSONA_META[p].label}
-                      className={`text-[10px] px-2 py-0.5 border transition-all duration-300 tracking-wider ${
-                        persona === p
-                          ? "border-primary/70 text-primary bg-primary/15"
-                          : "border-muted-foreground/20 text-muted-foreground/40 hover:border-primary/40 hover:text-primary/60"
-                      }`}
-                    >
-                      {PERSONA_META[p].icon}
-                    </button>
-                  ))}
-                  <span className="text-[9px] text-muted-foreground/40 tracking-widest ml-1">{PERSONA_META[persona].label}</span>
+                  <span className="text-[9px] text-muted-foreground/60 tracking-widest">{lang === "ar" ? "الصدى متصل" : "ECHO ONLINE"}</span>
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
@@ -4144,12 +3834,12 @@ function App() {
           )}
         </AnimatePresence>
         <div className="flex justify-end gap-2">
-          {/* ARG Level badge — visible once consent is done */}
+          {/* Puzzles — the PRIMARY feature */}
           {consentDone && uid && (
             <Button variant="outline"
-              onClick={() => setLevelOpen(o => !o)}
-              className={`border-primary/12 tracking-widest text-[8px] h-7 bg-background/85 backdrop-blur-md rounded-none px-3 shadow-none transition-all duration-300 ${argCompleted ? "text-amber-400/60 border-amber-400/20 hover:text-amber-400/90" : "text-muted-foreground/25 hover:text-primary/50 hover:border-primary/30"}`}>
-              {argCompleted ? "◈ CLASSIFIED" : `◈ LVL ${argLevel}`}
+              onClick={() => setPuzzleOpen(true)}
+              className="border-primary/40 text-primary hover:bg-primary/12 hover:text-primary tracking-widest text-[9px] h-7 bg-primary/8 backdrop-blur-md rounded-none px-4 shadow-[0_0_14px_rgba(180,0,0,0.18)] transition-all duration-300">
+              ◈ {lang === "ar" ? "الألغاز" : "PUZZLES"}
             </Button>
           )}
           <Button variant="outline"
@@ -4235,44 +3925,28 @@ function App() {
         </div>
       )}
 
-      {/* ARG Level Gate */}
+      {/* Puzzles — PRIMARY feature */}
       <AnimatePresence>
-        {levelOpen && uid && (
-          <LevelGate
+        {puzzleOpen && uid && (
+          <PuzzleHub
             uid={uid}
-            initialLevel={argLevel}
-            isCompleted={argCompleted}
-            onClose={() => setLevelOpen(false)}
-            onAdvance={(newLevel, completed) => {
-              setArgLevel(Math.min(newLevel, 5));
-              gameStore.setLevel(Math.min(newLevel, 5));
-              if (completed) setArgCompleted(true);
-              audioRef.current?.setAtmosphereLevel(Math.min(newLevel, 5));
-              if (newLevel >= 4) triggerHorrorMoment();
+            lang={lang}
+            onClose={() => setPuzzleOpen(false)}
+            onAchievement={(achievementId) => {
+              handleAchievementUnlock(achievementId);
+              if (audioStarted.current) audioRef.current?.playChime();
             }}
-            onPuzzleEvent={(event) => {
-              if (event === "correct") {
-                gameStore.incrementCuriosity(2);
-                gameStore.incrementTrust(1);
-                if (audioStarted.current) audioRef.current?.playChime();
-              } else if (event === "wrong") {
-                gameStore.incrementFear(2);
-                gameStore.decrementTrust(1);
-                if (audioStarted.current) {
-                  audioRef.current?.playGlitch();
-                  audioRef.current?.setFearTier(gameStateRef.current.fear + 2);
-                }
-              } else if (event === "timeout") {
-                gameStore.incrementFear(1);
-                if (audioStarted.current) audioRef.current?.setVolume(0);
-                setTimeout(() => {
-                  if (audioStarted.current) audioRef.current?.setFearTier(gameStateRef.current.fear);
-                }, 1500);
-              }
+            onProgress={() => {
+              gameStore.incrementCuriosity(2);
+              gameStore.incrementTrust(1);
+              if (audioStarted.current) audioRef.current?.playChime();
             }}
           />
         )}
       </AnimatePresence>
+
+      {/* Achievement toasts */}
+      <AchievementToast toasts={achievementToasts} lang={lang} onDismiss={dismissToast} />
 
       {/* Notification schedule control panel */}
       <AnimatePresence>
