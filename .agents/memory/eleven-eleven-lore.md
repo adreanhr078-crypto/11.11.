@@ -15,6 +15,8 @@ description: Where the 11.11 ARG's canonical story lives and the rule that binds
 
 **Rule:** every new puzzle must tie to this story and reveal a NEW fragment; no random/standalone puzzles; gradual reveal only (`PUZZLE_CANON_RULE` in lore.ts).
 
+**FRAGMENT LAW (hard, never break — `FRAGMENT_LAW` in lore.ts):** the full story must NEVER be shown to any user, ever; no complete summary. The system holds only Memory Fragments unlocked one-by-one via puzzles. Echo himself does NOT know the whole story — starts with scrambled memory, recovers a fragment per puzzle, and must never exceed the player's progress. Even on a direct "tell me the story" request, give ONE fragment only. Enforced in the server Echo chat prompt (`artifacts/api-server/src/routes/ai-chat.ts`: ECHO_PROMPT "قانون التجزئة" + the `progressGate` block keyed off `gameLevel`). The full lore in `lore.ts` is author-reference data only — never import/render `CORE_LORE`/`REVELATION_ARC` into the UI.
+
 **Why:** the user wanted the lore saved into game files so all future puzzles stay consistent and each reveals part of the story.
 
 **How to apply:** keep puzzle MECHANICS (questions/answers) intact when re-voicing; only narrative text (`storyReveal`/`intro`/chat prompts) must match canon. An earlier draft wrongly framed Lina as a "trapped researcher" — that framing is retired; sweep narrative text in both the web artifact and the api-server Echo prompt for any such residue when touching the story.

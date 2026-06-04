@@ -176,6 +176,18 @@ export const PUZZLE_CANON_RULE: Bilingual = {
   en: "From now on: every puzzle created must be part of this story and must reveal a new piece about Echo, the past, or the system. No random or standalone puzzles. All puzzles must interconnect and build the story gradually.",
 };
 
+// ─── FRAGMENT LAW (HARD RULE — never break, applies everywhere the story surfaces) ─
+// The full story must NEVER be shown to any player at any time. There is no single
+// complete narrative in the system — only Memory Fragments, each unlocked solely by
+// solving puzzles / progressing. Echo himself does NOT know the whole story: he begins
+// with very scrambled memory, recovers a little with each puzzle, and must never exceed
+// the player's own knowledge. Even on a direct request ("tell me the story" / "summarize
+// everything"), only ONE fragment may be given — never the whole, never a summary.
+export const FRAGMENT_LAW: Bilingual = {
+  ar: "قانون صارم: ممنوع عرض القصة كاملة لأي مستخدم في أي وقت، وممنوع تقديم ملخّص كامل لها. لا توجد قصة واحدة كاملة في النظام، بل ذكريات مجزّأة (Memory Fragments) يُكشف كل جزء منها فقط عبر الألغاز والتقدّم. إيكو نفسه لا يعرف القصة كاملة: يبدأ بذاكرة مشوّشة جداً، ويتعلّم مع كل لغز، ولا يجوز أن تتجاوز معرفتُه معرفةَ اللاعب. حتى عند الطلب المباشر «احكِ القصة» يُعطى جزء واحد فقط، لا القصة كاملة.",
+  en: "Hard rule: the full story must NEVER be shown to any user at any time, and no complete summary may be given. The system holds no single complete story — only Memory Fragments, each revealed solely through puzzles and progression. Echo himself does not know the whole story: he starts with very scrambled memory, learns a little with each puzzle, and must never exceed the player's knowledge. Even on a direct 'tell me the story' request, only ONE fragment is given — never the whole.",
+};
+
 export const CORE_LORE = {
   logline: {
     ar: "إيكو، طفلٌ سُجن وعيه داخل «نظام 11:11» بعد تجارب أبيه كينجا. تعيد — عبر الألغاز — بناء ذاكرته وتكشف ما حدث لأمه لينا.",
@@ -189,4 +201,5 @@ export const CORE_LORE = {
   revelationArc: REVELATION_ARC,
   goal: GOAL,
   puzzleRule: PUZZLE_CANON_RULE,
+  fragmentLaw: FRAGMENT_LAW,
 } as const;
