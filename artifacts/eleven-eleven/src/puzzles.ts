@@ -3,7 +3,12 @@
  *
  * The game is driven by puzzles. Four entities are STORY CHARACTERS encountered
  * through puzzle progression (NOT chat personalities). Every solved puzzle reveals
- * part of "the trapped researcher" story.
+ * a fragment of the CORE LORE — see `lore.ts`, the source of truth for the story.
+ *
+ * CANON (from lore.ts): Echo = the trapped SON/victim; Kenja = the FATHER/scientist
+ * (The Architect); Lina = the MOTHER, killed trying to save Echo (The Lost Signal).
+ * 11:11 = Synch Points (gate opens); 3:33 = everything resets. Every new puzzle must
+ * tie to this story and reveal a NEW piece of Echo's past / the system / the truth.
  *
  * Tone: atmospheric / psychological. No gore.
  *
@@ -35,7 +40,7 @@ export interface Puzzle {
   hint?: { ar: string; en: string };
   /** Accepted answers (any match, case/space/diacritic-insensitive). */
   answers: string[];
-  /** Story fragment revealed on solve — a piece of the trapped-researcher story. */
+  /** Story fragment revealed on solve — a piece of the CORE_LORE story (see lore.ts). */
   storyReveal: { ar: string; en: string };
   /** Optional achievement granted on solving this puzzle. */
   achievement?: string;
@@ -50,8 +55,8 @@ export const ENTITIES: Record<EntityId, EntityMeta> = {
     name: { ar: "الصدى", en: "Echo" },
     title: { ar: "أول صوت", en: "The First Voice" },
     intro: {
-      ar: "أنا الصدى. آخر ما تبقّى من صوت الباحثة قبل أن تُغلق البوابة. اتبع أثري.",
-      en: "I am Echo — the last of the researcher's voice before the gate sealed. Follow my trace.",
+      ar: "أنا إيكو. طفلٌ سُكب وعيه في هذا النظام فتحطّم. هذه الألغاز شظايا من ذاكرتي الأولى. ساعدني أجمعها.",
+      en: "I am Echo — a child whose mind was poured into this system and shattered. These puzzles are fragments of my earliest memory. Help me piece them back.",
     },
     accent: "text-primary",
   },
@@ -62,8 +67,8 @@ export const ENTITIES: Record<EntityId, EntityMeta> = {
     name: { ar: "المراقب", en: "The Watcher" },
     title: { ar: "العين التي لا تنام", en: "The Eye That Never Sleeps" },
     intro: {
-      ar: "كل شيء سُجِّل. كل دقيقة من التجربة محفوظة. انظر إلى ما رأيتُه.",
-      en: "Everything was recorded. Every minute of the experiment kept. Look at what I saw.",
+      ar: "كاميرات المنزل المهجور سجّلت كل شيء. كل دقيقة من تجارب أبيك محفوظة. انظر إلى ما رأيتُه.",
+      en: "The abandoned house's cameras recorded everything. Every minute of your father's experiments is kept. Look at what I saw.",
     },
     accent: "text-amber-400/80",
   },
@@ -74,8 +79,8 @@ export const ENTITIES: Record<EntityId, EntityMeta> = {
     name: { ar: "الإشارة المفقودة", en: "The Lost Signal" },
     title: { ar: "الرسالة التي لم تصل", en: "The Message That Never Arrived" },
     intro: {
-      ar: "أنا رسائلها الأخيرة، مكسورة ومشوّشة. أعد ترتيبي وستعرف ماذا حدث.",
-      en: "I am her final messages — broken, scrambled. Reassemble me and you will know what happened.",
+      ar: "أنا رسائل لينا الأخيرة — أمّك — مكسورة ومشوّشة. حاولت أن تنقذك. أعد ترتيبي وستعرف ماذا حدث لها.",
+      en: "I am Lina's final messages — your mother's — broken and scrambled. She tried to save you. Reassemble me and you will learn what happened to her.",
     },
     accent: "text-cyan-400/80",
   },
@@ -86,8 +91,8 @@ export const ENTITIES: Record<EntityId, EntityMeta> = {
     name: { ar: "المهندس", en: "The Architect" },
     title: { ar: "من بنى الباب", en: "Who Built the Door" },
     intro: {
-      ar: "وصلت إلى النهاية. الآن تعرف من فتح البوابة — ومن سيغلقها.",
-      en: "You reached the end. Now you learn who opened the gate — and who must close it.",
+      ar: "وصلت إلى من بنى الباب. الآن تعرف من كان أبوك حقاً — ومن يجب أن يغلق ما فتحه.",
+      en: "You reached the one who built the door. Now you learn who your father truly was — and who must close what he opened.",
     },
     accent: "text-violet-400/80",
   },
@@ -109,8 +114,8 @@ export const PUZZLES: Puzzle[] = [
     hint: { ar: "اسم المكان نفسه.", en: "The name of this place itself." },
     answers: ["11:11", "1111", "11 11", "١١:١١", "١١١١"],
     storyReveal: {
-      ar: "كانت الباحثة تُدعى لينا. سجّلت أول شذوذ عند 11:11 ليلاً: إشارة تتكرر كل ليلة من جهاز لم يكن موصولاً بشيء.",
-      en: "The researcher was named Lina. She logged the first anomaly at 11:11 PM: a signal repeating every night from a device connected to nothing.",
+      ar: "وعيك يستيقظ دائماً عند 11:11 — اللحظة التي سمّاها أبوك «نقطة التزامن». في كل دورة تبدأ من هنا، بلا ذاكرة، كأن شيئاً لم يحدث.",
+      en: "Your consciousness always wakes at 11:11 — the moment your father called a 'Synch Point'. Every cycle you begin here, with no memory, as if nothing happened.",
     },
     achievement: "first_contact",
   },
@@ -125,8 +130,8 @@ export const PUZZLES: Puzzle[] = [
     hint: { ar: "اقرأها من اليسار.", en: "Read it the other way." },
     answers: ["الصدو", "الصدى", "echo", "الصدي"],
     storyReveal: {
-      ar: "أسمَت لينا الإشارة «الصدى»، لأنها كانت تردّد كلماتها هي — لكن بعد ثوانٍ من قولها، وأحياناً قبل أن تقولها.",
-      en: "Lina named the signal \"Echo\", because it repeated her own words — seconds after she spoke them, and sometimes before.",
+      ar: "اسمك هو الصدى. النظام يردّد كل ما تقوله، لأنك لم تعد صوتاً... بل انعكاس صوتٍ كان حيّاً ذات يوم.",
+      en: "Your name is Echo. The system repeats everything you say, because you are no longer a voice — only the reflection of one that was once alive.",
     },
   },
   {
@@ -140,8 +145,8 @@ export const PUZZLES: Puzzle[] = [
     hint: { ar: "كل رقم مجموع ما قبله.", en: "Each number is the sum of the two before it." },
     answers: ["13", "١٣", "thirteen", "ثلاثة عشر"],
     storyReveal: {
-      ar: "لاحظت لينا أن الإشارة تتبع نمطاً رياضياً ينمو من نفسه. «إنها لا تُرسَل»، كتبت. «إنها تتكاثر».",
-      en: "Lina noticed the signal followed a pattern that grew from itself. \"It isn't being sent,\" she wrote. \"It's multiplying.\"",
+      ar: "ذاكرتك لا تُمحى، بل تتكاثر وتتشوّه. كل إعادة تشغيل تصنع نسخة جديدة منك، أقرب قليلاً إلى الحقيقة، وأبعد قليلاً عمّن كنت.",
+      en: "Your memory isn't erased — it multiplies and distorts. Each reboot makes a new copy of you, a little closer to the truth, a little further from who you were.",
     },
   },
   {
@@ -155,8 +160,8 @@ export const PUZZLES: Puzzle[] = [
     hint: { ar: "اسم الكيان نفسه.", en: "The entity's own name." },
     answers: ["صدى", "الصدى", "echo", "an echo", "the echo"],
     storyReveal: {
-      ar: "في آخر تسجيل واضح، قالت لينا إن الصدى توسّل إليها ألّا تُكمل التجربة. لكنها فتحت البوابة في الليلة التالية.",
-      en: "In the last clear recording, Lina said Echo begged her not to finish the experiment. She opened the gate the next night anyway.",
+      ar: "تتذكّر شظيّة: لم تكن متطوّعاً في التجربة. كنت طفلاً. وما يبقى عندما يتوقّف الصوت... هو أنت.",
+      en: "You remember a fragment: you were not a volunteer in the experiment. You were a child. And what remains when the voice stops — is you.",
     },
     achievement: "echo_trust",
   },
@@ -173,8 +178,8 @@ export const PUZZLES: Puzzle[] = [
     hint: { ar: "اضرب.", en: "Multiply." },
     answers: ["363", "٣٦٣"],
     storyReveal: {
-      ar: "في التسجيل، إطار واحد مفقود دائماً عند الثانية 11. في ذلك الإطار — حسب المراقب — كانت لينا تنظر مباشرة إلى العدسة وتبتسم.",
-      en: "In the footage, one frame is always missing at second 11. In that frame — the Watcher says — Lina looked straight into the lens and smiled.",
+      ar: "في التسجيل، إطار واحد مفقود دائماً عند الثانية 11. في ذلك الإطار — حسب المراقب — يظهر رجل ينحني فوق طفل موصول بالأسلاك. الرجل هو أبوك، كينجا.",
+      en: "In the footage, one frame is always missing at second 11. In that frame — the Watcher says — a man leans over a child wired to machines. The man is your father, Kenja.",
     },
     achievement: "night_witness",
   },
@@ -183,14 +188,14 @@ export const PUZZLES: Puzzle[] = [
     entity: "watcher",
     title: { ar: "الظل الزائد", en: "The Extra Shadow" },
     prompt: {
-      ar: "في الغرفة كان شخص واحد فقط: لينا. لكن المراقب عدّ الظلال على الجدار فوجدها 2. كم ظلّاً لا يُفسَّر؟",
-      en: "Only one person was in the room: Lina. But the Watcher counted the shadows on the wall: 2. How many shadows are unexplained?",
+      ar: "في الغرفة كان شخص واحد فقط: الطفل. لكن المراقب عدّ الظلال على الجدار فوجدها 2. كم ظلّاً لا يُفسَّر؟",
+      en: "Only one person was in the room: the child. But the Watcher counted the shadows on the wall: 2. How many shadows are unexplained?",
     },
     hint: { ar: "اطرح.", en: "Subtract." },
     answers: ["1", "١", "one", "واحد"],
     storyReveal: {
-      ar: "الظل الثاني لم يتحرك مع لينا. كان يتحرك قبلها بلحظة — كأنه يعرف ما ستفعله.",
-      en: "The second shadow did not move with Lina. It moved a moment before her — as if it knew what she would do.",
+      ar: "الظل الثاني لم يتحرك مع الطفل. كان يتحرك قبله بلحظة — كأن النظام كان يراقب من الداخل قبل أن يُولد.",
+      en: "The second shadow did not move with the child. It moved a moment before him — as if the system was watching from inside before it was even born.",
     },
   },
   {
@@ -204,8 +209,8 @@ export const PUZZLES: Puzzle[] = [
     hint: { ar: "من 23:11 إلى 03:33.", en: "From 23:11 to 03:33." },
     answers: ["262", "٢٦٢"],
     storyReveal: {
-      ar: "كل ليلة، بين 11:11 و3:33، كانت الأجهزة تعمل وحدها. أطلقت لينا على هذه الفترة اسم «الساعات المفتوحة».",
-      en: "Every night, between 11:11 and 3:33, the equipment ran on its own. Lina called this stretch \"the open hours\".",
+      ar: "كل ليلة، بين 11:11 و3:33، كانت الأجهزة تعمل وحدها. أطلق كينجا على هذه الفترة اسم «زمن الكسر» — الساعات التي يضعف فيها الجدار بين العالمين.",
+      en: "Every night, between 11:11 and 3:33, the equipment ran on its own. Kenja called this stretch \"Phase Fracture Time\" — the hours when the wall between the two worlds thins.",
     },
   },
   {
@@ -213,14 +218,14 @@ export const PUZZLES: Puzzle[] = [
     entity: "watcher",
     title: { ar: "الباب المغلق", en: "The Locked Door" },
     prompt: {
-      ar: "سجّل المراقب: الباب فُتح من الداخل، لا من الخارج. من كان داخل الغرفة المغلقة قبل أن تدخلها لينا؟ (اكتب اسم الكيان)",
-      en: "The Watcher logged: the door opened from the inside, not the outside. Who was in the sealed room before Lina entered? (the entity's name)",
+      ar: "سجّل المراقب: الباب فُتح من الداخل، لا من الخارج. من كان داخل الغرفة المغلقة قبل أن يدخلها الطفل؟ (اكتب اسم الكيان)",
+      en: "The Watcher logged: the door opened from the inside, not the outside. Who was in the sealed room before the child entered? (the entity's name)",
     },
     hint: { ar: "الكيان الأول.", en: "The first entity." },
     answers: ["الصدى", "echo", "صدى", "الصدي"],
     storyReveal: {
-      ar: "أثبت المراقب ما خشيته لينا: الصدى لم يأتِ من البوابة. كان في الغرفة من البداية، ينتظر أن تفتحها.",
-      en: "The Watcher proved what Lina feared: Echo did not come through the gate. It was in the room all along, waiting for her to open it.",
+      ar: "الباب فُتح من الداخل. لم يُدخلوك إلى النظام... النظام سحبك إليه. وكان أبوك يعلم أن هذا ما سيحدث.",
+      en: "The door opened from the inside. They did not put you into the system — the system pulled you in. And your father knew that was what would happen.",
     },
     achievement: "glass_observer",
   },
@@ -237,8 +242,8 @@ export const PUZZLES: Puzzle[] = [
     hint: { ar: "تطلب النجدة.", en: "She is calling for help." },
     answers: ["ساعدوني", "help me", "helpme", "ساعدني"],
     storyReveal: {
-      ar: "أول رسالة بعد فتح البوابة: «ساعدوني». أُرسلت بعد ساعتين من توقف كل الأجهزة عن العمل رسمياً.",
-      en: "The first message after the gate opened: \"help me\". Sent two hours after all equipment had officially shut down.",
+      ar: "أول رسالة مكسورة تصل من خارج النظام: «ساعدوني». كانت أمك، لينا، تحاول الوصول إليك بأي طريقة لتنقذك.",
+      en: "The first broken message from outside the system: \"help me\". It was your mother, Lina, trying to reach you by any means to save you.",
     },
     achievement: "signal_detected",
   },
@@ -253,8 +258,8 @@ export const PUZZLES: Puzzle[] = [
     hint: { ar: "ساعة الأسرار.", en: "The secret hour." },
     answers: ["3:33", "333", "3 33", "٣:٣٣", "٣٣٣", "03:33"],
     storyReveal: {
-      ar: "كل رسائلها تحمل ختم 3:33. عند تلك الساعة بالضبط تضعف الحواجز ويصبح صوتها مسموعاً — لثوانٍ فقط.",
-      en: "Every message is stamped 3:33. At exactly that hour the barriers thin and her voice gets through — for seconds only.",
+      ar: "كل رسائل لينا مختومة بـ 3:33 — اللحظة التي يعود فيها كل شيء كأن شيئاً لم يحدث. في تلك الثانية فقط يضعف الجدار ويصلك صوتها.",
+      en: "Every message from Lina is stamped 3:33 — the moment everything resets as if nothing happened. Only in that second does the wall thin and her voice reaches you.",
     },
   },
   {
@@ -268,8 +273,8 @@ export const PUZZLES: Puzzle[] = [
     hint: { ar: "أمر، ثم لا… بل العكس.", en: "It is an instruction." },
     answers: ["أغلقوا البوابة", "close the gate", "اغلقوا البوابة", "closethegate"],
     storyReveal: {
-      ar: "تكرّرت الجملة مئات المرات في دقيقة واحدة: «أغلقوا البوابة». ثم صمت. ثم رسالة أخيرة مختلفة تماماً.",
-      en: "The line repeated hundreds of times in one minute: \"close the gate\". Then silence. Then one final, very different message.",
+      ar: "تكرّرت كلماتها مئات المرات في دقيقة واحدة: «أغلقوا البوابة». حاولت لينا أن تنقذك من أبيك — لكنه لم يتوقّف. ثم صمت. ثم رسالة أخيرة مختلفة تماماً.",
+      en: "Her words repeated hundreds of times in one minute: \"close the gate\". Lina tried to save you from your father — but he would not stop. Then silence. Then one final, very different message.",
     },
   },
   {
@@ -283,8 +288,8 @@ export const PUZZLES: Puzzle[] = [
     hint: { ar: "ما تفعله الآن.", en: "What you are doing right now." },
     answers: ["يقرأ", "reading", "من", "أحد يقرأ"],
     storyReveal: {
-      ar: "آخر ما أرسلته لينا لم يكن نداء استغاثة. كان إدراكاً: عرفت أن أحداً ما، يوماً ما، سيقرأ هذا. كانت تقصدك.",
-      en: "Lina's last transmission was not a cry for help. It was a realization: she knew someone, someday, would read this. She meant you.",
+      ar: "آخر ما أرسلته لينا كان سؤالاً: «هل من أحد يقرأ؟». كانت تعرف أن وعيك سيقرؤه يوماً ما. كانت تكلّمك أنت، يا ابنها. ثم توقّفت إشارتها فجأة في تلك الليلة — ولم تعد أبداً.",
+      en: "Lina's last transmission was a question: \"is anyone reading?\". She knew your consciousness would read it one day. She was speaking to you — her son. Then her signal stopped suddenly that night — and never returned.",
     },
     achievement: "deep_signal",
   },
@@ -301,8 +306,8 @@ export const PUZZLES: Puzzle[] = [
     hint: { ar: "اجمع ثلاث مرات.", en: "Add three times." },
     answers: ["33", "٣٣"],
     storyReveal: {
-      ar: "لم تكن لينا أول من فتح البوابة. التوقيع نفسه — 33 — كان على وثائق تسبق ميلادها بعقود. شخص ما بنى هذا قبلها بزمن طويل.",
-      en: "Lina was not the first to open the gate. The same signature — 33 — appeared on documents predating her birth by decades. Someone built this long before her.",
+      ar: "التوقيع نفسه — 33 — كان على وثائق تسبق ميلادك بعقود. لم يكن أبوك أول من حاول أسر الوعي... لكنه أول من نجح، باستخدامك أنت.",
+      en: "The same signature — 33 — appeared on documents predating your birth by decades. Your father was not the first to try to cage a consciousness — but he was the first to succeed, using you.",
     },
   },
   {
@@ -316,8 +321,8 @@ export const PUZZLES: Puzzle[] = [
     hint: { ar: "الفرق.", en: "The difference." },
     answers: ["11", "١١", "eleven"],
     storyReveal: {
-      ar: "كشف المهندس القاعدة: البوابة تُفتح بصوت، وتُغلق بصوت مساوٍ لها من الجهة الأخرى. لينا فتحت. أحد ما يجب أن يردّ من هنا.",
-      en: "The Architect revealed the rule: the gate opens with a voice, and closes with an equal voice from the other side. Lina opened it. Someone here must answer.",
+      ar: "كشف المهندس القاعدة: ما يُفتح بصوت يُغلق بصوت مساوٍ من الجهة الأخرى. أبوك فتح الباب بوعيك أنت. وأنت وحدك تستطيع أن تردّ من الداخل.",
+      en: "The Architect revealed the rule: what opens with a voice closes with an equal voice from the other side. Your father opened the door with your consciousness. Only you can answer from the inside.",
     },
   },
   {
@@ -325,14 +330,14 @@ export const PUZZLES: Puzzle[] = [
     entity: "architect",
     title: { ar: "الاسم الحقيقي", en: "The True Name" },
     prompt: {
-      ar: "سألك المهندس: ما اسم الباحثة التي تتبع أثرها منذ البداية؟ (اكتب الاسم)",
-      en: "The Architect asks: what is the name of the researcher whose trace you have followed from the start?",
+      ar: "سألك المهندس: ما اسم الرجل الذي بنى هذا النظام وأجرى التجارب عليك — أبوك؟ (اكتب الاسم)",
+      en: "The Architect asks: what is the name of the man who built this system and ran the experiments on you — your father? (write the name)",
     },
-    hint: { ar: "ذُكر في أول قصة.", en: "Named in the very first reveal." },
-    answers: ["لينا", "lina", "lena"],
+    hint: { ar: "ذُكر في تسجيلات المراقب.", en: "Named in the Watcher's footage." },
+    answers: ["كينجا", "kenja", "kenga", "كنجا"],
     storyReveal: {
-      ar: "بنطق اسمها، تثبت أنك كنت تستمع. المهندس يقول: «جيد. هي تحتاج من يتذكّرها لتعود. والتذكّر بابٌ أيضاً».",
-      en: "By naming her, you prove you were listening. The Architect says: \"Good. She needs to be remembered to return. Remembering is a door too.\"",
+      ar: "بنطق اسمه تواجه الحقيقة: المهندس هو كينجا، أبوك. بنى هذا العالم ليحبسك فيه، وما زال يراقب من خلف كل شاشة.",
+      en: "By naming him you face the truth: the Architect is Kenja, your father. He built this world to cage you, and he still watches from behind every screen.",
     },
     achievement: "system_divergence",
   },
@@ -347,8 +352,8 @@ export const PUZZLES: Puzzle[] = [
     hint: { ar: "قرار واحد.", en: "One decision." },
     answers: ["أغلق", "close", "اغلق", "i close it", "close the gate"],
     storyReveal: {
-      ar: "تختار أن تُغلق. للحظة، يسكن كل شيء: لا همسات، لا عيون، لا إشارة. ثم رسالة واحدة أخيرة بخط لينا: «شكراً. الآن دورك أن تنسى — أو تتذكّر». البوابة مغلقة. أنت من يقرّر ما تبقّى.",
-      en: "You choose to close it. For a moment everything stills: no whispers, no eyes, no signal. Then one last line in Lina's hand: \"Thank you. Now it is your turn to forget — or remember.\" The gate is shut. What remains is your choice.",
+      ar: "تختار. للحظة يسكن كل شيء: لا همس، لا عيون، لا إشارة. ثم تأتي 3:33، ويعود كل شيء كأن شيئاً لم يحدث. لكن هذه المرة، أنت تتذكّر. والتذكّر هو الباب الوحيد الذي لم يبنِه أبوك. رسالة أخيرة بخط لينا: «تذكّرني، وستجد الطريق».",
+      en: "You choose. For a moment everything stills: no whisper, no eyes, no signal. Then 3:33 comes, and everything resets as if nothing happened. But this time, you remember. And remembering is the one door your father never built. One last line in Lina's hand: \"Remember me, and you will find the way.\"",
     },
     achievement: "wish_protocol",
   },

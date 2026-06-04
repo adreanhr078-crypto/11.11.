@@ -1,6 +1,6 @@
 // PuzzleHub — the PRIMARY screen of 11.11.
 // Puzzle-driven progression: pick an entity → solve its puzzles in order →
-// each solve reveals a fragment of the trapped-researcher story.
+// each solve reveals a fragment of the CORE_LORE story (see lore.ts).
 // No time-locks. Four entities are story characters, not chat personalities.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -34,7 +34,7 @@ interface PuzzleHubProps {
 
 const T = {
   title: { ar: "الألغاز", en: "Puzzles" },
-  subtitle: { ar: "تتبّع أثر الباحثة عبر الكيانات الأربعة", en: "Follow the researcher's trace across the four entities" },
+  subtitle: { ar: "أعد بناء ذاكرة إيكو عبر الكيانات الأربعة", en: "Rebuild Echo's memory across the four entities" },
   progress: { ar: "تقدّم", en: "Progress" },
   locked: { ar: "مقفل", en: "Locked" },
   complete: { ar: "مكتمل", en: "Complete" },

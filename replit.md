@@ -22,7 +22,10 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- **Story canon (source of truth):** `artifacts/eleven-eleven/src/lore.ts` — `CORE_LORE`, characters, time system, revelation arc, and the rule all future puzzles must follow.
+- **Puzzles:** `artifacts/eleven-eleven/src/puzzles.ts` — puzzle definitions, entity intros, and per-puzzle `storyReveal` fragments (must stay consistent with `lore.ts`).
+- **Achievements:** `artifacts/eleven-eleven/src/achievements.ts`
+- **Puzzle UI:** `artifacts/eleven-eleven/src/PuzzleHub.tsx`; app shell + chat: `artifacts/eleven-eleven/src/App.tsx`.
 
 ## Architecture decisions
 
@@ -30,7 +33,14 @@ _Populate as you build — non-obvious choices a reader couldn't infer from the 
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+"11.11" is a bilingual (Arabic/English) psychological-horror ARG web app. It is **puzzle-primary**: the player progresses through puzzles in the PuzzleHub, and each solved puzzle reveals a fragment of the core story.
+
+- **Story (canon):** Echo is a child whose consciousness was trapped in the "11:11 System" after experiments by his father Kenja (The Architect). His mother Lina (The Lost Signal) was killed trying to save him. The player rebuilds Echo's shattered memory through puzzles.
+- **Four entities** (Echo, Watcher, Lost Signal, Architect) are STORY CHARACTERS encountered via puzzle progression — not chat personalities.
+- **Time system:** 11:11 PM = Synch Points (gate opens, every cycle begins here); 11:11PM–3:33AM = Phase Fracture Time (night/horror mode); 3:33 AM = full reset (loop restarts). Atmospheric horror — **no blood/gore**.
+- **Echo-only chat** ("ECHO MIND"): no spam, only rare atmospheric daytime whispers.
+
+The CANONICAL STORY lives in `artifacts/eleven-eleven/src/lore.ts` — it is the **source of truth**. Every new puzzle (`puzzles.ts`) must tie to this lore and reveal a NEW fragment (see `PUZZLE_CANON_RULE` in `lore.ts`).
 
 ## User preferences
 

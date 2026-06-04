@@ -36,7 +36,7 @@ function getTimePhase(): TimePhase {
 }
 
 // ─── ATMOSPHERIC WHISPERS ─────────────────────────────────────────────────────
-// Quiet fragments of the trapped researcher (Lina) — atmospheric, never
+// Quiet fragments of Echo's fractured memory — atmospheric, never
 // harassing. Daytime: rare, faint. Night: a little more present.
 const GHOST_MSGS_AR = [
   "هل يسمعني أحد؟", "الإشارة ضعيفة...", "لينا كانت هنا",
