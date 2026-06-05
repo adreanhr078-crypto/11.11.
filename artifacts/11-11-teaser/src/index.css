@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+:root {
+  --color-primary: #F0E6D2; /* warm off-white/gold */
+  --color-secondary: #6B7280;
+  --color-accent: #3B82F6;
+
+  --color-bg-light: #000000;
+  --color-bg-dark: #000000;
+  --color-bg-muted: #111111;
+
+  --color-text-primary: #F0E6D2;
+  --color-text-secondary: #9CA3AF;
+  --color-text-muted: #4B5563;
+  --color-text-inverse: #000000;
+
+  --color-watcher: #FBBF24; /* amber-400 */
+  --color-signal: #22D3EE; /* cyan-400 */
+  --color-architect: #A78BFA; /* violet-400 */
+
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body: 'Tajawal', sans-serif; /* Supports Arabic well */
+  --font-mono: monospace;
+}
+
+@theme inline {
+  --color-primary: var(--color-primary);
+  --color-secondary: var(--color-secondary);
+  --color-accent: var(--color-accent);
+  --color-bg-light: var(--color-bg-light);
+  --color-bg-dark: var(--color-bg-dark);
+  --color-bg-muted: var(--color-bg-muted);
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-muted: var(--color-text-muted);
+  --color-text-inverse: var(--color-text-inverse);
+  --color-watcher: var(--color-watcher);
+  --color-signal: var(--color-signal);
+  --color-architect: var(--color-architect);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-mono: var(--font-mono);
+}
+
+body {
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--color-bg-dark);
+  color: var(--color-text-primary);
+}
+
+.glitch-effect {
+  animation: glitch 2s linear infinite;
+}
+
+@keyframes glitch {
+  2%, 64% { transform: translate(2px, 0) skew(0deg); }
+  4%, 60% { transform: translate(-2px, 0) skew(0deg); }
+  62% { transform: translate(0, 0) skew(5deg); }
+}

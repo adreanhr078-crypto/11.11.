@@ -1,8 +1,13 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "3u6Wpb0vTwjCMBEY-Q4OV"
 uri = "file://artifacts/eleven-eleven-mobile/assets/images/icon.png"
 type = "image"
 title = "generated_image"
+
+[[outputs]]
+id = "iXBFBJewR3txppX0ItmhZ"
+uri = "file://artifacts/11-11-teaser/public/audio/bg_music.mp3"
+type = "audio"
+title = "background music"
