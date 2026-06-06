@@ -1,4 +1,6 @@
 import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
 
 export const pushSubscriptionsTable = pgTable("push_subscriptions", {
   id: serial("id").primaryKey(),
@@ -12,3 +14,11 @@ export const pushSubscriptionsTable = pgTable("push_subscriptions", {
   scheduleMask: integer("schedule_mask").notNull().default(7),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptionsTable).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type PushSubscription = typeof pushSubscriptionsTable.$inferSelect;
+export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;

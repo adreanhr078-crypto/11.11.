@@ -175,7 +175,7 @@ router.post("/ai/chat", async (req, res) => {
     };
 
     const stream = await openai.chat.completions.create({
-      model: "gpt-5.4",
+      model: "gpt-4o",
       max_completion_tokens: 100,
       messages: [systemPrompt, ...authoritativeMessages],
       stream: true,
@@ -233,7 +233,7 @@ router.post("/ai/wish-task", async (req, res) => {
 - اللغة: عربي دائماً`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-5.4",
+      model: "gpt-4o",
       max_completion_tokens: 120,
       messages: [
         { role: "system", content: prompt },
@@ -272,7 +272,7 @@ router.post("/ai/psych-analysis", async (req, res) => {
 - اللغة: عربي فصيح`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-5.4",
+      model: "gpt-4o",
       max_completion_tokens: 100,
       messages: [
         { role: "system", content: prompt },

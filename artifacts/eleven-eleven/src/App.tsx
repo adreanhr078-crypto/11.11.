@@ -3954,7 +3954,7 @@ function App() {
         )}
       </AnimatePresence>
       {/* Horror Engine — always present after consent */}
-      {consentDone && <HorrorEngine soundOn={soundOn} lang={lang} />}
+      {consentDone && <HorrorEngine soundOn={soundOn} lang={lang} solvedPuzzles={0} totalPuzzles={88} />}
 
       {/* Fear / Curiosity sync meter — ambient ARG HUD */}
       {consentDone && <SyncMeter spikeCount={spikeCount} />}
