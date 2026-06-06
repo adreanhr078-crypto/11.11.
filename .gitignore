@@ -47,3 +47,6 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Vercel - ignore pnpm lockfile to prevent Vercel from using pnpm
+pnpm-lock.yaml
