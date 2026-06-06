@@ -1,0 +1,8 @@
+[build]
+  command = "cd artifacts/eleven-eleven && npm install && npx vite build"
+  publish = "artifacts/eleven-eleven/dist"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -41,12 +41,8 @@ testem.log
 .DS_Store
 Thumbs.db
 
-.cursor/rules/nx-rules.mdc
-.github/instructions/nx.instructions.md
-
-# Replit
+# Vite cache
 .cache/
-.local/
 
 # Vercel - ignore pnpm lockfile to prevent Vercel from using pnpm
 pnpm-lock.yaml

@@ -3,5 +3,8 @@
   "framework": "vite",
   "buildCommand": "npm install && npx vite build --config vite.config.ts",
   "outputDirectory": "dist",
-  "installCommand": ""
+  "installCommand": "",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }

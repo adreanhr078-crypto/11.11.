@@ -622,7 +622,7 @@ function generateShareCard(params: {
 
   ctx.fillStyle = "rgba(255,255,255,0.11)";
   ctx.font = "10px monospace";
-  ctx.fillText("11-11.replit.app  ·  تجربة نفسية خيالية", 400, 426);
+  ctx.fillText("11-11.app  ·  تجربة نفسية خيالية", 400, 426);
 
   canvas.toBlob((blob) => {
     if (!blob) return;
