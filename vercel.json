@@ -3,6 +3,5 @@
   "framework": "vite",
   "buildCommand": "bash scripts/vercel-build.sh",
   "outputDirectory": "artifacts/eleven-eleven/dist",
-  "installCommand": "pnpm install --no-frozen-lockfile",
-  "rootDirectory": "."
+  "installCommand": "pnpm install --no-frozen-lockfile"
 }
