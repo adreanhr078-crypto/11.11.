@@ -20,11 +20,11 @@ export default defineConfig({
     },
     dedupe: ["react", "react-dom"],
   },
-  root: path.resolve(__dirname),
   build: {
-    outDir: path.resolve(__dirname, "dist"),
+    outDir: "dist",
     emptyOutDir: true,
     sourcemap: false,
+    chunkSizeWarningLimit: 1000,
   },
   server: {
     host: "0.0.0.0",
