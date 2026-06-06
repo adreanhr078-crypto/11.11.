@@ -1662,7 +1662,10 @@ export const PUZZLES: Puzzle[] = [
     answers: ["4", "٤", "four", "اربعة", "أربعة"],
     storyReveal: {
       ar: "غرفة لينا كانت رقم 4. أبعد غرفة عن المختبر. كانت تحاول أن تبقيك بعيداً عن تجارب كينجا. لكن 4 خطوات فقط كانت تفصل بين غرفتها وغرفتك. 4 خطوات كانت تقطعها كل ليلة لتتأكد أنك نائم. بأمان.",
-      en: "Lina's room was number 4. The farthest room from the lab. She was trying to keep you away from Ken
+      en: "Lina's room was number 4. The farthest room from the lab. She was trying to keep you away from Kenja's experiments. But only 4 steps separated her room from yours. 4 steps she walked every night to make sure you were asleep. Safe.",
+    },
+  },
+];
 const ARABIC_DIACRITICS = /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g;
 
 export function normalizeAnswer(s: string): string {
