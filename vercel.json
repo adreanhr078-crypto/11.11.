@@ -3,5 +3,5 @@
   "framework": "vite",
   "buildCommand": "cd artifacts/eleven-eleven && npm install && npx vite build",
   "outputDirectory": "artifacts/eleven-eleven/dist",
-  "installCommand": "npm install"
+  "installCommand": ""
 }
