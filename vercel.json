@@ -1,7 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
-  "buildCommand": "pnpm --filter @workspace/eleven-eleven run build",
+  "buildCommand": "bash scripts/vercel-build.sh",
   "outputDirectory": "artifacts/eleven-eleven/dist",
-  "installCommand": "pnpm install --frozen-lockfile"
+  "installCommand": "pnpm install --no-frozen-lockfile",
+  "rootDirectory": "."
 }
