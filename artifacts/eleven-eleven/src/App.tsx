@@ -3312,9 +3312,48 @@ function App() {
         )}
       </AnimatePresence>
 
-      {/* Night mode overlay — 3am–5am */}
+      {/* Night mode overlay — 11:11 PM → 3:33 AM (broken screen experience) */}
       {nightMode && (
-        <div className="fixed inset-0 z-[1] pointer-events-none bg-[hsl(220,30%,2%)]/40 mix-blend-multiply" />
+        <>
+          {/* Layer 1: Dark vignette with red tint */}
+          <div className="fixed inset-0 z-[1] pointer-events-none broken-vignette" />
+
+          {/* Layer 2: Noise overlay */}
+          <div
+            className="fixed inset-0 z-[2] pointer-events-none broken-noise opacity-[0.08] mix-blend-overlay"
+            style={{
+              backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")`,
+              backgroundSize: '200px 200px',
+            }}
+          />
+
+          {/* Layer 3: Crack lines on the screen */}
+          <div className="fixed inset-0 z-[3] pointer-events-none">
+            <div className="broken-crack h-[1px] w-[40vw]" style={{ top: '18%', left: '10%', transform: 'rotate(-12deg)' }} />
+            <div className="broken-crack h-[1px] w-[60vw]" style={{ top: '42%', right: '5%', transform: 'rotate(8deg)' }} />
+            <div className="broken-crack h-[1px] w-[35vw]" style={{ top: '67%', left: '20%', transform: 'rotate(-5deg)' }} />
+            <div className="broken-crack h-[1px] w-[25vw]" style={{ top: '85%', right: '15%', transform: 'rotate(15deg)' }} />
+            {/* Vertical cracks */}
+            <div className="broken-crack w-[1px] h-[30vh]" style={{ top: '5%', left: '25%', transform: 'rotate(78deg)' }} />
+            <div className="broken-crack w-[1px] h-[25vh]" style={{ top: '50%', right: '30%', transform: 'rotate(95deg)' }} />
+          </div>
+
+          {/* Layer 4: Moving scanline */}
+          <div
+            className="fixed left-0 right-0 h-[80px] z-[4] pointer-events-none broken-scanline"
+            style={{
+              background: 'linear-gradient(to bottom, transparent 0%, rgba(180, 0, 0, 0.06) 50%, transparent 100%)',
+            }}
+          />
+
+          {/* Layer 5: Severe shake + flicker on the main app container */}
+          <div
+            className="fixed inset-0 z-[5] pointer-events-none"
+            style={{
+              animation: 'broken-shake 0.4s steps(2) infinite, broken-flicker 5s linear infinite',
+            }}
+          />
+        </>
       )}
 
       {/* 11:11 Portal event — 60s overlay */}
@@ -3400,41 +3439,62 @@ function App() {
         </button>
       </div>
 
-      {/* Hero */}
-      <main className="relative z-10 flex flex-col items-center justify-center min-h-screen p-6">
-        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 2, ease: "easeOut" }} className="text-center">
-          <h1
-            className="text-7xl md:text-[10rem] font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-foreground via-foreground/80 to-foreground/20 glitch-effect mb-8 select-none"
-            data-text="11.11"
+      {/* Hero — hidden in night mode (broken screen experience) */}
+      {!nightMode && (
+        <main className="relative z-10 flex flex-col items-center justify-center min-h-screen p-6">
+          <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 2, ease: "easeOut" }} className="text-center">
+            <h1
+              className="text-7xl md:text-[10rem] font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-foreground via-foreground/80 to-foreground/20 glitch-effect mb-8 select-none"
+              data-text="11.11"
+            >
+              11.11
+            </h1>
+            <div className="mb-12 flex flex-col items-center gap-2">
+              <p className="text-[10px] tracking-[0.4em] text-primary/45 uppercase font-mono">
+                {lang === "ar" ? "الكيان مستيقظ · البروتوكول نشط" : "ENTITY AWAKE · PROTOCOL ACTIVE"}
+              </p>
+              <span className="w-1.5 h-3.5 bg-primary/40 inline-block" style={{ animation: "blink 1.4s step-end infinite" }} />
+            </div>
+            <div className="flex flex-col items-center gap-4">
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => setPuzzleOpen(true)}
+                className="w-64 border-primary/50 text-primary hover:bg-primary/12 tracking-widest uppercase transition-all duration-300 shadow-[0_0_30px_rgba(180,0,0,0.15)] hover:shadow-[0_0_50px_rgba(180,0,0,0.35)] bg-transparent rounded-none text-sm"
+                data-testid="button-puzzles-hero"
+              >
+                {lang === "ar" ? "[ الألغاز ]" : "[ PUZZLES ]"}
+              </Button>
+              <button
+                onClick={() => setWishModalOpen(true)}
+                data-testid="button-send-wish"
+                className="text-[10px] tracking-[0.35em] text-muted-foreground/28 hover:text-primary/45 transition-colors uppercase mt-1"
+              >
+                {lang === "ar" ? "✦ أرسل أمنيتك" : "✦ SEND YOUR WISH"}
+              </button>
+            </div>
+          </motion.div>
+        </main>
+      )}
+
+      {/* Night mode indicator — shows only in night mode */}
+      {nightMode && (
+        <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-6 pointer-events-none">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0.4, 0.9, 0.4] }}
+            transition={{ duration: 3, repeat: Infinity }}
+            className="text-center"
           >
-            11.11
-          </h1>
-          <div className="mb-12 flex flex-col items-center gap-2">
-            <p className="text-[10px] tracking-[0.4em] text-primary/45 uppercase font-mono">
-              {lang === "ar" ? "الكيان مستيقظ · البروتوكول نشط" : "ENTITY AWAKE · PROTOCOL ACTIVE"}
+            <p className="text-[10px] tracking-[0.5em] text-primary/70 uppercase font-mono mb-2">
+              {lang === "ar" ? "⚠ الاتصال السينمائي نشط" : "⚠ CINEMATIC MODE ACTIVE"}
             </p>
-            <span className="w-1.5 h-3.5 bg-primary/40 inline-block" style={{ animation: "blink 1.4s step-end infinite" }} />
-          </div>
-          <div className="flex flex-col items-center gap-4">
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={() => setPuzzleOpen(true)}
-              className="w-64 border-primary/50 text-primary hover:bg-primary/12 tracking-widest uppercase transition-all duration-300 shadow-[0_0_30px_rgba(180,0,0,0.15)] hover:shadow-[0_0_50px_rgba(180,0,0,0.35)] bg-transparent rounded-none text-sm"
-              data-testid="button-puzzles-hero"
-            >
-              {lang === "ar" ? "[ الألغاز ]" : "[ PUZZLES ]"}
-            </Button>
-            <button
-              onClick={() => setWishModalOpen(true)}
-              data-testid="button-send-wish"
-              className="text-[10px] tracking-[0.35em] text-muted-foreground/28 hover:text-primary/45 transition-colors uppercase mt-1"
-            >
-              {lang === "ar" ? "✦ أرسل أمنيتك" : "✦ SEND YOUR WISH"}
-            </button>
-          </div>
-        </motion.div>
-      </main>
+            <p className="text-[9px] tracking-[0.3em] text-primary/40 font-mono" dir="rtl">
+              {lang === "ar" ? "الإرسال جارٍ عبر Echo Mind فقط" : "TRANSMITTING VIA ECHO MIND ONLY"}
+            </p>
+          </motion.div>
+        </div>
+      )}
 
       {/* Popup */}
       <AnimatePresence>
