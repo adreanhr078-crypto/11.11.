@@ -19,6 +19,12 @@ import {
   type Puzzle,
 } from "./puzzles";
 import { ACHIEVEMENTS, deriveAchievements, getAchievement } from "./achievements";
+import {
+  loadSave,
+  markPuzzleSolved,
+  unlockAchievement as saveUnlockAchievement,
+  type SaveData,
+} from "./saveSystem";
 
 type Lang = "ar" | "en";
 
@@ -53,62 +59,67 @@ const T = {
 };
 
 export function PuzzleHub({ uid, lang, onClose, onAchievement, onProgress }: PuzzleHubProps) {
-  const [solved, setSolved] = useState<string[]>([]);
-  const [achievements, setAchievements] = useState<string[]>([]);
+  const [save, setSave] = useState<SaveData | null>(null);
   const [view, setView] = useState<"entities" | "entity" | "achievements">("entities");
   const [activeEntity, setActiveEntity] = useState<EntityId | null>(null);
   const [activePuzzle, setActivePuzzle] = useState<string | null>(null);
+  const saveRef = useRef<SaveData | null>(null);
+
+  // Derived convenience state
+  const solved = save?.solvedPuzzles ?? [];
+  const achievements = save?.unlockedAchievements ?? [];
   const solvedRef = useRef<string[]>([]);
   const achRef = useRef<string[]>([]);
-
   solvedRef.current = solved;
   achRef.current = achievements;
 
-  // Initial load from server
+  // Initial load from save system (localStorage + server merge)
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/arg?uid=${encodeURIComponent(uid)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: { solvedPuzzles?: string[]; unlockedAchievements?: string[] } | null) => {
-        if (cancelled || !data) return;
-        setSolved(data.solvedPuzzles ?? []);
-        setAchievements(data.unlockedAchievements ?? []);
-      })
-      .catch(() => { /* offline — start empty */ });
+    loadSave(uid).then((loaded) => {
+      if (cancelled) return;
+      setSave(loaded);
+      saveRef.current = loaded;
+    });
     return () => { cancelled = true; };
   }, [uid]);
 
   const persistAchievement = useCallback((achievementId: string) => {
-    if (achRef.current.includes(achievementId)) return;
-    achRef.current = [...achRef.current, achievementId];
-    setAchievements(achRef.current);
+    if (!saveRef.current) return;
+    if (saveRef.current.unlockedAchievements.includes(achievementId)) return;
+    const updated = saveUnlockAchievement(saveRef.current, achievementId);
+    saveRef.current = updated;
+    setSave(updated);
     onAchievement(achievementId);
-    fetch("/api/arg/achievement", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ uid, achievementId }),
-    }).catch(() => { /* ignore */ });
-  }, [uid, onAchievement]);
+  }, [onAchievement]);
 
   const markSolved = useCallback((puzzle: Puzzle) => {
-    if (solvedRef.current.includes(puzzle.id)) return;
-    const next = [...solvedRef.current, puzzle.id];
-    solvedRef.current = next;
-    setSolved(next);
-    onProgress?.(next);
+    if (!saveRef.current) return;
+    if (saveRef.current.solvedPuzzles.includes(puzzle.id)) return;
 
-    // Persist solve
-    fetch("/api/arg/solve", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ uid, puzzleId: puzzle.id }),
-    }).catch(() => { /* ignore */ });
+    // Save puzzle solve (persists to localStorage + server)
+    let updated = markPuzzleSolved(saveRef.current, puzzle.id);
+    saveRef.current = updated;
+    setSave(updated);
+    onProgress?.(updated.solvedPuzzles);
 
     // Puzzle-specific achievement
-    if (puzzle.achievement) persistAchievement(puzzle.achievement);
+    if (puzzle.achievement) {
+      updated = saveUnlockAchievement(updated, puzzle.achievement);
+      saveRef.current = updated;
+      setSave(updated);
+      onAchievement(puzzle.achievement);
+    }
+
     // Derived achievements (entity completion, story milestones, etc.)
-    deriveAchievements(next).forEach(persistAchievement);
-  }, [uid, persistAchievement, onProgress]);
+    deriveAchievements(updated.solvedPuzzles).forEach((achId) => {
+      if (!saveRef.current) return;
+      const u2 = saveUnlockAchievement(saveRef.current, achId);
+      saveRef.current = u2;
+      setSave(u2);
+      onAchievement(achId);
+    });
+  }, [onAchievement, onProgress]);
 
   const total = totalPuzzleCount();
   const done = solvedCount(solved);

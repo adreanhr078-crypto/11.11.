@@ -8,6 +8,12 @@ import { PuzzleHub } from "./PuzzleHub";
 import { AchievementToast, type ToastItem } from "./AchievementToast";
 import { useGameState, gameStore, usePassiveDread } from "./gameState";
 import { streamEcho, type EchoMessage } from "./echoService";
+import {
+  loadSave,
+  updateSaveField,
+  markPuzzleSolved as saveMarkPuzzleSolved,
+  type SaveData,
+} from "./saveSystem";
 
 // ─── WISH VIDEO RECORDER ──────────────────────────────────────────────────────
 
@@ -2814,6 +2820,9 @@ function App() {
   // Anonymous persistent user ID — server-issued UUID, stored in cookie + localStorage
   const uidRef = useRef<string>("");
   const [uid, setUid] = useState<string>("");
+  // Persistent save state — loaded once on init, kept in sync
+  const [fullSave, setFullSave] = useState<SaveData | null>(null);
+  const fullSaveRef = useRef<SaveData | null>(null);
   // Gate: profile sync effects must not run until DB hydration completes
   const profileHydratedRef = useRef(false);
   // Service worker registration — used for push subscription
