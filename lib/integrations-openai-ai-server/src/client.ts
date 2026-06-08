@@ -1,18 +1,13 @@
 import OpenAI from "openai";
 
-if (!process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
-  throw new Error(
-    "AI_INTEGRATIONS_OPENAI_BASE_URL must be set. Did you forget to provision the OpenAI AI integration?",
-  );
-}
+// GROQ integration — all AI calls go through Groq's OpenAI-compatible endpoint.
+// The GROQ_API_KEY is set in Vercel Environment Variables (Project Settings → Environment Variables).
+const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
 
-if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-  throw new Error(
-    "AI_INTEGRATIONS_OPENAI_API_KEY must be set. Did you forget to provision the OpenAI AI integration?",
-  );
-}
+const groqApiKey = process.env.GROQ_API_KEY ?? process.env.AI_INTEGRATIONS_OPENAI_API_KEY ?? "";
+const groqBaseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ?? GROQ_BASE_URL;
 
 export const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  apiKey: groqApiKey,
+  baseURL: groqBaseUrl,
 });

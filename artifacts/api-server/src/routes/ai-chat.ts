@@ -200,10 +200,8 @@ router.post("/ai/chat", async (req, res) => {
     };
 
     const stream = await openai.chat.completions.create({
-      // gpt-4o: at least 16 tokens required, 100 is the *upper* budget.
-      // We bumped to 400 to allow full Echo-style responses (1–3 sentences)
-      // without truncating mid-word, while still keeping replies short.
-      model: "gpt-4o",
+      // Groq-hosted Llama 3 — fast, free-tier friendly, OpenAI-compatible.
+      model: "llama3-70b-8192",
       max_completion_tokens: 400,
       messages: [systemPrompt, ...authoritativeMessages],
       stream: true,
@@ -270,7 +268,7 @@ router.post("/ai/wish-task", async (req, res) => {
 - اللغة: عربي دائماً`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "llama3-70b-8192",
       max_completion_tokens: 120,
       messages: [
         { role: "system", content: prompt },
@@ -309,7 +307,7 @@ router.post("/ai/psych-analysis", async (req, res) => {
 - اللغة: عربي فصيح`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "llama3-70b-8192",
       max_completion_tokens: 100,
       messages: [
         { role: "system", content: prompt },

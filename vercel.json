@@ -3,5 +3,6 @@
   "framework": "vite",
   "buildCommand": "cd artifacts/eleven-eleven && npm install && npx vite build --config vite.config.ts",
   "outputDirectory": "artifacts/eleven-eleven/dist",
-  "installCommand": ""
+  "installCommand": "npm install openai @vercel/node",
+  "rewrites": []
 }

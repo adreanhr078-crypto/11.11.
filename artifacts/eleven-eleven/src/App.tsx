@@ -7,8 +7,7 @@ import { SyncMeter } from "./SyncMeter";
 import { PuzzleHub } from "./PuzzleHub";
 import { AchievementToast, type ToastItem } from "./AchievementToast";
 import { useGameState, gameStore, usePassiveDread } from "./gameState";
-import { streamEcho, hasApiKey, setApiKey, clearApiKey, OPENAI_KEY_STORAGE, getApiKey, type EchoMessage } from "./echoService";
-import { EchoSettingsPanel } from "./EchoSettings";
+import { streamEcho, type EchoMessage } from "./echoService";
 
 // ─── WISH VIDEO RECORDER ──────────────────────────────────────────────────────
 
@@ -2824,8 +2823,6 @@ function App() {
     typeof localStorage !== "undefined" ? localStorage.getItem("eleven_push_endpoint") : null
   );
 
-  // Echo settings panel
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Biometric scan — show once per session
   const [scanDone, setScanDone] = useState(() => sessionStorage.getItem("11_scanned") === "1");
@@ -3272,60 +3269,12 @@ function App() {
       setIsSending(false);
     };
 
-    // Strategy: try server first (has key built-in), then direct browser call.
-    // On static hosting (Vercel/Netlify) the server path will fail quickly,
-    // so we also attempt the direct browser path if the user has an API key.
-    let usedDirectBrowser = false;
-
-    const serverOnDone = () => {
-      setChatMessages((p: ChatMsg[]) => p.map((m: ChatMsg) => m.id === aiId ? { ...m, streaming: false } : m));
-      chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: full }];
-      saveChatHistoryLS(chatHistoryRef.current);
-      setIsSending(false);
-      gameStore.incrementTrust();
-      gameStore.incrementCuriosity();
-    };
-
-    const serverOnError = (err: string) => {
-      // If server failed and user has a browser API key, retry via direct browser call
-      if (!usedDirectBrowser && getApiKey()) {
-        usedDirectBrowser = true;
-        full = "";
-        setChatMessages((p: ChatMsg[]) => p.map((m: ChatMsg) => m.id === aiId ? { ...m, text: "" } : m));
-        streamEcho(
-          chatHistoryRef.current,
-          onChunk,
-          serverOnDone,
-          (finalErr: string) => {
-            // Both server and browser direct failed
-            setChatMessages((p: ChatMsg[]) => p.map((m: ChatMsg) => m.id === aiId ? { ...m, text: finalErr, streaming: false } : m));
-            setIsSending(false);
-          },
-          deviceContextRef.current,
-          wishContextRef.current,
-          gameStateRef.current.trustAI,
-          gameStateRef.current.level,
-          { model: localStorage.getItem("eleven_echo_model") || "gpt-4o-mini" }
-        );
-        return;
-      }
-      // No browser key available — show helpful message
-      setChatMessages((p: ChatMsg[]) => p.map((m: ChatMsg) => m.id === aiId ? {
-        ...m,
-        text: "⚠ الصدى لا يستطيع الرد حالياً.\n\nلتفعيل المحادثة، اضغط على زر الإعدادات ⊙ وأدخل مفتاح OpenAI الخاص بك.\n\n الحصول على المفتاح: platform.openai.com/api-keys",
-        streaming: false,
-      } : m));
-      setIsSending(false);
-      // Auto-open settings panel so the user can add their key
-      setSettingsOpen(true);
-    };
-
-    // 1️⃣ Try server endpoint first (works when backend is deployed)
+    // Call the backend /api/ai/chat endpoint (GROQ key is server-side only)
     streamAiResponse(
       chatHistoryRef.current,
       onChunk,
-      serverOnDone,
-      serverOnError,
+      onDone,
+      onError,
       deviceContextRef.current,
       persona,
       wishContextRef.current,
@@ -4233,8 +4182,6 @@ function App() {
           />
         )}
       </AnimatePresence>
-      {/* Echo Mind Settings Panel */}
-      <EchoSettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} onChange={() => {}} />
 
       {/* Fear / Curiosity sync meter — ambient ARG HUD */}
       {consentDone && <SyncMeter spikeCount={spikeCount} />}
