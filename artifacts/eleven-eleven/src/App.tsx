@@ -7,6 +7,8 @@ import { SyncMeter } from "./SyncMeter";
 import { PuzzleHub } from "./PuzzleHub";
 import { AchievementToast, type ToastItem } from "./AchievementToast";
 import { useGameState, gameStore, usePassiveDread } from "./gameState";
+import { streamEcho, hasApiKey, setApiKey, clearApiKey, OPENAI_KEY_STORAGE, type EchoMessage } from "./echoService";
+import { EchoSettingsPanel } from "./EchoSettings";
 
 // ─── WISH VIDEO RECORDER ──────────────────────────────────────────────────────
 
