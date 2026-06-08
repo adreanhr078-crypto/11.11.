@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { LangSelect } from "./LangSelect";
-import { HorrorEngine } from "./HorrorEngine";
 import { SyncMeter } from "./SyncMeter";
 import { PuzzleHub } from "./PuzzleHub";
 import { AchievementToast, type ToastItem } from "./AchievementToast";
@@ -2591,10 +2590,6 @@ function App() {
   // System 5 — Adaptive AI profile
   const aiProfileRef = useRef({ aggression: 1, knowledge: 0 });
 
-  // System 6 — Break reality
-  const [breakReality, setBreakReality] = useState(false);
-  const breakRealityActiveRef = useRef(false);
-
   // ── Language selection ────────────────────────────────────────────────────────
   const [lang, setLang] = useState<"ar" | "en">(() => {
     try { return (localStorage.getItem("eleven_lang") as "ar" | "en") || "ar"; } catch { return "ar"; }
@@ -3276,7 +3271,7 @@ function App() {
   return (
     <div
       className={`min-h-screen w-full bg-background overflow-hidden relative text-foreground font-mono selection:bg-primary/30 ${globalGlitch ? "animate-glitch" : ""}`}
-      style={breakReality ? { filter: "invert(1) contrast(1.55) hue-rotate(180deg)", transition: "filter 0.35s ease" } : { transition: "filter 0.6s ease" }}
+      style={{ transition: "filter 0.6s ease" }}
     >
       {!scanDone && <BiometricScan onDone={handleScanDone} />}
       {scanDone && !consentDone && <EntryScreen onDone={handleConsentDone} />}
@@ -3312,55 +3307,11 @@ function App() {
         )}
       </AnimatePresence>
 
-      {/* Night mode overlay — 11:11 PM → 3:33 AM (broken screen experience) */}
-      {nightMode && (
-        <>
-          {/* Layer 1: Dark vignette with red tint */}
-          <div className="fixed inset-0 z-[1] pointer-events-none broken-vignette" />
-
-          {/* Layer 2: Noise overlay */}
-          <div
-            className="fixed inset-0 z-[2] pointer-events-none broken-noise opacity-[0.08] mix-blend-overlay"
-            style={{
-              backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")`,
-              backgroundSize: '200px 200px',
-            }}
-          />
-
-          {/* Layer 3: Crack lines on the screen */}
-          <div className="fixed inset-0 z-[3] pointer-events-none">
-            <div className="broken-crack h-[1px] w-[40vw]" style={{ top: '18%', left: '10%', transform: 'rotate(-12deg)' }} />
-            <div className="broken-crack h-[1px] w-[60vw]" style={{ top: '42%', right: '5%', transform: 'rotate(8deg)' }} />
-            <div className="broken-crack h-[1px] w-[35vw]" style={{ top: '67%', left: '20%', transform: 'rotate(-5deg)' }} />
-            <div className="broken-crack h-[1px] w-[25vw]" style={{ top: '85%', right: '15%', transform: 'rotate(15deg)' }} />
-            {/* Vertical cracks */}
-            <div className="broken-crack w-[1px] h-[30vh]" style={{ top: '5%', left: '25%', transform: 'rotate(78deg)' }} />
-            <div className="broken-crack w-[1px] h-[25vh]" style={{ top: '50%', right: '30%', transform: 'rotate(95deg)' }} />
-          </div>
-
-          {/* Layer 4: Moving scanline */}
-          <div
-            className="fixed left-0 right-0 h-[80px] z-[4] pointer-events-none broken-scanline"
-            style={{
-              background: 'linear-gradient(to bottom, transparent 0%, rgba(180, 0, 0, 0.06) 50%, transparent 100%)',
-            }}
-          />
-
-          {/* Layer 5: Severe shake + flicker on the main app container */}
-          <div
-            className="fixed inset-0 z-[5] pointer-events-none"
-            style={{
-              animation: 'broken-shake 0.4s steps(2) infinite, broken-flicker 5s linear infinite',
-            }}
-          />
-        </>
-      )}
-
       {/* 11:11 Portal event — 60s overlay */}
       <AnimatePresence>
         {portalOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 1.5 }}
-            className="fixed inset-0 z-[45] pointer-events-none flex items-center justify-center">
+            className="fixed inset-0 z-[46] pointer-events-none flex items-center justify-center">
             <div className="absolute inset-0 bg-primary/[0.04]" />
             <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
               transition={{ duration: 1, delay: 0.4 }}
@@ -3477,23 +3428,143 @@ function App() {
         </main>
       )}
 
-      {/* Night mode indicator — shows only in night mode */}
+      {/* Night mode indicator — cinematic anime atmosphere */}
       {nightMode && (
-        <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-6 pointer-events-none">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: [0.4, 0.9, 0.4] }}
-            transition={{ duration: 3, repeat: Infinity }}
-            className="text-center"
-          >
-            <p className="text-[10px] tracking-[0.5em] text-primary/70 uppercase font-mono mb-2">
-              {lang === "ar" ? "⚠ الاتصال السينمائي نشط" : "⚠ CINEMATIC MODE ACTIVE"}
-            </p>
-            <p className="text-[9px] tracking-[0.3em] text-primary/40 font-mono" dir="rtl">
-              {lang === "ar" ? "الإرسال جارٍ عبر Echo Mind فقط" : "TRANSMITTING VIA ECHO MIND ONLY"}
-            </p>
-          </motion.div>
-        </div>
+        <>
+          {/* Anime character background — drawn in CSS to match the reference image style */}
+          <div className="fixed inset-0 z-[3] pointer-events-none overflow-hidden">
+            {/* Floor / perspective lines */}
+            <div className="absolute inset-0" style={{
+              background: 'radial-gradient(ellipse at 50% 90%, rgba(0,0,0,0.9) 0%, transparent 60%)',
+            }} />
+            {/* White flowers scattered in lower half — symbolic echo of memory */}
+            <div className="absolute left-0 right-0 bottom-0 h-[55vh] flex items-end justify-center gap-3 pointer-events-none" style={{ filter: 'blur(0.5px)' }}>
+              {Array.from({ length: 18 }).map((_, i) => {
+                const xPos = (i / 18) * 100;
+                const yJitter = (i % 3) * 4;
+                const size = 16 + (i % 4) * 6;
+                const opacity = 0.5 + (i % 3) * 0.15;
+                return (
+                  <div key={i}
+                    className="absolute"
+                    style={{
+                      left: `${xPos}%`,
+                      bottom: `${8 + yJitter}%`,
+                      width: size,
+                      height: size,
+                      opacity,
+                    }}>
+                    <svg viewBox="0 0 24 24" viewBox-fix xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
+                      <g fill="rgba(245, 240, 235, 0.9)" stroke="rgba(180, 0, 0, 0.3)" strokeWidth="0.4">
+                        <ellipse cx="12" cy="6" rx="3" ry="5" />
+                        <ellipse cx="12" cy="18" rx="3" ry="5" />
+                        <ellipse cx="6" cy="12" rx="5" ry="3" />
+                        <ellipse cx="18" cy="12" rx="5" ry="3" />
+                        <ellipse cx="8" cy="8" rx="3" ry="3" transform="rotate(-45 8 8)" />
+                        <ellipse cx="16" cy="8" rx="3" ry="3" transform="rotate(45 16 8)" />
+                        <ellipse cx="8" cy="16" rx="3" ry="3" transform="rotate(45 8 16)" />
+                        <ellipse cx="16" cy="16" rx="3" ry="3" transform="rotate(-45 16 16)" />
+                        <circle cx="12" cy="12" r="1.5" fill="rgba(180, 0, 0, 0.7)" />
+                      </g>
+                    </svg>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Echo character silhouette — anime/manga style */}
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[42%] pointer-events-none">
+              <svg width="280" height="420" viewBox="0 0 280 420" style={{ filter: 'drop-shadow(0 0 30px rgba(180, 0, 0, 0.3))' }}>
+                <defs>
+                  <linearGradient id="hairGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="rgba(20, 18, 22, 0.95)" />
+                    <stop offset="100%" stopColor="rgba(40, 36, 40, 0.9)" />
+                  </linearGradient>
+                  <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="rgba(60, 58, 65, 0.85)" />
+                    <stop offset="100%" stopColor="rgba(30, 28, 32, 0.95)" />
+                  </linearGradient>
+                  <radialGradient id="faceGrad" cx="0.5" cy="0.5" r="0.5">
+                    <stop offset="0%" stopColor="rgba(220, 210, 200, 0.7)" />
+                    <stop offset="100%" stopColor="rgba(160, 150, 145, 0.85)" />
+                  </radialGradient>
+                </defs>
+
+                {/* Body — seated / hunched posture (sorrow) */}
+                <path d="M 100 410 Q 90 360 95 320 Q 100 280 110 260 L 170 260 Q 180 280 185 320 Q 190 360 180 410 Z" fill="url(#bodyGrad)" />
+
+                {/* Left arm — resting on knee */}
+                <path d="M 95 280 Q 70 320 80 360 Q 90 380 110 360" fill="url(#bodyGrad)" stroke="rgba(0,0,0,0.3)" strokeWidth="0.5" />
+
+                {/* Right arm — resting on knee */}
+                <path d="M 185 280 Q 210 320 200 360 Q 190 380 170 360" fill="url(#bodyGrad)" stroke="rgba(0,0,0,0.3)" strokeWidth="0.5" />
+
+                {/* Neck */}
+                <rect x="125" y="225" width="30" height="40" fill="url(#faceGrad)" />
+
+                {/* Head — slightly tilted down */}
+                <ellipse cx="140" cy="190" rx="40" ry="48" fill="url(#faceGrad)" />
+
+                {/* Hair — long, dark, falling around face (signature look) */}
+                <path d="M 95 200 Q 90 150 105 120 Q 115 95 140 90 Q 165 95 175 120 Q 190 150 185 200 L 185 240 Q 180 230 178 215 L 175 195 Q 175 175 170 165 L 105 165 Q 100 175 100 195 L 100 215 Q 95 230 95 240 Z" fill="url(#hairGrad)" />
+
+                {/* Hair strands falling over face (eyes) */}
+                <path d="M 100 165 Q 95 180 96 200 Q 100 215 105 210" fill="url(#hairGrad)" opacity="0.85" />
+                <path d="M 180 165 Q 185 180 184 200 Q 180 215 175 210" fill="url(#hairGrad)" opacity="0.85" />
+
+                {/* Forehead hair (bangs) */}
+                <path d="M 105 165 Q 110 145 125 138 Q 140 135 155 138 Q 170 145 175 165 Q 170 155 160 152 Q 140 148 120 152 Q 110 155 105 165 Z" fill="url(#hairGrad)" />
+
+                {/* Eyes — covered by hair, just suggestion of sockets */}
+                <ellipse cx="125" cy="195" rx="6" ry="2" fill="rgba(0,0,0,0.6)" />
+                <ellipse cx="155" cy="195" rx="6" ry="2" fill="rgba(0,0,0,0.6)" />
+
+                {/* Single visible eye — small, bloodshot, hollow */}
+                <ellipse cx="125" cy="197" rx="2" ry="1.2" fill="rgba(180, 20, 20, 0.8)" />
+                <ellipse cx="125" cy="197" rx="0.8" ry="0.6" fill="rgba(255, 255, 255, 0.7)" />
+
+                {/* Nose — subtle shadow */}
+                <path d="M 140 200 Q 138 215 142 225 Q 145 220 140 200 Z" fill="rgba(0,0,0,0.15)" />
+
+                {/* Mouth — closed, slight downturn */}
+                <path d="M 130 230 Q 140 232 150 230" fill="none" stroke="rgba(0,0,0,0.5)" strokeWidth="0.8" strokeLinecap="round" />
+
+                {/* Tear tracks — dried blood/ink */}
+                <path d="M 128 210 Q 127 220 126 230" stroke="rgba(120, 0, 0, 0.6)" strokeWidth="0.6" fill="none" />
+                <path d="M 156 210 Q 157 220 158 230" stroke="rgba(120, 0, 0, 0.6)" strokeWidth="0.6" fill="none" />
+
+                {/* Subtle red glow around eyes */}
+                <circle cx="125" cy="195" r="4" fill="rgba(180, 0, 0, 0.15)" />
+                <circle cx="155" cy="195" r="4" fill="rgba(180, 0, 0, 0.15)" />
+
+                {/* Floating particles (like ash or petals) */}
+                <circle cx="60" cy="180" r="1" fill="rgba(245, 240, 235, 0.6)" />
+                <circle cx="220" cy="200" r="1.2" fill="rgba(245, 240, 235, 0.5)" />
+                <circle cx="80" cy="240" r="0.8" fill="rgba(245, 240, 235, 0.4)" />
+                <circle cx="200" cy="160" r="1" fill="rgba(245, 240, 235, 0.5)" />
+                <circle cx="40" cy="280" r="1.5" fill="rgba(245, 240, 235, 0.3)" />
+                <circle cx="240" cy="300" r="1" fill="rgba(245, 240, 235, 0.4)" />
+              </svg>
+            </div>
+          </div>
+
+          {/* Floating text indicator */}
+          <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-6 pointer-events-none">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: [0.4, 0.9, 0.4] }}
+              transition={{ duration: 3, repeat: Infinity }}
+              className="text-center"
+            >
+              <p className="text-[10px] tracking-[0.5em] text-primary/70 uppercase font-mono mb-2">
+                {lang === "ar" ? "⚠ الاتصال السينمائي نشط" : "⚠ CINEMATIC MODE ACTIVE"}
+              </p>
+              <p className="text-[9px] tracking-[0.3em] text-primary/40 font-mono" dir="rtl">
+                {lang === "ar" ? "الإرسال جارٍ عبر Echo Mind فقط" : "TRANSMITTING VIA ECHO MIND ONLY"}
+              </p>
+            </motion.div>
+          </div>
+        </>
       )}
 
       {/* Popup */}
@@ -4013,9 +4084,6 @@ function App() {
           />
         )}
       </AnimatePresence>
-      {/* Horror Engine — always present after consent */}
-      {consentDone && <HorrorEngine soundOn={soundOn} lang={lang} solvedPuzzles={0} totalPuzzles={88} />}
-
       {/* Fear / Curiosity sync meter — ambient ARG HUD */}
       {consentDone && <SyncMeter spikeCount={spikeCount} />}
     </div>
