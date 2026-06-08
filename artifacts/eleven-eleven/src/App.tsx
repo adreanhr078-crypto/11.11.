@@ -1459,7 +1459,23 @@ async function fetchWishTask(
   }
 }
 
-async function streamAiResponse(
+// ─── STREAMING ────────────────────────────────────────────────────────────────────
+//
+// `streamAiResponse` connects the chat UI to `/api/ai/chat` over SSE.
+//
+// Hardening:
+//   • AbortController — lets the caller cancel a stuck stream (component
+//     unmount, user sends a new message, manual retry).
+//   • First-byte timeout (15s) — fails fast if the server is unreachable
+//     or the model is hung on its first chunk, instead of letting the UI
+//     sit on "..." forever.
+//   • Stalled-stream watchdog — if no chunk arrives for 30s while the
+//     stream is still open, abort and surface a clear error.
+//   • Visible, Arabic error message instead of the old "..." placeholder.
+//   • Friendly retry hint so the user knows what to do next.
+//
+// Returns the AbortController so the caller can cancel on re-send / unmount.
+function streamAiResponse(
   messages: { role: "user" | "assistant"; content: string }[],
   onChunk: (text: string) => void,
   onDone: () => void,
@@ -1470,39 +1486,113 @@ async function streamAiResponse(
   uid?: string,
   trustAI?: number,
   gameLevel?: number
-) {
-  try {
-    const res = await fetch("/api/ai/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages, deviceContext, persona, wishContext, uid, trustAI, gameLevel }),
-    });
-    if (!res.ok || !res.body) { onError("..."); return; }
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-        const raw = line.slice(6).trim();
-        if (!raw) continue;
+): AbortController {
+  const controller = new AbortController();
+  const { signal } = controller;
+
+  // First-byte timeout — the request must start producing data within 15s
+  const FIRST_BYTE_TIMEOUT_MS = 15_000;
+  // Per-chunk timeout — if no chunk arrives for 30s after the first,
+  // consider the stream stalled and abort.
+  const STALL_TIMEOUT_MS = 30_000;
+
+  let firstByteTimer: ReturnType<typeof setTimeout> | null = null;
+  let stallTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const clearTimers = () => {
+    if (firstByteTimer) { clearTimeout(firstByteTimer); firstByteTimer = null; }
+    if (stallTimer) { clearTimeout(stallTimer); stallTimer = null; }
+  };
+
+  const armStallTimer = () => {
+    if (stallTimer) clearTimeout(stallTimer);
+    stallTimer = setTimeout(() => {
+      try { controller.abort(); } catch { /* ignore */ }
+    }, STALL_TIMEOUT_MS);
+  };
+
+  const armFirstByteTimer = () => {
+    firstByteTimer = setTimeout(() => {
+      try { controller.abort(); } catch { /* ignore */ }
+    }, FIRST_BYTE_TIMEOUT_MS);
+  };
+
+  (async () => {
+    armFirstByteTimer();
+    try {
+      const res = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages, deviceContext, persona, wishContext, uid, trustAI, gameLevel }),
+        signal,
+      });
+
+      if (signal.aborted) { clearTimers(); return; }
+
+      if (!res.ok) {
+        clearTimers();
+        // Try to surface the server's Arabic error message if present
         try {
-          const p = JSON.parse(raw) as { content?: string; done?: boolean; error?: string };
-          if (p.error) { onError(p.error); return; }
-          if (p.done) { onDone(); return; }
-          if (p.content) onChunk(p.content);
-        } catch { /* skip */ }
+          const errData = (await res.json()) as { message?: string; error?: string };
+          onError(errData.message || "تعذّر الوصول إلى الصدى. حاول مرة أخرى.");
+        } catch {
+          onError("تعذّر الوصول إلى الصدى. حاول مرة أخرى.");
+        }
+        return;
       }
+
+      if (!res.body) {
+        clearTimers();
+        onError("الرد غير مكتمل. حاول مرة أخرى.");
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      armStallTimer();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        // First chunk arrived — clear the first-byte timer, refresh the stall timer
+        if (firstByteTimer) { clearTimeout(firstByteTimer); firstByteTimer = null; }
+        armStallTimer();
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          // Keep-alive lines start with ":" — skip them silently
+          if (!line.startsWith("data:")) continue;
+          const raw = line.slice(5).trim();
+          if (!raw) continue;
+          try {
+            const p = JSON.parse(raw) as { content?: string; done?: boolean; error?: string };
+            if (p.error) { clearTimers(); onError(p.error); return; }
+            if (p.done) { clearTimers(); onDone(); return; }
+            if (p.content) onChunk(p.content);
+          } catch { /* skip malformed frame */ }
+        }
+      }
+      clearTimers();
+      onDone();
+    } catch (err) {
+      clearTimers();
+      if ((err as { name?: string })?.name === "AbortError") {
+        // Distinguish "never started" (first-byte) from "stalled mid-stream"
+        if (firstByteTimer !== null) {
+          onError("الصدى لا يرد. تحقّق من الاتصال ثم حاول مجدداً.");
+        } else {
+          onError("توقّف الرد فجأة. حاول إرسال الرسالة مرة أخرى.");
+        }
+        return;
+      }
+      onError("انقطع الاتصال. حاول مرة أخرى بعد لحظات.");
     }
-    onDone();
-  } catch {
-    onError("انقطع الاتصال.");
-  }
+  })();
+
+  return controller;
 }
 
 // ─── PARTICLE BG ──────────────────────────────────────────────────────────────

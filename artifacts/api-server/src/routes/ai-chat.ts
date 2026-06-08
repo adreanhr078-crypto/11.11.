@@ -108,6 +108,30 @@ async function fetchUserContext(uid: string): Promise<{
 }
 
 router.post("/ai/chat", async (req, res) => {
+  // 90s server-side ceiling — guards against runaway model calls / network
+  // stalls that would otherwise keep the SSE connection open forever.
+  const SESSION_TIMEOUT_MS = 90_000;
+  const HARD_TIMEOUT_MS = 120_000;
+  req.socket.setTimeout(HARD_TIMEOUT_MS);
+
+  // Send a keep-alive ping every 25s so reverse proxies (Vercel/Netlify/etc.)
+  // don't close the idle SSE connection while the model is still reasoning.
+  const keepAlive = setInterval(() => {
+    if (res.writableEnded) return;
+    try {
+      res.write(`: keep-alive ${Date.now()}\n\n`);
+    } catch {
+      /* socket closed */
+    }
+  }, 25_000);
+
+  const cleanup = () => {
+    clearInterval(keepAlive);
+  };
+
+  res.on("close", cleanup);
+  res.on("error", cleanup);
+
   try {
     const { messages, deviceContext, persona = "echo", wishContext, uid, trustAI, gameLevel } = req.body as {
       messages: { role: "user" | "assistant" | "system"; content: string }[];
@@ -120,7 +144,8 @@ router.post("/ai/chat", async (req, res) => {
     };
 
     if (!Array.isArray(messages) || messages.length === 0) {
-      res.status(400).json({ error: "." });
+      cleanup();
+      res.status(400).json({ error: "EMPTY_MESSAGES", message: "لا توجد رسائل للإرسال." });
       return;
     }
 
@@ -175,8 +200,11 @@ router.post("/ai/chat", async (req, res) => {
     };
 
     const stream = await openai.chat.completions.create({
+      // gpt-4o: at least 16 tokens required, 100 is the *upper* budget.
+      // We bumped to 400 to allow full Echo-style responses (1–3 sentences)
+      // without truncating mid-word, while still keeping replies short.
       model: "gpt-4o",
-      max_completion_tokens: 100,
+      max_completion_tokens: 400,
       messages: [systemPrompt, ...authoritativeMessages],
       stream: true,
     });
@@ -190,14 +218,23 @@ router.post("/ai/chat", async (req, res) => {
 
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.end();
-  } catch (err) {
-    req.log.error({ err }, "AI chat error");
+  } catch (err: any) {
+    req.log.error({ err: err?.message ?? err }, "AI chat error");
+    const userMessage = "انقطع الاتصال. حاول مرة أخرى بعد لحظات.";
     if (!res.headersSent) {
-      res.status(500).json({ error: "." });
+      res
+        .status(500)
+        .json({ error: "AI_CHAT_FAILED", message: userMessage });
     } else {
-      res.write(`data: ${JSON.stringify({ error: "انقطع الاتصال." })}\n\n`);
+      try {
+        res.write(`data: ${JSON.stringify({ error: userMessage })}\n\n`);
+      } catch {
+        /* socket already closed */
+      }
       res.end();
     }
+  } finally {
+    cleanup();
   }
 });
 

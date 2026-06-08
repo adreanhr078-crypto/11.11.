@@ -18,7 +18,7 @@ import {
   type EntityId,
   type Puzzle,
 } from "./puzzles";
-import { ACHIEVEMENTS, deriveMilestoneAchievements, getAchievement } from "./achievements";
+import { ACHIEVEMENTS, deriveAchievements, getAchievement } from "./achievements";
 
 type Lang = "ar" | "en";
 
@@ -106,8 +106,8 @@ export function PuzzleHub({ uid, lang, onClose, onAchievement, onProgress }: Puz
 
     // Puzzle-specific achievement
     if (puzzle.achievement) persistAchievement(puzzle.achievement);
-    // Milestone achievements
-    deriveMilestoneAchievements(next).forEach(persistAchievement);
+    // Derived achievements (entity completion, story milestones, etc.)
+    deriveAchievements(next).forEach(persistAchievement);
   }, [uid, persistAchievement, onProgress]);
 
   const total = totalPuzzleCount();
