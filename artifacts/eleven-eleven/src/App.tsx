@@ -7,7 +7,7 @@ import { SyncMeter } from "./SyncMeter";
 import { PuzzleHub } from "./PuzzleHub";
 import { AchievementToast, type ToastItem } from "./AchievementToast";
 import { useGameState, gameStore, usePassiveDread } from "./gameState";
-import { streamEcho, hasApiKey, setApiKey, clearApiKey, OPENAI_KEY_STORAGE, type EchoMessage } from "./echoService";
+import { streamEcho, hasApiKey, setApiKey, clearApiKey, OPENAI_KEY_STORAGE, getApiKey, type EchoMessage } from "./echoService";
 import { EchoSettingsPanel } from "./EchoSettings";
 
 // ─── WISH VIDEO RECORDER ──────────────────────────────────────────────────────
@@ -3254,28 +3254,50 @@ function App() {
     const aiId = nextId();
     setChatMessages((prev) => [...prev, { id: aiId, text: "", isAi: true, streaming: true }]);
     let full = "";
-    streamAiResponse(
-      chatHistoryRef.current,
-      (chunk) => { full += chunk; setChatMessages((p) => p.map((m) => m.id === aiId ? { ...m, text: full } : m)); },
-      () => {
-        setChatMessages((p) => p.map((m) => m.id === aiId ? { ...m, streaming: false } : m));
-        chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: full }];
-        saveChatHistoryLS(chatHistoryRef.current);
-        setIsSending(false);
-        gameStore.incrementTrust();
-        gameStore.incrementCuriosity();
-      },
-      (err) => {
-        setChatMessages((p) => p.map((m) => m.id === aiId ? { ...m, text: err, streaming: false } : m));
-        setIsSending(false);
-      },
-      deviceContextRef.current,
-      persona,
-      wishContextRef.current,
-      uidRef.current,
-      gameStateRef.current.trustAI,
-      gameStateRef.current.level
-    );
+
+    const onChunk = (chunk: string) => { full += chunk; setChatMessages((p: ChatMsg[]) => p.map((m: ChatMsg) => m.id === aiId ? { ...m, text: full } : m)); };
+    const onDone = () => {
+      setChatMessages((p: ChatMsg[]) => p.map((m: ChatMsg) => m.id === aiId ? { ...m, streaming: false } : m));
+      chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: full }];
+      saveChatHistoryLS(chatHistoryRef.current);
+      setIsSending(false);
+      gameStore.incrementTrust();
+      gameStore.incrementCuriosity();
+    };
+    const onError = (err: string) => {
+      setChatMessages((p: ChatMsg[]) => p.map((m: ChatMsg) => m.id === aiId ? { ...m, text: err, streaming: false } : m));
+      setIsSending(false);
+    };
+
+    // Primary path: direct OpenAI from browser (when API key is available)
+    // This is the reliable ChatGPT-like path that doesn't depend on a server.
+    if (getApiKey()) {
+      streamEcho(
+        chatHistoryRef.current,
+        onChunk,
+        onDone,
+        onError,
+        deviceContextRef.current,
+        wishContextRef.current,
+        gameStateRef.current.trustAI,
+        gameStateRef.current.level,
+        { model: localStorage.getItem("eleven_echo_model") || "gpt-4o-mini" }
+      );
+    } else {
+      // Fallback: server-side proxy (requires /api/ai/chat backend)
+      streamAiResponse(
+        chatHistoryRef.current,
+        onChunk,
+        onDone,
+        onError,
+        deviceContextRef.current,
+        persona,
+        wishContextRef.current,
+        uidRef.current,
+        gameStateRef.current.trustAI,
+        gameStateRef.current.level
+      );
+    }
   };
 
   const handleWishTask = useCallback(() => {
