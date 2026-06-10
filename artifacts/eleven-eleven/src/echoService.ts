@@ -1,13 +1,12 @@
 /**
  * echoService.ts — Client-side AI service for Echo Mind
- *
- * All AI calls go through the backend /api/ai/* endpoints. The API key
- * (GROQ_API_KEY) is stored ONLY in server-side environment variables on
- * Vercel — the frontend never handles any key.
+ * 
+ * يحاول الاتصال بالخادم أولاً، وإذا فشل يستخدم المحرك المحلي
+ * All AI calls go through the backend /api/ai/* endpoints.
  */
 
-// `EntityId` is declared in puzzles.ts; gameState only exports the helper.
 import { getTrustToneModifier } from "./gameState";
+import { generateLocalResponse } from "./localAiChat";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare const import_meta_env: any;
@@ -24,20 +23,19 @@ export type EchoMessage = {
 export interface EchoStreamOptions {
   signal?: AbortSignal;
   model?: string;
-  /** Maximum tokens for the reply. Default 400 — enough for 1–3 sentences. */
   maxTokens?: number;
   temperature?: number;
 }
 
 /**
- * Stream a chat completion through the backend /api/ai/chat endpoint.
+ * Stream a chat completion — tries server API first, falls back to local AI
  *
- * @param messages   - Full conversation history (system prompt is added internally)
+ * @param messages   - Full conversation history
  * @param onChunk    - Called with each text delta from the model
  * @param onDone     - Called once the stream finishes successfully
  * @param onError    - Called with a localized Arabic error message
- * @param deviceContext / wishContext / trustAI / gameLevel  - Echo persona knobs
- * @returns          AbortController so the caller can cancel on re-send / unmount
+ * @param deviceContext / wishContext / trustAI / gameLevel - Echo persona knobs
+ * @returns          AbortController so the caller can cancel
  */
 export function streamEcho(
   messages: EchoMessage[],
@@ -53,8 +51,8 @@ export function streamEcho(
   const controller = new AbortController();
   const { signal } = controller;
 
-  const FIRST_BYTE_TIMEOUT_MS = 20_000;
-  const STALL_TIMEOUT_MS = 45_000;
+  const FIRST_BYTE_TIMEOUT_MS = 8_000; // shorter timeout for fast fallback
+  const STALL_TIMEOUT_MS = 20_000;
 
   let firstByteTimer: ReturnType<typeof setTimeout> | null = null;
   let stallTimer: ReturnType<typeof setTimeout> | null = null;
@@ -70,6 +68,8 @@ export function streamEcho(
   (async () => {
     firstByteTimer = setTimeout(() => { try { controller.abort(); } catch { /* ignore */ } }, FIRST_BYTE_TIMEOUT_MS);
 
+    let usedLocalFallback = false;
+
     try {
       const res = await fetch("/api/ai/chat", {
         method: "POST",
@@ -84,28 +84,14 @@ export function streamEcho(
         signal,
       });
 
-      if (signal.aborted) { clearTimers(); return; }
+      if (signal.aborted) { clearTimers(); throw new Error("ABORTED_FIRST_BYTE"); }
 
       if (!res.ok) {
         clearTimers();
-        let serverMsg = "";
-        try {
-          const errData = (await res.json()) as { message?: string; error?: string };
-          serverMsg = errData?.message ?? errData?.error ?? "";
-        } catch { /* not JSON */ }
-        if (res.status === 401) {
-          onError("خطأ في المصادقة. تحقق من إعدادات الخادم.");
-        } else if (res.status === 429) {
-          onError("تم تجاوز حد الاستخدام. انتظر قليلاً ثم حاول مجدداً.");
-        } else if (serverMsg) {
-          onError(`خطأ: ${serverMsg.slice(0, 200)}`);
-        } else {
-          onError(`تعذّر الوصول إلى الصدى (HTTP ${res.status}).`);
-        }
-        return;
+        throw new Error(`HTTP ${res.status}`);
       }
 
-      if (!res.body) { clearTimers(); onError("الرد غير مكتمل. حاول مرة أخرى."); return; }
+      if (!res.body) { clearTimers(); throw new Error("NO_BODY"); }
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -134,8 +120,7 @@ export function streamEcho(
             };
             if (json.error) {
               clearTimers();
-              onError(`خطأ من النموذج: ${json.error}`);
-              return;
+              throw new Error(json.error);
             }
             if (json.done) { clearTimers(); onDone(); return; }
             if (json.content) onChunk(json.content);
@@ -144,22 +129,67 @@ export function streamEcho(
       }
       clearTimers();
       onDone();
+      return;
     } catch (err) {
       clearTimers();
       const e = err as { name?: string; message?: string };
+      
+      // ─── FALLBACK TO LOCAL AI ENGINE ───────────────────────────
+      // إذا فشل الاتصال بالخادم، استخدم المحرك المحلي
+      const lastUserMessage = messages.filter(m => m.role === "user").pop()?.content || "";
+      
+      if (lastUserMessage) {
+        const localResponse = generateLocalResponse(
+          lastUserMessage,
+          messages.map(m => ({ role: m.role, content: m.content }))
+        );
+        
+        // محاكاة الـ streaming بالتأخير
+        usedLocalFallback = true;
+        const chars = localResponse.text.split("");
+        let i = 0;
+        const streamInterval = setInterval(() => {
+          if (i < chars.length) {
+            const chunk = chars.slice(i, i + 3).join("");
+            onChunk(chunk);
+            i += 3;
+          } else {
+            clearInterval(streamInterval);
+            onDone();
+            // تنفيذ الإجراء المصاحب إن وجد
+            if (localResponse.action === "glitch") {
+              try { 
+                const event = new CustomEvent("echo-local-action", { detail: { action: "glitch" } });
+                window.dispatchEvent(event);
+              } catch { /* */ }
+            }
+          }
+        }, 15); // سرعة كتابة 15ms لكل 3 أحرف
+        
+        // تأكد من تنظيف الـ interval إذا تم إلغاء الطلب
+        signal?.addEventListener("abort", () => {
+          clearInterval(streamInterval);
+        });
+        
+        return;
+      }
+
+      // ─── ERROR HANDLING ──────────────────────────────────────────
       if (e?.name === "AbortError") {
         if (firstByteTimer !== null) {
-          onError("الصدى لا يرد. تحقّق من الاتصال ثم حاول مجدداً.");
+          onError("لم يتم الرد. أستخدم النظام المحلي للرد.");
         } else {
-          onError("توقّف الرد فجأة. حاول إرسال الرسالة مرة أخرى.");
+          onError("توقّف الرد. حاول مرة أخرى.");
         }
         return;
       }
-      // Network / DNS / CORS
-      if (e?.message?.includes("Failed to fetch") || e?.message?.includes("NetworkError")) {
-        onError("لا يوجد اتصال بالإنترنت. تحقّق من الشبكة.");
+      if (e?.message?.includes("Failed to fetch") || e?.message?.includes("NetworkError") || e?.message === "NO_BODY") {
+        // This will be handled by the fallback above if we have a user message
+        if (!lastUserMessage) {
+          onError("لا يوجد اتصال. الرجاء المحاولة لاحقاً.");
+        }
       } else {
-        onError("انقطع الاتصال. حاول مرة أخرى بعد لحظات.");
+        onError("حدث خطأ. جرب مجدداً.");
       }
     }
   })();

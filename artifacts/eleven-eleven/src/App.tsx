@@ -3278,16 +3278,15 @@ function App() {
       setIsSending(false);
     };
 
-    // Call the backend /api/ai/chat endpoint (GROQ key is server-side only)
-    streamAiResponse(
-      chatHistoryRef.current,
+    // Use streamEcho which tries server API first, falls back to local AI engine
+    // This ensures the chat works even without a backend server
+    streamEcho(
+      chatHistoryRef.current.map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
       onChunk,
       onDone,
       onError,
       deviceContextRef.current,
-      persona,
       wishContextRef.current,
-      uidRef.current,
       gameStateRef.current.trustAI,
       gameStateRef.current.level
     );
