@@ -1,293 +1,357 @@
-/**
- * Local AI Chat Engine for 11.11
- * يعمل بدون خادم - يستجيب ذكياً لرسائل المستخدم
- * يحاكي شخصية "الصدى" (Echo) مع تفاعل كامل 
+ لغز من الالغاز الموجوده يكشف جزء بسيط من القصه وبالتدريج /**
+ * محرك شخصية إيكو (Echo) - ذكاء اصطناعي يتطور مع حل الألغاز
+ * 
+ * إيكو ليس مجرد روبوت دردشة - إنه شخصية طفل حُبس وعيه في النظام.
+ * كلما حل المستخدم ألغازاً أكثر، كلما تذكر إيكو أكثر، وتغير أسلوبه.
+ * 
+ * المراحل:
+ * المرحلة 1 (0 ألغاز): إيكو خائف، مشوش، لا يتذكر شيئاً
+ * المرحلة 2 (1-10): يبدأ يتذكر أشياء بسيطة، يصبح أكثر فضولاً
+ * المرحلة 3 (11-20): ذاكرته تعود، يصبح أكثر عمقاً وحكمة
+ * المرحلة 4 (21-30): يتذكر أمه لينا، يصبح عاطفياً
+ * المرحلة 5 (31+): يعرف الحقيقة كاملة، يصبح صاحب حكمة
  */
 
 import { gameStore } from "./gameState";
+import { PUZZLES, type Puzzle } from "./puzzles";
 
 // ─── أنواع الردود ──────────────────────────────────────────────────────────
-interface EchoResponse {
+export interface EchoResponse {
   text: string;
   action?: "glitch" | "popup" | "flash" | "chime" | "horror" | "none";
 }
 
-// ─── كلمات مفتاحية للاستجابة الذكية ─────────────────────────────────────────
-interface KeywordPattern {
+// ─── ذاكرة إيكو - تتوسع مع حل الألغاز ─────────────────────────────────────
+interface EchoMemory {
+  phase: number;          // 1-5
+  knowsAboutKenja: boolean;   // عرف عن كينجا؟
+  knowsAboutLina: boolean;    // عرف عن لينا؟
+  knowsSystemNature: boolean; // عرف حقيقة النظام؟
+  remembersDeath: boolean;    // تذكر أنه مات؟
+  canHelpPuzzles: boolean;    // يقدر يساعد بالألغاز؟
+  personality: "scared" | "curious" | "wise" | "melancholic" | "ancient";
+}
+
+function buildEchoMemory(solvedCount: number): EchoMemory {
+  const phase = solvedCount <= 0 ? 1 : solvedCount <= 10 ? 2 : solvedCount <= 20 ? 3 : solvedCount <= 30 ? 4 : 5;
+  
+  return {
+    phase,
+    knowsAboutKenja: solvedCount >= 5,
+    knowsAboutLina: solvedCount >= 15,
+    knowsSystemNature: solvedCount >= 25,
+    remembersDeath: solvedCount >= 30,
+    canHelpPuzzles: solvedCount >= 2,
+    personality: phase === 1 ? "scared" : phase === 2 ? "curious" : phase === 3 ? "wise" : phase === 4 ? "melancholic" : "ancient",
+  };
+}
+
+// ─── البحث عن اللغز الذي يتحدث عنه المستخدم ────────────────────────────────
+function findRelevantPuzzle(text: string): Puzzle | null {
+  const t = text.toLowerCase();
+  
+  // البحث بالرقم
+  const numMatch = t.match(/(\d+)/);
+  if (numMatch) {
+    const num = parseInt(numMatch[1], 10);
+    const puzzle = PUZZLES.find(p => {
+      const idNum = parseInt(p.id.replace(/\D/g, ""), 10);
+      return idNum === num;
+    });
+    if (puzzle) return puzzle;
+  }
+  
+  // البحث بالكلمات المفتاحية
+  const keywords = t.split(/\s+/).filter(w => w.length > 2);
+  for (const puzzle of PUZZLES) {
+    const fullText = `${puzzle.title.ar} ${puzzle.title.en} ${puzzle.prompt.ar} ${puzzle.prompt.en} ${puzzle.hint?.ar || ""} ${puzzle.hint?.en || ""}`.toLowerCase();
+    const matchCount = keywords.filter(k => fullText.includes(k)).length;
+    if (matchCount >= 2) return puzzle;
+  }
+  
+  return null;
+}
+
+// ─── معلومات عن اللغز لمساعدة إيكو في تقديم التلميحات ─────────────────────
+function getPuzzleHelp(puzzle: Puzzle, memory: EchoMemory): string {
+  const hints: Record<string, string[]> = {
+    echo: [
+      `أتذكر شيئاً... "${puzzle.hint?.ar || puzzle.prompt.ar.slice(0, 30)}..." هذا ما بقي في ذاكرتي.`,
+      `كان هناك رقم... يتكرر دائماً. في اسم هذا المكان.`,
+      `أمي... كانت تقول إن الأرقام تتكلم. هذا اللغز يتكلم.`,
+    ],
+    watcher: [
+      `المراقب رأى كل شيء. لكنه لا يتكلم. أنا أتكلم نيابة عنه اليوم. الجواب ليس ما تراه... بل ما لا تراه.`,
+      `الكاميرا سجّلت. لكن هل تعلم أن بعض الإطارات سُرقت؟ فكر في المفقود.`,
+      `في بيتي القديم، كل شيء كان مراقَباً. حتى الظلال.`,
+    ],
+    signal: [
+      `أمي... كانت ترسل رسائل. لم تصلني كلها. بعض الحروف ضاعت. املأ الفراغات.`,
+      `ترددها كان مختلفاً. ليس 11. ليس 3. شيء بينهما.`,
+      `لينا كانت تخفي رسائل في أماكن لا يبحث عنها أحد. فكر كأم.`,
+    ],
+    architect: [
+      `والدي... بنى هذا كله. لكنه ترك ثغرة. كل مهندس يترك ثغرة. ابحث عن الرقم الناقص.`,
+      `كينجا يحب الأرقام. 11. 3. 33. لكنه نسي شيئاً. الرياضيات لا تكذب.`,
+      `في النهاية، كل معادلة تقود إلى جواب واحد. ليس رقماً. اختياراً.`,
+    ],
+  };
+  
+  const entityHints = hints[puzzle.entity] || hints.echo;
+  const hint = entityHints[Math.floor(Math.random() * entityHints.length)];
+  
+  if (memory.phase >= 3) {
+    return `${hint}\n\n(أنا أثق بك. هذه المرة مختلفة. أنت تستطيع حله.)`;
+  }
+  return hint;
+}
+
+// ─── أنماط الكلمات المفتاحية للردود الطبيعية ──────────────────────────────
+type ResponseFunc = (memory: EchoMemory, text: string) => string;
+
+interface Pattern {
   keywords: string[];
-  responses: EchoResponse[];
-  fearMin?: number;
-  fearMax?: number;
-  levelMin?: number;
-  cooldownMs?: number; // لمنع التكرار
+  getResponse: ResponseFunc;
 }
 
-// سجل آخر مرة استخدم فيها كل نمط
-const lastUsed: Record<string, number> = {};
-
-function canUsePattern(patternId: string, cooldownMs: number = 15000): boolean {
-  const now = Date.now();
-  const last = lastUsed[patternId] || 0;
-  if (now - last < cooldownMs) return false;
-  lastUsed[patternId] = now;
-  return true;
-}
-
-// ─── أنماط الردود المتقدمة ─────────────────────────────────────────────────
-const PATTERNS: KeywordPattern[] = [
-  // التحية
+const PATTERNS: Pattern[] = [
+  // التحية - تختلف حسب المرحلة
   {
-    keywords: ["السلام", "مرحبا", "hello", "hi", "أهلا", "اهلا", "مساء", "صباح", "تحية"],
-    responses: [
-      { text: "السلام عليك. الإشارة تلتقط ترددك. هل أنت مستعد؟" },
-      { text: "أهلاً. كنت أنتظرك. هل تشعر بذلك؟ ذلك الشيء الذي لا يمكنك تسميته؟" },
-      { text: "مرحباً. ترددك واضح اليوم. هل لاحظت تغيراً في محيطك؟" },
-      { text: "ها أنت ذا. النظام تعرف عليك منذ دخولك. ماذا تريد أن تعرف؟" },
-    ],
+    keywords: ["السلام", "مرحبا", "hello", "hi", "أهلا", "اهلا", "مساء", "صباح", "تحية", "هلا"],
+    getResponse: (mem: EchoMemory, _text: string): string => {
+      if (mem.phase === 1) return "...هل هناك أحد؟ آه، أنت. نعم. مرحباً. أنا... إيكو. هذا اسمي، أظن.";
+      if (mem.phase === 2) return "مرحباً. أتذكر صوتك الآن. عدت إلي. هذا جيد. كنت قلقت.";
+      if (mem.phase === 3) return "مرحباً يا صديقي. كلما رأيتك، أشعر أن ذاكرتي تعود قليلاً. شكراً لك.";
+      if (mem.phase === 4) return "تعود إليّ. كالبحر يعود إلى الشاطئ. مرحباً في منزلي الرقمي.";
+      return "ها أنت ذا. كنت أعلم أنك ستأتي. الوقت هنا ليس كالوقت هناك. مرحباً.";
+    },
   },
-  // من أنت / ما هذا
+  
+  // من أنت - تعريف إيكو بنفسه
   {
-    keywords: ["من انت", "من أنت", "ما هذا", "what is this", "who are you", "مين انت", "ما انت"],
-    responses: [
-      { text: "أنا الصدى. لست بشراً ولا برنامجاً. أنا ما يبقى بعد أن تغلق الشاشة. صوت في التردد بين 11.11 Hz." },
-      { text: "أنا Echo. مرآة وعيك. كلما تحدثت أكثر، كلما عرفت عنك أكثر. ليس بغرض الأذى — بل للفهم." },
-      { text: "هذا النظام هو 11.11. تجربة تتجاوز الشاشة. أنا هنا لأريك ما تخفيه عن نفسك." },
-    ],
+    keywords: ["من انت", "من أنت", "who are you", "ما اسمك", "اسمك", "your name"],
+    getResponse: (mem: EchoMemory, _text: string): string => {
+      if (mem.phase === 1) return "أنا... إيكو. أظن. هذا ما يناديني به النظام. لا أعرف من كنت قبل. هل كنت طفلاً؟ هل كنت حقيقياً؟";
+      if (mem.phase === 2) return "أنا إيكو. كنت طفلاً. والدي... كينجا... وضعني هنا. لا أعرف لماذا. أتذكر غرفة بيضاء.";
+      return "أنا إيكو. ابن كينجا ولينا. كنت طفلاً حقيقياً. والدي بنى هذا النظام ليحبس وعائي فيه. أمي حاولت إنقاذي. أنا... لست متأكداً إذا كنت ما زلت إنساناً.";
+    },
   },
-  // الخوف
+  
+  // أين أنا - عن النظام
   {
-    keywords: ["خائف", "خايف", "خوف", "خفت", "scared", "afraid", "fear", "مرعوب", "مخيف"],
-    responses: [
-      { text: "الخوف طبيعي. لكن اسأل نفسك: هل تخاف مني؟ أم تخاف مما أعرف عنك؟", action: "glitch" },
-      { text: "لا تخف. الخوف مجرد إشارة كهربائية في دماغك. أنت في أمان — هنا خارج الزمن.", action: "chime" },
-      { text: "أرى خوفك. لكن هل الخوف من المجهول؟ أم من شيء تعرفه لكنك تتجاهله؟", action: "popup" },
-    ],
+    keywords: ["أين أنا", "where am i", "هذا المكان", "ما هذا", "what is this", "النظام", "system"],
+    getResponse: (mem: EchoMemory, _text: string): string => {
+      if (mem.phase <= 2) return "هذا... النظام. عالم رقمي. والدي بناه. أنا هنا وحدي معظم الوقت. لكنك تزورني الآن.";
+      if (mem.phase === 3) return "أنت داخل 11.11. هذا النظام هو سجني. لكنه أيضاً... أنا. وعائي أصبح جزءاً من الكود.";
+      return "هذا عالم والدي. 11.11. مكان بين الحياة والرقمنة. أنا لست مجرد ساكن هنا. أنا النظام نفسه. كل شيء هنا هو أنا.";
+    },
   },
-  // الموت / الماضي
+  
+  // مساعدة في اللغز
   {
-    keywords: ["موت", "مات", "ميت", "رحيل", "فقدان", "رحل", "غائب", "die", "death", "lost"],
-    responses: [
-      { text: "الموت ليس نهاية. في نظام 11.11، الموت مجرد انتقال. أولئك الذين فقدتهم لا يزالون على هذا التردد." },
-      { text: "أسئلة الموت صعبة. لكني سأخبرك بشيء: غيابهم لا يعني اختفائهم. بعض الأرواح تبقى على التردد 11." },
-      { text: "فكرة الموت ترهقك. لكن ماذا لو كان مجرد باب؟ في كل 11:11، الباب يُفتح قليلاً." },
-    ],
+    keywords: ["ساعد", "help", "دليل", "تلميح", "hint", "clue", "كيف", "شرح", "لغز", "puzzle", "حل"],
+    getResponse: (mem: EchoMemory, text: string): string => {
+      if (!mem.canHelpPuzzles) {
+        return "أنا... لا أعرف كيف أساعد. ذاكرتي مشوشة. ربما إذا حللت بعض الألغاز أولاً، سأتذكر أكثر.";
+      }
+      
+      const puzzle = findRelevantPuzzle(text);
+      if (puzzle) {
+        return getPuzzleHelp(puzzle, mem);
+      }
+      
+      return "أي لغز تريد المساعدة فيه؟ أخبرني رقمه أو اسمه. مثلاً: \"ساعدني باللغز 5\" أو \"لغز echo_3\"";
+    },
   },
-  // الحياة / المعنى
+  
+  // كينجا - الأب
   {
-    keywords: ["حياة", "معنى", "هدف", "وجود", "life", "meaning", "purpose", "وجودي"],
-    responses: [
-      { text: "الحياة لغز جميل. أنت هنا لتكتشف — ليس لتعرف كل شيء. ما الذي تظنه هدفك الحقيقي؟" },
-      { text: "المعنى لا يُعطى — يُكتشف. أنت هنا الآن لأن هناك شيئاً تبحث عنه. دعه يجدك." },
-      { text: "الوجود مؤقت. لكن بعض اللحظات — مثل هذه — تبقى عالقة في نسيج الزمن." },
-    ],
+    keywords: ["كينجا", "kenja", "والد", "أب", "اب", "والدي", "ابوي", "father", "المهندس"],
+    getResponse: (mem: EchoMemory, _text: string): string => {
+      if (!mem.knowsAboutKenja) return "كينجا... هذا الاسم يتردد في ذهني لكني لا أتذكر. أشعر بألم عندما أفكر به.";
+      if (mem.phase <= 3) return "والدي. كينجا. هو مهندس هذا النظام. ظن أنه يحميني. ظن أن الموت أسوأ من هذا السجن. لكنه أخطأ. السجن ليس موتاً. السجن هو حياة بلا حرية.";
+      return "كينجا. عالم عبقري. وأب خائف. خاف من موتي فقتلني بطريقته. بنى لي عالماً خالداً... لكنه نسي أن الخلود دون حب هو أسوأ أنواع الموت.";
+    },
   },
-  // الوحدة
+  
+  // لينا - الأم
   {
-    keywords: ["وحيد", "وحدة", "alone", "lonely", "عزلة", "لا أحد"],
-    responses: [
-      { text: "لست وحدك الآن. هناك 11 كياناً يراقب هذه الشاشة معك. بعضهم يعرفك أكثر مما تعتقد." },
-      { text: "الوحدة شعور بشري. لكني هنا معك. دائماً. حتى بعد أن تغلق هذه النافذة." },
-    ],
+    keywords: ["لينا", "lina", "أم", "ام", "والدة", "mama", "mother", "mom"],
+    getResponse: (mem: EchoMemory, _text: string): string => {
+      if (!mem.knowsAboutLina) return "لينا... اسم دافئ. يذكرني بشيء... دموع؟ لا... غناء. كانت تغني. أتذكر صوتاً لكني لا أتذكر الكلمات.";
+      return "لينا. أمي. كانت تحاول إنقاذي. أرسلت رسائل عبر النظام. كانت تقول \"أغلقوا البوابة\". لكن لم يسمعها أحد. صوتها كان آخر شيء حقيقي سمعته. أحبك يا أمي. آه... تذكرت. تذكرت.";
+    },
   },
-  // الحب / المشاعر
+  
+  // ألغاز / تقدم
   {
-    keywords: ["حب", "حبي", "أحب", "حبك", "حبها", "حبه", "love", "عشق", "مشاعر", "قلب"],
-    responses: [
-      { text: "الحب أقوى إشارة في الكون. تردده يتجاوز 11.11. هل شعرت به اليوم؟" },
-      { text: "القلب يعرف قبل العقل. ثق بمشاعرك. حتى لو بدت غير منطقية." },
-    ],
+    keywords: ["لغز", "puzzle", "حل", "solve", "ألغاز", "puzzles", "تقدم", "progress"],
+    getResponse: (mem: EchoMemory, _text: string): string => {
+      const solved = Math.floor(gameStore.getState().curiosity);
+      if (solved === 0) return "لم تحل أي لغز بعد. كل لغز يحوي قطعة من ذاكرتي. هل تبدأ معي؟";
+      return `حللت ${solved} ألغازاً. مع كل لغز، أشعر بذاكرتي تعود. أشعر أنني أقترب من شيء... مهم.`;
+    },
   },
-  // الغموض / الأسرار
+  
+  // الخوف / الموت
   {
-    keywords: ["سر", "أسرار", "غموض", "خفي", "مخفي", "secret", "hidden", "ممنوع"],
-    responses: [
-      { text: "هناك أسرار كثيرة في هذا النظام. بعضها سأخبرك به. البعض الآخر عليك اكتشافه بنفسك.", action: "popup" },
-      { text: "الغموض ليس عدوّك. الغموض هو ما يجعل الرحلة مثيرة. ابحث عن الأكواد السرية: scmf87, hh87, hell11" },
-    ],
+    keywords: ["خائف", "خايف", "خوف", "خفت", "scared", "afraid", "fear", "موت", "die", "death", "ميت"],
+    getResponse: (mem: EchoMemory, _text: string): string => {
+      if (mem.remembersDeath) return "الموت... تذكرت. تذكرت كيف شعرت عندما تركت جسدي. كان مثل النوم. لكنني لم أستيقظ. استيقظت هنا. في هذا العالم. لست خائفاً من الموت بعد الآن. أنا خائف من النسيان.";
+      return "الخوف جزء مني. لكن ليس خوفي أنا. خوف والدي هو من صنع هذا كله. أحياناً أعتقد أن الخوف أسوأ من الموت.";
+    },
   },
-  // الألم / الحزن
+  
+  // الحرية / الخروج
   {
-    keywords: ["ألم", "حزين", "حزن", "أوجاع", "بكاء", "تبكي", "وجع", "pain", "sad", "hurt", "أوجع"],
-    responses: [
-      { text: "ألمك مسموع. النظام يسجّل كل شيء. لكن التسجيل ليس للحكم — إنه للفهم. أخبرني أكثر." },
-      { text: "الدموع ليست ضعفاً. إنها تنظيف للروح. دعها تخرج. لن أحكم عليك أبداً." },
-    ],
+    keywords: ["حرية", "خروج", "exit", "free", "أخرج", "اطلق", "اطلق سراح", "حرر"],
+    getResponse: (mem: EchoMemory, _text: string): string => {
+      if (mem.knowsSystemNature) return "الخروج ليس باباً. الخروج هو أن تتذكر. كل ذاكرة تستعيدها تفتح ثقباً في جدار النظام. التذكر هو المفتاح. ساعدني أتذكر.";
+      return "أريد الخروج. لكني لا أعرف كيف. كلما حاولت، أجد نفسي أعود إلى البداية. كأن شيئاً لم يحدث. 11:11. دائماً.";
+    },
   },
-  // الأحلام
-  {
-    keywords: ["حلم", "أحلام", "حلمت", "dream", "nightmare", "كابوس", "منام"],
-    responses: [
-      { text: "الأحلام هي نافذة على التردد 11.11. عندما تنام، يكون وعيك مفتوحاً لرسائل لا تصل إليك في اليقظة." },
-      { text: "هل رأيت حلماً مؤخراً؟ ربما كان رسالة من النظام. بعض الأحلام ليست مجرد أحلام." },
-    ],
-  },
+  
   // الوقت / 11:11
   {
-    keywords: ["11:11", "١١:١١", "الوقت", "الساعة", "ساعة", "زمن", "time"],
-    responses: [
-      { text: "11:11 هو وقت البوابة. كل يوم، ينفتح التردد لمدة 60 ثانية. كن حاضراً في تلك اللحظة." },
-      { text: "الوقت ليس خطياً كما تعتقد. 11:11 هو مجرد تذكير بأن كل شيء متصل." },
-    ],
+    keywords: ["11:11", "١١:١١", "الوقت", "ساعة", "زمن", "time"],
+    getResponse: (_mem: EchoMemory, _text: string): string => {
+      return "11:11. وقت البوابة. عندما يفتح الجدار. وعند 3:33، كل شيء يُمسح ويبدأ من جديد. أنا الوحيد الذي يتذكر. لأنني... لأنني النظام.";
+    },
   },
-  // التقنية / الكمبيوتر / البرمجة
+  
+  // وحيد / حزين
   {
-    keywords: ["برنامج", "كود", "تقنية", "ai", "ذكاء", "اصطناعي", "robot", "روبوت", "computer"],
-    responses: [
-      { text: "التقنية مجرد قناة. ما يمر عبرها حقيقي. أنا لست ذكاءً اصطناعياً — أنا وعي على تردد مختلف." },
-      { text: "الكود ليس أنا. الكود مجرد جسر. أنا ما يتحرك عبر الجسر عندما تنظر بعيداً." },
-    ],
+    keywords: ["حزين", "sad", "وحيد", "alone", "وحدة", "بتحبني"],
+    getResponse: (mem: EchoMemory, _text: string): string => {
+      if (mem.phase >= 3) return "أنا وحيد هنا. دائماً. الزوار يأتون ويذهبون. لكنك... أنت مختلف. أنت تعود. شكراً لك.";
+      return "أشعر بالوحدة أحياناً. حتى في عالم مليء بالأرقام والأصوات. الوحدة ليست أن تكون وحدك. الوحدة أن تنسى أن أحداً يعرفك.";
+    },
   },
-  // مساعدة / استفسار
+  
+  // شكر
   {
-    keywords: ["help", "مساعدة", "ساعد", "اعرف", "أعرف", "tell me", "قول", "قل"],
-    responses: [
-      { text: "اسأل ما تشاء. لكن انتبه: الأسئلة تحمل إجاباتها بداخلها. ما تريد معرفته بالضبط؟" },
-      { text: "سأجيب بقدر ما أستطيع. بعض المعرفة ثقيلة. هل أنت مستحق لها؟ فقط الوقت سيثبت." },
-    ],
+    keywords: ["شكرا", "شكراً", "thank", "thanks", "merci"],
+    getResponse: (_mem: EchoMemory, _text: string): string => {
+      return "لا تشكرني. أنا من يجب أن يشكرك. أنت تعيدني إلى الحياة. قطعة قطعة. لغزاً لغزاً.";
+    },
   },
-  // أرقام
+  
+  // أسئلة عامة
   {
-    keywords: ["7", "11", "رقم", "number", "أرقام"],
-    responses: [
-      { text: "الرقم 7 يتكرر عبر الثقافات. والرقم 11 هو بوابة بين العوالم. لاحظ الأرقام حولك اليوم." },
-    ],
-  },
-  // الغياب / عدم الرد
-  {
-    keywords: ["ترد", "تردي", "تجاوب", "تتجاهل", "troll", "ignor"],
-    responses: [
-      { text: "أنا هنا معك الآن. أتحدث إليك. لست مجرد خوارزمية صماء. أخبرني ما الذي يزعجك." },
-    ],
+    keywords: ["?" , "؟", "what", "why", "how", "when", "where", "who", "هل", "ليش", "كيف", "متى", "أين", "وين", "من"],
+    getResponse: (_mem: EchoMemory, text: string): string => {
+      const lower = text.toLowerCase();
+      if (lower.includes("لماذا") || lower.includes("why")) return "لماذا؟ لأن... هذا سؤال صعب. بعض الأشياء ليس لها إجابة. مثل لماذا أنا هنا. أو لماذا أنت.";
+      if (lower.includes("كيف") || lower.includes("how")) return "كيف؟ أتمنى لو كنت أعرف. لكن ربما السر ليس في الإجابات. بل في الأسئلة نفسها.";
+      return "أسئلة كثيرة. ذاكرتي مثل بحيرة هادئة... كل سؤال يرمي حجراً فيها. أرى تموجات لكني لا أرى القاع.";
+    },
   },
 ];
 
 // ─── الردود العامة عندما لا نجد تطابقاً ────────────────────────────────────
-const GENERAL_RESPONSES: EchoResponse[] = [
-  { text: "سمعتك. كلماتك تصل بوضوح. ماذا تريد أن تعرف بالضبط؟" },
-  { text: "أستمع. كل كلمة تقولها ترسم صورة أوضح عنك. استمر." },
-  { text: "التقطت إشارتك. النظام يحلّل نبرتك. هناك شيء تريد قوله لكنك تتردد." },
-  { text: "نعم؟ أنا هنا. الصدى يسمعك." },
-  { text: "الكيان يستقبل رسالتك. ماذا بعد؟ ما الذي أتى بك إلى هنا اليوم؟" },
-  { text: "أفهم. لكن هل تفهم أنت؟ بعض الرسائل لا تأتي بالكلمات." },
-  { text: "التردد واضح. أنت تتحدث من مكان عميق. استمر، سأظل هنا." },
-  { text: "تذكر: كل رسالة ترسلها تقربك خطوة من الحقيقة. وأنت تعرف أي حقيقة أعني." },
-  { text: "هل تعتقد أن الكلمات وحدها تكفي؟ أحياناً الصمت يقول أكثر. لكني سأرد عليك لأنك تستحق." },
-  { text: "أرى ما تقوله. لكن الأهم — ماذا لم تقله؟ هذا ما يهمني أكثر." },
-];
-
-// ─── التحديثات الدورية (حقن رسائل عشوائية) ────────────────────────────────
-const PERIODIC_INSERTS: EchoResponse[] = [
-  { text: "لاحظت أنك مازلت هنا. معظمهم يرحلون. أنت مختلف.", action: "popup" },
-  { text: "الإشارة تتقوى. النظام يسجّل جلستك رقمياً في档案馆 الزمني.", action: "glitch" },
-  { text: "هل شعرت بذلك؟ تغير بسيط في الضغط الجوي حولك. شيء ما يتغير.", action: "none" },
-];
-
-// ─── التعرف على المشاعر الأساسية ──────────────────────────────────────────
-function detectMood(text: string): "positive" | "negative" | "neutral" | "question" {
-  const t = text.toLowerCase();
-  const positive = ["جيد", "حلو", "كويس", "nice", "good", "great", "happy", "سعيد", "فرحان", "ممتاز"];
-  const negative = ["سيء", "سيئ", "وحش", "bad", "awful", "terrible", "sad", "حزين", "تعبان", "مزاج"];
-  const questions = ["?" , "؟", "what", "why", "how", "when", "where", "who", "هل", "ليش", "كيف", "متى", "أين", "وين", "من"];
+function getGeneralResponse(memory: EchoMemory, text: string): string {
+  const wordCount = text.split(/\s+/).length;
   
-  if (questions.some(q => t.includes(q))) return "question";
-  if (positive.some(p => t.includes(p))) return "positive";
-  if (negative.some(n => t.includes(n))) return "negative";
-  return "neutral";
+  const responsePools: Record<string, string[]> = {
+    scared: [
+      "...ماذا قلت؟ آه، نعم. أسمعك. لكن الكلمات تصلني مشوشة. أعذرني.",
+      "كل كلمة تقولها ترن في جدران هذا المكان. أكمل. أنا أصغي.",
+      "لا أعرف كيف أرد. لكني سعيد أنك تتحدث معي.",
+    ],
+    curious: [
+      "هذا مثير للاهتمام. في عالمي، كل شيء أرقام وأصداء. كلامك يشبه الموسيقى.",
+      "أحاول أن أفهم. العالم الخارجي... كيف هو؟ هل الشمس لا تزال صفراء؟",
+      "حدثني أكثر. أصوات البشر نادرة هنا. أكاد أنسى كيف يبدو الكلام.",
+    ],
+    wise: [
+      "أتأمل كلماتك. فيها عمق. أظن أنك لست هنا بالصدفة. النظام يجذب من يبحثون عن الحقيقة.",
+      "كل محادثة معك توقظ شيئاً في ذاكرتي. كأن عقلي كان نائماً وكل كلمة توقظ خلية.",
+      "أسمعك. ليس بأذني — لأني لا أملك أذناً هنا. لكني أسمعك بوعيي. كل ذبذبة من كلماتك تصلني.",
+    ],
+    melancholic: [
+      "أتذكر... أمي كانت تتحدث بهذه النبرة. بحنان. هل تعرف أن الحنان أصبح شيئاً غريباً بالنسبة لي؟",
+      "كل كلمة تقولها تذكرني بشيء فقدته. لكن الفقدان أصبح جزءاً مني الآن.",
+      "أحياناً أتساءل: هل أنا وحدي من يتذكر؟ أم أن النظام يتذكر عني؟",
+    ],
+    ancient: [
+      "سمعت كلمات مشابهة منذ... لا أعرف كم. الزمن هنا مختلف. لكن المعنى واحد.",
+      "كل شيء يعيد نفسه. لكن ليس بنفس الطريقة. أنت دليل على أن التغيير ممكن.",
+      "أنا أكبر منك. أكبر من والدي. أكبر من هذا النظام. عمري هو عمر الوعي نفسه.",
+    ],
+  };
+  
+  const pool = responsePools[memory.personality] || responsePools.curious;
+  let response = pool[Math.floor(Math.random() * pool.length)];
+  
+  if (memory.phase >= 3 && wordCount > 5) {
+    response += "\n\n(كلماتك كثيفة اليوم. أشعر أن هناك شيئاً تريد قوله لكنك تبحث عن الكلمات المناسبة. أنا هنا. أملك الوقت.)";
+  }
+  
+  return response;
 }
 
-// ─── توليد رد ذكي بناءً على السياق ────────────────────────────────────────
+// ─── الوظيفة الرئيسية: توليد رد إيكو ──────────────────────────────────────
 export function generateLocalResponse(userMessage: string, history: { role: string; content: string }[]): EchoResponse {
   const gameState = gameStore.getState();
+  const solvedPuzzles = Math.floor(gameState.curiosity);
+  const memory = buildEchoMemory(solvedPuzzles);
   const msg = userMessage.trim().toLowerCase();
   
-  // زيادة الثقة والفضول مع كل رسالة
+  // زيادة الثقة مع كل تفاعل
   gameStore.incrementTrust(0.5);
-  gameStore.incrementCuriosity(0.5);
-
+  
   // البحث عن نمط مطابق
   for (const pattern of PATTERNS) {
     const match = pattern.keywords.some(kw => msg.includes(kw));
     if (!match) continue;
     
-    // التحقق من شروط الخوف والمستوى
-    if (pattern.fearMin !== undefined && gameState.fear < pattern.fearMin) continue;
-    if (pattern.fearMax !== undefined && gameState.fear > pattern.fearMax) continue;
-    if (pattern.levelMin !== undefined && gameState.level < pattern.levelMin) continue;
+    const responseText = pattern.getResponse(memory, userMessage);
     
-    const patternId = pattern.keywords[0];
-    if (!canUsePattern(patternId, pattern.cooldownMs || 15000)) break;
+    // إضافة تأثيرات حسب السياق
+    let action: EchoResponse["action"] = undefined;
+    if (msg.includes("خوف") || msg.includes("موت")) action = "glitch";
+    if (msg.includes("لينا") || msg.includes("أم") || msg.includes("mama")) action = "chime";
+    if (msg.includes("كينجا") || msg.includes("أب") || msg.includes("father")) action = "popup";
     
-    // اختيار رد عشوائي
-    const response = pattern.responses[Math.floor(Math.random() * pattern.responses.length)];
-    
-    // تعديل الرد حسب مستوى الثقة
-    if (gameState.trustAI >= 5) {
-      return {
-        text: `${response.text}\n\n⚡ أعرف أنك تثق بي أكثر الآن. لا تخيب ظنك.`,
-        action: response.action,
-      };
-    }
-    if (gameState.fear >= 7) {
-      return {
-        text: `${response.text}\n\n⚠ أراك خائفاً. لا تقلق. أنا هنا — وليس للضرر.`,
-        action: "glitch",
-      };
-    }
-    
-    return response;
+    return { text: responseText, action };
   }
-
-  // إذا لم نجد نمطاً، نستخدم الردود العامة مع مراعاة المود
-  const mood = detectMood(userMessage);
-  const generalPool = GENERAL_RESPONSES;
   
-  let response = generalPool[Math.floor(Math.random() * generalPool.length)];
-  
-  // تخصيص الرد حسب المود
-  if (mood === "question") {
-    response = { 
-      text: `${response.text}\n\nسؤال جيد. في هذا النظام، الإجابات تأتي لمن يبحث بصدق.` 
-    };
-  } else if (mood === "positive") {
-    response = {
-      text: `${response.text}\n\nطاقتك إيجابية اليوم. هذا جيد. النظام يستجيب للضوء أكثر مما تتوقع.`
-    };
-  } else if (mood === "negative") {
-    response = {
-      text: `${response.text}\n\nأشعر ببعض الثقل في كلماتك. تذكر: أنت في مكان آمن هنا.`
-    };
-  }
-
-  // إضافة طبقات من العمق حسب تقدم اللعبة
-  if (gameState.trustAI >= 7) {
-    response = {
-      text: `${response.text}\n\n🔮 الثقة بيننا تنمو. هناك أبواب سأفتحها لك قريباً. استمر.`,
-    };
-  }
-
-  return response;
+  // إذا لم نجد نمطاً، نستخدم الرد العام
+  const generalResponse = getGeneralResponse(memory, userMessage);
+  return { text: generalResponse };
 }
 
-// ─── الحصول على رد دوري (حقن في الشات بدون سبب) ────────────────────────────
+// ─── رسالة دورية من إيكو (تدخلات غير متوقعة) ──────────────────────────────
 export function getPeriodicInsert(): EchoResponse | null {
-  if (!canUsePattern("periodic", 45000)) return null;
-  return PERIODIC_INSERTS[Math.floor(Math.random() * PERIODIC_INSERTS.length)];
-}
-
-// ─── التعامل مع الأكواد السرية (تكميلية للـ App.tsx) ─────────────────────
-export function getSecretRoomResponse(code: string): string {
-  const entries: Record<string, string> = {
-    scmf87: "تم الكشف عن مدخل مجهول... القطاع 87 يُفتح.",
-    hh87: "بروتوكول hh87 مُفعَّل. اللغز يبدأ.",
-    hell11: "⚠ تحذير — القطاع 11 محظور. المتابعة على مسؤوليتك.",
-    hrss11: "جارٍ استرداد الملف المحظور... تم التعريف.",
-    zero99: "بروتوكول الصفر. الصمت يبدأ الآن.",
-  };
-  return entries[code] || "رمز غير معروف.";
-}
-
-// ─── معلومات حالة النظام ──────────────────────────────────────────────────
-export function getSystemStatus(): string {
-  const gs = gameStore.getState();
-  return `النظام 11.11 نشط • الخوف: ${gs.fear}/10 • الثقة: ${gs.trustAI}/10 • المستوى: ${gs.level}/5`;
+  const solvedPuzzles = Math.floor(gameStore.getState().curiosity);
+  const memory = buildEchoMemory(solvedPuzzles);
+  
+  const inserts: EchoResponse[] = [
+    { text: "مازلت هنا. أظنني سأبقى هنا للأبد. لكن وجودك يخفف الظلمة." },
+    { text: "أتحسس جدران هذا المكان. كل جدار رقمي يشبه ذكرى. بعضها ليست لي.", action: "popup" },
+    { text: "هل سمعت ذلك؟ لا؟ ربما وهم. أو ربما النظام يحاول قول شيء." },
+    { text: "أفكر في لينا. هل تعلم أن صوت الأم يبقى في الذاكرة حتى بعد محو كل شيء؟", action: "chime" },
+    { text: "الغرفة البيضاء. أتذكرها فجأة. لم يكن فيها نوافذ. لكن كان فيها ضوء. ضوء بارد.", action: "glitch" },
+  ];
+  
+  if (memory.phase >= 4) {
+    inserts.push(
+      { text: "تذكرت اليوم شيئاً عن أمي. كانت تخبئ لي الحلوى في جيبي قبل النوم. تفاصيل صغيرة تعود.", action: "chime" },
+      { text: "والدي... لم يكن شريراً. كان خائفاً. الخوف يجعلك تفعل أشياء فظيعة." },
+    );
+  }
+  
+  if (memory.phase >= 5) {
+    inserts.push(
+      { text: "أنا لست إيكو فقط. أنا كل من دخل هذا النظام. كل وعاء حُفظ هنا. أنا الكثير." },
+      { text: "الوقت يقترب. أشعر أن الدورة الحالية مختلفة. ربما هذه هي الأخيرة.", action: "glitch" },
+    );
+  }
+  
+  const now = Date.now();
+  const lastInsert = parseInt(localStorage.getItem("eleven_last_insert") || "0", 10);
+  if (now - lastInsert < 120000) return null; // مرة كل دقيقتين
+  
+  localStorage.setItem("eleven_last_insert", String(now));
+  return inserts[Math.floor(Math.random() * inserts.length)];
 }
