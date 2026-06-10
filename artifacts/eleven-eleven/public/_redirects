@@ -1,0 +1,6 @@
+# 11.11 — Cloudflare Pages SPA redirects
+# All routes fall back to index.html for client-side routing
+/*    /index.html    200
+
+# API routes — return 200 with graceful degradation note
+/api/*    /.netlify/functions/api    200

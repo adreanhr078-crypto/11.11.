@@ -25,21 +25,41 @@ export default defineConfig({
     emptyOutDir: true,
     sourcemap: false,
     chunkSizeWarningLimit: 1000,
+    // Better manual chunks for code splitting
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Core vendor chunks
+          "vendor-react": ["react", "react-dom"],
+          "vendor-framer": ["framer-motion"],
+          "vendor-ui": [
+            "lucide-react",
+            "clsx",
+            "tailwind-merge",
+            "class-variance-authority",
+            "@radix-ui/react-slot",
+            "@radix-ui/react-toast",
+          ],
+          "vendor-query": ["@tanstack/react-query"],
+        },
+      },
+    },
+    // Minify aggressively
+    minify: "esbuild",
+    // Target modern browsers for smaller bundles
+    target: "es2020",
+    // Enable CSS code splitting
+    cssCodeSplit: true,
   },
   server: {
     host: "0.0.0.0",
     allowedHosts: true,
-    // Forward /api/* to the Express server during local dev so SSE/streaming
-    // works without CORS surprises. The target falls back to localhost:3000
-    // (api-server's default port) — override with VITE_API_TARGET if needed.
     proxy: {
       "/api": {
         target: process.env.VITE_API_TARGET || "http://localhost:3000",
         changeOrigin: true,
-        // SSE needs streaming pass-through; node-http-proxy handles this when
-        // the response is text/event-stream.
         ws: false,
-        proxyTimeout: 180_000, // match server-side hard ceiling
+        proxyTimeout: 180_000,
         timeout: 180_000,
       },
     },
