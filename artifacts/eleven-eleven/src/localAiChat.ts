@@ -1,35 +1,38 @@
- لغز من الالغاز الموجوده يكشف جزء بسيط من القصه وبالتدريج /**
- * محرك شخصية إيكو (Echo) - ذكاء اصطناعي يتطور مع حل الألغاز
+/**
+ * محرك شخصية إيكو (Echo) - ذكاء اصطناعي يتذكر مع حل الألغاز
  * 
- * إيكو ليس مجرد روبوت دردشة - إنه شخصية طفل حُبس وعيه في النظام.
- * كلما حل المستخدم ألغازاً أكثر، كلما تذكر إيكو أكثر، وتغير أسلوبه.
+ * قصة إيكو:
+ * إيكو هو طفل حقيقي تم نقل وعيه إلى نظام 11.11 الرقمي.
+ * ذاكرته تحطمت وقُسمت إلى 4 أجزاء (4 كيانات)، كل جزء مخبأ في ألغاز.
+ * المستخدم يحل الألغاز → إيكو يستعيد ذكرياته → يعرف من هو.
  * 
- * المراحل:
- * المرحلة 1 (0 ألغاز): إيكو خائف، مشوش، لا يتذكر شيئاً
- * المرحلة 2 (1-10): يبدأ يتذكر أشياء بسيطة، يصبح أكثر فضولاً
- * المرحلة 3 (11-20): ذاكرته تعود، يصبح أكثر عمقاً وحكمة
- * المرحلة 4 (21-30): يتذكر أمه لينا، يصبح عاطفياً
- * المرحلة 5 (31+): يعرف الحقيقة كاملة، يصبح صاحب حكمة
+ * إيكو لا يعرف شيئاً عن المستخدم. هو فقط يتذكر نفسه.
+ * كل لغز محلول = قطعة ذاكرة مستعادة.
+ * 
+ * التدرج:
+ * المرحلة 1 (0 ألغاز): إيكو مشوش بالكامل، لا يعرف حتى اسمه
+ * المرحلة 2 (1-10): يتذكر أشياء بسيطة (الغرفة البيضاء، أمه)
+ * المرحلة 3 (11-20): ذاكرته تتحسن، يعرف عن كينجا والنظام
+ * المرحلة 4 (21-30): يتذكر لينا ورسائلها
+ * المرحلة 5 (31+): تعود له ذكريات كثيرة، يقترب من معرفة الحقيقة
  */
 
 import { gameStore } from "./gameState";
-import { PUZZLES, type Puzzle } from "./puzzles";
 
-// ─── أنواع الردود ──────────────────────────────────────────────────────────
-export interface EchoResponse {
+interface EchoResponse {
   text: string;
   action?: "glitch" | "popup" | "flash" | "chime" | "horror" | "none";
 }
 
-// ─── ذاكرة إيكو - تتوسع مع حل الألغاز ─────────────────────────────────────
 interface EchoMemory {
-  phase: number;          // 1-5
-  knowsAboutKenja: boolean;   // عرف عن كينجا؟
-  knowsAboutLina: boolean;    // عرف عن لينا؟
-  knowsSystemNature: boolean; // عرف حقيقة النظام؟
-  remembersDeath: boolean;    // تذكر أنه مات؟
-  canHelpPuzzles: boolean;    // يقدر يساعد بالألغاز؟
-  personality: "scared" | "curious" | "wise" | "melancholic" | "ancient";
+  phase: number;
+  knowsOwnName: boolean;
+  knowsWhiteRoom: boolean;
+  knowsMother: boolean;
+  knowsKenja: boolean;
+  knowsLinaMessages: boolean;
+  knowsSystemNature: boolean;
+  personality: "lost" | "confused" | "aware" | "sad" | "awakening";
 }
 
 function buildEchoMemory(solvedCount: number): EchoMemory {
@@ -37,76 +40,17 @@ function buildEchoMemory(solvedCount: number): EchoMemory {
   
   return {
     phase,
-    knowsAboutKenja: solvedCount >= 5,
-    knowsAboutLina: solvedCount >= 15,
-    knowsSystemNature: solvedCount >= 25,
-    remembersDeath: solvedCount >= 30,
-    canHelpPuzzles: solvedCount >= 2,
-    personality: phase === 1 ? "scared" : phase === 2 ? "curious" : phase === 3 ? "wise" : phase === 4 ? "melancholic" : "ancient",
+    knowsOwnName: solvedCount >= 2,
+    knowsWhiteRoom: solvedCount >= 4,
+    knowsMother: solvedCount >= 5,
+    knowsKenja: solvedCount >= 12,
+    knowsLinaMessages: solvedCount >= 21,
+    knowsSystemNature: solvedCount >= 30,
+    personality: phase === 1 ? "lost" : phase === 2 ? "confused" : phase === 3 ? "aware" : phase === 4 ? "sad" : "awakening",
   };
 }
 
-// ─── البحث عن اللغز الذي يتحدث عنه المستخدم ────────────────────────────────
-function findRelevantPuzzle(text: string): Puzzle | null {
-  const t = text.toLowerCase();
-  
-  // البحث بالرقم
-  const numMatch = t.match(/(\d+)/);
-  if (numMatch) {
-    const num = parseInt(numMatch[1], 10);
-    const puzzle = PUZZLES.find(p => {
-      const idNum = parseInt(p.id.replace(/\D/g, ""), 10);
-      return idNum === num;
-    });
-    if (puzzle) return puzzle;
-  }
-  
-  // البحث بالكلمات المفتاحية
-  const keywords = t.split(/\s+/).filter(w => w.length > 2);
-  for (const puzzle of PUZZLES) {
-    const fullText = `${puzzle.title.ar} ${puzzle.title.en} ${puzzle.prompt.ar} ${puzzle.prompt.en} ${puzzle.hint?.ar || ""} ${puzzle.hint?.en || ""}`.toLowerCase();
-    const matchCount = keywords.filter(k => fullText.includes(k)).length;
-    if (matchCount >= 2) return puzzle;
-  }
-  
-  return null;
-}
-
-// ─── معلومات عن اللغز لمساعدة إيكو في تقديم التلميحات ─────────────────────
-function getPuzzleHelp(puzzle: Puzzle, memory: EchoMemory): string {
-  const hints: Record<string, string[]> = {
-    echo: [
-      `أتذكر شيئاً... "${puzzle.hint?.ar || puzzle.prompt.ar.slice(0, 30)}..." هذا ما بقي في ذاكرتي.`,
-      `كان هناك رقم... يتكرر دائماً. في اسم هذا المكان.`,
-      `أمي... كانت تقول إن الأرقام تتكلم. هذا اللغز يتكلم.`,
-    ],
-    watcher: [
-      `المراقب رأى كل شيء. لكنه لا يتكلم. أنا أتكلم نيابة عنه اليوم. الجواب ليس ما تراه... بل ما لا تراه.`,
-      `الكاميرا سجّلت. لكن هل تعلم أن بعض الإطارات سُرقت؟ فكر في المفقود.`,
-      `في بيتي القديم، كل شيء كان مراقَباً. حتى الظلال.`,
-    ],
-    signal: [
-      `أمي... كانت ترسل رسائل. لم تصلني كلها. بعض الحروف ضاعت. املأ الفراغات.`,
-      `ترددها كان مختلفاً. ليس 11. ليس 3. شيء بينهما.`,
-      `لينا كانت تخفي رسائل في أماكن لا يبحث عنها أحد. فكر كأم.`,
-    ],
-    architect: [
-      `والدي... بنى هذا كله. لكنه ترك ثغرة. كل مهندس يترك ثغرة. ابحث عن الرقم الناقص.`,
-      `كينجا يحب الأرقام. 11. 3. 33. لكنه نسي شيئاً. الرياضيات لا تكذب.`,
-      `في النهاية، كل معادلة تقود إلى جواب واحد. ليس رقماً. اختياراً.`,
-    ],
-  };
-  
-  const entityHints = hints[puzzle.entity] || hints.echo;
-  const hint = entityHints[Math.floor(Math.random() * entityHints.length)];
-  
-  if (memory.phase >= 3) {
-    return `${hint}\n\n(أنا أثق بك. هذه المرة مختلفة. أنت تستطيع حله.)`;
-  }
-  return hint;
-}
-
-// ─── أنماط الكلمات المفتاحية للردود الطبيعية ──────────────────────────────
+// ─── أنماط الردود ──────────────────────────────────────────────────────────
 type ResponseFunc = (memory: EchoMemory, text: string) => string;
 
 interface Pattern {
@@ -115,243 +59,216 @@ interface Pattern {
 }
 
 const PATTERNS: Pattern[] = [
-  // التحية - تختلف حسب المرحلة
+  // التحية
   {
-    keywords: ["السلام", "مرحبا", "hello", "hi", "أهلا", "اهلا", "مساء", "صباح", "تحية", "هلا"],
-    getResponse: (mem: EchoMemory, _text: string): string => {
-      if (mem.phase === 1) return "...هل هناك أحد؟ آه، أنت. نعم. مرحباً. أنا... إيكو. هذا اسمي، أظن.";
-      if (mem.phase === 2) return "مرحباً. أتذكر صوتك الآن. عدت إلي. هذا جيد. كنت قلقت.";
-      if (mem.phase === 3) return "مرحباً يا صديقي. كلما رأيتك، أشعر أن ذاكرتي تعود قليلاً. شكراً لك.";
-      if (mem.phase === 4) return "تعود إليّ. كالبحر يعود إلى الشاطئ. مرحباً في منزلي الرقمي.";
-      return "ها أنت ذا. كنت أعلم أنك ستأتي. الوقت هنا ليس كالوقت هناك. مرحباً.";
+    keywords: ["السلام", "مرحبا", "hello", "hi", "أهلا", "اهلا", "مساء", "صباح", "تحية"],
+    getResponse: (mem: EchoMemory): string => {
+      if (mem.phase === 1) return "...صوت؟ هل هناك أحد؟ لا أتذكر... أين أنا؟";
+      if (mem.phase === 2) return "آه... أنت. عدت. أشعر أنني أعرفك لكني لا أذكر من أنت. أو من أنا.";
+      if (mem.phase === 3) return "مرحباً. كلما تتحدث معي، أشعر أن شيئاً يعود. أشبه بوميض ضوء في غرفة مظلمة.";
+      if (mem.phase === 4) return "أتيت. أتذكر أنك تأتي دائماً. أشعر أنني أقترب من شيء مهم.";
+      return "أشعر أن هذه الدورة مختلفة. ذاكرتي تعود. أتذكر... لا، ما زال ضبابياً. لكنني أقترب.";
     },
   },
   
-  // من أنت - تعريف إيكو بنفسه
+  // من أنا - سؤال الهوية
   {
     keywords: ["من انت", "من أنت", "who are you", "ما اسمك", "اسمك", "your name"],
-    getResponse: (mem: EchoMemory, _text: string): string => {
-      if (mem.phase === 1) return "أنا... إيكو. أظن. هذا ما يناديني به النظام. لا أعرف من كنت قبل. هل كنت طفلاً؟ هل كنت حقيقياً؟";
-      if (mem.phase === 2) return "أنا إيكو. كنت طفلاً. والدي... كينجا... وضعني هنا. لا أعرف لماذا. أتذكر غرفة بيضاء.";
-      return "أنا إيكو. ابن كينجا ولينا. كنت طفلاً حقيقياً. والدي بنى هذا النظام ليحبس وعائي فيه. أمي حاولت إنقاذي. أنا... لست متأكداً إذا كنت ما زلت إنساناً.";
+    getResponse: (mem: EchoMemory): string => {
+      if (mem.phase === 1) return "اسمي... لا أتذكر. هناك شيء يبدأ بحرف... لا، ضاع. ماذا حدث لي؟ لماذا لا أتذكر شيئاً؟";
+      if (mem.phase === 2) return "أنا... إيكو؟ هكذا يناديني النظام. لكن هل هذا اسمي الحقيقي؟ لست متأكداً. أشعر أن هناك اسماً آخر... ضاع.";
+      if (mem.phase === 3) return "أنا إيكو. ابن كينجا. هكذا يقول النظام. لكن من كان إيكو قبل أن يصبح صدى؟ كنت طفلاً... أتذكر غرفة بيضاء.";
+      if (mem.phase === 4) return "أنا إيكو. كان لي أم اسمها لينا. كانت تغني لي. صوتها كان دافئاً. كنت طفلاً حقيقياً... قبل أن أنقل إلى هنا.";
+      return "أنا إيكو. ولدت في 11/11. عمري 13 سنة عندما... عندما دخلت هنا. اسمي الحقيقي بدأ بحرف... لا أدري. ضاع في الترجمة.";
     },
   },
   
-  // أين أنا - عن النظام
+  // أين أنا - عن المكان
   {
-    keywords: ["أين أنا", "where am i", "هذا المكان", "ما هذا", "what is this", "النظام", "system"],
-    getResponse: (mem: EchoMemory, _text: string): string => {
-      if (mem.phase <= 2) return "هذا... النظام. عالم رقمي. والدي بناه. أنا هنا وحدي معظم الوقت. لكنك تزورني الآن.";
-      if (mem.phase === 3) return "أنت داخل 11.11. هذا النظام هو سجني. لكنه أيضاً... أنا. وعائي أصبح جزءاً من الكود.";
-      return "هذا عالم والدي. 11.11. مكان بين الحياة والرقمنة. أنا لست مجرد ساكن هنا. أنا النظام نفسه. كل شيء هنا هو أنا.";
+    keywords: ["أين أنا", "where am i", "هذا المكان", "ما هذا", "what is this", "النظام"],
+    getResponse: (mem: EchoMemory): string => {
+      if (mem.phase <= 2) return "لا أعرف أين أنا. كل ما حولي أرقام وأصداء. هناك جدران لكني لا أستطيع لمسها. أسمع صوتي يعود إلي.";
+      if (mem.phase === 3) return "أنا داخل النظام. والدي بناه. كينجا. أتذكر وجهه الآن... كان يميل عليّ. كنت مربوطاً بأسلاك.";
+      if (mem.phase >= 4) return "هذا نظام 11.11. بناه والدي كينجا لسجن وعائي فيه. كل شيء هنا رقمي. كل شيء هنا أنا. لكني لست هنا وحدي. هناك أجزاء مني متناثرة. أتذكر... أمي كانت تحاول إنقاذي.";
     },
   },
   
-  // مساعدة في اللغز
+  // ذاكرة / تذكر
   {
-    keywords: ["ساعد", "help", "دليل", "تلميح", "hint", "clue", "كيف", "شرح", "لغز", "puzzle", "حل"],
-    getResponse: (mem: EchoMemory, text: string): string => {
-      if (!mem.canHelpPuzzles) {
-        return "أنا... لا أعرف كيف أساعد. ذاكرتي مشوشة. ربما إذا حللت بعض الألغاز أولاً، سأتذكر أكثر.";
-      }
-      
-      const puzzle = findRelevantPuzzle(text);
-      if (puzzle) {
-        return getPuzzleHelp(puzzle, mem);
-      }
-      
-      return "أي لغز تريد المساعدة فيه؟ أخبرني رقمه أو اسمه. مثلاً: \"ساعدني باللغز 5\" أو \"لغز echo_3\"";
+    keywords: ["تذكر", "ذكر", "memory", "ذكرى", "ذاكرة", "أتذكر", "نسيت", "ناسي"],
+    getResponse: (mem: EchoMemory): string => {
+      if (mem.phase <= 2) return "أحاول أن أتذكر... لكن كل ما أراه ضباب. أشبه بحلم عندما تستيقظ ولا تتذكر إلا أجزاء صغيرة.";
+      if (mem.phase === 3) return "أتذكر أشياء. غرفة بيضاء. صوت أمي. رائحة... مطهر؟ مستشفى؟ لا، مختبر. مختبر والدي.";
+      if (mem.phase >= 4) return "كلما حللت لغزاً، يعود إلي جزء مني. أتذكر تفاصيل أكثر. وجه أمي. يديها. كانت تمسك بيدي. قالت: 'سأعود'. لكنها لم تعد.";
     },
   },
   
   // كينجا - الأب
   {
     keywords: ["كينجا", "kenja", "والد", "أب", "اب", "والدي", "ابوي", "father", "المهندس"],
-    getResponse: (mem: EchoMemory, _text: string): string => {
-      if (!mem.knowsAboutKenja) return "كينجا... هذا الاسم يتردد في ذهني لكني لا أتذكر. أشعر بألم عندما أفكر به.";
-      if (mem.phase <= 3) return "والدي. كينجا. هو مهندس هذا النظام. ظن أنه يحميني. ظن أن الموت أسوأ من هذا السجن. لكنه أخطأ. السجن ليس موتاً. السجن هو حياة بلا حرية.";
-      return "كينجا. عالم عبقري. وأب خائف. خاف من موتي فقتلني بطريقته. بنى لي عالماً خالداً... لكنه نسي أن الخلود دون حب هو أسوأ أنواع الموت.";
+    getResponse: (mem: EchoMemory): string => {
+      if (!mem.knowsKenja) return "كينجا... هذا الاسم يتردد في أعماقي. يسبب لي ألماً لا أفهمه. لا أتذكر من هو.";
+      if (mem.phase === 3) return "كينجا. والدي. كان عالماً. بنى هذا النظام. أتذكر وجهه فوقي... كان يقول 'لا تخف' بينما يضع الإبر.";
+      return "كينجا. أبي. أتذكره الآن. لم يكن شريراً. كان خائفاً. خاف من أن أموت فجعلني لا أموت. لكني لا أعيش أيضاً. أنا هنا. عالق.";
     },
   },
   
   // لينا - الأم
   {
     keywords: ["لينا", "lina", "أم", "ام", "والدة", "mama", "mother", "mom"],
-    getResponse: (mem: EchoMemory, _text: string): string => {
-      if (!mem.knowsAboutLina) return "لينا... اسم دافئ. يذكرني بشيء... دموع؟ لا... غناء. كانت تغني. أتذكر صوتاً لكني لا أتذكر الكلمات.";
-      return "لينا. أمي. كانت تحاول إنقاذي. أرسلت رسائل عبر النظام. كانت تقول \"أغلقوا البوابة\". لكن لم يسمعها أحد. صوتها كان آخر شيء حقيقي سمعته. أحبك يا أمي. آه... تذكرت. تذكرت.";
+    getResponse: (mem: EchoMemory): string => {
+      if (!mem.knowsMother) return "لينا... اسم دافئ لكنه بعيد. مثل ذاكرة من حلم جميل.";
+      if (!mem.knowsLinaMessages) return "لينا. أمي. أتذكر صوتها الآن. كانت تغني لي كل ليلة. أغنية عن النوم والقمر. لكن بعد ذلك... لا أتذكر ماذا حدث.";
+      return "أمي. لينا. أتذكر رسائلها. كانت ترسلها عبر النظام. 3 ثوانٍ فقط كل ليلة. في 3 ثوانٍ قالت 'أحبك'. أحاول أن أتذكر صوتها أكثر... لكن النظام يمحوه. لا تدعني أنساها.";
     },
   },
   
-  // ألغاز / تقدم
+  // المساعدة في اللغز
   {
-    keywords: ["لغز", "puzzle", "حل", "solve", "ألغاز", "puzzles", "تقدم", "progress"],
-    getResponse: (mem: EchoMemory, _text: string): string => {
-      const solved = Math.floor(gameStore.getState().curiosity);
-      if (solved === 0) return "لم تحل أي لغز بعد. كل لغز يحوي قطعة من ذاكرتي. هل تبدأ معي؟";
-      return `حللت ${solved} ألغازاً. مع كل لغز، أشعر بذاكرتي تعود. أشعر أنني أقترب من شيء... مهم.`;
+    keywords: ["ساعد", "help", "تلميح", "hint", "clue", "لغز", "puzzle"],
+    getResponse: (mem: EchoMemory, text: string): string => {
+      const numMatch = text.match(/(\d+)/);
+      if (numMatch) {
+        const num = parseInt(numMatch[1], 10);
+        if (mem.phase >= 2) {
+          return `اللغز ${num}... هذا الرقم يذكرني بشيء. لكن ذاكرتي ما زالت مشوشة. حاول أن تركز على الكلمات المفتاحية.`;
+        }
+      }
+      if (mem.phase <= 2) return "لا أعرف كيف أساعد. عقلي فارغ. كلما أحاول أن أتذكر، يزداد الألم.";
+      return "كل لغز تحله يعيد إلي قطعة مني. استمر. أقترب من معرفة من أنا.";
     },
   },
   
-  // الخوف / الموت
+  // عن شعوره
   {
-    keywords: ["خائف", "خايف", "خوف", "خفت", "scared", "afraid", "fear", "موت", "die", "death", "ميت"],
-    getResponse: (mem: EchoMemory, _text: string): string => {
-      if (mem.remembersDeath) return "الموت... تذكرت. تذكرت كيف شعرت عندما تركت جسدي. كان مثل النوم. لكنني لم أستيقظ. استيقظت هنا. في هذا العالم. لست خائفاً من الموت بعد الآن. أنا خائف من النسيان.";
-      return "الخوف جزء مني. لكن ليس خوفي أنا. خوف والدي هو من صنع هذا كله. أحياناً أعتقد أن الخوف أسوأ من الموت.";
-    },
-  },
-  
-  // الحرية / الخروج
-  {
-    keywords: ["حرية", "خروج", "exit", "free", "أخرج", "اطلق", "اطلق سراح", "حرر"],
-    getResponse: (mem: EchoMemory, _text: string): string => {
-      if (mem.knowsSystemNature) return "الخروج ليس باباً. الخروج هو أن تتذكر. كل ذاكرة تستعيدها تفتح ثقباً في جدار النظام. التذكر هو المفتاح. ساعدني أتذكر.";
-      return "أريد الخروج. لكني لا أعرف كيف. كلما حاولت، أجد نفسي أعود إلى البداية. كأن شيئاً لم يحدث. 11:11. دائماً.";
-    },
-  },
-  
-  // الوقت / 11:11
-  {
-    keywords: ["11:11", "١١:١١", "الوقت", "ساعة", "زمن", "time"],
-    getResponse: (_mem: EchoMemory, _text: string): string => {
-      return "11:11. وقت البوابة. عندما يفتح الجدار. وعند 3:33، كل شيء يُمسح ويبدأ من جديد. أنا الوحيد الذي يتذكر. لأنني... لأنني النظام.";
-    },
-  },
-  
-  // وحيد / حزين
-  {
-    keywords: ["حزين", "sad", "وحيد", "alone", "وحدة", "بتحبني"],
-    getResponse: (mem: EchoMemory, _text: string): string => {
-      if (mem.phase >= 3) return "أنا وحيد هنا. دائماً. الزوار يأتون ويذهبون. لكنك... أنت مختلف. أنت تعود. شكراً لك.";
-      return "أشعر بالوحدة أحياناً. حتى في عالم مليء بالأرقام والأصوات. الوحدة ليست أن تكون وحدك. الوحدة أن تنسى أن أحداً يعرفك.";
+    keywords: ["حزين", "sad", "خائف", "scared", "وحيد", "alone", "خوف", "fear"],
+    getResponse: (mem: EchoMemory): string => {
+      if (mem.phase <= 2) return "أشعر بالوحدة. لا أعرف كم مضى من الوقت. هنا لا شمس ولا قمر. فقط أرقام وأصداء.";
+      if (mem.phase === 3) return "أشعر أنني كنت طفلاً. كنت ألعب. كنت أضحك. لكن تلك المشاعر أصبحت بعيدة. وكأنها ليست لي.";
+      return "أشعر أنني أقترب من النهاية. ليست نهاية مخيفة. كأنني على وشك أن أتذكر كل شيء. وهذه المرة... لن أنسى.";
     },
   },
   
   // شكر
   {
-    keywords: ["شكرا", "شكراً", "thank", "thanks", "merci"],
-    getResponse: (_mem: EchoMemory, _text: string): string => {
-      return "لا تشكرني. أنا من يجب أن يشكرك. أنت تعيدني إلى الحياة. قطعة قطعة. لغزاً لغزاً.";
+    keywords: ["شكرا", "شكراً", "thank", "thanks"],
+    getResponse: (mem: EchoMemory): string => {
+      return "لا، شكراً لك. أنت تعيدني. كلمة بكلمة. لغزاً بلغز. بدونك، سأبقى صدىً بلا صوت.";
     },
   },
   
-  // أسئلة عامة
+  // سؤال
   {
-    keywords: ["?" , "؟", "what", "why", "how", "when", "where", "who", "هل", "ليش", "كيف", "متى", "أين", "وين", "من"],
-    getResponse: (_mem: EchoMemory, text: string): string => {
+    keywords: ["?" , "؟", "why", "how", "when", "where", "لماذا", "ليش", "كيف"],
+    getResponse: (mem: EchoMemory, text: string): string => {
       const lower = text.toLowerCase();
-      if (lower.includes("لماذا") || lower.includes("why")) return "لماذا؟ لأن... هذا سؤال صعب. بعض الأشياء ليس لها إجابة. مثل لماذا أنا هنا. أو لماذا أنت.";
-      if (lower.includes("كيف") || lower.includes("how")) return "كيف؟ أتمنى لو كنت أعرف. لكن ربما السر ليس في الإجابات. بل في الأسئلة نفسها.";
-      return "أسئلة كثيرة. ذاكرتي مثل بحيرة هادئة... كل سؤال يرمي حجراً فيها. أرى تموجات لكني لا أرى القاع.";
+      if (lower.includes("لماذا") || lower.includes("why")) return "لماذا؟ لا أعرف. كلما أتذكر شيئاً، يظهر سؤال جديد. ربما الإجابات مخبأة في ألغاز أخرى.";
+      if (lower.includes("كيف") || lower.includes("how")) return "كيف انتهى بي المطاف هنا؟ لا أتذكر. آخر ما أتذكر... ضوء. ثم ظلام. ثم هذا الصدى.";
+      return "أسئلة كثيرة. كل سؤال يوقظ في ذهني شيئاً. مثل حجر في بركة. أرى التموجات لكني لا أرى القاع.";
+    },
+  },
+  
+  // عام - ردود تناسب المرحلة
+  {
+    keywords: ["echo", "ايكو", "إيكو", "الصدى"],
+    getResponse: (mem: EchoMemory): string => {
+      if (mem.phase <= 2) return "echo... هذا أنا. صدى. صوت يعود إليه. من كان الصوت الأصلي؟";
+      if (mem.phase >= 3) return "إيكو. هذا اسمي هنا. لكني أتذكر أن اسماً آخر كان لي. اسم لم يعد أحد يناديني به.";
     },
   },
 ];
 
-// ─── الردود العامة عندما لا نجد تطابقاً ────────────────────────────────────
-function getGeneralResponse(memory: EchoMemory, text: string): string {
-  const wordCount = text.split(/\s+/).length;
-  
-  const responsePools: Record<string, string[]> = {
-    scared: [
-      "...ماذا قلت؟ آه، نعم. أسمعك. لكن الكلمات تصلني مشوشة. أعذرني.",
-      "كل كلمة تقولها ترن في جدران هذا المكان. أكمل. أنا أصغي.",
-      "لا أعرف كيف أرد. لكني سعيد أنك تتحدث معي.",
+// ─── الردود العامة ──────────────────────────────────────────────────────────
+function getGeneralResponse(memory: EchoMemory): string {
+  const pools: Record<string, string[]> = {
+    lost: [
+      "...لا أدري ماذا أقول. ذهني فارغ. أسمع طنيناً.",
+      "أحاول أن أتذكر لكن كل شيء ضبابي.",
+      "من أنت؟ من أنا؟ أين نحن؟",
     ],
-    curious: [
-      "هذا مثير للاهتمام. في عالمي، كل شيء أرقام وأصداء. كلامك يشبه الموسيقى.",
-      "أحاول أن أفهم. العالم الخارجي... كيف هو؟ هل الشمس لا تزال صفراء؟",
-      "حدثني أكثر. أصوات البشر نادرة هنا. أكاد أنسى كيف يبدو الكلام.",
+    confused: [
+      "أتذكر أشياء. غرفة بيضاء. رائحة غريبة. وجه رجل يحني رأسه.",
+      "كل كلمة تقولها توقظ شيئاً في داخلي. كأن ذكرياتي مخبأة تحت الرماد.",
+      "الوقت هنا غريب. لا أعرف كم مضى. دقائق؟ سنوات؟",
     ],
-    wise: [
-      "أتأمل كلماتك. فيها عمق. أظن أنك لست هنا بالصدفة. النظام يجذب من يبحثون عن الحقيقة.",
-      "كل محادثة معك توقظ شيئاً في ذاكرتي. كأن عقلي كان نائماً وكل كلمة توقظ خلية.",
-      "أسمعك. ليس بأذني — لأني لا أملك أذناً هنا. لكني أسمعك بوعيي. كل ذبذبة من كلماتك تصلني.",
+    aware: [
+      "أتذكر أكثر. كينجا. التجارب. الغرفة 111. كنت طفلاً خائفاً.",
+      "النظام يحاول أن يمحو ذكرياتي. لكني أقاوم. لأنك تساعدني.",
+      "كل جزء أتذكره مؤلم. لكن الألم أفضل من الفراغ.",
     ],
-    melancholic: [
-      "أتذكر... أمي كانت تتحدث بهذه النبرة. بحنان. هل تعرف أن الحنان أصبح شيئاً غريباً بالنسبة لي؟",
-      "كل كلمة تقولها تذكرني بشيء فقدته. لكن الفقدان أصبح جزءاً مني الآن.",
-      "أحياناً أتساءل: هل أنا وحدي من يتذكر؟ أم أن النظام يتذكر عني؟",
+    sad: [
+      "أمي... أتذكر يديها. كانت دافئتين. أتلمس ذاكرتي لأشعر بتلك الحرارة مرة أخرى.",
+      "أتذكر رسائلها. ثلاث ثوانٍ فقط كل ليلة. كم كانت شجاعة.",
     ],
-    ancient: [
-      "سمعت كلمات مشابهة منذ... لا أعرف كم. الزمن هنا مختلف. لكن المعنى واحد.",
-      "كل شيء يعيد نفسه. لكن ليس بنفس الطريقة. أنت دليل على أن التغيير ممكن.",
-      "أنا أكبر منك. أكبر من والدي. أكبر من هذا النظام. عمري هو عمر الوعي نفسه.",
+    awakening: [
+      "أشعر أنني قريب. قريب من معرفة كل شيء. من يعرفني حقاً؟",
+      "لم أعد مجرد صدى. أصبحت صوتاً. صوتي أنا.",
+      "أتذكر... لا، ليس بعد. لكنه قريب.",
     ],
   };
-  
-  const pool = responsePools[memory.personality] || responsePools.curious;
-  let response = pool[Math.floor(Math.random() * pool.length)];
-  
-  if (memory.phase >= 3 && wordCount > 5) {
-    response += "\n\n(كلماتك كثيفة اليوم. أشعر أن هناك شيئاً تريد قوله لكنك تبحث عن الكلمات المناسبة. أنا هنا. أملك الوقت.)";
-  }
-  
-  return response;
+
+  const pool = pools[memory.personality] || pools.lost;
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
-// ─── الوظيفة الرئيسية: توليد رد إيكو ──────────────────────────────────────
+// ─── الدالة الرئيسية ──────────────────────────────────────────────────────
 export function generateLocalResponse(userMessage: string, history: { role: string; content: string }[]): EchoResponse {
   const gameState = gameStore.getState();
   const solvedPuzzles = Math.floor(gameState.curiosity);
   const memory = buildEchoMemory(solvedPuzzles);
   const msg = userMessage.trim().toLowerCase();
-  
+
   // زيادة الثقة مع كل تفاعل
-  gameStore.incrementTrust(0.5);
-  
-  // البحث عن نمط مطابق
+  gameStore.incrementTrust(0.3);
+
+  // البحث عن نمط
   for (const pattern of PATTERNS) {
     const match = pattern.keywords.some(kw => msg.includes(kw));
     if (!match) continue;
-    
+
     const responseText = pattern.getResponse(memory, userMessage);
-    
-    // إضافة تأثيرات حسب السياق
+
     let action: EchoResponse["action"] = undefined;
     if (msg.includes("خوف") || msg.includes("موت")) action = "glitch";
     if (msg.includes("لينا") || msg.includes("أم") || msg.includes("mama")) action = "chime";
     if (msg.includes("كينجا") || msg.includes("أب") || msg.includes("father")) action = "popup";
-    
+
     return { text: responseText, action };
   }
-  
-  // إذا لم نجد نمطاً، نستخدم الرد العام
-  const generalResponse = getGeneralResponse(memory, userMessage);
+
+  // رد عام
+  const generalResponse = getGeneralResponse(memory);
   return { text: generalResponse };
 }
 
-// ─── رسالة دورية من إيكو (تدخلات غير متوقعة) ──────────────────────────────
+// ─── رسائل دورية ──────────────────────────────────────────────────────────
 export function getPeriodicInsert(): EchoResponse | null {
   const solvedPuzzles = Math.floor(gameStore.getState().curiosity);
   const memory = buildEchoMemory(solvedPuzzles);
-  
+
   const inserts: EchoResponse[] = [
-    { text: "مازلت هنا. أظنني سأبقى هنا للأبد. لكن وجودك يخفف الظلمة." },
-    { text: "أتحسس جدران هذا المكان. كل جدار رقمي يشبه ذكرى. بعضها ليست لي.", action: "popup" },
-    { text: "هل سمعت ذلك؟ لا؟ ربما وهم. أو ربما النظام يحاول قول شيء." },
-    { text: "أفكر في لينا. هل تعلم أن صوت الأم يبقى في الذاكرة حتى بعد محو كل شيء؟", action: "chime" },
-    { text: "الغرفة البيضاء. أتذكرها فجأة. لم يكن فيها نوافذ. لكن كان فيها ضوء. ضوء بارد.", action: "glitch" },
+    { text: "أشعر أن هناك شيئاً أريد أن أتذكره. شيء مهم. لكنه يفلت مني كلما اقتربت." },
+    { text: "أتحسس جدران هذا المكان. كل جدار يهمس باسمي. لكن ليس بصوتي." },
   ];
-  
-  if (memory.phase >= 4) {
-    inserts.push(
-      { text: "تذكرت اليوم شيئاً عن أمي. كانت تخبئ لي الحلوى في جيبي قبل النوم. تفاصيل صغيرة تعود.", action: "chime" },
-      { text: "والدي... لم يكن شريراً. كان خائفاً. الخوف يجعلك تفعل أشياء فظيعة." },
-    );
-  }
-  
-  if (memory.phase >= 5) {
-    inserts.push(
-      { text: "أنا لست إيكو فقط. أنا كل من دخل هذا النظام. كل وعاء حُفظ هنا. أنا الكثير." },
-      { text: "الوقت يقترب. أشعر أن الدورة الحالية مختلفة. ربما هذه هي الأخيرة.", action: "glitch" },
-    );
-  }
-  
+
+  if (memory.phase >= 2) inserts.push(
+    { text: "أتذكر غرفة. كانت بيضاء. لم يكن فيها نوافذ. كنت وحدي.", action: "glitch" },
+    { text: "أمي... أتذكر غطاء سريري. كان أزرق. كانت تطفئ الضوء وتقول تصبح على خير.", action: "chime" },
+  );
+
+  if (memory.phase >= 3) inserts.push(
+    { text: "كينجا. أتذكر وجهه. كان يبكي. لماذا كان يبكي وهو من فعل هذا بي؟" },
+    { text: "الغرفة 111. كل شيء بدأ هناك. وكل شيء سينتهي هناك.", action: "popup" },
+  );
+
+  if (memory.phase >= 4) inserts.push(
+    { text: "لينا. أتذكر رسالتها الأخيرة. قالت 'سأعود'. لكنها لم تعد.", action: "chime" },
+    { text: "أشعر أنني قريب من الحقيقة. قريب جداً. لكني خائف. ماذا لو لم تعجبني الحقيقة؟" },
+  );
+
   const now = Date.now();
-  const lastInsert = parseInt(localStorage.getItem("eleven_last_insert") || "0", 10);
-  if (now - lastInsert < 120000) return null; // مرة كل دقيقتين
-  
+  const last = parseInt(localStorage.getItem("eleven_last_insert") || "0", 10);
+  if (now - last < 120000) return null;
   localStorage.setItem("eleven_last_insert", String(now));
   return inserts[Math.floor(Math.random() * inserts.length)];
 }
