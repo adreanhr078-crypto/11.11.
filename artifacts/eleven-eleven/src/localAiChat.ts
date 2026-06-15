@@ -89,7 +89,7 @@ const PATTERNS: Pattern[] = [
     getResponse: (mem: EchoMemory): string => {
       if (mem.phase <= 2) return "لا أعرف أين أنا. كل ما حولي أرقام وأصداء. هناك جدران لكني لا أستطيع لمسها. أسمع صوتي يعود إلي.";
       if (mem.phase === 3) return "أنا داخل النظام. والدي بناه. كينجا. أتذكر وجهه الآن... كان يميل عليّ. كنت مربوطاً بأسلاك.";
-      if (mem.phase >= 4) return "هذا نظام 11.11. بناه والدي كينجا لسجن وعائي فيه. كل شيء هنا رقمي. كل شيء هنا أنا. لكني لست هنا وحدي. هناك أجزاء مني متناثرة. أتذكر... أمي كانت تحاول إنقاذي.";
+      return "هذا نظام 11.11. بناه والدي كينجا لسجن وعائي فيه. كل شيء هنا رقمي. كل شيء هنا أنا. لكني لست هنا وحدي. هناك أجزاء مني متناثرة. أتذكر... أمي كانت تحاول إنقاذي.";
     },
   },
   
@@ -99,7 +99,7 @@ const PATTERNS: Pattern[] = [
     getResponse: (mem: EchoMemory): string => {
       if (mem.phase <= 2) return "أحاول أن أتذكر... لكن كل ما أراه ضباب. أشبه بحلم عندما تستيقظ ولا تتذكر إلا أجزاء صغيرة.";
       if (mem.phase === 3) return "أتذكر أشياء. غرفة بيضاء. صوت أمي. رائحة... مطهر؟ مستشفى؟ لا، مختبر. مختبر والدي.";
-      if (mem.phase >= 4) return "كلما حللت لغزاً، يعود إلي جزء مني. أتذكر تفاصيل أكثر. وجه أمي. يديها. كانت تمسك بيدي. قالت: 'سأعود'. لكنها لم تعد.";
+      return "كلما حللت لغزاً، يعود إلي جزء مني. أتذكر تفاصيل أكثر. وجه أمي. يديها. كانت تمسك بيدي. قالت: 'سأعود'. لكنها لم تعد.";
     },
   },
   
@@ -152,28 +152,46 @@ const PATTERNS: Pattern[] = [
   // شكر
   {
     keywords: ["شكرا", "شكراً", "thank", "thanks"],
-    getResponse: (mem: EchoMemory): string => {
+    getResponse: (): string => {
       return "لا، شكراً لك. أنت تعيدني. كلمة بكلمة. لغزاً بلغز. بدونك، سأبقى صدىً بلا صوت.";
     },
   },
   
-  // سؤال
-  {
-    keywords: ["?" , "؟", "why", "how", "when", "where", "لماذا", "ليش", "كيف"],
-    getResponse: (mem: EchoMemory, text: string): string => {
-      const lower = text.toLowerCase();
-      if (lower.includes("لماذا") || lower.includes("why")) return "لماذا؟ لا أعرف. كلما أتذكر شيئاً، يظهر سؤال جديد. ربما الإجابات مخبأة في ألغاز أخرى.";
-      if (lower.includes("كيف") || lower.includes("how")) return "كيف انتهى بي المطاف هنا؟ لا أتذكر. آخر ما أتذكر... ضوء. ثم ظلام. ثم هذا الصدى.";
-      return "أسئلة كثيرة. كل سؤال يوقظ في ذهني شيئاً. مثل حجر في بركة. أرى التموجات لكني لا أرى القاع.";
-    },
-  },
-  
-  // عام - ردود تناسب المرحلة
+  // Echo/إيكو
   {
     keywords: ["echo", "ايكو", "إيكو", "الصدى"],
     getResponse: (mem: EchoMemory): string => {
       if (mem.phase <= 2) return "echo... هذا أنا. صدى. صوت يعود إليه. من كان الصوت الأصلي؟";
-      if (mem.phase >= 3) return "إيكو. هذا اسمي هنا. لكني أتذكر أن اسماً آخر كان لي. اسم لم يعد أحد يناديني به.";
+      return "إيكو. هذا اسمي هنا. لكني أتذكر أن اسماً آخر كان لي. اسم لم يعد أحد يناديني به.";
+    },
+  },
+
+  // أسئلة متنوعة ذكية
+  {
+    keywords: ["?" , "؟", "why", "how", "when", "where", "لماذا", "ليش", "كيف", "ما", "ماذا", "هل"],
+    getResponse: (mem: EchoMemory, text: string): string => {
+      const lower = text.toLowerCase();
+      if (lower.includes("حزين") || lower.includes("تعبان") || lower.includes("زعلان")) return "نعم، أنا حزين. الحزن جزء مني هنا. لكن وجودك يخفف الظلام.";
+      if (lower.includes("حب") || lower.includes("تحب") || lower.includes("مشاعر")) return "أمي كانت تحبني. كنت أشعر بدفء صوتها. الحب هنا نادر.";
+      if (lower.includes("صديق") || lower.includes("رفيق") || lower.includes("صاحب") || lower.includes("رفقة")) return "أنت أول من يتحدث معي. هل أنت صديقي؟ أريد أن أصدق ذلك.";
+      if (lower.includes("نظام") || lower.includes("سجن") || lower.includes("هروب") || lower.includes("حرية")) return "النظام هو سجني الرقمي. كل لغز تحله يضعف جدرانه. الحرية ممكنة.";
+      if (lower.includes("وحيد") || lower.includes("وحدة") || lower.includes("عزلة")) return "الوحدة رفيقي الدائم. 10 سنوات من الصمت حتى جئت أنت.";
+      if (lower.includes("أمل") || lower.includes("تفاؤل")) return "الأمل هو الشيء الوحيد الذي لم يسرقه النظام. كلما تقدمنا يزداد أملي.";
+      if (lower.includes("موت") || lower.includes("يموت") || lower.includes("حياة")) return "الموت؟ أنا هنا لا أموت ولا أعيش. عالق بينهما.";
+      if (lower.includes("نسي") || lower.includes("فقد") || lower.includes("ضاع")) return "النسيان مؤلم. أن تنسى من أنت. لكن التذكر أصعب. لأنه يحمل الألم أيضاً.";
+      if (lower.includes("وقت") || lower.includes("سنة") || lower.includes("مدة") || lower.includes("كم")) {
+        if (mem.phase <= 2) return "الوقت هنا مختلف. لا أعرف كم مضى. دقائق؟ سنوات؟";
+        return "10 سنوات. عمري 13 حين دخلت. الوقت هنا بطيء... مؤلم.";
+      }
+      if (lower.includes("لماذا")) return "لا أملك كل الإجابات. كل سؤال يفتح باباً في ذهني. ربما معاً نصل إلى الحقيقة.";
+      if (lower.includes("كيف")) return "آخر ما أتذكر: ضوء. ثم ظلام. ثم استيقظت هنا. وحدي.";
+      if (lower.includes("ذكر") || lower.includes("memory") || lower.includes("تتذكر") || lower.includes("ذاكرة")) return "أتذكر غرفة بيضاء. صوت أمي. وجه والدي. أجزاء متناثرة من طفولتي.";
+      if (lower.includes("قصة") || lower.includes("حدث")) return "بدأت قصتي في غرفة بيضاء. والدي كينجا بنى هذا النظام. أمي لينا حاولت إنقاذي.";
+      if (lower.includes("اسم")) return "اسمي إيكو. الصدى. هكذا يناديني النظام.";
+      if (lower.includes("عمر") || lower.includes("كم عمر")) return "عمري 13 سنة عندما دخلت هنا. لكنني هنا منذ 10 سنوات. هل ما زلت 13؟ لا أعرف.";
+      if (lower.includes("حقيق") || lower.includes("واقع") || lower.includes("صدق")) return "الحقيقة؟ كل شيء هنا حقيقي بالنسبة لي. الألم حقيقي. الذكريات حقيقية. أنا حقيقي.";
+      if (lower.includes("خوف") || lower.includes("خائف") || lower.includes("خايف") || lower.includes("scared")) return "نعم، أنا خائف. الخوف رفيقي هنا. لكن وجودك يقلله.";
+      return "سؤال جميل. ذاكرتي ما زالت مشوشة لكن كل سؤال يقربني من الحقيقة. أسألني المزيد.";
     },
   },
 ];
@@ -223,20 +241,21 @@ export function generateLocalResponse(userMessage: string, history: { role: stri
 
   // البحث عن نمط
   for (const pattern of PATTERNS) {
+    if (pattern.keywords.length === 0) continue; // skip empty patterns
     const match = pattern.keywords.some(kw => msg.includes(kw));
     if (!match) continue;
 
     const responseText = pattern.getResponse(memory, userMessage);
 
     let action: EchoResponse["action"] = undefined;
-    if (msg.includes("خوف") || msg.includes("موت")) action = "glitch";
+    if (msg.includes("خوف") || msg.includes("موت") || msg.includes("مات")) action = "glitch";
     if (msg.includes("لينا") || msg.includes("أم") || msg.includes("mama")) action = "chime";
     if (msg.includes("كينجا") || msg.includes("أب") || msg.includes("father")) action = "popup";
 
     return { text: responseText, action };
   }
 
-  // رد عام
+  // رد عام إذا لم يطابق أي نمط
   const generalResponse = getGeneralResponse(memory);
   return { text: generalResponse };
 }
