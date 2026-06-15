@@ -3560,7 +3560,7 @@ function App() {
                       height: size,
                       opacity,
                     }}>
-                    <svg viewBox="0 0 24 24" viewBox-fix xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
                       <g fill="rgba(245, 240, 235, 0.9)" stroke="rgba(180, 0, 0, 0.3)" strokeWidth="0.4">
                         <ellipse cx="12" cy="6" rx="3" ry="5" />
                         <ellipse cx="12" cy="18" rx="3" ry="5" />
