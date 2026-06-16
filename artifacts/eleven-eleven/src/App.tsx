@@ -7,6 +7,7 @@ import { SyncMeter } from "./SyncMeter";
 import { PuzzleHub } from "./PuzzleHub";
 import { AchievementToast, type ToastItem } from "./AchievementToast";
 import { useGameState, gameStore, usePassiveDread } from "./gameState";
+import { DashboardPage } from "./components/DashboardPage";
 import { streamEcho, type EchoMessage } from "./echoService";
 import {
   loadSave,
@@ -2634,6 +2635,7 @@ async function syncChatToDb(uid: string, messages: { role: "user" | "assistant";
 }
 
 function App() {
+  const [showDashboard, setShowDashboard] = useState(true);
   const [isListening, setIsListening] = useState(false);
   const [listenStatus, setListenStatus] = useState("WAITING FOR SIGNAL...");
   const [activePopup, setActivePopup] = useState<{ id: number; text: string; x: number; y: number } | null>(null);
@@ -3381,13 +3383,17 @@ function App() {
     >
       {!scanDone && <BiometricScan onDone={handleScanDone} />}
       {scanDone && !consentDone && <EntryScreen onDone={handleConsentDone} />}
+      {showDashboard && consentDone && langChosen && (
+        <DashboardPage onOpenChat={() => { setShowDashboard(false); setChatOpen(true); }} />
+      )}
       {scanDone && consentDone && !langChosen && (
         <AnimatePresence>
           <LangSelect onSelect={handleLangSelect} />
         </AnimatePresence>
       )}
-      <FuturisticBackground />
+      {!showDashboard && <FuturisticBackground />}
 
+      {!showDashboard && <>
       {/* Central glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] h-[90vw] md:w-[45vw] md:h-[45vw] rounded-full bg-primary/8 blur-[120px] pointer-events-none z-0 opacity-50"
         style={{ animation: "pulseGlow 6s ease-in-out infinite" }}
@@ -3482,6 +3488,12 @@ function App() {
           className="text-[9px] tracking-widest text-muted-foreground/55 hover:text-muted-foreground border border-muted/20 hover:border-primary/35 px-2 py-1 bg-background/40 backdrop-blur-sm transition-all duration-300"
         >
           ◈ ملفي
+        </button>
+        <button
+          onClick={() => setShowDashboard(true)}
+          className="text-[9px] tracking-widest text-primary/70 hover:text-primary border border-primary/35 hover:border-primary/60 px-2 py-1 bg-background/40 backdrop-blur-sm transition-all duration-300"
+        >
+          ◈ لوحة التحكم
         </button>
       </div>
 
@@ -4193,6 +4205,7 @@ function App() {
 
       {/* Fear / Curiosity sync meter — ambient ARG HUD */}
       {consentDone && <SyncMeter spikeCount={spikeCount} />}
+      </>}
     </div>
   );
 }
