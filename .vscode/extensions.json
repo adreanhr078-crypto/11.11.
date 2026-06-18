@@ -1,6 +1,7 @@
 {
     "recommendations": [
         "ritwickdey.liveserver",
-        "phondani0.vite-serve"
+        "phondani0.vite-serve",
+        "vscjava.vscode-java-pack"
     ]
 }
