@@ -21,11 +21,15 @@ android {
              applicationIdSuffix ".debug"
              versionNameSuffix "-DEBUG"
              debuggable true
+             minifyEnabled false
+             shrinkResources false
          }
          release {
              minifyEnabled true
+             shrinkResources true
              proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
              signingConfig signingConfigs.release
+             debuggable false
          }
      }
 }
