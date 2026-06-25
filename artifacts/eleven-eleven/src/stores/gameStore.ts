@@ -7,6 +7,8 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { generateFractureArcPuzzles, generateFractureMemoryShards, generateFractureCinematicScenes, generateFractureAchievements, FractureArcData } from '../core/echoFractureArc';
+import { generatePreludeArcPuzzles, generatePreludeMemoryShards, generatePreludeCinematicScenes, generatePreludeAchievements, PreludeArcData } from '../core/echoTransformationPreludeArc';
 
 // ─── TYPES ────────────────────────────────────────────────────────────
 export type TimePhase = 'morning' | 'day' | 'evening' | '11:00' | '11:05' | '11:11';
@@ -36,7 +38,7 @@ export interface PuzzleNode {
   status: PuzzleStatus; difficulty: number;
   storyReveal: string; memoryUnlock: string | null;
   dependencies: string[];
-  effects: { trust?: number; fear?: number; memoryStability?: number; corruption?: number; hope?: number; flower?: number; };
+  effects: { trust?: number; fear?: number; memoryStability?: number; corruption?: number; hope?: number; flower?: number; awareness?: number; };
 }
 
 export interface EntityState {
@@ -112,8 +114,8 @@ const initialState: GameState = {
   },
   time: { phase: 'morning', phaseIndex: 0, isNight: false, hour: 8, minute: 0, dayCycle: 1 },
   flower: { stage: 'seed', growth: 0, decay: 0, hiddenUnlocked: false, maxStage: 5 },
-  memory: { fragmentsCollected: 0, totalFragments: 54, corruptedFragments: 0, timelineEvents: [], logsUnlocked: [] },
-  puzzles: [], totalPuzzles: 219, solvedPuzzles: 0,
+  memory: { fragmentsCollected: 0, totalFragments: 54 + 114 + 167, corruptedFragments: 0, timelineEvents: [], logsUnlocked: [] },
+  puzzles: [], totalPuzzles: 500, solvedPuzzles: 0,
   entities: {
     echo: { id: 'echo', name: 'الصدى', glyph: '◈', unlocked: true, completed: false, puzzlesSolved: 0, totalPuzzles: 55, dialogueProgress: 0, loreUnlocked: [] },
     watcher: { id: 'watcher', name: 'المراقب', glyph: '◉', unlocked: false, completed: false, puzzlesSolved: 0, totalPuzzles: 55, dialogueProgress: 0, loreUnlocked: [] },
@@ -138,9 +140,10 @@ const initialState: GameState = {
   actions: {} as any,
 };
 
-// ─── ACHIEVEMENTS (24) ────────────────────────────────────────────────
+// ─── ACHIEVEMENTS (24 + 20 = 44) ────────────────────────────────────────────────
 function generateAllAchievements(): Achievement[] {
-  return [
+  // Original achievements
+  const originalAchievements: Achievement[] = [
     { id: 'first_puzzle', name: 'أول خطوة', desc: 'حل أول لغز', icon: '🧩', unlocked: false, unlockedAt: null },
     { id: 'ten_puzzles', name: 'باحث', desc: 'حل 10 ألغاز', icon: '🔍', unlocked: false, unlockedAt: null },
     { id: 'twenty_puzzles', name: 'مستكشف', desc: 'حل 20 لغزاً', icon: '🗺️', unlocked: false, unlockedAt: null },
@@ -166,9 +169,15 @@ function generateAllAchievements(): Achievement[] {
     { id: 'ending_sorrow', name: 'نهاية حزينة', desc: 'وصلت للنهاية الحزينة', icon: '💧', unlocked: false, unlockedAt: null },
     { id: 'ending_truth', name: 'الحقيقة', desc: 'وصلت للحقيقة', icon: '🔦', unlocked: false, unlockedAt: null },
   ];
+
+  // Add Fracture Arc achievements
+  const fractureArcAchievements = generateFractureAchievements();
+  // Add Prelude Arc achievements
+  const preludeArcAchievements = generatePreludeAchievements();
+  return [...originalAchievements, ...preludeArcAchievements, ...fractureArcAchievements];
 }
 
-// ─── PUZZLE GENERATOR (219) ───────────────────────────────────────────
+// ─── PUZZLE GENERATOR (219 + 167 = 386) ───────────────────────────────────────────
 function generateAllPuzzles(): PuzzleNode[] {
   const puzzles: PuzzleNode[] = [];
   const entities: EntityId[] = ['echo', 'watcher', 'signal', 'architect'];
@@ -223,6 +232,15 @@ function generateAllPuzzles(): PuzzleNode[] {
       });
     }
   });
+
+  // Add Prelude Arc puzzles (220-333) - these become available after the original 219 puzzles
+  const preludeArcPuzzles = generatePreludeArcPuzzles();
+  puzzles.push(...preludeArcPuzzles);
+
+  // Add Fracture Arc puzzles (334-500) - these become available after puzzle 333 (Echo's transformation)
+  const fractureArcPuzzles = generateFractureArcPuzzles();
+  puzzles.push(...fractureArcPuzzles);
+
   return puzzles;
 }
 
@@ -460,6 +478,8 @@ export const useGameStore = create<GameState>()(
 function checkAllAchievements(solved: number, echo: EchoState, flowerStage: string, wishCount: number, dayCycle: number, endings: EndingState): Achievement[] {
   const list: Achievement[] = generateAllAchievements();
   const u = (id: string) => list.find(a => a.id === id)!;
+
+  // Original achievements
   if (solved >= 1) u('first_puzzle').unlocked = true;
   if (solved >= 10) u('ten_puzzles').unlocked = true;
   if (solved >= 20) u('twenty_puzzles').unlocked = true;
@@ -478,6 +498,49 @@ function checkAllAchievements(solved: number, echo: EchoState, flowerStage: stri
   if (dayCycle >= 2) u('survive_night').unlocked = true;
   if (endings.sorrow.unlocked) u('ending_sorrow').unlocked = true;
   if (endings.truth.unlocked) u('ending_truth').unlocked = true;
+
+  // Prelude Arc achievements (220-333)
+  if (solved >= 220) u('first_change').unlocked = true;
+  if (solved >= 230) u('echo_awakening').unlocked = true;
+  if (solved >= 240) u('memory_distortion').unlocked = true;
+  if (solved >= 260) u('interface_tension').unlocked = true;
+  if (solved >= 270) u('entity_approach').unlocked = true;
+  if (solved >= 280) u('truth_revelation').unlocked = true;
+  if (solved >= 305) u('lina_message').unlocked = true;
+  if (solved >= 320) u('hidden_plan').unlocked = true;
+  if (solved >= 332) u('transformation_ready').unlocked = true;
+  if (solved >= 333) u('echo_dominance').unlocked = true;
+  if (solved >= 333) u('the_333rd_crack').unlocked = true;
+
+  // Fracture Arc achievements (334-500)
+  if (solved >= 334) u('first_crack').unlocked = true;
+  if (solved >= 350) u('fracture_begin').unlocked = true;
+  if (solved >= 390) u('system_distrust').unlocked = true;
+  if (solved >= 400) u('hidden_truth').unlocked = true;
+  if (solved >= 430) u('lina_message').unlocked = true;
+  if (solved >= 450) u('catastrophic_event').unlocked = true;
+  if (solved >= 470) u('true_identity').unlocked = true;
+  if (solved >= 500) u('fracture_complete').unlocked = true;
+
+  // Memory collection achievements
+  const preludeMemoryCount = Math.max(0, Math.min(solved - 219, 114)); // Prelude Arc puzzles solved (220-333)
+  const fractureMemoryCount = Math.max(0, solved - 333); // Fracture Arc puzzles solved (334-500)
+
+  if (preludeMemoryCount >= 10) u('flower_evolution').unlocked = true;
+  if (preludeMemoryCount >= 25) u('system_tension').unlocked = true;
+  if (preludeMemoryCount >= 50) u('echo_evolution').unlocked = true;
+  if (preludeMemoryCount >= 114) u('prelude_master').unlocked = true;
+
+  if (fractureMemoryCount >= 10) u('memory_hunter').unlocked = true;
+  if (fractureMemoryCount >= 25) u('truth_seeker').unlocked = true;
+  if (fractureMemoryCount >= 50) u('memory_collector').unlocked = true;
+  if (fractureMemoryCount >= 167) u('memory_rebuilder').unlocked = true;
+
+  // Special condition achievements
+  if (echo.corruption >= 90) u('corruption_master').unlocked = true;
+  if (echo.awareness >= 80) u('echo_evolution').unlocked = true;
+  if (echo.corruption >= 90 && echo.awareness >= 80) u('system_breaker').unlocked = true;
+
   return list;
 }
 

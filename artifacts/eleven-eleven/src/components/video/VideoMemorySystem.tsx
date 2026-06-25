@@ -5,6 +5,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useGameStore } from '../../stores/gameStore';
+import { generateFractureCinematicScenes } from '../../core/echoFractureArc';
+import { generatePreludeCinematicScenes } from '../../core/echoTransformationPreludeArc';
 
 export const VideoMemorySystem: React.FC = () => {
   const { solvedPuzzles, time, echo } = useGameStore();
@@ -84,6 +86,28 @@ export const VideoMemorySystem: React.FC = () => {
       description: 'الحقيقة الكاملة عن 11.11 - ما يحدث عندما تتذكر كل شيء.'
     }
   ];
+
+  // Add Prelude Arc Cinematic Scenes (230-333)
+  const preludeScenes = generatePreludeCinematicScenes().map((scene, index) => ({
+    id: `prelude_vm${index + 1}`,
+    title: scene.title,
+    milestone: scene.triggerPuzzle,
+    url: 'https://www.youtube.com/embed/dQw4w9WgXcQ', // placeholder
+    description: scene.description
+  }));
+
+  videoMemories.push(...preludeScenes);
+
+  // Add Fracture Arc Cinematic Scenes (350-500)
+  const fractureScenes = generateFractureCinematicScenes().map((scene, index) => ({
+    id: `fracture_vm${index + 1}`,
+    title: scene.title,
+    milestone: scene.triggerPuzzle,
+    url: 'https://www.youtube.com/embed/dQw4w9WgXcQ', // placeholder
+    description: scene.description
+  }));
+
+  videoMemories.push(...fractureScenes);
 
   // تحقق من معالم الفيديو
   useEffect(() => {
