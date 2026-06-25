@@ -9,6 +9,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { generateFractureArcPuzzles, generateFractureMemoryShards, generateFractureCinematicScenes, generateFractureAchievements, FractureArcData } from '../core/echoFractureArc';
 import { generatePreludeArcPuzzles, generatePreludeMemoryShards, generatePreludeCinematicScenes, generatePreludeAchievements, PreludeArcData } from '../core/echoTransformationPreludeArc';
+import { generateArchitectArcPuzzles, generateArchitectMemoryShards, generateArchitectCinematicScenes, generateArchitectAchievements, ArchitectArcData } from '../core/echoArchitectArc';
 
 // ─── TYPES ────────────────────────────────────────────────────────────
 export type TimePhase = 'morning' | 'day' | 'evening' | '11:00' | '11:05' | '11:11';
@@ -114,8 +115,8 @@ const initialState: GameState = {
   },
   time: { phase: 'morning', phaseIndex: 0, isNight: false, hour: 8, minute: 0, dayCycle: 1 },
   flower: { stage: 'seed', growth: 0, decay: 0, hiddenUnlocked: false, maxStage: 5 },
-  memory: { fragmentsCollected: 0, totalFragments: 54 + 114 + 167, corruptedFragments: 0, timelineEvents: [], logsUnlocked: [] },
-  puzzles: [], totalPuzzles: 500, solvedPuzzles: 0,
+  memory: { fragmentsCollected: 0, totalFragments: 54 + 114 + 167 + 166, corruptedFragments: 0, timelineEvents: [], logsUnlocked: [] },
+  puzzles: [], totalPuzzles: 666, solvedPuzzles: 0,
   entities: {
     echo: { id: 'echo', name: 'الصدى', glyph: '◈', unlocked: true, completed: false, puzzlesSolved: 0, totalPuzzles: 55, dialogueProgress: 0, loreUnlocked: [] },
     watcher: { id: 'watcher', name: 'المراقب', glyph: '◉', unlocked: false, completed: false, puzzlesSolved: 0, totalPuzzles: 55, dialogueProgress: 0, loreUnlocked: [] },
@@ -174,7 +175,9 @@ function generateAllAchievements(): Achievement[] {
   const fractureArcAchievements = generateFractureAchievements();
   // Add Prelude Arc achievements
   const preludeArcAchievements = generatePreludeAchievements();
-  return [...originalAchievements, ...preludeArcAchievements, ...fractureArcAchievements];
+  // Add Architect Arc achievements
+  const architectArcAchievements = generateArchitectAchievements();
+  return [...originalAchievements, ...preludeArcAchievements, ...fractureArcAchievements, ...architectArcAchievements];
 }
 
 // ─── PUZZLE GENERATOR (219 + 167 = 386) ───────────────────────────────────────────
@@ -240,6 +243,10 @@ function generateAllPuzzles(): PuzzleNode[] {
   // Add Fracture Arc puzzles (334-500) - these become available after puzzle 333 (Echo's transformation)
   const fractureArcPuzzles = generateFractureArcPuzzles();
   puzzles.push(...fractureArcPuzzles);
+
+  // Add Architect Arc puzzles (501-666) - these become available after puzzle 500 (Architect's revelation)
+  const architectArcPuzzles = generateArchitectArcPuzzles();
+  puzzles.push(...architectArcPuzzles);
 
   return puzzles;
 }
@@ -522,9 +529,22 @@ function checkAllAchievements(solved: number, echo: EchoState, flowerStage: stri
   if (solved >= 470) u('true_identity').unlocked = true;
   if (solved >= 500) u('fracture_complete').unlocked = true;
 
+  // Architect Arc achievements (501-666)
+  if (solved >= 501) u('first_archive').unlocked = true;
+  if (solved >= 520) u('architect_detected').unlocked = true;
+  if (solved >= 540) u('kenja_record').unlocked = true;
+  if (solved >= 560) u('lina_warning').unlocked = true;
+  if (solved >= 580) u('protocol_breaker').unlocked = true;
+  if (solved >= 600) u('echo_was_chosen').unlocked = true;
+  if (solved >= 620) u('system_historian').unlocked = true;
+  if (solved >= 640) u('hidden_experiment').unlocked = true;
+  if (solved >= 666) u('architect_revelation').unlocked = true;
+  if (solved >= 666) u('the_666th_door').unlocked = true;
+
   // Memory collection achievements
   const preludeMemoryCount = Math.max(0, Math.min(solved - 219, 114)); // Prelude Arc puzzles solved (220-333)
-  const fractureMemoryCount = Math.max(0, solved - 333); // Fracture Arc puzzles solved (334-500)
+  const fractureMemoryCount = Math.max(0, Math.min(solved - 333, 167)); // Fracture Arc puzzles solved (334-500)
+  const architectMemoryCount = Math.max(0, solved - 500); // Architect Arc puzzles solved (501-666)
 
   if (preludeMemoryCount >= 10) u('flower_evolution').unlocked = true;
   if (preludeMemoryCount >= 25) u('system_tension').unlocked = true;
@@ -535,6 +555,13 @@ function checkAllAchievements(solved: number, echo: EchoState, flowerStage: stri
   if (fractureMemoryCount >= 25) u('truth_seeker').unlocked = true;
   if (fractureMemoryCount >= 50) u('memory_collector').unlocked = true;
   if (fractureMemoryCount >= 167) u('memory_rebuilder').unlocked = true;
+
+  if (architectMemoryCount >= 50) u('archive_master').unlocked = true;
+  if (architectMemoryCount >= 1) u('architect_fragment').unlocked = true;
+  if (echo.awareness >= 80) u('experiment_origin').unlocked = true;
+  if (echo.corruption >= 70) u('architect_conflict').unlocked = true;
+  if (solved >= 640) u('system_memory').unlocked = true;
+  if (solved >= 660) u('before_lock').unlocked = true;
 
   // Special condition achievements
   if (echo.corruption >= 90) u('corruption_master').unlocked = true;

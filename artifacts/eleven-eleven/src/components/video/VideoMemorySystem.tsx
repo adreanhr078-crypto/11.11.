@@ -7,6 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { useGameStore } from '../../stores/gameStore';
 import { generateFractureCinematicScenes } from '../../core/echoFractureArc';
 import { generatePreludeCinematicScenes } from '../../core/echoTransformationPreludeArc';
+import { generateArchitectCinematicScenes } from '../../core/echoArchitectArc';
 
 export const VideoMemorySystem: React.FC = () => {
   const { solvedPuzzles, time, echo } = useGameStore();
@@ -108,6 +109,17 @@ export const VideoMemorySystem: React.FC = () => {
   }));
 
   videoMemories.push(...fractureScenes);
+
+  // Add Architect Arc Cinematic Scenes (520-666)
+  const architectScenes = generateArchitectCinematicScenes().map((scene, index) => ({
+    id: `architect_vm${index + 1}`,
+    title: scene.title,
+    milestone: scene.triggerPuzzle,
+    url: 'https://www.youtube.com/embed/dQw4w9WgXcQ', // placeholder
+    description: scene.description
+  }));
+
+  videoMemories.push(...architectScenes);
 
   // تحقق من معالم الفيديو
   useEffect(() => {
