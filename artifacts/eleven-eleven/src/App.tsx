@@ -21,7 +21,10 @@ import { OverviewSection } from './components/sections/OverviewSection';
 import { EndingPanel } from './components/sections/EndingPanel';
 import { TimelineSection } from './components/sections/TimelineSection';
 import { NightAlert, CinematicMode } from './components/effects/CinematicMode';
+import { AnimationSystem } from './components/effects/AnimationSystem';
 import { useAudioSystem } from './hooks/useAudioSystem';
+import { VideoMemorySystem } from './components/video/VideoMemorySystem';
+import { toggleLanguage, translate } from './core/echoMultilingualSystem';
 
 export default function App() {
   const actions = useGameStore(s => s.actions);
@@ -67,6 +70,8 @@ export default function App() {
   return (
     <div id="app" className="app-root" dir="rtl">
       {showCinematic && <CinematicMode onEnd={() => setShowCinematic(false)} />}
+      <AnimationSystem />
+      <VideoMemorySystem />
       <NightAlert phaseIndex={time.phaseIndex} phase={time.phase} />
       
       <GameSidebar activeSection={activeSection} onNavigate={setActiveSection} />
@@ -81,6 +86,25 @@ export default function App() {
                 {time.phaseIndex >= 1 && ` ⚠ مرحله ${time.phaseIndex}/3`}
               </span>
             </h2>
+          </div>
+          <div className="topbar-left">
+            <button
+              onClick={() => toggleLanguage()}
+              style={{
+                padding: '0.4rem 0.8rem',
+                background: 'rgba(180,120,80,0.2)',
+                border: '1px solid rgba(180,120,80,0.3)',
+                color: 'var(--accent)',
+                fontSize: '0.6rem',
+                cursor: 'pointer',
+                borderRadius: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem'
+              }}
+            >
+              {document.documentElement.lang === 'ar' ? '🇬🇧 English' : '🇸🇦 العربية'}
+            </button>
           </div>
         </header>
 

@@ -11,7 +11,7 @@
  *
  * SYSTEM ARCHITECTURE:
  * All systems feed into the Flower, and the Flower controls all systems.
- */
+ */ 
 
 import { echoFlowerSystem } from "./echoFlowerSystem";
 import { echoSimplifiedEngine } from "./echoSimplifiedEngine";
