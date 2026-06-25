@@ -11,6 +11,7 @@ import { generateFractureArcPuzzles, generateFractureMemoryShards, generateFract
 import { generatePreludeArcPuzzles, generatePreludeMemoryShards, generatePreludeCinematicScenes, generatePreludeAchievements, PreludeArcData } from '../core/echoTransformationPreludeArc';
 import { generateArchitectArcPuzzles, generateArchitectMemoryShards, generateArchitectCinematicScenes, generateArchitectAchievements, ArchitectArcData } from '../core/echoArchitectArc';
 import { generateSignalArcPuzzles, generateSignalMemoryShards, generateSignalCinematicScenes, generateSignalAchievements, SignalArcData } from '../core/echoSignalArc';
+import { generateFinalArcPuzzles, generateFinalMemoryShards, generateFinalCinematicScenes, generateFinalAchievements, FinalArcData, ExpandedEndingSystem } from '../core/echoFinalArc';
 
 // ─── TYPES ────────────────────────────────────────────────────────────
 export type TimePhase = 'morning' | 'day' | 'evening' | '11:00' | '11:05' | '11:11';
@@ -116,8 +117,8 @@ const initialState: GameState = {
   },
   time: { phase: 'morning', phaseIndex: 0, isNight: false, hour: 8, minute: 0, dayCycle: 1 },
   flower: { stage: 'seed', growth: 0, decay: 0, hiddenUnlocked: false, maxStage: 5 },
-  memory: { fragmentsCollected: 0, totalFragments: 54 + 114 + 167 + 166 + 222, corruptedFragments: 0, timelineEvents: [], logsUnlocked: [] },
-  puzzles: [], totalPuzzles: 888, solvedPuzzles: 0,
+  memory: { fragmentsCollected: 0, totalFragments: 54 + 114 + 167 + 166 + 222 + 112, corruptedFragments: 0, timelineEvents: [], logsUnlocked: [] },
+  puzzles: [], totalPuzzles: 1000, solvedPuzzles: 0,
   entities: {
     echo: { id: 'echo', name: 'الصدى', glyph: '◈', unlocked: true, completed: false, puzzlesSolved: 0, totalPuzzles: 55, dialogueProgress: 0, loreUnlocked: [] },
     watcher: { id: 'watcher', name: 'المراقب', glyph: '◉', unlocked: false, completed: false, puzzlesSolved: 0, totalPuzzles: 55, dialogueProgress: 0, loreUnlocked: [] },
@@ -180,7 +181,9 @@ function generateAllAchievements(): Achievement[] {
   const architectArcAchievements = generateArchitectAchievements();
   // Add Signal Arc achievements
   const signalArcAchievements = generateSignalAchievements();
-  return [...originalAchievements, ...preludeArcAchievements, ...fractureArcAchievements, ...architectArcAchievements, ...signalArcAchievements];
+  // Add Final Arc achievements
+  const finalArcAchievements = generateFinalAchievements();
+  return [...originalAchievements, ...preludeArcAchievements, ...fractureArcAchievements, ...architectArcAchievements, ...signalArcAchievements, ...finalArcAchievements];
 }
 
 // ─── PUZZLE GENERATOR (219 + 167 = 386) ───────────────────────────────────────────
@@ -254,6 +257,10 @@ function generateAllPuzzles(): PuzzleNode[] {
   // Add Signal Arc puzzles (667-888) - these become available after puzzle 666 (Signal's manifestation)
   const signalArcPuzzles = generateSignalArcPuzzles();
   puzzles.push(...signalArcPuzzles);
+
+  // Add Final Arc puzzles (889-1000) - these become available after puzzle 888 (The Last Wish)
+  const finalArcPuzzles = generateFinalArcPuzzles();
+  puzzles.push(...finalArcPuzzles);
 
   return puzzles;
 }
@@ -561,11 +568,23 @@ function checkAllAchievements(solved: number, echo: EchoState, flowerStage: stri
   if (solved >= 888) u('the_888th_signal').unlocked = true;
   if (solved >= 888) u('signal_manifestation').unlocked = true;
 
+  // Final Arc achievements (889-1000)
+  if (solved >= 889) u('the_last_door').unlocked = true;
+  if (solved >= 900) u('echo_remembers').unlocked = true;
+  if (solved >= 915) u('lina_final_message').unlocked = true;
+  if (solved >= 930) u('architect_collapse').unlocked = true;
+  if (solved >= 945) u('signal_true_voice').unlocked = true;
+  if (solved >= 960) u('original_wish').unlocked = true;
+  if (solved >= 975) u('before_11_11').unlocked = true;
+  if (solved >= 1000) u('the_1000th_puzzle').unlocked = true;
+  if (solved >= 1000) u('the_last_wish').unlocked = true;
+
   // Memory collection achievements
   const preludeMemoryCount = Math.max(0, Math.min(solved - 219, 114)); // Prelude Arc puzzles solved (220-333)
   const fractureMemoryCount = Math.max(0, Math.min(solved - 333, 167)); // Fracture Arc puzzles solved (334-500)
   const architectMemoryCount = Math.max(0, Math.min(solved - 500, 167)); // Architect Arc puzzles solved (501-666)
-  const signalMemoryCount = Math.max(0, solved - 666); // Signal Arc puzzles solved (667-888)
+  const signalMemoryCount = Math.max(0, Math.min(solved - 666, 222)); // Signal Arc puzzles solved (667-888)
+  const finalMemoryCount = Math.max(0, solved - 888); // Final Arc puzzles solved (889-1000)
 
   if (preludeMemoryCount >= 10) u('flower_evolution').unlocked = true;
   if (preludeMemoryCount >= 25) u('system_tension').unlocked = true;

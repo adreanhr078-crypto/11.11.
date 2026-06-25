@@ -2,6 +2,7 @@
     "recommendations": [
         "ritwickdey.liveserver",
         "phondani0.vite-serve",
-        "vscjava.vscode-java-pack"
+        "vscjava.vscode-java-pack",
+        "ms-edgedevtools.vscode-edge-devtools"
     ]
 }
