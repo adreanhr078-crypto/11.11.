@@ -96,6 +96,11 @@ export interface GameState {
   achievements: Achievement[];
   endings: EndingState;
   narrativeTriggers: Record<string, boolean>;
+  finalChoice: string | null;
+  unlockedEndings: string[];
+  seenEndings: string[];
+  achievedEnding: string | null;
+  lastEndingViewed: string | null;
   actions: {
     chat: () => { dialogue: string; effects: Partial<EchoState>; };
     solve: (puzzleId: string, answer: string) => { success: boolean; message: string; achievement?: Achievement; };
@@ -103,6 +108,9 @@ export interface GameState {
     addWish: (text: string) => void;
     completeWish: (wishId: string) => void;
     checkEndings: () => void;
+    makeFinalChoice: (choice: string) => void;
+    resetGame: () => void;
+    replayEnding: (endingId: string) => void;
   };
 }
 
@@ -119,6 +127,11 @@ const initialState: GameState = {
   flower: { stage: 'seed', growth: 0, decay: 0, hiddenUnlocked: false, maxStage: 5 },
   memory: { fragmentsCollected: 0, totalFragments: 54 + 114 + 167 + 166 + 222 + 112, corruptedFragments: 0, timelineEvents: [], logsUnlocked: [] },
   puzzles: [], totalPuzzles: 1000, solvedPuzzles: 0,
+  finalChoice: null as string | null,
+  unlockedEndings: [] as string[],
+  seenEndings: [] as string[],
+  achievedEnding: null as string | null,
+  lastEndingViewed: null as string | null,
   entities: {
     echo: { id: 'echo', name: 'الصدى', glyph: '◈', unlocked: true, completed: false, puzzlesSolved: 0, totalPuzzles: 55, dialogueProgress: 0, loreUnlocked: [] },
     watcher: { id: 'watcher', name: 'المراقب', glyph: '◉', unlocked: false, completed: false, puzzlesSolved: 0, totalPuzzles: 55, dialogueProgress: 0, loreUnlocked: [] },
@@ -478,6 +491,55 @@ export const useGameStore = create<GameState>()(
           const ended = checkEndingProgress(state);
           set({ endings: ended });
         },
+
+        // ✅ FINAL CHOICE SYSTEM
+        makeFinalChoice: (choice: string) => {
+          const state = get();
+          const newUnlockedEndings = [...state.unlockedEndings];
+          const newSeenEndings = [...state.seenEndings];
+          const newAchievedEnding = choice;
+
+          // Determine which ending to unlock based on choice and conditions
+          const ending = ExpandedEndingSystem.endings.find(e => e.id === choice);
+          if (ending) {
+            if (!newUnlockedEndings.includes(choice)) {
+              newUnlockedEndings.push(choice);
+            }
+            if (!newSeenEndings.includes(choice)) {
+              newSeenEndings.push(choice);
+            }
+          }
+
+          set({
+            finalChoice: choice,
+            unlockedEndings: newUnlockedEndings,
+            seenEndings: newSeenEndings,
+            achievedEnding: newAchievedEnding,
+            lastEndingViewed: choice
+          });
+        },
+
+        // 🔄 RESET GAME
+        resetGame: () => {
+          if (window.confirm('هل أنت متأكد من أنك تريد إعادة تعيين التقدم؟ سيتم حذف جميع البيانات!')) {
+            localStorage.removeItem('11-11-game-store');
+            window.location.reload();
+          }
+        },
+
+        // 🎬 REPLAY ENDING
+        replayEnding: (endingId: string) => {
+          const state = get();
+          const newSeenEndings = [...state.seenEndings];
+          if (!newSeenEndings.includes(endingId)) {
+            newSeenEndings.push(endingId);
+          }
+
+          set({
+            lastEndingViewed: endingId,
+            seenEndings: newSeenEndings
+          });
+        },
       },
     }),
     {
@@ -645,4 +707,5 @@ function checkEndingProgress(state: GameState): EndingState {
   return endings;
 }
 
+export { ExpandedEndingSystem };
 export default useGameStore;

@@ -3,6 +3,7 @@
         "ritwickdey.liveserver",
         "phondani0.vite-serve",
         "vscjava.vscode-java-pack",
-        "ms-edgedevtools.vscode-edge-devtools"
+        "ms-edgedevtools.vscode-edge-devtools",
+        "redhat.java"
     ]
 }
