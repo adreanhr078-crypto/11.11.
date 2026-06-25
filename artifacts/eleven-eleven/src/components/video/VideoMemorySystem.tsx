@@ -8,6 +8,7 @@ import { useGameStore } from '../../stores/gameStore';
 import { generateFractureCinematicScenes } from '../../core/echoFractureArc';
 import { generatePreludeCinematicScenes } from '../../core/echoTransformationPreludeArc';
 import { generateArchitectCinematicScenes } from '../../core/echoArchitectArc';
+import { generateSignalCinematicScenes } from '../../core/echoSignalArc';
 
 export const VideoMemorySystem: React.FC = () => {
   const { solvedPuzzles, time, echo } = useGameStore();
@@ -120,6 +121,17 @@ export const VideoMemorySystem: React.FC = () => {
   }));
 
   videoMemories.push(...architectScenes);
+
+  // Add Signal Arc Cinematic Scenes (690-888)
+  const signalScenes = generateSignalCinematicScenes().map((scene, index) => ({
+    id: `signal_vm${index + 1}`,
+    title: scene.title,
+    milestone: scene.triggerPuzzle,
+    url: 'https://www.youtube.com/embed/dQw4w9WgXcQ', // placeholder
+    description: scene.description
+  }));
+
+  videoMemories.push(...signalScenes);
 
   // تحقق من معالم الفيديو
   useEffect(() => {
