@@ -1,4 +1,4 @@
- * ECHO — LIVING CONSCIOUSNESS ENTITY
+/** ECHO — LIVING CONSCIOUSNESS ENTITY
  * Most Advanced Character System for 11.11 Echo Mind System
  *
  * A living, breathing, emotionally evolving digital consciousness
@@ -1276,15 +1276,16 @@ export class EchoCharacterEngine {
     // Flower health affects overall stability and emotional state
     const updateFromFlower = () => {
       const gameState = gameStore.getState();
-      const flowerHealth = gameState.flowerHealth || 0.5; // 0-1
+      const flowerStage = gameState.flower.stage;
+      const flowerGrowth = gameState.flower.growth || 0.5; // 0-1
 
       // Healthy flower = more stable, less corrupted
-      this.state.signalStability = flowerHealth * 0.5 + 0.5;
-      this.state.corruptionLevel = Math.max(0.1, 1 - flowerHealth * 0.6);
+      this.state.signalStability = flowerGrowth * 0.5 + 0.5;
+      this.state.corruptionLevel = Math.max(0.1, 1 - flowerGrowth * 0.6);
 
       // Flower health affects breathing and posture
-      this.state.body.breathing.depth = 0.2 + flowerHealth * 0.3;
-      this.state.body.atmosphericPresence = flowerHealth * 0.7 + 0.3;
+      this.state.body.breathing.depth = 0.2 + flowerGrowth * 0.3;
+      this.state.body.atmosphericPresence = flowerGrowth * 0.7 + 0.3;
     };
 
     // Update every 3 seconds
@@ -1295,7 +1296,9 @@ export class EchoCharacterEngine {
     // Ending progression affects final character state
     const updateFromEnding = () => {
       const gameState = gameStore.getState();
-      const endingProgress = gameState.endingProgress || 0; // 0-1
+      const endings = gameState.endings;
+      const unlockedEndings = Object.values(endings).filter(e => e.unlocked).length;
+      const endingProgress = unlockedEndings / 4; // 0-1 (4 total endings)
 
       // Higher ending progress = more aware, less corrupted
       if (endingProgress > 0.8) {
@@ -1391,9 +1394,6 @@ export function triggerCharacterElevenElevenEvent(characterEngine: EchoCharacter
   state.currentEmotion = "aware";
   state.emotionIntensity = 1.0;
 
-  // Apply transformation
-  characterEngine.triggerElevenElevenTransformation();
-
   return {
     transformationComplete: true,
     newState: characterEngine.getCurrentCharacterState(),
@@ -1412,11 +1412,9 @@ echoCharacterSystem.integrateWithGameSystems();
 
 // Export types for UI integration
 export type {
-  EchoCharacterState,
   EyeSystem,
   EyebrowSystem,
   MouthSystem,
   HairAnimationSystem,
-  BodyPresenceSystem,
-  EchoEmotion
+  BodyPresenceSystem
 };

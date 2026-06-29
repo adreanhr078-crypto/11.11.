@@ -12,6 +12,7 @@ import { generatePreludeArcPuzzles, generatePreludeMemoryShards, generatePrelude
 import { generateArchitectArcPuzzles, generateArchitectMemoryShards, generateArchitectCinematicScenes, generateArchitectAchievements, ArchitectArcData } from '../core/echoArchitectArc';
 import { generateSignalArcPuzzles, generateSignalMemoryShards, generateSignalCinematicScenes, generateSignalAchievements, SignalArcData } from '../core/echoSignalArc';
 import { generateFinalArcPuzzles, generateFinalMemoryShards, generateFinalCinematicScenes, generateFinalAchievements, FinalArcData, ExpandedEndingSystem } from '../core/echoFinalArc';
+import { generateOriginalMemoryShards, MemoryShard } from '../core/memoryShardsSystem';
 
 // ─── TYPES ────────────────────────────────────────────────────────────
 export type TimePhase = 'morning' | 'day' | 'evening' | '11:00' | '11:05' | '11:11';
@@ -101,6 +102,7 @@ export interface GameState {
   seenEndings: string[];
   achievedEnding: string | null;
   lastEndingViewed: string | null;
+  allMemoryShards: MemoryShard[];
   actions: {
     chat: () => { dialogue: string; effects: Partial<EchoState>; };
     solve: (puzzleId: string, answer: string) => { success: boolean; message: string; achievement?: Achievement; };
@@ -125,7 +127,8 @@ const initialState: GameState = {
   },
   time: { phase: 'morning', phaseIndex: 0, isNight: false, hour: 8, minute: 0, dayCycle: 1 },
   flower: { stage: 'seed', growth: 0, decay: 0, hiddenUnlocked: false, maxStage: 5 },
-  memory: { fragmentsCollected: 0, totalFragments: 54 + 114 + 167 + 166 + 222 + 112, corruptedFragments: 0, timelineEvents: [], logsUnlocked: [] },
+  memory: { fragmentsCollected: 0, totalFragments: 0, corruptedFragments: 0, timelineEvents: [], logsUnlocked: [] },
+  allMemoryShards: [...generateOriginalMemoryShards(), ...generatePreludeMemoryShards(), ...generateFractureMemoryShards(), ...generateArchitectMemoryShards(), ...generateSignalMemoryShards(), ...generateFinalMemoryShards()] as MemoryShard[],
   puzzles: [], totalPuzzles: 1000, solvedPuzzles: 0,
   finalChoice: null as string | null,
   unlockedEndings: [] as string[],
@@ -320,11 +323,15 @@ function generateEchoDialogue(state: GameState): string {
 }
 
 // ─── STORE ────────────────────────────────────────────────────────────
+const SAFE_STORAGE_NAME = '11-11-game-store-v2';
+
 export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
       ...initialState,
       puzzles: generateAllPuzzles(),
+      memory: { ...initialState.memory, totalFragments: initialState.allMemoryShards.length },
+      allMemoryShards: initialState.allMemoryShards,
 
       // ─── ACTIONS ──────────────────────────────────────────────────────
       actions: {
@@ -543,7 +550,7 @@ export const useGameStore = create<GameState>()(
       },
     }),
     {
-      name: '11-11-game-store',
+      name: SAFE_STORAGE_NAME,
       partialize: (state) => ({
         echo: state.echo, solvedPuzzles: state.solvedPuzzles,
         flower: state.flower, memory: state.memory,
@@ -552,6 +559,7 @@ export const useGameStore = create<GameState>()(
         narrativeTriggers: state.narrativeTriggers,
         world: state.world, time: state.time,
         entities: state.entities, currentEntity: state.currentEntity,
+        allMemoryShards: state.allMemoryShards,
       }),
     }
   )

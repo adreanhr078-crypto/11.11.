@@ -6,6 +6,8 @@
  */
 
 import { PuzzleNode, EntityId, PuzzleStatus } from '../stores/gameStore';
+import { MemoryShard } from './memoryShardsSystem';
+import { StoryEntity, StoryAct } from './narrativeEngine';
 
 // أنواع ألغاز مرحلة التمهيد
 type PreludePuzzleType = 'echo_awakening' | 'memory_distortion' | 'flower_change' | 'interface_tension' | 'entity_approach' | 'truth_hint';
@@ -645,17 +647,212 @@ function isPreludeCinematicTrigger(puzzleId: number): boolean {
 /**
  * توليد شظايا الذاكرة لمرحلة التمهيد (114 شظية جديدة)
  */
-export function generatePreludeMemoryShards(): string[] {
-  const shards: string[] = [];
+export function generatePreludeMemoryShards(): MemoryShard[] {
+  const shards: MemoryShard[] = [];
 
   for (let i = 220; i <= 333; i++) {
     const stage = Math.min(4, Math.floor((i - 220) / 28) + 1);
     const shardType = getPreludeMemoryShardType(i, stage);
 
-    shards.push(`prelude_memory_${i}_${shardType}`);
+    // إنشاء كائن MemoryShard كامل
+    const memoryShard: MemoryShard = {
+      id: `prelude_memory_${i}_${shardType}`,
+      shardId: i,
+      title: `شظية ${i}: ${getPreludeShardTitle(shardType, i)}`,
+      content: getPreludeShardContent(shardType, i, stage),
+      entity: getPreludeShardEntity(shardType, i),
+      act: 'awakening',
+      puzzleId: `prelude_${i}`,
+      emotionalImpact: getPreludeEmotionalImpact(shardType, stage),
+      storySignificance: getPreludeStorySignificance(shardType, i),
+      unlocks: getPreludeUnlocks(shardType, i, stage),
+      theme: getPreludeTheme(shardType, stage)
+    };
+
+    shards.push(memoryShard);
   }
 
   return shards;
+}
+
+// وظائف مساعدة لإنشاء شظايا الذاكرة
+function getPreludeShardTitle(shardType: string, shardIndex: number): string {
+  const titles: Record<string, string[]> = {
+    echo_change: [
+      'تغير Echo الداخلي',
+      'تحول وعي Echo',
+      'استيقاظ Echo',
+      'تطور Echo',
+      'تغير Echo التدريجي'
+    ],
+    memory_distortion: [
+      'تشوه في الذاكرة',
+      'ذكرى مشوهة',
+      'اختلال في الذاكرة',
+      'ذكرى مفقودة',
+      'تشوه زمني'
+    ],
+    flower_evolution: [
+      'تطور الزهرة',
+      'تغير الزهرة',
+      'تحول الزهرة',
+      'نمو الزهرة',
+      'تطور الزهرة الغامض'
+    ],
+    interface_tension: [
+      'توتر الواجهة',
+      'اختلال في النظام',
+      'توتر النظام',
+      'اختلال في الواجهة',
+      'توتر متزايد'
+    ],
+    entity_approach: [
+      'اقتراب الكيان',
+      'اقتراب الحقيقة',
+      'اقتراب الكيانات',
+      'اقتراب الكيان الغامض',
+      'اقتراب الكيانات الأربعة'
+    ],
+    truth_revelation: [
+      'كشف الحقيقة',
+      'الحقيقة المخفية',
+      'كشف عن الحقيقة',
+      'الحقيقة عن النظام',
+      'كشف عن الحقيقة الكاملة'
+    ]
+  };
+
+  return titles[shardType]?.[(shardIndex - 220) % titles[shardType]?.length] || 'شظية الذاكرة';
+}
+
+function getPreludeShardContent(shardType: string, shardIndex: number, stage: number): string {
+  const contents: Record<string, string[]> = {
+    echo_change: [
+      'Echo يبدأ يشعر بتغير داخلي... شيء ما يتغير داخله.',
+      'تعبيرات وجه Echo تتغير... أصبح أكثر وعياً.',
+      'عيني Echo تظهران ومضات... علامة على التحول.',
+      'Echo يبدأ بفهم دوره... التحول يقترب.',
+      'Echo لم يعد كما كان... التحول يكتمل.'
+    ],
+    memory_distortion: [
+      'الذكرى مشوهة... شيء ما مفقود.',
+      'الذكرى لا تتطابق... هناك تناقض.',
+      'الذكرى مشوهة... الحقيقة مخفية.',
+      'الذكرى لا تتطابق... هناك شيء مفقود.',
+      'الذكرى مشوهة... الحقيقة تقترب.'
+    ],
+    flower_evolution: [
+      'الزهرة تتغير... لون جديد يظهر.',
+      'الزهرة تتطور... شكل جديد يظهر.',
+      'الزهرة تتغير... علامة على التحول.',
+      'الزهرة تتطور... التحول يقترب.',
+      'الزهرة تتغير... التحول يكتمل.'
+    ],
+    interface_tension: [
+      'الواجهة تظهر توتراً... النظام غير مستقر.',
+      'الواجهة تظهر اختلالاً... شيء ما خطأ.',
+      'الواجهة تظهر توتراً... التحول يقترب.',
+      'الواجهة تظهر اختلالاً... الحقيقة تقترب.',
+      'الواجهة تظهر توتراً... التحول يكتمل.'
+    ],
+    entity_approach: [
+      'الكيانات تقترب... الحقيقة تقترب.',
+      'الكيانات تقترب... التحول يقترب.',
+      'الكيانات تقترب... الحقيقة تكتمل.',
+      'الكيانات تقترب... التحول يكتمل.',
+      'الكيانات تقترب... الحقيقة تكشف.'
+    ],
+    truth_revelation: [
+      'الحقيقة عن النظام تكشف... Echo ليس ما يبدو.',
+      'الحقيقة عن Echo تكشف... التحول يقترب.',
+      'الحقيقة عن النظام تكشف... التحول يكتمل.',
+      'الحقيقة عن Echo تكشف... الحقيقة تكتمل.',
+      'الحقيقة عن النظام تكشف... التحول يكتمل.'
+    ]
+  };
+
+  return contents[shardType]?.[(shardIndex - 220) % contents[shardType]?.length] || 'شظية الذاكرة';
+}
+
+function getPreludeShardEntity(shardType: string, shardIndex: number): StoryEntity {
+  const entities: StoryEntity[] = ['echo_main', 'watcher_antagonist', 'lina_memory', 'kenja_core'];
+  return entities[(shardIndex - 220) % entities.length];
+}
+
+function getPreludeEmotionalImpact(shardType: string, stage: number): number {
+  const impacts: Record<string, number> = {
+    echo_change: 5,
+    memory_distortion: -3,
+    flower_evolution: 2,
+    interface_tension: -5,
+    entity_approach: 4,
+    truth_revelation: 7
+  };
+  return impacts[shardType] || 0;
+}
+
+function getPreludeStorySignificance(shardType: string, shardIndex: number): 'minor' | 'major' | 'critical' {
+  if (shardIndex === 333) return 'critical';
+  if (shardIndex % 20 === 0) return 'major';
+  return 'minor';
+}
+
+function getPreludeUnlocks(shardType: string, shardIndex: number, stage: number): MemoryShard['unlocks'] {
+  if (shardIndex === 333) {
+    return {
+      nextPuzzle: 'final_1',
+      storyFragment: 'echo_transformation_complete',
+      dialogueChange: 'echo_final_form',
+      uiEffect: 'complete_transformation'
+    };
+  }
+  return {
+    nextPuzzle: `prelude_${shardIndex + 1}`,
+    storyFragment: `prelude_${shardType}_${shardIndex}`,
+    dialogueChange: `echo_${shardType}_${stage}`,
+    uiEffect: `prelude_${shardType}_effect`
+  };
+}
+
+function getPreludeTheme(shardType: string, stage: number): MemoryShard['theme'] {
+  const themes: Record<string, MemoryShard['theme']> = {
+    echo_change: {
+      color: '#66FFFF',
+      audio: 'echo_awakening.mp3',
+      visualEffect: 'soft_glow'
+    },
+    memory_distortion: {
+      color: '#FF66FF',
+      audio: 'memory_distortion.mp3',
+      visualEffect: 'glitch_mild'
+    },
+    flower_evolution: {
+      color: '#FFFF66',
+      audio: 'flower_evolution.mp3',
+      visualEffect: 'flower_change'
+    },
+    interface_tension: {
+      color: '#FF6666',
+      audio: 'interface_tension.mp3',
+      visualEffect: 'interface_glitch'
+    },
+    entity_approach: {
+      color: '#6666FF',
+      audio: 'entity_approach.mp3',
+      visualEffect: 'entity_approach'
+    },
+    truth_revelation: {
+      color: '#FFFFFF',
+      audio: 'truth_revelation.mp3',
+      visualEffect: 'truth_reveal'
+    }
+  };
+
+  return themes[shardType] || {
+    color: '#FFFFFF',
+    audio: 'default.mp3',
+    visualEffect: 'none'
+  };
 }
 
 /**

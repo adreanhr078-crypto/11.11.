@@ -6,6 +6,8 @@
  */
 
 import { PuzzleNode, EntityId, PuzzleStatus } from '../stores/gameStore';
+import { MemoryShard } from './memoryShardsSystem';
+import { StoryEntity, StoryAct } from './narrativeEngine';
 
 // أنواع جديدة للألغاز في قوس الكسر
 type FracturePuzzleType = 'memory_analysis' | 'truth_reconstruction' | 'hidden_code' | 'echo_message' | 'event_sequence' | 'symbol_decoding';
@@ -172,7 +174,7 @@ function createMemoryAnalysisPuzzle(
     storyReveal: getMemoryStoryReveal(puzzleId, stage, memoryType),
     memoryUnlock: `fracture_memory_${puzzleId}`,
     dependencies: puzzleId > 334 ? [`fracture_${puzzleId - 1}`] : [],
-    effects: getFractureEffects(puzzleId, stageIndex),
+    effects: getFractureEffects(puzzleId, stage.stage - 1),
     fractureType: 'memory_analysis',
     fractureStage: stage.stage,
     revealsFalseMemory: stage.stage >= 2,
@@ -598,8 +600,8 @@ type FractureEntity = 'echo' | 'watcher' | 'signal' | 'architect' | 'lina' | 'ke
 /**
  * توليد شظايا الذاكرة لقوس الكسر (167 شظية جديدة)
  */
-export function generateFractureMemoryShards(): string[] {
-  const shards: string[] = [];
+export function generateFractureMemoryShards(): MemoryShard[] {
+  const shards: MemoryShard[] = [];
 
   for (let i = 1; i <= 167; i++) {
     const shardId = 54 + i; // الاستمرار من بعد الشظايا الأصلية (1-54)
@@ -609,7 +611,30 @@ export function generateFractureMemoryShards(): string[] {
     const stage = Math.min(5, Math.floor((i - 1) / 33) + 1);
     const shardType = getMemoryShardType(i, stage);
 
-    shards.push(`fracture_memory_${shardId}_${shardType}`);
+    // تحديد القيم بناءً على نوع الشظية
+    const emotionalImpact = shardType.includes('false') ? -5 : shardType.includes('hidden') ? 7 : 3;
+    const storySignificance: 'minor' | 'major' | 'critical' = shardType.includes('origin') || shardType.includes('message') ? 'critical' : shardType.includes('truth') ? 'major' : 'minor';
+
+    shards.push({
+      id: `fracture_${shardId}`,
+      shardId: shardId,
+      title: `Fracture Memory ${shardId}`,
+      content: `Memory content for fracture shard ${shardId} - ${shardType}`,
+      entity: 'echo_main' as StoryEntity,
+      act: 'corruption' as StoryAct,
+      puzzleId: `fracture_${puzzleId}`,
+      emotionalImpact: emotionalImpact,
+      storySignificance: storySignificance,
+      unlocks: {
+        nextPuzzle: `fracture_${puzzleId + 1}`,
+        storyFragment: `fracture_${shardType}_${shardId}`
+      },
+      theme: {
+        color: shardType.includes('false') ? '#FF6B6B' : shardType.includes('hidden') ? '#4ECDC4' : shardType.includes('origin') ? '#FFD166' : '#8B5CF6',
+        audio: shardType.includes('false') ? 'glitch_sound.mp3' : shardType.includes('hidden') ? 'reveal_sound.mp3' : shardType.includes('origin') ? 'origin_sound.mp3' : 'memory_sound.mp3',
+        visualEffect: shardType.includes('false') ? 'glitch_strong' : shardType.includes('hidden') ? 'reveal_light' : shardType.includes('origin') ? 'origin_pulse' : 'memory_fade'
+      }
+    });
   }
 
   return shards;
