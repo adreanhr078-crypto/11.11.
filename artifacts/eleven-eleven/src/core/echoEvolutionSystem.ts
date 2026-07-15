@@ -410,7 +410,7 @@ export class EchoEvolutionEngine {
     // Update evolution when puzzles are solved
     setInterval(() => {
       const gameState = useGameStore.getState();
-      const puzzlesSolved = Math.floor(gameState.player.curiosity);
+      const puzzlesSolved = Math.floor(gameState.player.curiosity / 10);
 
       // Trigger evolution updates
       if (puzzlesSolved !== this.state.currentPuzzle) {

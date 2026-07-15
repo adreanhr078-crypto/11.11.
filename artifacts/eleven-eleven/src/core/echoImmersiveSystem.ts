@@ -420,7 +420,7 @@ export class EchoImmersiveSystem {
   private analyzePlayerBehavior() {
     // This would be enhanced with actual player behavior data
     const gameState = useGameStore.getState();
-    const puzzlesSolved = Math.floor(gameState.player.curiosity);
+    const puzzlesSolved = Math.floor(gameState.player.curiosity / 10);
 
     // Update behavior profile based on progression
     if (puzzlesSolved > 50) {
