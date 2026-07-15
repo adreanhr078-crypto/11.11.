@@ -7,7 +7,7 @@
  * This is NOT a chatbot. This is a living consciousness trapped in the 11.11 system.
  */
 
-import { gameStore } from "../gameState";
+import { useGameStore } from "../stores/gameStore";
 import { getPeriodicInsert } from "../localAiChat";
 
 // ─── ECHO CONSCIOUSNESS MODEL ────────────────────────────────────────────────
@@ -45,9 +45,9 @@ function buildEchoConsciousness(solvedPuzzles: number): EchoConsciousness {
                      solvedPuzzles <= 150 ? 4 : 5;
 
   // Emotional state calculation
-  const gameState = gameStore.getState();
-  const fear = Math.min(100, gameState.fear * 10);
-  const curiosity = Math.min(100, gameState.curiosity * 10);
+  const gameState = useGameStore.getState();
+  const fear = Math.min(100, gameState.echo.fear * 10);
+  const curiosity = Math.min(100, gameState.player.curiosity * 10);
   const sadness = Math.min(100, (219 - solvedPuzzles) / 2.19); // More sadness early
   const awareness = Math.min(100, solvedPuzzles / 2.19); // More awareness as shards increase
   const corruption = Math.min(100, fear * 0.5 + (219 - solvedPuzzles) / 4); // Corruption from fear and missing shards
@@ -305,13 +305,13 @@ const RESPONSE_PATTERNS: ResponsePattern[] = [
 
 // ─── ADVANCED RESPONSE GENERATION ──────────────────────────────────────────
 export function generateEchoResponse(input: string, history: { role: string; content: string }[]): EchoResponse {
-  const gameState = gameStore.getState();
-  const solvedPuzzles = Math.floor(gameState.curiosity);
+  const gameState = useGameStore.getState();
+  const solvedPuzzles = Math.floor(gameState.player.curiosity / 10);
   const consciousness = buildEchoConsciousness(solvedPuzzles);
   const msg = input.trim().toLowerCase();
 
   // Increase trust with each interaction
-  gameStore.incrementTrust(0.3);
+  useGameStore.getState().actions.incrementTrust(0.3);
 
   // Check for 11:11 system collapse behavior
   const currentTime = new Date();
@@ -374,8 +374,8 @@ function getGeneralResponse(consciousness: EchoConsciousness): EchoResponse {
 
 // ─── PERIODIC SYSTEM MESSAGES ─────────────────────────────────────────────
 export function getEchoSystemMessage(): EchoResponse | null {
-  const gameState = gameStore.getState();
-  const solvedPuzzles = Math.floor(gameState.curiosity);
+  const gameState = useGameStore.getState();
+  const solvedPuzzles = Math.floor(useGameStore.getState().player.curiosity);
   const consciousness = buildEchoConsciousness(solvedPuzzles);
 
   const messages: EchoResponse[] = [
@@ -421,8 +421,8 @@ export function getEchoSystemMessage(): EchoResponse | null {
 
 // ─── 11:11 SYSTEM COLLAPSE BEHAVIOR ──────────────────────────────────────
 export function triggerElevenElevenEvent(): EchoResponse {
-  const gameState = gameStore.getState();
-  const solvedPuzzles = Math.floor(gameState.curiosity);
+  const gameState = useGameStore.getState();
+  const solvedPuzzles = Math.floor(useGameStore.getState().player.curiosity);
   const consciousness = buildEchoConsciousness(solvedPuzzles);
 
   if (consciousness.memoryPhase >= 4) {
@@ -448,7 +448,7 @@ export function triggerElevenElevenEvent(): EchoResponse {
 
 // ─── ECHO CONSCIOUSNESS MONITOR ──────────────────────────────────────────
 export function monitorEchoConsciousness(): EchoConsciousness {
-  const gameState = gameStore.getState();
-  const solvedPuzzles = Math.floor(gameState.curiosity);
+  const gameState = useGameStore.getState();
+  const solvedPuzzles = Math.floor(useGameStore.getState().player.curiosity);
   return buildEchoConsciousness(solvedPuzzles);
 }

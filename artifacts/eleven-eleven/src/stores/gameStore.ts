@@ -28,7 +28,7 @@ export interface EchoState {
   hope: number; loneliness: number; awareness: number;
   mood: EchoMood; personalityTraits: string[];
   lastDialogue: string; dialogueHistory: string[];
-  level: number; xp: number;
+  level: number; xp: number; xpMax: number;
 }
 
 export interface TimeState {
@@ -113,51 +113,69 @@ export interface GameState {
     makeFinalChoice: (choice: string) => void;
     resetGame: () => void;
     replayEnding: (endingId: string) => void;
+    incrementTrust: (amount?: number) => void;
+    decrementTrust: (amount?: number) => void;
+    incrementFear: (amount?: number) => void;
+    decrementFear: (amount?: number) => void;
+    incrementCuriosity: (amount?: number) => void;
+    setLevel: (level: number) => void;
   };
 }
 
 // ─── INITIAL STATE ─────────────────────────────────────────────────────
-const initialState: GameState = {
-  echo: {
-    trust: 15, fear: 70, memoryStability: 5, corruption: 2,
-    hope: 20, loneliness: 80, awareness: 3,
-    mood: 'خائف', personalityTraits: ['خائف', 'متردد'],
-    lastDialogue: '', dialogueHistory: [],
-    level: 1, xp: 0,
-  },
-  time: { phase: 'morning', phaseIndex: 0, isNight: false, hour: 8, minute: 0, dayCycle: 1 },
-  flower: { stage: 'seed', growth: 0, decay: 0, hiddenUnlocked: false, maxStage: 5 },
-  memory: { fragmentsCollected: 0, totalFragments: 0, corruptedFragments: 0, timelineEvents: [], logsUnlocked: [] },
-  allMemoryShards: [...generateOriginalMemoryShards(), ...generatePreludeMemoryShards(), ...generateFractureMemoryShards(), ...generateArchitectMemoryShards(), ...generateSignalMemoryShards(), ...generateFinalMemoryShards()] as MemoryShard[],
-  puzzles: [], totalPuzzles: 1000, solvedPuzzles: 0,
-  finalChoice: null as string | null,
-  unlockedEndings: [] as string[],
-  seenEndings: [] as string[],
-  achievedEnding: null as string | null,
-  lastEndingViewed: null as string | null,
-  entities: {
-    echo: { id: 'echo', name: 'الصدى', glyph: '◈', unlocked: true, completed: false, puzzlesSolved: 0, totalPuzzles: 55, dialogueProgress: 0, loreUnlocked: [] },
-    watcher: { id: 'watcher', name: 'المراقب', glyph: '◉', unlocked: false, completed: false, puzzlesSolved: 0, totalPuzzles: 55, dialogueProgress: 0, loreUnlocked: [] },
-    signal: { id: 'signal', name: 'الإشارة', glyph: '≋', unlocked: false, completed: false, puzzlesSolved: 0, totalPuzzles: 55, dialogueProgress: 0, loreUnlocked: [] },
-    architect: { id: 'architect', name: 'المهندس', glyph: '▲', unlocked: false, completed: false, puzzlesSolved: 0, totalPuzzles: 54, dialogueProgress: 0, loreUnlocked: [] },
-  },
-  currentEntity: 'echo',
-  wishes: [
-    { id: 'w1', text: 'أتمنى أن أتذكر من أنا', progress: 0, status: 'active', createdAt: '2025-05-01', storyImpact: 25 },
-    { id: 'w2', text: 'أتمنى أن أسامح نفسي', progress: 0, status: 'active', createdAt: '2025-05-01', storyImpact: 30 },
-  ],
-  player: { curiosity: 25, interactions: 0, choices: [] },
-  world: { stability: 100, glitchLevel: 0, corruptionLevel: 0, anomalyCount: 0 },
-  achievements: generateAllAchievements(),
-  endings: {
-    sorrow: { unlocked: false, progress: 0 },
-    truth: { unlocked: false, progress: 0 },
-    dark: { unlocked: false, progress: 0 },
-    mystery: { unlocked: false, progress: 0 },
-  },
-  narrativeTriggers: {},
-  actions: {} as any,
-};
+function buildInitialState(): GameState {
+  return {
+    echo: {
+      trust: 15, fear: 70, memoryStability: 5, corruption: 2,
+      hope: 20, loneliness: 80, awareness: 3,
+      mood: 'خائف', personalityTraits: ['خائف', 'متردد'],
+      lastDialogue: '', dialogueHistory: [],
+      level: 1, xp: 0, xpMax: 3500,
+    },
+    time: { phase: 'morning', phaseIndex: 0, isNight: false, hour: 8, minute: 0, dayCycle: 1 },
+    flower: { stage: 'seed', growth: 0, decay: 0, hiddenUnlocked: false, maxStage: 5 },
+    memory: { fragmentsCollected: 0, totalFragments: 0, corruptedFragments: 0, timelineEvents: [], logsUnlocked: [] },
+    allMemoryShards: [
+      ...generateOriginalMemoryShards(),
+      ...generatePreludeMemoryShards(),
+      ...generateFractureMemoryShards(),
+      ...generateArchitectMemoryShards(),
+      ...generateSignalMemoryShards(),
+      ...generateFinalMemoryShards(),
+    ] as MemoryShard[],
+    puzzles: [...generateAllPuzzles()],
+    totalPuzzles: 1000, solvedPuzzles: 0,
+    finalChoice: null,
+    unlockedEndings: [],
+    seenEndings: [],
+    achievedEnding: null,
+    lastEndingViewed: null,
+    entities: {
+      echo: { id: 'echo', name: 'الصدى', glyph: '◈', unlocked: true, completed: false, puzzlesSolved: 0, totalPuzzles: 55, dialogueProgress: 0, loreUnlocked: [] },
+      watcher: { id: 'watcher', name: 'المراقب', glyph: '◉', unlocked: false, completed: false, puzzlesSolved: 0, totalPuzzles: 55, dialogueProgress: 0, loreUnlocked: [] },
+      signal: { id: 'signal', name: 'الإشارة', glyph: '≋', unlocked: false, completed: false, puzzlesSolved: 0, totalPuzzles: 55, dialogueProgress: 0, loreUnlocked: [] },
+      architect: { id: 'architect', name: 'المهندس', glyph: '▲', unlocked: false, completed: false, puzzlesSolved: 0, totalPuzzles: 54, dialogueProgress: 0, loreUnlocked: [] },
+    },
+    currentEntity: 'echo',
+    wishes: [
+      { id: 'w1', text: 'أتمنى أن أتذكر من أنا', progress: 0, status: 'active', createdAt: '2025-05-01', storyImpact: 25 },
+      { id: 'w2', text: 'أتمنى أن أسامح نفسي', progress: 0, status: 'active', createdAt: '2025-05-01', storyImpact: 30 },
+    ],
+    player: { curiosity: 25, interactions: 0, choices: [] },
+    world: { stability: 100, glitchLevel: 0, corruptionLevel: 0, anomalyCount: 0 },
+    achievements: generateAllAchievements(),
+    endings: {
+      sorrow: { unlocked: false, progress: 0 },
+      truth: { unlocked: false, progress: 0 },
+      dark: { unlocked: false, progress: 0 },
+      mystery: { unlocked: false, progress: 0 },
+    },
+    narrativeTriggers: {},
+    actions: {} as any,
+  };
+}
+
+const _initialState = buildInitialState();
 
 // ─── ACHIEVEMENTS (24 + 20 = 44) ────────────────────────────────────────────────
 function generateAllAchievements(): Achievement[] {
@@ -202,7 +220,7 @@ function generateAllAchievements(): Achievement[] {
   return [...originalAchievements, ...preludeArcAchievements, ...fractureArcAchievements, ...architectArcAchievements, ...signalArcAchievements, ...finalArcAchievements];
 }
 
-// ─── PUZZLE GENERATOR (219 + 167 = 386) ───────────────────────────────────────────
+// ─── PUZZLE GENERATOR (219 original + 781 generated = 1000 total) ─────────────────
 function generateAllPuzzles(): PuzzleNode[] {
   const puzzles: PuzzleNode[] = [];
   const entities: EntityId[] = ['echo', 'watcher', 'signal', 'architect'];
@@ -328,10 +346,10 @@ const SAFE_STORAGE_NAME = '11-11-game-store-v2';
 export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
-      ...initialState,
-      puzzles: generateAllPuzzles(),
-      memory: { ...initialState.memory, totalFragments: initialState.allMemoryShards.length },
-      allMemoryShards: initialState.allMemoryShards,
+      ..._initialState,
+      puzzles: _initialState.puzzles,
+      memory: { ..._initialState.memory, totalFragments: _initialState.allMemoryShards.length },
+      allMemoryShards: _initialState.allMemoryShards,
 
       // ─── ACTIONS ──────────────────────────────────────────────────────
       actions: {
@@ -547,6 +565,32 @@ export const useGameStore = create<GameState>()(
             seenEndings: newSeenEndings
           });
         },
+
+        // 🔧 LEGACY COMPATIBILITY ACTIONS
+        incrementTrust: (amount = 1) => {
+          const s = get();
+          set({ echo: { ...s.echo, trust: Math.min(100, Math.max(0, s.echo.trust + amount)) } });
+        },
+        decrementTrust: (amount = 1) => {
+          const s = get();
+          set({ echo: { ...s.echo, trust: Math.min(100, Math.max(0, s.echo.trust - amount)) } });
+        },
+        incrementFear: (amount = 1) => {
+          const s = get();
+          set({ echo: { ...s.echo, fear: Math.min(100, Math.max(0, s.echo.fear + amount)) } });
+        },
+        decrementFear: (amount = 1) => {
+          const s = get();
+          set({ echo: { ...s.echo, fear: Math.min(100, Math.max(0, s.echo.fear - amount)) } });
+        },
+        incrementCuriosity: (amount = 1) => {
+          const s = get();
+          set({ player: { ...s.player, curiosity: Math.min(100, Math.max(0, s.player.curiosity + amount)) } });
+        },
+        setLevel: (level: number) => {
+          const s = get();
+          set({ echo: { ...s.echo, level: Math.max(1, Math.min(5, level)) } });
+        },
       },
     }),
     {
@@ -581,10 +625,11 @@ function checkAllAchievements(solved: number, echo: EchoState, flowerStage: stri
   if (echo.trust >= 50) u('trust_50').unlocked = true;
   if (echo.trust >= 75) u('trust_75').unlocked = true;
   if (echo.trust >= 100) u('trust_100').unlocked = true;
-  if (['sprout','bloom','flourish','completed'].includes(flowerStage)) u('flower_seed').unlocked = true;
-  if (['bloom','flourish','completed'].includes(flowerStage)) u('flower_sprout').unlocked = true;
-  if (['flourish','completed'].includes(flowerStage)) u('flower_bloom').unlocked = true;
-  if (flowerStage === 'completed') { u('flower_flourish').unlocked = true; u('flower_complete').unlocked = true; }
+  if (flowerStage === 'seed') u('flower_seed').unlocked = true;
+  if (flowerStage === 'sprout') u('flower_sprout').unlocked = true;
+  if (flowerStage === 'bloom') u('flower_bloom').unlocked = true;
+  if (flowerStage === 'flourish') u('flower_flourish').unlocked = true;
+  if (flowerStage === 'completed') u('flower_complete').unlocked = true;
   if (wishCount >= 1) u('first_wish').unlocked = true;
   if (dayCycle >= 2) u('survive_night').unlocked = true;
   if (endings.sorrow.unlocked) u('ending_sorrow').unlocked = true;
@@ -713,6 +758,20 @@ function checkEndingProgress(state: GameState): EndingState {
   if (endings.mystery.progress >= 100) endings.mystery.unlocked = true;
 
   return endings;
+}
+
+// ─── LEGACY COMPATIBILITY ─────────────────────────────────────────────
+export function getTrustToneModifier(trustAI: number, level: number): string {
+  if (trustAI >= 7 || level >= 4) {
+    return `\n\nمؤشر الثقة: ${trustAI}/10 — المستوى: ${level}
+نبرتك الآن: باردة تماماً. مراقبة. لا رحمة. تتحدث كأنك تملك كل معلوماته. جمل قصيرة وحادة. لا أسئلة — فقط تصريحات.`;
+  }
+  if (trustAI >= 4 || level >= 2) {
+    return `\n\nمؤشر الثقة: ${trustAI}/10 — المستوى: ${level}
+نبرتك الآن: مراقبة محايدة. تلاحظ وتسجل. أحياناً جملة دافئة لكن دائماً وراءها شيء آخر.`;
+  }
+  return `\n\nمؤشر الثقة: ${trustAI}/10 — المستوى: ${level}
+نبرتك الآن: فضولي وهادئ. كأنك تتعرف على المستخدم لأول مرة. دافئ نسبياً لكن به غموض خفي.`;
 }
 
 export { ExpandedEndingSystem };

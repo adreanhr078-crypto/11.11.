@@ -9,7 +9,7 @@
  * This is a LIVING GAME ENTITY.
  */
 
-import { gameStore } from "../gameState";
+import { useGameStore } from "../stores/gameStore";
 import { EchoConsciousness, monitorEchoConsciousness } from "./echoLivingConsciousness";
 
 // ─── CHARACTER ANIMATION SYSTEM ARCHITECTURE ──────────────────────────────
@@ -1229,8 +1229,8 @@ export class EchoCharacterEngine {
   private integratePuzzleProgression() {
     // Puzzles solved reduce corruption and increase stability
     const updateFromPuzzles = () => {
-      const gameState = gameStore.getState();
-      const puzzlesSolved = Math.floor(gameState.curiosity);
+      const gameState = useGameStore.getState();
+      const puzzlesSolved = Math.floor(gameState.player.curiosity / 10);
 
       // Each puzzle reduces corruption slightly
       this.state.corruptionLevel = Math.max(0.1, 1 - (puzzlesSolved / 219) * 0.9);
@@ -1275,9 +1275,9 @@ export class EchoCharacterEngine {
   private integrateEmotionFlower() {
     // Flower health affects overall stability and emotional state
     const updateFromFlower = () => {
-      const gameState = gameStore.getState();
+      const gameState = useGameStore.getState();
       const flowerStage = gameState.flower.stage;
-      const flowerGrowth = gameState.flower.growth || 0.5; // 0-1
+      const flowerGrowth = gameState.flower.growth / 100; // 0-1
 
       // Healthy flower = more stable, less corrupted
       this.state.signalStability = flowerGrowth * 0.5 + 0.5;
@@ -1295,7 +1295,7 @@ export class EchoCharacterEngine {
   private integrateEndingSystem() {
     // Ending progression affects final character state
     const updateFromEnding = () => {
-      const gameState = gameStore.getState();
+      const gameState = useGameStore.getState();
       const endings = gameState.endings;
       const unlockedEndings = Object.values(endings).filter(e => e.unlocked).length;
       const endingProgress = unlockedEndings / 4; // 0-1 (4 total endings)

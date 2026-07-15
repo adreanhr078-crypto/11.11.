@@ -47,6 +47,70 @@ async function loadGameModule() {
   }
 }
 
+async function getCountsFromRuntime() {
+  try {
+    const tsxPath = path.join(PROJECT_ROOT, 'node_modules', '.bin', 'tsx.cmd');
+    const scriptPath = path.join(PROJECT_ROOT, 'tools', 'project-doctor', 'count-runtime.ts');
+    const result = spawnSync('cmd', ['/c', tsxPath, scriptPath], {
+      encoding: 'utf-8',
+      cwd: PROJECT_ROOT,
+      shell: true,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    if (result.error || result.status !== 0) {
+      return {
+        success: false,
+        error: result.error ? result.error.message : (result.stderr || 'Unknown error')
+      };
+    }
+
+    const stdout = result.stdout;
+    
+    // Parse Memory Shards breakdown
+    const shardsMatch = stdout.match(/Memory Shards breakdown:[\s\S]*?Total: (\d+)/);
+    const shardsBreakdown = {
+      total: shardsMatch ? parseInt(shardsMatch[1]) : null,
+      original: null,
+      prelude: null,
+      fracture: null,
+      architect: null,
+      signal: null,
+      final: null
+    };
+
+    if (shardsMatch) {
+      const section = stdout.substring(stdout.indexOf('Memory Shards breakdown:'), stdout.indexOf('Total:'));
+      const originalMatch = section.match(/Original: (\d+)/);
+      const preludeMatch = section.match(/Prelude: (\d+)/);
+      const fractureMatch = section.match(/Fracture: (\d+)/);
+      const architectMatch = section.match(/Architect: (\d+)/);
+      const signalMatch = section.match(/Signal: (\d+)/);
+      const finalMatch = section.match(/Final: (\d+)/);
+      
+      if (originalMatch) shardsBreakdown.original = parseInt(originalMatch[1]);
+      if (preludeMatch) shardsBreakdown.prelude = parseInt(preludeMatch[1]);
+      if (fractureMatch) shardsBreakdown.fracture = parseInt(fractureMatch[1]);
+      if (architectMatch) shardsBreakdown.architect = parseInt(architectMatch[1]);
+      if (signalMatch) shardsBreakdown.signal = parseInt(signalMatch[1]);
+      if (finalMatch) shardsBreakdown.final = parseInt(finalMatch[1]);
+    }
+
+    // Parse Achievements
+    const achMatch = stdout.match(/achievements total: (\d+)/);
+    const achievementsCount = achMatch ? parseInt(achMatch[1]) : null;
+
+    return {
+      success: true,
+      stdout,
+      memoryShards: shardsBreakdown,
+      achievements: achievementsCount
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
 async function getCinematicCount() {
   const arcFiles = [
     { path: 'src/core/echoFractureArc.ts', prefix: 'fracture_' },
@@ -160,6 +224,34 @@ async function main() {
   console.log(`  Expected: 835`);
   console.log(`  Source: gameStore.ts → allMemoryShards (combined array)`);
   console.log(`  Note: Combines generateOriginalMemoryShards() + generatePreludeMemoryShards() + generateFractureMemoryShards() + generateArchitectMemoryShards() + generateSignalMemoryShards() + generateFinalMemoryShards()`);
+
+  // Try runtime count for memory shards (more accurate)
+  const runtimeCounts = await getCountsFromRuntime();
+  if (runtimeCounts.success && runtimeCounts.memoryShards.total) {
+    console.log(`  Actual (from runtime): ${runtimeCounts.memoryShards.total}`);
+    console.log(`  Breakdown:`);
+    console.log(`    Original: ${runtimeCounts.memoryShards.original}`);
+    console.log(`    Prelude: ${runtimeCounts.memoryShards.prelude}`);
+    console.log(`    Fracture: ${runtimeCounts.memoryShards.fracture}`);
+    console.log(`    Architect: ${runtimeCounts.memoryShards.architect}`);
+    console.log(`    Signal: ${runtimeCounts.memoryShards.signal}`);
+    console.log(`    Final: ${runtimeCounts.memoryShards.final}`);
+    console.log(`  Source: memoryShardsSystem.ts + arc files (via tsx)`);
+  } else if (!runtimeCounts.success) {
+    console.log(`  Runtime check failed: ${runtimeCounts.error}`);
+    console.log(`  Reason: Memory Shards System has circular initialization`);
+  }
+
+  // ACHIEVEMENTS
+  console.log(`\n### Achievements`);
+  console.log(`  Expected: 129`);
+  console.log(`  Source: gameStore.ts → generateAllAchievements()`);
+  console.log(`  Note: Uses ${gameStoreResult.achievementFunctionCount || 'multiple'} sub-generators (original + arcs)`);
+
+  if (runtimeCounts.success && runtimeCounts.achievements) {
+    console.log(`  Actual (from runtime): ${runtimeCounts.achievements}`);
+    console.log(`  Source: achievements.ts → ACHIEVEMENTS array (via tsx)`);
+  }
 
   // CINEMATICS
   const cinematicResult = await getCinematicCount();

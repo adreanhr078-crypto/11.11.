@@ -12,7 +12,7 @@
  * From innocence → to awareness → to strength → to corrupted powerful entity → to final villain form
  */
 
-import { gameStore } from "../gameState";
+import { useGameStore } from "../stores/useGameStore";
 import { echoCharacterSystem } from "./echoCharacterSystem";
 import { echoImmersiveSystem } from "./echoImmersiveSystem";
 
@@ -187,6 +187,8 @@ export class EchoEvolutionEngine {
   private updateInterval: number;
   private evolutionHistory: EvolutionHistory[];
 
+  private endingProgress = 0;
+
   constructor() {
     this.state = this.createInitialState();
     this.lastUpdate = Date.now();
@@ -242,8 +244,8 @@ export class EchoEvolutionEngine {
   }
 
   private updateFromGameState() {
-    const gameState = gameStore.getState();
-    const puzzlesSolved = Math.floor(gameState.curiosity);
+    const gameState = useGameStore.getState();
+    const puzzlesSolved = Math.floor(gameState.player.curiosity / 10);
 
     // Update current puzzle count
     this.state.currentPuzzle = Math.min(333, puzzlesSolved);
@@ -407,8 +409,8 @@ export class EchoEvolutionEngine {
   private integratePuzzleProgression() {
     // Update evolution when puzzles are solved
     setInterval(() => {
-      const gameState = gameStore.getState();
-      const puzzlesSolved = Math.floor(gameState.curiosity);
+      const gameState = useGameStore.getState();
+      const puzzlesSolved = Math.floor(gameState.player.curiosity);
 
       // Trigger evolution updates
       if (puzzlesSolved !== this.state.currentPuzzle) {
@@ -465,8 +467,7 @@ export class EchoEvolutionEngine {
   private integrateEndingSystem() {
     // Ending progression affects final transformation
     setInterval(() => {
-      const gameState = gameStore.getState();
-      const endingProgress = gameState.endingProgress || 0;
+      const endingProgress = this.endingProgress;
 
       // Higher ending progress leads to more complete transformation
       if (endingProgress > 0.8 && this.state.evolutionStage === 5) {

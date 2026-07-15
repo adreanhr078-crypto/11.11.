@@ -16,7 +16,6 @@ echo -e "${YELLOW}🚀 Starting 11.11 Android Build Process...${NC}"
 
 # Step 1: Build web assets with Vite
 echo -e "${GREEN}📦 Building web assets with Vite...${NC}"
-cd artifacts/eleven-eleven
 npm run build
 
 # Step 2: Copy web assets to Capacitor
@@ -42,10 +41,10 @@ if [ "$1" = "debug" ]; then
 elif [ "$1" = "release" ]; then
     echo -e "${YELLOW}🎯 Building RELEASE AAB (Google Play Bundle)...${NC}"
 
-    # Check if keystore properties exist
-    if [ ! -f "keystore.properties" ]; then
-        echo -e "${RED}❌ Error: keystore.properties file not found!${NC}"
-        echo -e "Please create a keystore.properties file in the android/ directory with your signing configuration:"
+    # Check if keystore properties exist in android/ directory
+    if [ ! -f "android/keystore.properties" ]; then
+        echo -e "${RED}❌ Error: android/keystore.properties file not found!${NC}"
+        echo -e "Please create android/keystore.properties from android/keystore.properties.example"
         echo -e "${YELLOW}storeFile=your-keystore.jks${NC}"
         echo -e "${YELLOW}storePassword=yourpassword${NC}"
         echo -e "${YELLOW}keyAlias=youralias${NC}"

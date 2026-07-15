@@ -5,7 +5,6 @@
  * All AI calls go through the backend /api/ai/* endpoints.
  */
 
-import { getTrustToneModifier } from "./gameState";
 import { generateLocalResponse } from "./localAiChat";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */

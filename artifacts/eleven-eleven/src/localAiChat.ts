@@ -17,7 +17,7 @@
  * المرحلة 5 (31+): تعود له ذكريات كثيرة، يقترب من معرفة الحقيقة
  */
 
-import { gameStore } from "./gameState";
+import { useGameStore } from "./stores/gameStore";
 
 interface EchoResponse {
   text: string;
@@ -231,13 +231,13 @@ function getGeneralResponse(memory: EchoMemory): string {
 
 // ─── الدالة الرئيسية ──────────────────────────────────────────────────────
 export function generateLocalResponse(userMessage: string, history: { role: string; content: string }[]): EchoResponse {
-  const gameState = gameStore.getState();
-  const solvedPuzzles = Math.floor(gameState.curiosity);
+  const gameState = useGameStore.getState();
+  const solvedPuzzles = Math.floor(gameState.player.curiosity / 10);
   const memory = buildEchoMemory(solvedPuzzles);
   const msg = userMessage.trim().toLowerCase();
 
   // زيادة الثقة مع كل تفاعل
-  gameStore.incrementTrust(0.3);
+  useGameStore.getState().actions.incrementTrust(0.3);
 
   // البحث عن نمط
   for (const pattern of PATTERNS) {
@@ -262,7 +262,7 @@ export function generateLocalResponse(userMessage: string, history: { role: stri
 
 // ─── رسائل دورية ──────────────────────────────────────────────────────────
 export function getPeriodicInsert(): EchoResponse | null {
-  const solvedPuzzles = Math.floor(gameStore.getState().curiosity);
+  const solvedPuzzles = Math.floor(useGameStore.getState().player.curiosity / 10);
   const memory = buildEchoMemory(solvedPuzzles);
 
   const inserts: EchoResponse[] = [

@@ -4,26 +4,6 @@
  * Optimizes initial page load for Cloudflare Pages deployment.
  */
 
-// ─── Audio Engine ────────────────────────────────────────────────────────────
-// AudioContext is only created on first user interaction (click/tap)
-
-let ambientEngineInstance: any = null;
-let engineInitialized = false;
-
-export async function getAmbientEngine(): Promise<any> {
-  if (ambientEngineInstance) return ambientEngineInstance;
-  
-  const mod = await import("./App");
-  const AmbientEngine = (mod as any).AmbientEngine;
-  ambientEngineInstance = new AmbientEngine();
-  engineInitialized = true;
-  return ambientEngineInstance;
-}
-
-export function isEngineInitialized(): boolean {
-  return engineInitialized;
-}
-
 // ─── Speech Synthesis Lazy Load ──────────────────────────────────────────────
 
 let voicesLoaded = false;

@@ -219,20 +219,18 @@ export const COMPLETE_STORY = {
 
 // Narrative Progression System
 export class NarrativeEngine {
-  private gameStore: ReturnType<typeof useGameStore>;
-
   constructor() {
-    this.gameStore = useGameStore.getState();
     this.initializeNarrativeState();
+  }
+
+  private get state() {
+    return useGameStore.getState();
   }
 
   // Initialize narrative state
   private initializeNarrativeState(): void {
-    const state = this.gameStore;
-
-    // Set initial narrative values
-    if (!state.narrativeTriggers) {
-      this.gameStore.getState().actions.checkEndings();
+    if (!this.state.narrativeTriggers) {
+      useGameStore.getState().actions.checkEndings();
     }
   }
 
@@ -247,7 +245,7 @@ export class NarrativeEngine {
     };
 
     const storyEntity = entityMap[entity] || 'echo_main';
-    const currentState = this.gameStore;
+    const currentState = this.state;
 
     // Update entity progress
     const entityProgress = currentState.entities[storyEntity] || {
@@ -271,7 +269,7 @@ export class NarrativeEngine {
     const emotionalChanges = this.getActEmotionalChanges(newAct);
 
     // Apply changes to game state
-    this.gameStore.setState({
+    useGameStore.setState({
       time: {
         ...currentState.time,
         phase: newAct === 'truth_revelation' ? '11:11' : currentState.time.phase
@@ -292,7 +290,7 @@ export class NarrativeEngine {
     });
 
     // Check for ending conditions
-    this.gameStore.getState().actions.checkEndings();
+    useGameStore.getState().actions.checkEndings();
   }
 
   // Get emotional changes per act
@@ -338,7 +336,7 @@ export class NarrativeEngine {
 
   // Get current story act
   public getCurrentAct(): StoryAct {
-    const totalSolved = Object.values(this.gameStore.entities).reduce(
+    const totalSolved = Object.values(this.state.entities).reduce(
       (sum, e) => sum + (e?.puzzlesSolved || 0), 0
     );
 
@@ -362,7 +360,7 @@ export class NarrativeEngine {
 
   // Check ending conditions
   public checkEndingConditions(): StoryEnding[] {
-    const state = this.gameStore;
+    const state = this.state;
     const possibleEndings: StoryEnding[] = ['freedom', 'kenja_control', 'lina_memory', 'true_secret'];
     const unlockedEndings: StoryEnding[] = [];
 
@@ -436,8 +434,8 @@ export class NarrativeEngine {
   // Get story dialogue based on current state
   public getStoryDialogue(): string {
     const act = this.getCurrentAct();
-    const echo = this.gameStore.echo;
-    const totalSolved = Object.values(this.gameStore.entities).reduce(
+    const echo = this.state.echo;
+    const totalSolved = Object.values(this.state.entities).reduce(
       (sum, e) => sum + (e?.puzzlesSolved || 0), 0
     );
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { useGameState } from "./gameState";
+import { useGameStore } from "../stores/gameStore";
 
 const SEGMENTS = 10;
 
@@ -35,7 +35,7 @@ function spikeSize(fear: number): number {
 }
 
 export function SyncMeter({ spikeCount = 0 }: { spikeCount?: number }) {
-  const { fear, trustAI } = useGameState();
+  const { echo } = useGameStore();
   const [spikeSegments, setSpikeSegments] = useState(0);
 
   useEffect(() => {
@@ -44,13 +44,13 @@ export function SyncMeter({ spikeCount = 0 }: { spikeCount?: number }) {
     setSpikeSegments(size);
     const t = setTimeout(() => setSpikeSegments(0), 800);
     return () => clearTimeout(t);
-  }, [spikeCount, fear]);
+  }, [spikeCount, echo.fear]);
 
-  const threat = Math.min(10, fear * 0.75 + trustAI * 0.25);
+  const threat = Math.min(10, echo.fear * 0.75 + echo.trust * 0.25);
   const activeFill = Math.round(threat);
-  const color = fearColor(fear);
-  const glow = fearGlow(fear);
-  const pulse = pulseDuration(fear);
+  const color = fearColor(echo.fear);
+  const glow = fearGlow(echo.fear);
+  const pulse = pulseDuration(echo.fear);
 
   const spikeTop = Math.min(SEGMENTS, activeFill + spikeSegments);
 
@@ -127,7 +127,7 @@ export function SyncMeter({ spikeCount = 0 }: { spikeCount?: number }) {
         {activeFill > 0 ? String(activeFill).padStart(2, "0") : "··"}
       </div>
 
-      {fear >= 7 && (
+      {echo.fear >= 7 && (
         <motion.div
           animate={{ opacity: [0.4, 0.9, 0.4] }}
           transition={{ duration: 0.7, repeat: Infinity }}

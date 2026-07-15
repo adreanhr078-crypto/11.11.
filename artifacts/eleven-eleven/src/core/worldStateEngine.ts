@@ -5,7 +5,7 @@
  * الأحداث (Events) هي الطريقة الوحيدة لتغيير الحالة
  */
 
-import { gameStore } from "../gameState";
+import { useGameStore } from "../stores/gameStore";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPE DEFINITIONS
@@ -358,9 +358,9 @@ class WorldStateEngine {
 
   // Sync from gameState (existing legacy system)
   private syncFromGameState(): void {
-    const gs = gameStore.getState();
-    const trustMapped = Math.round((gs.trustAI / 10) * 100);
-    const fearMapped = Math.round((gs.fear / 10) * 100);
+    const gs = useGameStore.getState();
+    const trustMapped = Math.round(gs.echo.trust);
+    const fearMapped = Math.round(gs.echo.fear);
     
     this.setState({
       echo: { ...this.state.echo, trust: trustMapped },

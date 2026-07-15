@@ -14,6 +14,32 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 type Section = 'dashboard' | 'echo' | 'puzzles' | 'flowers' | 'memory' | 'entities';
 
+/** لوحة الكيانات */
+const EntitiesPanel: React.FC = () => {
+  const { entities } = useGameStore();
+
+  return (
+    <div className="entities-panel">
+      {(Object.entries(entities) as [string, typeof entities.echo][]).map(([id, ent]) => (
+        <div key={id} className={`entity-card ${ent.unlocked ? 'unlocked' : 'locked'} ${ent.completed ? 'completed' : ''}`}>
+          <div className="entity-card-header">
+            <span className="entity-card-glyph">{ent.glyph}</span>
+            <h3>{ent.name}</h3>
+            {!ent.unlocked && <span className="entity-lock-icon">🔒</span>}
+          </div>
+          <div className="entity-card-body">
+            <Bar label="تقدم" value={(ent.puzzlesSolved / ent.totalPuzzles) * 100} color="#c8785a" />
+            <p className="entity-card-stats">
+              {ent.puzzlesSolved}/{ent.totalPuzzles} ألغاز
+              {ent.completed ? ' ✅ مكتمل' : ''}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 export const DashboardPage: React.FC = () => {
   const { echo, time, world, solvedPuzzles, totalPuzzles, entities, flower, memory, player, achievements } = useGameStore();
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
@@ -181,31 +207,5 @@ const Bar: React.FC<{ label: string; value: number; color: string }> = ({ label,
     </div>
   </div>
 );
-
-/** لوحة الكيانات */
-const EntitiesPanel: React.FC = () => {
-  const { entities } = useGameStore();
-
-  return (
-    <div className="entities-panel">
-      {(Object.entries(entities) as [string, typeof entities.echo][]).map(([id, ent]) => (
-        <div key={id} className={`entity-card ${ent.unlocked ? 'unlocked' : 'locked'} ${ent.completed ? 'completed' : ''}`}>
-          <div className="entity-card-header">
-            <span className="entity-card-glyph">{ent.glyph}</span>
-            <h3>{ent.name}</h3>
-            {!ent.unlocked && <span className="entity-lock-icon">🔒</span>}
-          </div>
-          <div className="entity-card-body">
-            <Bar label="تقدم" value={(ent.puzzlesSolved / ent.totalPuzzles) * 100} color="#c8785a" />
-            <p className="entity-card-stats">
-              {ent.puzzlesSolved}/{ent.totalPuzzles} ألغاز
-              {ent.completed ? ' ✅ مكتمل' : ''}
-            </p>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
 
 export default DashboardPage;

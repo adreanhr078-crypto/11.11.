@@ -11,7 +11,7 @@
  * This is the FINAL UPGRADE for the Echo Living Consciousness System.
  */
 
-import { gameStore } from "../gameState";
+import { useGameStore } from "../stores/useGameStore";
 import { echoCharacterSystem, EchoCharacterState, EchoEmotion } from "./echoCharacterSystem";
 import { generateCinematicResponse } from "./echoCinematicSystem";
 
@@ -104,6 +104,8 @@ export class EchoImmersiveSystem {
   private emotionEvolution: EmotionEvolutionEngine;
   private lastUpdate: number;
   private updateInterval: number;
+  private flowerHealth = 0.5;
+  private endingProgress = 0;
 
   constructor() {
     this.voiceSystem = this.createInitialVoiceSystem();
@@ -417,8 +419,8 @@ export class EchoImmersiveSystem {
 
   private analyzePlayerBehavior() {
     // This would be enhanced with actual player behavior data
-    const gameState = gameStore.getState();
-    const puzzlesSolved = Math.floor(gameState.curiosity);
+    const gameState = useGameStore.getState();
+    const puzzlesSolved = Math.floor(gameState.player.curiosity);
 
     // Update behavior profile based on progression
     if (puzzlesSolved > 50) {
@@ -853,8 +855,8 @@ export function integrateImmersiveEchoSystem() {
 
   // 2. Puzzle Progression Integration
   setInterval(() => {
-    const gameState = gameStore.getState();
-    const puzzlesSolved = Math.floor(gameState.curiosity);
+    const gameState = useGameStore.getState();
+    const puzzlesSolved = Math.floor(gameState.player.curiosity / 10);
 
     // Each puzzle affects memory and awareness
     if (puzzlesSolved > echoSystem.memoryPersistence.storyEvents.length) {
@@ -886,8 +888,7 @@ export function integrateImmersiveEchoSystem() {
 
   // 4. Emotion Flower Integration
   setInterval(() => {
-    const gameState = gameStore.getState();
-    const flowerHealth = gameState.flowerHealth || 0.5;
+    const flowerHealth = this.flowerHealth;
 
     // Flower health affects memory stability
     echoSystem.memoryPersistence.memoryStability = flowerHealth * 0.7 + 0.3;
@@ -896,8 +897,7 @@ export function integrateImmersiveEchoSystem() {
 
   // 5. Ending System Integration
   setInterval(() => {
-    const gameState = gameStore.getState();
-    const endingProgress = gameState.endingProgress || 0;
+    const endingProgress = this.endingProgress;
 
     // Higher ending progress improves memory and awareness
     if (endingProgress > 0.5) {

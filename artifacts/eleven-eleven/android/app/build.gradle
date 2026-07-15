@@ -16,22 +16,43 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
-     buildTypes {
-         debug {
-             applicationIdSuffix ".debug"
-             versionNameSuffix "-DEBUG"
-             debuggable true
-             minifyEnabled false
-             shrinkResources false
-         }
-         release {
-             minifyEnabled true
-             shrinkResources true
-             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-             signingConfig signingConfigs.release
-             debuggable false
-         }
-     }
+      buildTypes {
+          debug {
+              applicationIdSuffix ".debug"
+              versionNameSuffix "-DEBUG"
+              debuggable true
+              minifyEnabled false
+              shrinkResources false
+          }
+          release {
+              minifyEnabled true
+              shrinkResources true
+              proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+              signingConfig signingConfigs.release
+              debuggable false
+          }
+      }
+
+      signingConfigs {
+          release {
+              def keystorePropertiesFile = rootProject.file('keystore.properties')
+              if (keystorePropertiesFile.exists()) {
+                  def keystoreProperties = new Properties()
+                  keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+                  storeFile file(keystoreProperties['storeFile'])
+                  storePassword keystoreProperties['storePassword']
+                  keyAlias keystoreProperties['keyAlias']
+                  keyPassword keystoreProperties['keyPassword']
+              } else {
+                  // Fallback to debug keystore so release builds do not fail
+                  // when no release keystore has been configured yet.
+                  storeFile file('debug.keystore')
+                  storePassword 'android'
+                  keyAlias 'androiddebugkey'
+                  keyPassword 'android'
+              }
+          }
+      }
 }
 
 repositories {

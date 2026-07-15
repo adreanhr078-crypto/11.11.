@@ -75,7 +75,7 @@ keytool -genkey -v -keystore your-keystore.jks -keyalg RSA -keysize 2048 -validi
 
 2. **Configure keystore properties**:
    - Copy `android/keystore.properties.example` to `android/keystore.properties`
-   - Fill in your keystore details
+   - Fill in your keystore details in `android/keystore.properties`
 
 3. **Build release AAB**:
 
@@ -85,6 +85,8 @@ cd artifacts/eleven-eleven
 ```
 
 **Output**: `android/app/build/outputs/bundle/release/app-release.aab`
+
+**Note**: The release build script requires `android/keystore.properties` to exist. Debug builds do not require a keystore.
 
 ## 📱 Testing on Device/Emulator
 

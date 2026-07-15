@@ -15,7 +15,7 @@
  * NO random or filler puzzles allowed
  */
 
-import { gameStore } from "../gameState";
+import { useGameStore } from "../stores/gameStore";
 import { echoEvolutionSystem } from "./echoEvolutionSystem";
 import { echoImmersiveSystem } from "./echoImmersiveSystem";
 import { echoCharacterSystem } from "./echoCharacterSystem";
@@ -342,6 +342,9 @@ export class PuzzleExpansionEngine {
   private evolutionSystem: typeof echoEvolutionSystem;
   private immersiveSystem: typeof echoImmersiveSystem;
   private characterSystem: typeof echoCharacterSystem;
+  private memoryShards: number;
+  private flowerHealth: number;
+  private endingProgress: number;
 
   constructor() {
     this.currentPuzzle = 219; // Start after existing puzzles
@@ -349,6 +352,9 @@ export class PuzzleExpansionEngine {
     this.evolutionSystem = echoEvolutionSystem;
     this.immersiveSystem = echoImmersiveSystem;
     this.characterSystem = echoCharacterSystem;
+    this.memoryShards = 0;
+    this.flowerHealth = 0.5;
+    this.endingProgress = 0;
 
     // Initialize expansion system
     this.initializeExpansion();
@@ -364,8 +370,8 @@ export class PuzzleExpansionEngine {
 
   private loadProgress() {
     // In a real implementation, this would load from game state
-    const gameState = gameStore.getState();
-    this.currentPuzzle = Math.max(219, Math.min(333, gameState.curiosity || 219));
+    const gameState = useGameStore.getState();
+    this.currentPuzzle = Math.max(219, Math.min(333, gameState.player.curiosity || 219));
 
     // Mark completed puzzles
     for (let i = 220; i <= this.currentPuzzle; i++) {
@@ -381,8 +387,8 @@ export class PuzzleExpansionEngine {
   }
 
   private checkPuzzleProgress() {
-    const gameState = gameStore.getState();
-    const puzzlesSolved = Math.floor(gameState.curiosity);
+      const gameState = useGameStore.getState();
+      const puzzlesSolved = Math.floor(gameState.player.curiosity / 10);
 
     // Check if new puzzles have been solved
     if (puzzlesSolved > this.currentPuzzle && puzzlesSolved <= 333) {
@@ -468,8 +474,7 @@ export class PuzzleExpansionEngine {
 
   private integrateWithMemoryShards(puzzle: ExpandedPuzzle) {
     // Each puzzle unlocks a memory shard
-    const gameState = gameStore.getState();
-    gameState.memoryShards = Math.min(219, gameState.memoryShards + 1);
+    this.memoryShards = Math.min(219, this.memoryShards + 1);
 
     // Special memory shards at key puzzles
     if ([220, 240, 260, 280, 300, 320, 333].includes(puzzle.id)) {
@@ -495,16 +500,15 @@ export class PuzzleExpansionEngine {
 
   private integrateWithEmotionFlower(puzzle: ExpandedPuzzle) {
     // Flower health affected by puzzle phase
-    const gameState = gameStore.getState();
+    const gameState = useGameStore.getState();
     const flowerHealthChange = puzzle.phase === 3 ? -0.02 : -0.01;
-    gameState.flowerHealth = Math.max(0.1, (gameState.flowerHealth || 0.5) + flowerHealthChange);
+    this.flowerHealth = Math.max(0.1, this.flowerHealth + flowerHealthChange);
   }
 
   private integrateWithEndingSystem(puzzle: ExpandedPuzzle) {
     // Progress toward true ending
-    const gameState = gameStore.getState();
     if (puzzle.id >= 300) {
-      gameState.endingProgress = Math.min(1.0, (gameState.endingProgress || 0) + 0.01);
+      this.endingProgress = Math.min(1.0, this.endingProgress + 0.01);
     }
   }
 

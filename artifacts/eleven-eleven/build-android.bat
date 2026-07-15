@@ -14,7 +14,6 @@ echo.
 
 REM Step 1: Build web assets with Vite
 call :ColorText 0a "📦 Building web assets with Vite..."
-cd artifacts\eleven-eleven
 npm run build
 
 REM Step 2: Copy web assets to Capacitor
@@ -42,11 +41,11 @@ if "%1" == "debug" (
     call :ColorText 0e "🎯 Building RELEASE AAB (Google Play Bundle)..."
     echo.
 
-    REM Check if keystore properties exist
-    if not exist "keystore.properties" (
-        call :ColorText 0c "❌ Error: keystore.properties file not found!"
+    REM Check if keystore properties exist in android/ directory
+    if not exist "android\keystore.properties" (
+        call :ColorText 0c "❌ Error: android/keystore.properties file not found!"
         echo.
-        echo Please create a keystore.properties file in the android\ directory with your signing configuration:
+        echo Please create android/keystore.properties from android/keystore.properties.example
         call :ColorText 0e "storeFile=your-keystore.jks"
         call :ColorText 0e "storePassword=yourpassword"
         call :ColorText 0e "keyAlias=youralias"

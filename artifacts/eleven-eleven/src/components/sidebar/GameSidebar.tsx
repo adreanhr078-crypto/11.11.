@@ -5,6 +5,8 @@
 
 import React from 'react';
 import { useGameStore, type TimePhase } from '../../stores/gameStore';
+
+const XP_MAX = 3500;
 import { motion } from 'framer-motion';
 
 export type SectionId = 'dashboard' | 'echo-mind' | 'day' | 'memories' | 'puzzles' | 'wishes' | 'flowers' | 'achievements' | 'night' | 'overview';
@@ -32,7 +34,7 @@ export const GameSidebar: React.FC<Props> = ({ activeSection, onNavigate }) => {
   const [isNightMode, setIsNightMode] = React.useState(false);
 
   const emoji = echo.corruption > 70 ? '😰' : echo.fear > 70 ? '😨' : echo.trust > 60 ? '😊' : '😐';
-  const xpPct = Math.min(100, (echo.xp / 3500) * 100);
+  const xpPct = Math.min(100, (echo.xp / XP_MAX) * 100);
   const nightActive = time.phaseIndex >= 1;
 
   return (
@@ -87,7 +89,7 @@ export const GameSidebar: React.FC<Props> = ({ activeSection, onNavigate }) => {
           <div className="user-xp-bar">
             <div className="user-xp-fill" style={{ width: `${xpPct}%` }} />
           </div>
-          <span className="user-xp-text">{echo.xp} / 3500 XP</span>
+          <span className="user-xp-text">{echo.xp} / {XP_MAX} XP</span>
         </div>
       </div>
 

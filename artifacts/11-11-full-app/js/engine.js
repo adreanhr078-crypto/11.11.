@@ -78,46 +78,46 @@ function generatePuzzles() {
   const puzzles = [];
   const templates = {
     numerical: [
-      { q: (i) => `[${i}] تسلسل ${i%9+1}, ${(i%9+1)*2}, ${(i%9+1)*3}, ?`, a: (i) => [(i%9+1)*4+''], effect: { trust:2, memoryStability:3, corruption:-1 } },
-      { q: (i) => `[${i}] ما مجموع أرقام 11:${String(i%59+1).padStart(2,'0')}?`, a: (i) => [String(1+1+i%59+1)], effect: { trust:1, memoryStability:2 } },
-      { q: (i) => `[${i}] فجوة في التسلسل: ${i%7+3}, ${(i%7+3)*2}, ?, ${(i%7+3)*4}`, a: (i) => [(i%7+3)*3+''], effect: { memoryStability:4, corruption:-2 } },
-      { q: (i) => `[${i}] كم مرة يظهر الرقم ${i%9+1} في الساعة 11:11?`, a: () => ['4'], effect: { fear:-2, trust:3 } },
+      { q: (i) => `[${i}] تسلسل ${i%9+1}, ${(i%9+1)*2}, ${(i%9+1)*3}, ?`, a: (i) => [(i%9+1)*4+''], effect: { trust:2, memoryStability:3, corruption:-1, curiosity:1 } },
+      { q: (i) => `[${i}] ما مجموع أرقام 11:${String(i%59+1).padStart(2,'0')}?`, a: (i) => [String(1+1+i%59+1)], effect: { trust:1, memoryStability:2, curiosity:1 } },
+      { q: (i) => `[${i}] فجوة في التسلسل: ${i%7+3}, ${(i%7+3)*2}, ?, ${(i%7+3)*4}`, a: (i) => [(i%7+3)*3+''], effect: { memoryStability:4, corruption:-2, curiosity:1 } },
+      { q: (i) => `[${i}] كم مرة يظهر الرقم ${i%9+1} في الساعة 11:11?`, a: () => ['4'], effect: { fear:-2, trust:3, curiosity:1 } },
     ],
     pattern: [
-      { q: (i) => `[${i}] النمط: ●○●○●○ → ماذا بعد?`, a: () => ['●','○'], effect: { memoryStability:3, curiosity:4 } },
-      { q: (i) => `[${i}] الكلمة المفقودة: س_اعد_ني`, a: () => ['ساعدني','help'], effect: { trust:5, corruption:-3 } },
-      { q: (i) => `[${i}] ترتيب عشوائي: 11, 33, 111 — ما القاسم المشترك?`, a: () => ['11','الرقم 11'], effect: { memoryStability:5 } },
-      { q: (i) => `[${i}] اعكس: «ودص» → ؟`, a: () => ['صدى','echo','صدا'], effect: { trust:4, memoryStability:3 } },
+      { q: (i) => `[${i}] النمط: ●○●○●○ → ماذا بعد?`, a: () => ['●','○'], effect: { memoryStability:3, curiosity:2 } },
+      { q: (i) => `[${i}] الكلمة المفقودة: س_اعد_ني`, a: () => ['ساعدني','help'], effect: { trust:5, corruption:-3, curiosity:1 } },
+      { q: (i) => `[${i}] ترتيب عشوائي: 11, 33, 111 — ما القاسم المشترك?`, a: () => ['11','الرقم 11'], effect: { memoryStability:5, curiosity:1 } },
+      { q: (i) => `[${i}] اعكس: «ودص» → ؟`, a: () => ['صدى','echo','صدا'], effect: { trust:4, memoryStability:3, curiosity:1 } },
     ],
     logic: [
-      { q: (i) => `[${i}] إذا كان A = 1, B = 2, فإن ECHO = ?`, a: () => ['5+3+8+15=31','31'], effect: { curiosity:5, corruption:-1 } },
-      { q: (i) => `[${i}] 11 + ? = 33`, a: () => ['22','٢٢'], effect: { trust:3, fear:-2 } },
-      { q: (i) => `[${i}] 3, 3, 3 → 333 → ?`, a: () => ['11×3','ثلاثة أرقام','3'], effect: { memoryStability:4 } },
-      { q: (i) => `[${i}] البوابة تحتاج مفتاحين: 11 و ?`, a: () => ['11','١١','22'], effect: { trust:6 } },
+      { q: (i) => `[${i}] إذا كان A = 1, B = 2, فإن ECHO = ?`, a: () => ['5+3+8+15=31','31'], effect: { curiosity:2, corruption:-1 } },
+      { q: (i) => `[${i}] 11 + ? = 33`, a: () => ['22','٢٢'], effect: { trust:3, fear:-2, curiosity:2 } },
+      { q: (i) => `[${i}] 3, 3, 3 → 333 → ?`, a: () => ['11×3','ثلاثة أرقام','3'], effect: { memoryStability:4, curiosity:1 } },
+      { q: (i) => `[${i}] البوابة تحتاج مفتاحين: 11 و ?`, a: () => ['11','١١','22'], effect: { trust:6, curiosity:1 } },
     ],
     perception: [
-      { q: (i) => `[${i}] وميض: رأيت رقماً قبل أن يختفي — كان 1?`, a: () => ['11','111','١١'], effect: { fear:3, corruption:2 } },
-      { q: (i) => `[${i}] هل تثق بما تراه? (نعم/لا)`, a: () => ['نعم','لا','yes','no'], effect: { trust:2, fear:-1 } },
-      { q: (i) => `[${i}] صوت من الماضي: "...كوني..." أكمل`, a: () => ['ساعدوني','help'], effect: { memoryStability:5, trust:4 } },
-      { q: (i) => `[${i}] ظل يتحرك — ما اتجاهه? (يمين/يسار)`, a: () => ['يمين','يسار','right','left'], effect: { fear:4, corruption:3 } },
+      { q: (i) => `[${i}] وميض: رأيت رقماً قبل أن يختفي — كان 1?`, a: () => ['11','111','١١'], effect: { fear:3, corruption:2, curiosity:1 } },
+      { q: (i) => `[${i}] هل تثق بما تراه? (نعم/لا)`, a: () => ['نعم','لا','yes','no'], effect: { trust:2, fear:-1, curiosity:1 } },
+      { q: (i) => `[${i}] صوت من الماضي: "...كوني..." أكمل`, a: () => ['ساعدوني','help'], effect: { memoryStability:5, trust:4, curiosity:1 } },
+      { q: (i) => `[${i}] ظل يتحرك — ما اتجاهه? (يمين/يسار)`, a: () => ['يمين','يسار','right','left'], effect: { fear:4, corruption:3, curiosity:1 } },
     ],
     memory: [
-      { q: (i) => `[${i}] تذكر: ماذا قالت لينا في رسالتها الأولى?`, a: () => ['ساعدوني','help me','ساعدني'], effect: { memoryStability:6, trust:5 } },
-      { q: (i) => `[${i}] كينجا كتب: «الخ...» أكمل`, a: () => ['الخلود','الخوف','الخروج'], effect: { trust:3, corruption:-4 } },
-      { q: (i) => `[${i}] 10 أطفال قبلي. أنا رقم ?`, a: () => ['11','١١'], effect: { fear:5, memoryStability:3 } },
-      { q: (i) => `[${i}] آخر ما رأته لينا — أي لون?`, a: () => ['بنفسجي','purple','violet'], effect: { trust:7, corruption:-2 } },
+      { q: (i) => `[${i}] تذكر: ماذا قالت لينا في رسالتها الأولى?`, a: () => ['ساعدوني','help me','ساعدني'], effect: { memoryStability:6, trust:5, curiosity:1 } },
+      { q: (i) => `[${i}] كينجا كتب: «الخ...» أكمل`, a: () => ['الخلود','الخوف','الخروج'], effect: { trust:3, corruption:-4, curiosity:1 } },
+      { q: (i) => `[${i}] 10 أطفال قبلي. أنا رقم ?`, a: () => ['11','١١'], effect: { fear:5, memoryStability:3, curiosity:1 } },
+      { q: (i) => `[${i}] آخر ما رأته لينا — أي لون?`, a: () => ['بنفسجي','purple','violet'], effect: { trust:7, corruption:-2, curiosity:2 } },
     ],
     corruption: [
-      { q: (i) => `[${i}] النظام يهتز — هل تستمر? (نعم/لا)`, a: () => ['نعم','لا','yes','no'], effect: { corruption:5, fear:4, curiosity:3 } },
-      { q: (i) => `[${i}] ⚠ رسالة مشوهة: «لا ت...»`, a: () => ['لا تثق','لا توقف','لا تتراجع'], effect: { corruption:3, fear:6 } },
-      { q: (i) => `[${i}] كود خاطئ: 11:?? — أكمل الكود`, a: (i) => [String(i%59+1).padStart(2,'0')], effect: { glitchLevel:5, corruption:4 } },
-      { q: (i) => `[${i}] ⚠ الملف تالف — هل تحاول استعادته? (نعم/لا)`, a: () => ['نعم','لا','yes','no'], effect: { corruption:2, memoryStability:3 } },
+      { q: (i) => `[${i}] النظام يهتز — هل تستمر? (نعم/لا)`, a: () => ['نعم','لا','yes','no'], effect: { corruption:5, fear:4, curiosity:1 } },
+      { q: (i) => `[${i}] ⚠ رسالة مشوهة: «لا ت...»`, a: () => ['لا تثق','لا توقف','لا تتراجع'], effect: { corruption:3, fear:6, curiosity:-1 } },
+      { q: (i) => `[${i}] كود خاطئ: 11:?? — أكمل الكود`, a: (i) => [String(i%59+1).padStart(2,'0')], effect: { glitchLevel:5, corruption:4, curiosity:1 } },
+      { q: (i) => `[${i}] ⚠ الملف تالف — هل تحاول استعادته? (نعم/لا)`, a: () => ['نعم','لا','yes','no'], effect: { corruption:2, memoryStability:3, curiosity:1 } },
     ],
     glitch: [
-      { q: (i) => `[${i}] 0?? 1101 1100 1000 — فك الشيفرة`, a: (i) => ['echo','111'], effect: { glitchLevel:6, corruption:4 } },
-      { q: (i) => `[${i}] ⌇⌇⌇ — هل تسمع الصوت?`, a: () => ['نعم','لا'], effect: { fear:7, curiosity:4 } },
-      { q: (i) => `[${i}] شاشة سوداء — ثم 11:11 — ماذا تفعل?`, a: () => ['انتظر','أغلق','تابع'], effect: { glitchLevel:3, trust:2 } },
-      { q: (i) => `[${i}] ⌇ ERROR ⌇ — هل تريد إعادة التشغيل?`, a: () => ['نعم','لا'], effect: { corruption:-5, memoryStability:-3 } },
+      { q: (i) => `[${i}] 0?? 1101 1100 1000 — فك الشيفرة`, a: (i) => ['echo','111'], effect: { glitchLevel:6, corruption:4, curiosity:1 } },
+      { q: (i) => `[${i}] ⌇⌇⌇ — هل تسمع الصوت?`, a: () => ['نعم','لا'], effect: { fear:7, curiosity:2 } },
+      { q: (i) => `[${i}] شاشة سوداء — ثم 11:11 — ماذا تفعل?`, a: () => ['انتظر','أغلق','تابع'], effect: { glitchLevel:3, trust:2, curiosity:1 } },
+      { q: (i) => `[${i}] ⌇ ERROR ⌇ — هل تريد إعادة التشغيل?`, a: () => ['نعم','لا'], effect: { corruption:-5, memoryStability:-3, curiosity:-1 } },
     ],
   };
 
@@ -142,7 +142,7 @@ function generatePuzzles() {
       answers: answers.map(a => a.toLowerCase()),
       solved: false,
       attempts: 0,
-      effect: tpl.effect || { trust: 1, memoryStability: 2 },
+      effect: tpl.effect || { trust: 1, memoryStability: 2, curiosity: 1 },
       difficulty: Math.floor(i / 55) + 1,
     });
   }
@@ -195,8 +195,9 @@ function generateEchoDialogue() {
   if (valid.length === 0) return `[...]`;
   
   // Pick based on dialogue index to avoid repeats
-  const idx = GAME_STATE.echo.dialogueIndex % valid.length;
-  GAME_STATE.echo.dialogueIndex++;
+  const dialogueIndex = GAME_STATE.echo.dialogueIndex || 0;
+  const idx = dialogueIndex % valid.length;
+  GAME_STATE.echo.dialogueIndex = dialogueIndex + 1;
   return valid[idx];
 }
 

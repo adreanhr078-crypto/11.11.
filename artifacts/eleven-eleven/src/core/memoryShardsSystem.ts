@@ -4,7 +4,8 @@
  * Transforms all puzzles into a cinematic psychological journey
  */
 
-import { useGameStore, type EntityId } from '../stores/gameStore';
+import type { EntityId } from '../stores/gameStore';
+import { useGameStore } from '../stores/gameStore';
 import { narrativeEngine, type StoryAct, type StoryEntity } from './narrativeEngine';
 
 // Memory Shard Interface
@@ -861,10 +862,17 @@ export function generateOriginalMemoryShards(): MemoryShard[] {
 
 // Memory Shards System Class
 export class MemoryShardsSystem {
-  constructor(
-    private gameStore = useGameStore(),
-    private narrativeEngine = narrativeEngine
-  ) {}
+  private _gameStore: any = null;
+  private narrativeEngine = narrativeEngine;
+
+  constructor() {}
+
+  private get gameStore(): any {
+    if (!this._gameStore) {
+      this._gameStore = useGameStore.getState();
+    }
+    return this._gameStore;
+  }
 
   // Get all memory shards
   getAllMemoryShards(): MemoryShard[] {
@@ -893,7 +901,8 @@ export class MemoryShardsSystem {
 
   // Get unlocked memory shards
   getUnlockedMemoryShards(): MemoryShard[] {
-    const unlockedPuzzles = this.gameStore.solvedPuzzles.map(p => p.id);
+    const gs = this.gameStore;
+    const unlockedPuzzles = gs.solvedPuzzles ? gs.solvedPuzzles.map(p => p.id) : [];
     return MEMORY_SHARDS_TIMELINE.filter(shard =>
       unlockedPuzzles.includes(shard.puzzleId)
     );
@@ -901,7 +910,8 @@ export class MemoryShardsSystem {
 
   // Get locked memory shards
   getLockedMemoryShards(): MemoryShard[] {
-    const unlockedPuzzles = this.gameStore.solvedPuzzles.map(p => p.id);
+    const gs = this.gameStore;
+    const unlockedPuzzles = gs.solvedPuzzles ? gs.solvedPuzzles.map(p => p.id) : [];
     return MEMORY_SHARDS_TIMELINE.filter(shard =>
       !unlockedPuzzles.includes(shard.puzzleId)
     );
@@ -909,7 +919,8 @@ export class MemoryShardsSystem {
 
   // Get memory shard progress
   getMemoryShardProgress(): number {
-    const unlockedPuzzles = this.gameStore.solvedPuzzles.map(p => p.id);
+    const gs = this.gameStore;
+    const unlockedPuzzles = gs.solvedPuzzles ? gs.solvedPuzzles.map(p => p.id) : [];
     const unlockedShards = MEMORY_SHARDS_TIMELINE.filter(shard =>
       unlockedPuzzles.includes(shard.puzzleId)
     );
@@ -930,6 +941,7 @@ export class MemoryShardsSystem {
 
   // Calculate ending progress based on memory shards
   calculateEndingProgress(): Record<string, number> {
+    const gs = this.gameStore;
     const endings = this.narrativeEngine.getAllEndings();
     const result: Record<string, number> = {};
 
@@ -938,13 +950,13 @@ export class MemoryShardsSystem {
       const metRequirements = requirements.filter(req => {
         switch (req.type) {
           case 'puzzles':
-            return this.gameStore.solvedPuzzles >= req.value;
+            return gs.solvedPuzzles >= req.value;
           case 'trust':
-            return this.gameStore.echo.trust >= req.value;
+            return gs.echo.trust >= req.value;
           case 'memory':
-            return this.gameStore.memory.fragmentsCollected >= req.value;
+            return gs.memory.fragmentsCollected >= req.value;
           case 'entity':
-            const entity = this.gameStore.entities[req.entity as StoryEntity];
+            const entity = gs.entities[req.entity as StoryEntity];
             return entity?.puzzlesSolved >= req.value;
           case 'act':
             return this.narrativeEngine.getCurrentAct() === req.value;
@@ -960,5 +972,5 @@ export class MemoryShardsSystem {
   }
 }
 
-// Singleton instance
+// Singleton instance - does NOT call useGameStore() at load time anymore
 export const memoryShardsSystem = new MemoryShardsSystem();

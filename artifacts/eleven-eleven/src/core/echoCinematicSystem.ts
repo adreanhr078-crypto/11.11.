@@ -7,7 +7,7 @@
  * This system EXTENDS the existing Echo Living Consciousness System.
  */
 
-import { gameStore } from "../gameState";
+import { useGameStore } from "../stores/gameStore";
 import { EchoConsciousness, generateEchoResponse, monitorEchoConsciousness } from "./echoLivingConsciousness";
 
 // ─── CINEMATIC VOICE SYSTEM ────────────────────────────────────────────────
@@ -255,8 +255,8 @@ export function generateCinematicResponse(input: string, history: { role: string
   animation: ReturnType<typeof getEmotionalAnimation>;
   typingAnimation: TypingAnimationResult;
 } {
-  const gameState = gameStore.getState();
-  const solvedPuzzles = Math.floor(gameState.curiosity);
+  const gameState = useGameStore.getState();
+  const solvedPuzzles = Math.floor(gameState.player.curiosity / 10);
   const consciousness = monitorEchoConsciousness();
 
   // Generate base response from living consciousness system
