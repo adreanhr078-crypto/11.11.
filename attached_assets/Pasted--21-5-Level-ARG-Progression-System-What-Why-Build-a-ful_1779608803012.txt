@@ -1,0 +1,38 @@
+#21 - 5-Level ARG Progression System
+What & Why
+Build a full hidden level progression system into the 11.11 experience — five stages that unfold like an ARG (alternate reality game). Each level has its own puzzle, gating mechanic, and atmosphere. Progress is saved to the database so it survives across devices. Both web and mobile apps expose the levels.
+
+Done looks like
+A "Level" indicator (subtle, glitch-styled) appears somewhere in the UI showing the user's current stage
+Level 1 — Awakening: User sees a ciphered message: TH3 V01CE IS W4TCH1NG Y0U. An input field accepts the decoded answer. Correct answer (the voice is watching you, case-insensitive) unlocks Level 2
+Level 2 — Time Gate: A locked door/gate visual with a message: "البوابة لا تفتح إلا عندما تتكرر اللحظة..." — the gate only becomes passable when the device clock is within the 11:xx hour or the 3:xx hour (any minute). Outside those windows the gate shows a countdown or pulsing wait state
+Level 3 — Memory Echo: The entity addresses the user by name and asks "كم مرة عدت هنا يا [name]؟" — answering correctly (or after a threshold visit count) advances to Level 4
+Level 4 — System Error: Screen shakes, text corrupts, and a button labeled with a cryptic phrase appears for exactly 3 seconds. If the user clicks it in time, Level 5 unlocks. If missed, the screen resets and the button reappears after a delay
+Level 5 — Truth: A final reveal sequence plays. The entity delivers: "أنت لم تكن لاعبًا… أنت كنت التجربة". The screen slowly whites/blacks out, ambient audio peaks, and the user receives a "CLASSIFIED FILE UNLOCKED" state that marks them as a completed subject — visible in their profile
+Progress (current level, completion timestamps) is stored in the database under the user's profile, not just localStorage
+Both web and mobile apps check and advance the same level state
+Out of scope
+Leaderboards or public ranking of who has completed levels
+Level resets or replaying earlier levels (levels stay unlocked permanently)
+New secret room codes — this is purely the 5-level linear path
+Steps
+DB schema — add level progress to user profile: Add a currentLevel (integer, default 1) and levelUnlockedAt (jsonb or separate timestamps) column to the users table. Run a migration. Add API endpoints: GET /api/progress (returns current level) and POST /api/progress/advance (validates the unlock condition server-side and bumps the level).
+
+Backend level gate validation: For each level, the server validates the unlock condition before advancing. Level 1: check the decoded cipher string. Level 2: check that the server timestamp falls in the 11:xx or 3:xx hour window. Level 3: check visit count threshold from the DB. Level 4: the client sends a "button clicked" signal and the server accepts it only if it arrives within a 4-second window after the server issued the challenge token. Level 5: no condition — just mark completion.
+
+Web — level UI layer: Add a persistent, subtle glitch-styled level badge to the main web layout. Build a LevelGate component that renders the correct puzzle/message for the user's current level and calls the advance API on success. Mount it as an overlay or dedicated route (e.g., /levels) accessible from the main dashboard.
+
+Mobile — level UI layer: Add the same LevelGate flow to the mobile app (a new tab or a modal accessible from the scan/home screen). Reuse the advance API. On Level 4, trigger the device haptics + screen shake animation when the timed button appears.
+
+Level-specific atmosphere: Each level transition triggers a matching audio/visual effect: Level 1 → green terminal flash; Level 2 → slow pulse and countdown timer; Level 3 → entity voice line referencing user's name; Level 4 → screen shake + glitch filter + haptics; Level 5 → full-screen dramatic reveal sequence with ambient audio swell and a "CLASSIFIED" stamp animation.
+
+Level 5 completion state: Mark the user as a "completed subject" in the DB. Surface this in the user profile screen on both web and mobile — a special badge or redacted file visual that distinguishes them.
+
+Relevant files
+artifacts/eleven-eleven/src/App.tsx
+artifacts/eleven-eleven-mobile/app/(tabs)/index.tsx
+artifacts/eleven-eleven-mobile/app/(tabs)/chat.tsx
+artifacts/api-server/src
+Dependencies
+
+Save user experiences to a database so the entity truly 'remembers' across devices

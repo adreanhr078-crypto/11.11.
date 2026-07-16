@@ -1,0 +1,1 @@
+- [11.11 story canon](eleven-eleven-lore.md) — lore.ts is the single source of truth; every puzzle must tie to it and reveal a new fragment.

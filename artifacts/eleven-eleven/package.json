@@ -1,0 +1,45 @@
+{
+  "name": "@workspace/eleven-eleven",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --config vite.config.ts --host 0.0.0.0",
+    "build": "vite build --config vite.config.ts",
+    "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
+    "doctor": "node ./tools/project-doctor/index.mjs doctor",
+    "doctor:counts": "node ./tools/project-doctor/index.mjs doctor:counts",
+    "doctor:white-screen": "node ./tools/project-doctor/index.mjs doctor:white-screen",
+    "doctor:storage": "node ./tools/project-doctor/index.mjs doctor:storage",
+    "doctor:files": "node ./tools/project-doctor/index.mjs doctor:files",
+    "doctor:build": "node ./tools/project-doctor/index.mjs doctor:build",
+    "agent:preflight": "node ./tools/project-doctor/index.mjs agent:preflight",
+    "agent:postflight": "node ./tools/project-doctor/index.mjs agent:postflight"
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.2.0",
+    "@radix-ui/react-toast": "^1.2.0",
+    "@tanstack/react-query": "^5.0.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.0.0",
+    "lucide-react": "^0.545.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tailwind-merge": "^3.3.1",
+    "wouter": "^3.3.5",
+    "zod": "^3.25.0",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "tailwindcss": "^4.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.9.0",
+    "vite": "^6.0.0"
+  }
+}

@@ -1,0 +1,8 @@
+# Replit deployment optimizations
+# This file is ignored by Vercel/Netlify but kept for Replit compatibility
+.local
+node_modules
+dist
+.cache
+</content>
+</invoke>

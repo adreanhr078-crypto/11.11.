@@ -1,0 +1,1172 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   COMPREHENSIVE DASHBOARD — التنسيقات الشاملة
+   يدعم الصور 01-20: الروية الشاملة، النظام النهاري، التحول الليلي، المنظومة، Echo Mind
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── LAYOUT الرئيسي ─── */
+.dashboard-root {
+  display: flex;
+  min-height: 100vh;
+  background: #0a0a0f;
+  color: #e0dcd4;
+  font-family: 'Cairo', 'Segoe UI', 'Noto Sans Arabic', sans-serif;
+  direction: rtl;
+  overflow-x: hidden;
+}
+
+/* ─── الشريط الجانبي ─── */
+.dashboard-sidebar {
+  width: 260px;
+  min-height: 100vh;
+  background: rgba(12, 10, 15, 0.95);
+  border-left: 1px solid rgba(180, 120, 80, 0.12);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 30;
+  backdrop-filter: blur(20px);
+  transition: width 0.3s ease;
+}
+
+.sidebar-brand {
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(180, 120, 80, 0.08);
+  text-align: center;
+}
+
+.sidebar-brand h2 {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #c8785a;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.25rem;
+}
+
+.sidebar-brand .brand-subtitle {
+  font-size: 0.65rem;
+  color: rgba(200, 120, 90, 0.5);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.sidebar-brand .brand-tagline {
+  font-size: 0.7rem;
+  color: rgba(224, 220, 212, 0.4);
+  margin-top: 0.5rem;
+  line-height: 1.5;
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: 0.75rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  background: none;
+  border: none;
+  color: rgba(224, 220, 212, 0.5);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  text-align: right;
+  width: 100%;
+  border-right: 3px solid transparent;
+}
+
+.sidebar-nav-item:hover {
+  background: rgba(180, 120, 80, 0.06);
+  color: rgba(224, 220, 212, 0.8);
+}
+
+.sidebar-nav-item.active {
+  background: rgba(200, 100, 60, 0.1);
+  color: #c8785a;
+  border-right-color: #c8785a;
+}
+
+.sidebar-nav-icon {
+  font-size: 1rem;
+  width: 24px;
+  text-align: center;
+}
+
+.sidebar-night-toggle {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid rgba(180, 120, 80, 0.08);
+}
+
+.night-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.6rem 1rem;
+  background: rgba(180, 50, 50, 0.08);
+  border: 1px solid rgba(180, 50, 50, 0.2);
+  border-radius: 8px;
+  color: #cc6644;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
+
+.night-toggle-btn:hover {
+  background: rgba(180, 50, 50, 0.15);
+  border-color: rgba(180, 50, 50, 0.4);
+}
+
+.sidebar-user-card {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid rgba(180, 120, 80, 0.08);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.user-avatar-small {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(200, 100, 60, 0.15);
+  border: 1px solid rgba(200, 100, 60, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+}
+
+.user-info-small {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.user-name-small {
+  font-size: 0.8rem;
+  color: #e0dcd4;
+  font-weight: 600;
+}
+
+.user-level-small {
+  font-size: 0.6rem;
+  color: rgba(224, 220, 212, 0.4);
+}
+
+.user-xp-bar {
+  height: 3px;
+  background: rgba(180, 120, 80, 0.1);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.user-xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #c8785a, #a85a3a);
+  border-radius: 99px;
+}
+
+.sidebar-continue-btn {
+  width: 100%;
+  padding: 0.5rem;
+  background: rgba(200, 100, 60, 0.12);
+  border: 1px solid rgba(200, 100, 60, 0.25);
+  border-radius: 6px;
+  color: #c8785a;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.sidebar-continue-btn:hover {
+  background: rgba(200, 100, 60, 0.2);
+}
+
+/* ─── المحتوى الرئيسي ─── */
+.dashboard-main {
+  flex: 1;
+  margin-right: 260px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-height: 100vh;
+}
+
+/* ─── شريط علوي ─── */
+.dashboard-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  background: rgba(15, 12, 18, 0.8);
+  border: 1px solid rgba(180, 120, 80, 0.08);
+  border-radius: 12px;
+  backdrop-filter: blur(12px);
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.topbar-time {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #c8785a;
+  font-family: 'Courier New', monospace;
+}
+
+.topbar-label {
+  font-size: 0.7rem;
+  color: rgba(224, 220, 212, 0.5);
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.discovery-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.8rem;
+  background: rgba(180, 120, 80, 0.08);
+  border: 1px solid rgba(180, 120, 80, 0.15);
+  border-radius: 99px;
+  font-size: 0.7rem;
+  color: rgba(200, 120, 90, 0.7);
+}
+
+/* ─── بطاقات الأقسام ─── */
+.section-card {
+  background: rgba(15, 12, 20, 0.7);
+  border: 1px solid rgba(180, 120, 80, 0.1);
+  border-radius: 12px;
+  padding: 1.25rem;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s ease;
+}
+
+.section-card:hover {
+  border-color: rgba(180, 120, 80, 0.2);
+}
+
+.section-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(180, 120, 80, 0.2), transparent);
+}
+
+.section-card.glow {
+  box-shadow: 0 0 30px rgba(180, 80, 40, 0.08);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(180, 120, 80, 0.06);
+}
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #c8785a;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-title-icon {
+  font-size: 1.1rem;
+}
+
+.section-subtitle {
+  font-size: 0.7rem;
+  color: rgba(224, 220, 212, 0.4);
+  margin-top: 0.2rem;
+}
+
+.section-link {
+  font-size: 0.7rem;
+  color: rgba(200, 120, 90, 0.5);
+  cursor: pointer;
+  transition: color 0.2s ease;
+  background: none;
+  border: none;
+  font-family: inherit;
+}
+
+.section-link:hover {
+  color: #c8785a;
+}
+
+/* ─── قياسات الإيكو ─── */
+.echo-emotion-rings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.emotion-ring {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.emotion-ring-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.emotion-ring-circle svg {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+
+.emotion-ring-value {
+  font-size: 0.9rem;
+  font-weight: 700;
+  z-index: 1;
+}
+
+.emotion-ring-label {
+  font-size: 0.7rem;
+  color: rgba(224, 220, 212, 0.5);
+}
+
+/* ─── بطاقات الميزات ─── */
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.feature-card {
+  background: rgba(20, 16, 25, 0.6);
+  border: 1px solid rgba(180, 120, 80, 0.08);
+  border-radius: 10px;
+  padding: 1rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.feature-card:hover {
+  border-color: rgba(180, 120, 80, 0.25);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(180, 80, 40, 0.1);
+}
+
+.feature-card-icon {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.feature-card-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #e0dcd4;
+  margin-bottom: 0.25rem;
+}
+
+.feature-card-desc {
+  font-size: 0.6rem;
+  color: rgba(224, 220, 212, 0.4);
+  line-height: 1.4;
+}
+
+.feature-card-progress {
+  margin-top: 0.5rem;
+  height: 3px;
+  background: rgba(180, 120, 80, 0.08);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.feature-card-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #c8785a, #a85a3a);
+  border-radius: 99px;
+}
+
+/* ─── شريط التقدم العام ─── */
+.progress-bar-dashboard {
+  width: 100%;
+}
+
+.progress-label-dashboard {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  color: rgba(224, 220, 212, 0.5);
+  margin-bottom: 0.3rem;
+}
+
+.progress-track-dashboard {
+  height: 6px;
+  background: rgba(180, 120, 80, 0.08);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.progress-fill-dashboard {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ─── بطاقة Echo المركزية ─── */
+.echo-hero-card {
+  background: rgba(15, 12, 20, 0.8);
+  border: 1px solid rgba(180, 120, 80, 0.15);
+  border-radius: 16px;
+  padding: 1.5rem;
+  display: flex;
+  gap: 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.echo-hero-card::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(180, 80, 40, 0.03) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.echo-hero-visual {
+  flex-shrink: 0;
+  width: 180px;
+  height: 220px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(10, 8, 12, 0.8);
+  border: 1px solid rgba(180, 120, 80, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.echo-hero-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.echo-hero-name {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #e0dcd4;
+}
+
+.echo-hero-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+}
+
+.echo-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.echo-status-dot.online {
+  background: #4CAF50;
+  box-shadow: 0 0 6px rgba(76, 175, 80, 0.5);
+}
+
+.echo-hero-desc {
+  font-size: 0.75rem;
+  color: rgba(224, 220, 212, 0.5);
+  line-height: 1.6;
+  font-style: italic;
+}
+
+/* ─── الألغاز ─── */
+.puzzles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.puzzle-card {
+  background: rgba(20, 16, 25, 0.5);
+  border: 1px solid rgba(180, 120, 80, 0.08);
+  border-radius: 10px;
+  padding: 0.75rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.puzzle-card:hover {
+  border-color: rgba(180, 120, 80, 0.2);
+}
+
+.puzzle-card-image {
+  width: 100%;
+  height: 80px;
+  border-radius: 6px;
+  background: rgba(10, 8, 12, 0.6);
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.puzzle-card-title {
+  font-size: 0.7rem;
+  color: #e0dcd4;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.puzzle-card-progress-bar {
+  height: 3px;
+  background: rgba(180, 120, 80, 0.08);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.puzzle-card-progress-fill {
+  height: 100%;
+  background: #c8785a;
+  border-radius: 99px;
+}
+
+.puzzle-card-progress-text {
+  font-size: 0.55rem;
+  color: rgba(224, 220, 212, 0.4);
+  margin-top: 0.25rem;
+}
+
+.puzzle-card.locked {
+  opacity: 0.4;
+}
+
+.puzzle-card.locked::after {
+  content: '🔒';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.2rem;
+}
+
+/* ─── شظايا الذاكرة ─── */
+.memories-grid-dashboard {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.5rem;
+}
+
+.memory-shard {
+  background: rgba(20, 16, 25, 0.5);
+  border: 1px solid rgba(180, 120, 80, 0.06);
+  border-radius: 8px;
+  padding: 0.6rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.memory-shard:hover {
+  border-color: rgba(180, 120, 80, 0.2);
+}
+
+.memory-shard-image {
+  width: 100%;
+  height: 60px;
+  border-radius: 4px;
+  background: rgba(10, 8, 12, 0.6);
+  margin-bottom: 0.4rem;
+}
+
+.memory-shard-title {
+  font-size: 0.6rem;
+  color: rgba(224, 220, 212, 0.7);
+}
+
+.memory-shard.new {
+  border-color: rgba(200, 100, 60, 0.3);
+}
+
+.memory-shard.locked {
+  opacity: 0.3;
+}
+
+/* ─── الأحلام والذكريات ─── */
+.dreams-viewer {
+  position: relative;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(10, 8, 12, 0.8);
+  border: 1px solid rgba(180, 120, 80, 0.1);
+  aspect-ratio: 16/9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dreams-viewer-info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1rem;
+  background: linear-gradient(transparent, rgba(10, 8, 12, 0.9));
+}
+
+.dreams-viewer-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #e0dcd4;
+}
+
+.dreams-viewer-desc {
+  font-size: 0.7rem;
+  color: rgba(224, 220, 212, 0.5);
+}
+
+/* ─── نظام الأصوات ─── */
+.sound-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sound-track {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem;
+  background: rgba(20, 16, 25, 0.4);
+  border: 1px solid rgba(180, 120, 80, 0.06);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sound-track:hover {
+  border-color: rgba(180, 120, 80, 0.15);
+}
+
+.sound-track.playing {
+  border-color: rgba(200, 100, 60, 0.3);
+  background: rgba(200, 100, 60, 0.05);
+}
+
+.sound-track-play {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(200, 100, 60, 0.15);
+  border: 1px solid rgba(200, 100, 60, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  color: #c8785a;
+  flex-shrink: 0;
+}
+
+.sound-track-info {
+  flex: 1;
+}
+
+.sound-track-name {
+  font-size: 0.75rem;
+  color: #e0dcd4;
+  font-weight: 600;
+}
+
+.sound-track-desc {
+  font-size: 0.6rem;
+  color: rgba(224, 220, 212, 0.4);
+}
+
+.sound-track-duration {
+  font-size: 0.6rem;
+  color: rgba(224, 220, 212, 0.3);
+  font-family: monospace;
+}
+
+/* ─── مراحل التحول الليلي ─── */
+.night-stages {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.night-stage {
+  background: rgba(20, 16, 25, 0.6);
+  border: 1px solid rgba(180, 120, 80, 0.08);
+  border-radius: 12px;
+  padding: 1rem;
+  text-align: center;
+  position: relative;
+}
+
+.night-stage.active {
+  border-color: rgba(180, 50, 50, 0.3);
+  background: rgba(180, 30, 30, 0.05);
+}
+
+.night-stage-time {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #c8785a;
+  font-family: 'Courier New', monospace;
+}
+
+.night-stage-label {
+  font-size: 0.7rem;
+  color: rgba(224, 220, 212, 0.5);
+  margin: 0.5rem 0;
+}
+
+.night-stage-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.55rem;
+  font-family: monospace;
+}
+
+.status-stable {
+  background: rgba(76, 175, 80, 0.1);
+  color: #4CAF50;
+  border: 1px solid rgba(76, 175, 80, 0.2);
+}
+
+.status-warning {
+  background: rgba(255, 152, 0, 0.1);
+  color: #FF9800;
+  border: 1px solid rgba(255, 152, 0, 0.2);
+}
+
+.status-danger {
+  background: rgba(244, 67, 54, 0.1);
+  color: #f44336;
+  border: 1px solid rgba(244, 67, 54, 0.2);
+}
+
+/* ─── منظومة الألقاب ─── */
+.achievements-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 0.75rem;
+}
+
+.achievement-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.75rem;
+  background: rgba(20, 16, 25, 0.4);
+  border: 1px solid rgba(180, 120, 80, 0.06);
+  border-radius: 10px;
+  text-align: center;
+}
+
+.achievement-badge.locked {
+  opacity: 0.3;
+}
+
+.achievement-badge-icon {
+  font-size: 1.5rem;
+}
+
+.achievement-badge-name {
+  font-size: 0.6rem;
+  color: rgba(224, 220, 212, 0.7);
+  font-weight: 600;
+}
+
+.achievement-badge-desc {
+  font-size: 0.5rem;
+  color: rgba(224, 220, 212, 0.35);
+}
+
+/* ─── الروابط بين الأنظمة ─── */
+.system-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 0;
+  flex-wrap: wrap;
+}
+
+.system-link-node {
+  padding: 0.5rem 1rem;
+  background: rgba(20, 16, 25, 0.6);
+  border: 1px solid rgba(180, 120, 80, 0.1);
+  border-radius: 8px;
+  font-size: 0.65rem;
+  color: rgba(224, 220, 212, 0.6);
+  text-align: center;
+}
+
+.system-link-arrow {
+  color: rgba(180, 120, 80, 0.3);
+  font-size: 0.8rem;
+}
+
+/* ─── النهايات ─── */
+.endings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.ending-card {
+  background: rgba(20, 16, 25, 0.5);
+  border: 1px solid rgba(180, 120, 80, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.ending-card:hover {
+  border-color: rgba(180, 120, 80, 0.2);
+}
+
+.ending-card-image {
+  width: 100%;
+  height: 100px;
+  background: rgba(10, 8, 12, 0.6);
+}
+
+.ending-card-content {
+  padding: 0.75rem;
+}
+
+.ending-card-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #e0dcd4;
+  margin-bottom: 0.25rem;
+}
+
+.ending-card-desc {
+  font-size: 0.6rem;
+  color: rgba(224, 220, 212, 0.4);
+  line-height: 1.4;
+}
+
+/* ─── تطوير الشخصية ─── */
+.character-stages {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 1rem 0;
+}
+
+.character-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+}
+
+.character-stage-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: rgba(20, 16, 25, 0.6);
+  border: 2px solid rgba(180, 120, 80, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+.character-stage.active .character-stage-avatar {
+  border-color: #c8785a;
+  box-shadow: 0 0 15px rgba(200, 100, 60, 0.3);
+}
+
+.character-stage-name {
+  font-size: 0.65rem;
+  color: rgba(224, 220, 212, 0.6);
+  font-weight: 600;
+}
+
+.character-stage-label {
+  font-size: 0.5rem;
+  color: rgba(224, 220, 212, 0.3);
+}
+
+.character-stage-arrow {
+  color: rgba(180, 120, 80, 0.2);
+  font-size: 0.8rem;
+}
+
+/* ─── العلاقة مع المستخدم ─── */
+.relationship-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.relationship-level {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.relationship-label {
+  font-size: 0.65rem;
+  color: rgba(224, 220, 212, 0.4);
+  min-width: 40px;
+}
+
+.relationship-track {
+  flex: 1;
+  height: 4px;
+  background: rgba(180, 120, 80, 0.08);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.relationship-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.8s ease;
+}
+
+.relationship-value {
+  font-size: 0.65rem;
+  color: rgba(224, 220, 212, 0.6);
+  min-width: 30px;
+  text-align: left;
+}
+
+/* ─── الأهداف ─── */
+.goals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.goal-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem;
+  background: rgba(20, 16, 25, 0.3);
+  border: 1px solid rgba(180, 120, 80, 0.06);
+  border-radius: 8px;
+}
+
+.goal-check {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid rgba(180, 120, 80, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.5rem;
+  flex-shrink: 0;
+}
+
+.goal-check.done {
+  background: rgba(200, 100, 60, 0.2);
+  border-color: #c8785a;
+  color: #c8785a;
+}
+
+.goal-text {
+  font-size: 0.7rem;
+  color: rgba(224, 220, 212, 0.6);
+}
+
+.goal-text.done {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+/* ─── الحركات ─── */
+.echo-movements {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.5rem;
+}
+
+.echo-movement {
+  padding: 0.6rem;
+  background: rgba(20, 16, 25, 0.3);
+  border: 1px solid rgba(180, 120, 80, 0.06);
+  border-radius: 8px;
+  font-size: 0.65rem;
+  color: rgba(224, 220, 212, 0.5);
+  line-height: 1.4;
+}
+
+.echo-movement-icon {
+  font-size: 1rem;
+  margin-bottom: 0.3rem;
+  display: block;
+}
+
+/* ─── الوصف النصي ─── */
+.dashboard-quote {
+  text-align: center;
+  padding: 1.5rem;
+  font-size: 0.85rem;
+  color: rgba(224, 220, 212, 0.5);
+  font-style: italic;
+  line-height: 1.8;
+}
+
+.dashboard-quote::before,
+.dashboard-quote::after {
+  content: '"';
+  color: rgba(180, 120, 80, 0.3);
+}
+
+/* ─── الفوتر ─── */
+.dashboard-footer {
+  text-align: center;
+  padding: 1.5rem;
+  border-top: 1px solid rgba(180, 120, 80, 0.06);
+}
+
+.dashboard-footer-text {
+  font-size: 0.75rem;
+  color: rgba(224, 220, 212, 0.4);
+  line-height: 1.6;
+}
+
+.dashboard-footer-quote {
+  font-size: 0.8rem;
+  color: rgba(200, 120, 90, 0.5);
+  font-style: italic;
+  margin-top: 0.5rem;
+}
+
+/* ─── Grid Layouts ─── */
+.grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.grid-3col {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.grid-sidebar-main {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 1rem;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 1200px) {
+  .grid-3col {
+    grid-template-columns: 1fr 1fr;
+  }
+  .night-stages {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .dashboard-sidebar {
+    width: 60px;
+    overflow: hidden;
+  }
+  .sidebar-brand h2 { font-size: 1rem; }
+  .sidebar-brand .brand-subtitle,
+  .sidebar-brand .brand-tagline,
+  .sidebar-nav-item span:not(.sidebar-nav-icon),
+  .sidebar-user-card .user-info-small,
+  .sidebar-user-card .user-xp-bar,
+  .sidebar-night-toggle .night-toggle-btn span:not(.sidebar-nav-icon) {
+    display: none;
+  }
+  .dashboard-main {
+    margin-right: 60px;
+  }
+  .grid-2col,
+  .grid-3col,
+  .grid-sidebar-main {
+    grid-template-columns: 1fr;
+  }
+  .echo-hero-card {
+    flex-direction: column;
+  }
+  .echo-hero-visual {
+    width: 100%;
+    height: 160px;
+  }
+}
+
+@media (max-width: 600px) {
+  .dashboard-main {
+    padding: 0.75rem;
+  }
+  .features-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .puzzles-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

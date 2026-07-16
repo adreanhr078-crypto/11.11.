@@ -1,0 +1,42 @@
+# 11.11 — Cloudflare Pages Headers
+# Cache static assets aggressively, HTML never cached
+
+# HTML — never cache (SPA needs fresh index.html on every route)
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+  X-Content-Type-Options: nosniff
+
+# JavaScript — cache for 1 year (fingerprinted by Vite)
+/*.js
+  Cache-Control: public, max-age=31536000, immutable
+
+# CSS — cache for 1 year (fingerprinted by Vite)
+/*.css
+  Cache-Control: public, max-age=31536000, immutable
+
+# Images — cache for 1 year
+/*.svg
+  Cache-Control: public, max-age=31536000, immutable
+/*.png
+  Cache-Control: public, max-age=31536000, immutable
+/*.jpg
+  Cache-Control: public, max-age=31536000, immutable
+/*.webp
+  Cache-Control: public, max-age=31536000, immutable
+
+# Fonts — cache for 1 year
+/*.woff2
+  Cache-Control: public, max-age=31536000, immutable
+/*.woff
+  Cache-Control: public, max-age=31536000, immutable
+
+# Service worker — never cache
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+  Service-Worker-Allowed: /
+
+# Security headers
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin

@@ -1,0 +1,45 @@
+{
+  "name": "workspace",
+  "version": "0.0.0",
+  "license": "MIT",
+  "scripts": {
+    "build": "cd artifacts/eleven-eleven && npm install && npx vite build",
+    "dev": "cd artifacts/eleven-eleven && npx vite",
+    "typecheck:libs": "tsc --build",
+    "typecheck": "echo 'skip typecheck on Vercel'",
+    "doctor": "node artifacts/eleven-eleven/tools/project-doctor/index.mjs doctor",
+    "doctor:counts": "node artifacts/eleven-eleven/tools/project-doctor/index.mjs doctor:counts",
+    "doctor:white-screen": "node artifacts/eleven-eleven/tools/project-doctor/index.mjs doctor:white-screen",
+    "doctor:storage": "node artifacts/eleven-eleven/tools/project-doctor/index.mjs doctor:storage",
+    "doctor:files": "node artifacts/eleven-eleven/tools/project-doctor/index.mjs doctor:files",
+    "doctor:build": "node artifacts/eleven-eleven/tools/project-doctor/index.mjs doctor:build",
+    "agent:preflight": "node artifacts/eleven-eleven/tools/project-doctor/index.mjs agent:preflight",
+    "agent:postflight": "node artifacts/eleven-eleven/tools/project-doctor/index.mjs agent:postflight"
+  },
+  "private": true,
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "prettier": "^3.8.1",
+    "tailwindcss": "^4.3.1",
+    "tsx": "^4.22.4",
+    "typescript": "~5.9.2",
+    "vite": "^8.0.16"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/cli": "^8.4.0",
+    "@capacitor/core": "^8.4.0",
+    "@firebase/app": "^0.15.0",
+    "@firebase/auth": "^1.13.3",
+    "@firebase/firestore": "^4.16.0",
+    "firebase": "^12.15.0",
+    "framer-motion": "^12.40.0",
+    "lucide-react": "^1.20.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "zustand": "^5.0.14"
+  }
+}

@@ -1,0 +1,64 @@
+# packages to include in the workspace
+packages:
+  - artifacts/*
+  - lib/*
+  - lib/integrations/*
+  - scripts
+
+catalog:
+  '@replit/vite-plugin-cartographer': ^0.2.8
+  '@replit/vite-plugin-dev-banner': ^0.1.0
+  '@replit/vite-plugin-runtime-error-modal': ^0.0.3
+  '@tailwindcss/vite': ^4.1.14
+  '@tanstack/react-query': ^5.90.21
+  '@types/node': ^25.3.3
+  '@types/react': ^19.2.0
+  '@types/react-dom': ^19.2.0
+  '@vitejs/plugin-react': ^5.0.4
+  class-variance-authority: ^0.7.1
+  clsx: ^2.1.1
+  drizzle-orm: ^0.45.2
+  framer-motion: ^12.23.24
+  lucide-react: ^0.545.0
+  # Must be this exact version because expo requires it
+  react: 19.1.0
+  # Must be this exact version because expo requires it
+  react-dom: 19.1.0
+  tailwind-merge: ^3.3.1
+  tailwindcss: ^4.1.14
+  tsx: ^4.21.0
+  vite: ^7.3.2
+  wouter: ^3.3.5
+  zod: ^3.25.76
+
+autoInstallPeers: false
+
+onlyBuiltDependencies:
+  - '@swc/core'
+  - esbuild
+  - msw
+  - unrs-resolver
+
+overrides:
+  "@esbuild-kit/esm-loader": "npm:tsx@^4.21.0"
+  esbuild: "0.27.3"
+  # fast-uri <=3.1.1 is vulnerable to path traversal and host confusion (GHSA-q3j6-qgpj-74h6)
+  fast-uri: "3.1.2"
+  # picomatch <2.3.2 has ReDoS via extglob quantifiers and POSIX char class injection (GHSA-c2c7-rcm5-vvqj, GHSA-3v7f-55p6-f55p)
+  "micromatch>picomatch": "^2.3.2"
+  # picomatch >=4.0.0 <4.0.4 has ReDoS via extglob quantifiers and POSIX char class injection (GHSA-c2c7-rcm5-vvqj, GHSA-3v7f-55p6-f55p)
+  "vite>picomatch": "^4.0.4"
+  # path-to-regexp >=8.0.0 <8.4.0 has DoS via sequential optional groups (GHSA-j3q9-mxjg-w52f, GHSA-27v5-c462-wpq7)
+  path-to-regexp: "^8.4.0"
+  # lodash <=4.17.23 has Code Injection via template imports and Prototype Pollution (GHSA-r5fr-rjxr-66jc, GHSA-f23m-r3pf-42rh)
+  lodash: "^4.18.0"
+  # yaml <2.8.3 has Stack Overflow via deeply nested YAML collections (GHSA-48c2-rrv3-qjmp)
+  yaml: "^2.8.3"
+  # brace-expansion >=2.0.0 <2.0.3 has ReDoS via zero-step sequence (GHSA-f886-m6hf-6m8v)
+  brace-expansion: "^2.0.3"
+  # postcss <8.5.10 has XSS via unescaped </style> in CSS stringify (GHSA-qx2v-qp2m-jg93)
+  postcss: "^8.5.10"
+  # uuid <11.1.1 has missing buffer bounds check in v3/v5/v6 when buf is provided (GHSA-w5hq-g745-h8pq)
+  uuid: ">=11.1.1"
+  # qs >=6.11.1 <=6.15.1 has DoS via qs.stringify with comma-format arrays (GHSA-q8mj-m7cp-5q26)
+  qs: ">=6.15.2"

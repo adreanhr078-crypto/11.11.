@@ -1,0 +1,13 @@
+# 11.11 — Cloudflare Pages Configuration
+# This file tells Cloudflare Pages how to build and deploy
+
+name = "eleven-eleven"
+
+# Build configuration
+[build]
+command = "npm run build"
+output_dir = "dist"
+
+# Cloudflare Pages Functions (for API routes)
+[functions]
+directory = "functions"

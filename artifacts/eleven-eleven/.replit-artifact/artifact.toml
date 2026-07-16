@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "11.11"
+version = "1.0.0"
+id = "artifacts/eleven-eleven"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23344
+
+[services.development]
+run = "pnpm --filter @workspace/eleven-eleven run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/eleven-eleven", "run", "build" ]
+publicDir = "artifacts/eleven-eleven/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23344"
+BASE_PATH = "/"
