@@ -4,7 +4,7 @@
  * Interconnected puzzle system with emotional progression
  */
 
-import { useGameStore } from '../stores/gameStore';
+import { useGameStore, type EntityId } from '../stores/gameStore';
 
 // Define narrative types
 export type StoryAct = 'awakening' | 'corruption' | 'fragment_war' | 'truth_revelation';
@@ -220,15 +220,15 @@ export const COMPLETE_STORY = {
 // Narrative Progression System
 export class NarrativeEngine {
   constructor() {
-    this.initializeNarrativeState();
+    // Store access is deferred to initialize() so this can be instantiated before the store exists.
   }
 
   private get state() {
     return useGameStore.getState();
   }
 
-  // Initialize narrative state
-  private initializeNarrativeState(): void {
+  // Initialize narrative state after the store is available
+  public initialize(): void {
     if (!this.state.narrativeTriggers) {
       useGameStore.getState().actions.checkEndings();
     }
@@ -237,14 +237,14 @@ export class NarrativeEngine {
   // Advance story based on puzzle completion
   public advanceStory(puzzleId: string): void {
     const [entity, puzzleNum] = puzzleId.split('_');
-    const entityMap: Record<string, StoryEntity> = {
+    const entityMap: Record<EntityId, StoryEntity> = {
       'echo': 'echo_main',
       'watcher': 'watcher_antagonist',
       'signal': 'lina_memory',
       'architect': 'kenja_core'
     };
 
-    const storyEntity = entityMap[entity] || 'echo_main';
+    const storyEntity = entity in entityMap ? entityMap[entity as EntityId] : 'echo_main';
     const currentState = this.state;
 
     // Update entity progress
@@ -394,7 +394,7 @@ export class NarrativeEngine {
   }
 
   // Get ending requirements
-  private getEndingRequirements(ending: StoryEnding) {
+  public getEndingRequirements(ending: StoryEnding) {
     switch (ending) {
       case 'freedom':
         return [
@@ -479,7 +479,60 @@ export class NarrativeEngine {
 
     return dialogues[act][dialogueIndex] || dialogues.awakening[0];
   }
+
+  // Get all possible endings
+  public getAllEndings(): StoryEnding[] {
+    return ['freedom', 'kenja_control', 'lina_memory', 'true_secret'];
+  }
+
+  // Get narrative guide text
+  public getNarrativeGuide(): string {
+    const act = this.getCurrentAct();
+    const actNames: Record<StoryAct, string> = {
+      'awakening': 'الاستيقاظ',
+      'corruption': 'الفساد',
+      'fragment_war': 'حرب الشظايا',
+      'truth_revelation': 'كشف الحقيقة'
+    };
+
+    return `📖 الدليل السردي — الفصل الحالي: ${actNames[act] || 'الاستيقاظ'}`;
+  }
+
+  // Subscribe to narrative state changes
+  private listeners: Set<(state: NarrativeState) => void> = new Set();
+
+  public subscribe(listener: (state: NarrativeState) => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  // Start narrative engine
+  public start(): void {
+    // Narrative engine is event-driven; start is a no-op placeholder
+    // for compatibility with useNarrativeEvents hook
+  }
+
+  // Stop narrative engine
+  public stop(): void {
+    // Narrative engine is event-driven; stop is a no-op placeholder
+    // for compatibility with useNarrativeEvents hook
+  }
+
+  // Notify listeners of state change
+  private notifyListeners(state: NarrativeState) {
+    this.listeners.forEach(listener => listener(state));
+  }
 }
 
-// Singleton instance
-export const narrativeEngine = new NarrativeEngine();
+// ─── SINGLETON ────────────────────────────────────────────────────────
+let _narrativeEngine: NarrativeEngine | null = null;
+
+export function getNarrativeEngine(): NarrativeEngine {
+  if (!_narrativeEngine) {
+    _narrativeEngine = new NarrativeEngine();
+    _narrativeEngine.initialize();
+  }
+  return _narrativeEngine;
+}

@@ -16,6 +16,7 @@ export const EchoChat: React.FC = () => {
   const [isTyping, setIsTyping] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const [consciousness, setConsciousness] = useState<EchoConsciousness>(monitorEchoConsciousness());
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Monitor consciousness changes
   useEffect(() => {
@@ -83,8 +84,16 @@ export const EchoChat: React.FC = () => {
     }
 
     // Start Echo's response after short delay
-    setTimeout(typingAnimation, 800);
+    typingTimeoutRef.current = setTimeout(typingAnimation, 800);
   };
+
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (chatRef.current) {

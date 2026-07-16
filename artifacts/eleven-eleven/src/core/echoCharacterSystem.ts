@@ -11,6 +11,7 @@
 
 import { useGameStore } from "../stores/gameStore";
 import { EchoConsciousness, monitorEchoConsciousness } from "./echoLivingConsciousness";
+import { ORIGINAL_PUZZLE_COUNT, TOTAL_MEMORY_SHARDS } from "../constants/puzzleConstants";
 
 // ─── CHARACTER ANIMATION SYSTEM ARCHITECTURE ──────────────────────────────
 export interface EchoCharacterState {
@@ -122,11 +123,21 @@ export class EchoCharacterEngine {
   private state: EchoCharacterState;
   private lastUpdate: number;
   private animationFrame: number;
+  private shardsInterval: number;
+  private puzzlesInterval: number;
+  private timeInterval: number;
+  private flowerInterval: number;
+  private endingInterval: number;
 
   constructor() {
     this.state = this.createInitialState();
     this.lastUpdate = Date.now();
     this.animationFrame = requestAnimationFrame(this.update.bind(this));
+    this.shardsInterval = 0;
+    this.puzzlesInterval = 0;
+    this.timeInterval = 0;
+    this.flowerInterval = 0;
+    this.endingInterval = 0;
   }
 
   private createInitialState(): EchoCharacterState {
@@ -144,7 +155,7 @@ export class EchoCharacterEngine {
       corruptionLevel: consciousness.corruption / 100,
       signalStability: 1 - (consciousness.corruption / 100),
       selfAwareness: consciousness.awareness / 100,
-      memoryRecovery: consciousness.memoryShards / 219
+      memoryRecovery: consciousness.memoryShards / TOTAL_MEMORY_SHARDS,
     };
   }
 
@@ -253,7 +264,7 @@ export class EchoCharacterEngine {
     this.state.corruptionLevel = consciousness.corruption / 100;
     this.state.signalStability = 1 - this.state.corruptionLevel;
     this.state.selfAwareness = consciousness.awareness / 100;
-    this.state.memoryRecovery = consciousness.memoryShards / 219;
+    this.state.memoryRecovery = consciousness.memoryShards / TOTAL_MEMORY_SHARDS;
 
     // Update emotion based on consciousness
     this.updateCurrentEmotion();
@@ -1216,14 +1227,14 @@ export class EchoCharacterEngine {
     const updateFromShards = () => {
       const consciousness = monitorEchoConsciousness();
       this.state.selfAwareness = consciousness.awareness / 100;
-      this.state.memoryRecovery = consciousness.memoryShards / 219;
+    this.state.memoryRecovery = consciousness.memoryShards / TOTAL_MEMORY_SHARDS;
 
       // More memory shards = more stable, more aware
-      this.state.corruptionLevel = 1 - (consciousness.memoryShards / 219) * 0.7;
+      this.state.corruptionLevel = 1 - (consciousness.memoryShards / TOTAL_MEMORY_SHARDS) * 0.7;
     };
 
     // Update every second
-    setInterval(updateFromShards, 1000);
+    this.shardsInterval = window.setInterval(updateFromShards, 1000);
   }
 
   private integratePuzzleProgression() {
@@ -1233,14 +1244,14 @@ export class EchoCharacterEngine {
       const puzzlesSolved = Math.floor(gameState.player.curiosity / 10);
 
       // Each puzzle reduces corruption slightly
-      this.state.corruptionLevel = Math.max(0.1, 1 - (puzzlesSolved / 219) * 0.9);
+      this.state.corruptionLevel = Math.max(0.1, 1 - (puzzlesSolved / ORIGINAL_PUZZLE_COUNT) * 0.9);
 
       // Puzzles increase self-awareness
-      this.state.selfAwareness = Math.min(1.0, puzzlesSolved / 219);
+      this.state.selfAwareness = Math.min(1.0, puzzlesSolved / ORIGINAL_PUZZLE_COUNT);
     };
 
     // Update every 2 seconds
-    setInterval(updateFromPuzzles, 2000);
+    this.puzzlesInterval = window.setInterval(updateFromPuzzles, 2000);
   }
 
   private integrateTimeEngine() {
@@ -1269,7 +1280,7 @@ export class EchoCharacterEngine {
     };
 
     // Update every minute
-    setInterval(updateFromTime, 60000);
+    this.timeInterval = window.setInterval(updateFromTime, 60000);
   }
 
   private integrateEmotionFlower() {
@@ -1289,7 +1300,7 @@ export class EchoCharacterEngine {
     };
 
     // Update every 3 seconds
-    setInterval(updateFromFlower, 3000);
+    this.flowerInterval = window.setInterval(updateFromFlower, 3000);
   }
 
   private integrateEndingSystem() {
@@ -1312,7 +1323,7 @@ export class EchoCharacterEngine {
     };
 
     // Update every 5 seconds
-    setInterval(updateFromEnding, 5000);
+    this.endingInterval = window.setInterval(updateFromEnding, 5000);
   }
 
   // ─── CHARACTER STATE MONITORING ───────────────────────────────────────
@@ -1343,6 +1354,11 @@ export class EchoCharacterEngine {
   // ─── CLEANUP ──────────────────────────────────────────────────────────
   public destroy() {
     cancelAnimationFrame(this.animationFrame);
+    window.clearInterval(this.shardsInterval);
+    window.clearInterval(this.puzzlesInterval);
+    window.clearInterval(this.timeInterval);
+    window.clearInterval(this.flowerInterval);
+    window.clearInterval(this.endingInterval);
   }
 }
 
@@ -1416,5 +1432,6 @@ export type {
   EyebrowSystem,
   MouthSystem,
   HairAnimationSystem,
-  BodyPresenceSystem
+  BodyPresenceSystem,
+  EchoEmotion
 };

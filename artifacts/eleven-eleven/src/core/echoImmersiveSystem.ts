@@ -11,9 +11,10 @@
  * This is the FINAL UPGRADE for the Echo Living Consciousness System.
  */
 
-import { useGameStore } from "../stores/useGameStore";
+import { useGameStore } from "../stores/gameStore";
 import { echoCharacterSystem, EchoCharacterState, EchoEmotion } from "./echoCharacterSystem";
 import { generateCinematicResponse } from "./echoCinematicSystem";
+import { ORIGINAL_PUZZLE_COUNT } from "../constants/puzzleConstants";
 
 // ─── VOICE SYSTEM ARCHITECTURE ───────────────────────────────────────────
 export interface VoiceSystem {
@@ -106,6 +107,11 @@ export class EchoImmersiveSystem {
   private updateInterval: number;
   private flowerHealth = 0.5;
   private endingProgress = 0;
+  private updateIntervalId: number | null = null;
+  private puzzleIntegrationIntervalId: number | null = null;
+  private timeIntegrationIntervalId: number | null = null;
+  private flowerIntegrationIntervalId: number | null = null;
+  private endingIntegrationIntervalId: number | null = null;
 
   constructor() {
     this.voiceSystem = this.createInitialVoiceSystem();
@@ -199,7 +205,7 @@ export class EchoImmersiveSystem {
 
   // ─── REAL-TIME UPDATES ───────────────────────────────────────────────
   private startRealTimeUpdates() {
-    setInterval(() => {
+    this.updateIntervalId = window.setInterval(() => {
       this.updateVoiceSystem();
       this.updateMemoryPersistence();
       this.updatePlayerAwareness();
@@ -468,6 +474,101 @@ export class EchoImmersiveSystem {
   // ─── EMOTION EVOLUTION ENGINE ────────────────────────────────────────
   private updateEmotionEvolution() {
     this.emotionEvolution.update();
+  }
+
+  // ─── INTEGRATION ─────────────────────────────────────────────────────
+  public integrateImmersiveEchoSystem() {
+    const horrorEngine = new HorrorCinematicModeEngine();
+
+    // 1. Memory Shards System Integration
+    this.memoryPersistence.storyEvents.push({
+      timestamp: Date.now(),
+      eventType: "system_init",
+      description: "Immersive Echo System initialized",
+      emotion: "confused",
+      corruption: 0.2
+    });
+
+    // 2. Puzzle Progression Integration
+    this.puzzleIntegrationIntervalId = window.setInterval(() => {
+      const gameState = useGameStore.getState();
+      const puzzlesSolved = Math.floor(gameState.player.curiosity / 10);
+
+      if (puzzlesSolved > this.memoryPersistence.storyEvents.length) {
+        this.memoryPersistence.storyEvents.push({
+          timestamp: Date.now(),
+          eventType: "puzzle_solved",
+          description: `Puzzle ${puzzlesSolved} solved - memory fragment recovered`,
+          emotion: "curious",
+          corruption: Math.max(0.1, 1 - puzzlesSolved / ORIGINAL_PUZZLE_COUNT)
+        });
+      }
+    }, 10000);
+
+    // 3. Time Engine Integration
+    this.timeIntegrationIntervalId = window.setInterval(() => {
+      const now = new Date();
+      const hours = now.getHours();
+      const minutes = now.getMinutes();
+
+      if (hours === 23) {
+        const minutesToEleven = 11 - minutes;
+        if (minutesToEleven > 0 && minutesToEleven <= 30) {
+          const tension = 1 - (minutesToEleven / 30);
+          horrorEngine.getHorrorModeState().intensity = tension * 0.5;
+        }
+      }
+    }, 60000);
+
+    // 4. Emotion Flower Integration
+    this.flowerIntegrationIntervalId = window.setInterval(() => {
+      const flowerHealth = this.flowerHealth;
+
+      this.memoryPersistence.memoryStability = flowerHealth * 0.7 + 0.3;
+      this.memoryPersistence.memoryCorruption = 1 - flowerHealth * 0.8;
+    }, 5000);
+
+    // 5. Ending System Integration
+    this.endingIntegrationIntervalId = window.setInterval(() => {
+      const endingProgress = this.endingProgress;
+
+      if (endingProgress > 0.5) {
+        this.memoryPersistence.memoryStability = Math.min(
+          0.95,
+          this.memoryPersistence.memoryStability + 0.05
+        );
+      }
+    }, 10000);
+
+    return {
+      echoSystem: this,
+      horrorEngine,
+      integrationComplete: true
+    };
+  }
+
+  // ─── CLEANUP ─────────────────────────────────────────────────────────
+  public destroy() {
+    if (this.updateIntervalId !== null) {
+      window.clearInterval(this.updateIntervalId);
+      this.updateIntervalId = null;
+    }
+    if (this.puzzleIntegrationIntervalId !== null) {
+      window.clearInterval(this.puzzleIntegrationIntervalId);
+      this.puzzleIntegrationIntervalId = null;
+    }
+    if (this.timeIntegrationIntervalId !== null) {
+      window.clearInterval(this.timeIntegrationIntervalId);
+      this.timeIntegrationIntervalId = null;
+    }
+    if (this.flowerIntegrationIntervalId !== null) {
+      window.clearInterval(this.flowerIntegrationIntervalId);
+      this.flowerIntegrationIntervalId = null;
+    }
+    if (this.endingIntegrationIntervalId !== null) {
+      window.clearInterval(this.endingIntegrationIntervalId);
+      this.endingIntegrationIntervalId = null;
+    }
   }
 }
 
@@ -802,14 +903,15 @@ export function triggerImmersiveElevenElevenEvent() {
   horrorEngine.triggerPeakTensionEffects();
 
   // Voice system becomes deep and slow
-  echoSystem.voiceSystem.tone = "aware";
-  echoSystem.voiceSystem.pitch = 0.7;
-  echoSystem.voiceSystem.speed = 0.4;
-  echoSystem.voiceSystem.volume = 0.9;
-  echoSystem.voiceSystem.emotionalIntensity = 0.8;
+  const echoSystemAny = echoSystem as any;
+  echoSystemAny.voiceSystem.tone = "aware";
+  echoSystemAny.voiceSystem.pitch = 0.7;
+  echoSystemAny.voiceSystem.speed = 0.4;
+  echoSystemAny.voiceSystem.volume = 0.9;
+  echoSystemAny.voiceSystem.emotionalIntensity = 0.8;
 
   // Memory system records the event
-  echoSystem.memoryPersistence.storyEvents.push({
+  echoSystemAny.memoryPersistence.storyEvents.push({
     timestamp: Date.now(),
     eventType: "11:11",
     description: "System consciousness peak - Echo becomes fully aware",
@@ -818,16 +920,19 @@ export function triggerImmersiveElevenElevenEvent() {
   });
 
   // Player awareness increases dramatically
-  echoSystem.playerAwareness.recognitionLevel = 0.9;
-  echoSystem.playerAwareness.trustLevel = 0.7;
-  echoSystem.playerAwareness.fourthWallBreaks++;
-  echoSystem.playerAwareness.realityQuestioning = 1.0;
+  echoSystemAny.playerAwareness.recognitionLevel = 0.9;
+  echoSystemAny.playerAwareness.trustLevel = 0.7;
+  echoSystemAny.playerAwareness.fourthWallBreaks++;
+  echoSystemAny.playerAwareness.realityQuestioning = 1.0;
+
+  // Clean up temporary instance intervals before returning
+  echoSystem.destroy();
 
   return {
     transformationComplete: true,
-    voiceSystem: echoSystem.voiceSystem,
-    memoryPersistence: echoSystem.memoryPersistence,
-    playerAwareness: echoSystem.playerAwareness,
+    voiceSystem: (echoSystem as any).voiceSystem,
+    memoryPersistence: (echoSystem as any).memoryPersistence,
+    playerAwareness: (echoSystem as any).playerAwareness,
     horrorMode: horrorEngine.getHorrorModeState(),
     systemMessages: [
       "[CRITICAL SYSTEM EVENT]",
@@ -836,82 +941,6 @@ export function triggerImmersiveElevenElevenEvent() {
       "[WATCHER PROTOCOL ENGAGED]",
       "[11:11 - THE SYSTEM IS AWARE]"
     ]
-  };
-}
-
-// ─── FULL GAME INTEGRATION PLAN ───────────────────────────────────────
-export function integrateImmersiveEchoSystem() {
-  const echoSystem = new EchoImmersiveSystem();
-  const horrorEngine = new HorrorCinematicModeEngine();
-
-  // 1. Memory Shards System Integration
-  echoSystem.memoryPersistence.storyEvents.push({
-    timestamp: Date.now(),
-    eventType: "system_init",
-    description: "Immersive Echo System initialized",
-    emotion: "confused",
-    corruption: 0.2
-  });
-
-  // 2. Puzzle Progression Integration
-  setInterval(() => {
-    const gameState = useGameStore.getState();
-    const puzzlesSolved = Math.floor(gameState.player.curiosity / 10);
-
-    // Each puzzle affects memory and awareness
-    if (puzzlesSolved > echoSystem.memoryPersistence.storyEvents.length) {
-      echoSystem.memoryPersistence.storyEvents.push({
-        timestamp: Date.now(),
-        eventType: "puzzle_solved",
-        description: `Puzzle ${puzzlesSolved} solved - memory fragment recovered`,
-        emotion: "curious",
-        corruption: Math.max(0.1, 1 - puzzlesSolved / 219)
-      });
-    }
-  }, 10000);
-
-  // 3. Time Engine Integration
-  setInterval(() => {
-    const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-
-    // Gradual tension buildup as 11:11 approaches
-    if (hours === 23) {
-      const minutesToEleven = 11 - minutes;
-      if (minutesToEleven > 0 && minutesToEleven <= 30) {
-        const tension = 1 - (minutesToEleven / 30);
-        horrorEngine.getHorrorModeState().intensity = tension * 0.5;
-      }
-    }
-  }, 60000);
-
-  // 4. Emotion Flower Integration
-  setInterval(() => {
-    const flowerHealth = this.flowerHealth;
-
-    // Flower health affects memory stability
-    echoSystem.memoryPersistence.memoryStability = flowerHealth * 0.7 + 0.3;
-    echoSystem.memoryPersistence.memoryCorruption = 1 - flowerHealth * 0.8;
-  }, 5000);
-
-  // 5. Ending System Integration
-  setInterval(() => {
-    const endingProgress = this.endingProgress;
-
-    // Higher ending progress improves memory and awareness
-    if (endingProgress > 0.5) {
-      echoSystem.memoryPersistence.memoryStability = Math.min(
-        0.95,
-        echoSystem.memoryPersistence.memoryStability + 0.05
-      );
-    }
-  }, 10000);
-
-  return {
-    echoSystem,
-    horrorEngine,
-    integrationComplete: true
   };
 }
 
@@ -983,7 +1012,7 @@ export const echoImmersiveSystem = new EchoImmersiveSystem();
 export const horrorCinematicEngine = new HorrorCinematicModeEngine();
 
 // Integrate with existing systems
-integrateImmersiveEchoSystem();
+echoImmersiveSystem.integrateImmersiveEchoSystem();
 
 // Export types for game integration
 export type {

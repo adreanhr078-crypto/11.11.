@@ -345,6 +345,7 @@ export class PuzzleExpansionEngine {
   private memoryShards: number;
   private flowerHealth: number;
   private endingProgress: number;
+  private monitoringIntervalId: number | null = null;
 
   constructor() {
     this.currentPuzzle = 219; // Start after existing puzzles
@@ -381,7 +382,7 @@ export class PuzzleExpansionEngine {
 
   private startPuzzleMonitoring() {
     // Monitor puzzle progression
-    setInterval(() => {
+    this.monitoringIntervalId = window.setInterval(() => {
       this.checkPuzzleProgress();
     }, 1000);
   }
@@ -628,7 +629,10 @@ export class PuzzleExpansionEngine {
 
   // ─── CLEANUP ────────────────────────────────────────────────────────
   public destroy() {
-    // Clean up intervals and resources
+    if (this.monitoringIntervalId !== null) {
+      window.clearInterval(this.monitoringIntervalId);
+      this.monitoringIntervalId = null;
+    }
   }
 }
 

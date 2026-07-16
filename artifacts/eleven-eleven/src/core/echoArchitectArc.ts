@@ -5,7 +5,7 @@
  * هدف القصة: اكتشف من هو Architect ولماذا صمم Echo
  */
 
-import { PuzzleNode, EntityId, PuzzleStatus } from '../stores/gameStore';
+import { PuzzleNode, EntityId, PuzzleStatus } from '../core/gameTypes';
 
 // أنواع ألغاز مرحلة Architect
 type ArchitectPuzzleType =

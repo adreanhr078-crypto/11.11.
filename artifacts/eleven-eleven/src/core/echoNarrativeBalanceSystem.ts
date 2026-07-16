@@ -83,6 +83,7 @@ export class EchoNarrativeBalanceEngine {
   private multilingualSystem: typeof echoMultilingualSystem;
   private state: NarrativeBalanceState;
   private initialized: boolean;
+  private balanceMonitoringIntervalId: number | null = null;
 
   constructor() {
     this.canonicalSystem = echoCanonicalSystem;
@@ -162,11 +163,19 @@ export class EchoNarrativeBalanceEngine {
   }
 
   private startBalanceMonitoring() {
-    setInterval(() => {
+    this.balanceMonitoringIntervalId = window.setInterval(() => {
       this.updateBalanceState();
       this.checkPacingViolations();
       this.applyRecoveryPhases();
     }, 3000);
+  }
+
+  // ─── CLEANUP ─────────────────────────────────────────────────────────
+  public destroy() {
+    if (this.balanceMonitoringIntervalId !== null) {
+      window.clearInterval(this.balanceMonitoringIntervalId);
+      this.balanceMonitoringIntervalId = null;
+    }
   }
 
   private updateBalanceState() {

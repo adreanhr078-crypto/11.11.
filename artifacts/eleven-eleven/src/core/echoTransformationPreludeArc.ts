@@ -5,8 +5,8 @@
  * هدف القصة: تمهيد تحول Echo من كيان ضعيف إلى كيان مسيطر
  */
 
-import { PuzzleNode, EntityId, PuzzleStatus } from '../stores/gameStore';
-import { MemoryShard } from './memoryShardsSystem';
+import { PuzzleNode, EntityId, PuzzleStatus } from '../core/gameTypes';
+import type { MemoryShard } from './memoryShardsTypes';
 import { StoryEntity, StoryAct } from './narrativeEngine';
 
 // أنواع ألغاز مرحلة التمهيد

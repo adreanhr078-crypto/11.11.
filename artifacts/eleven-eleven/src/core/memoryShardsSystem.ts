@@ -4,33 +4,13 @@
  * Transforms all puzzles into a cinematic psychological journey
  */
 
-import type { EntityId } from '../stores/gameStore';
+import type { EntityId } from '../core/gameTypes';
 import { useGameStore } from '../stores/gameStore';
-import { narrativeEngine, type StoryAct, type StoryEntity } from './narrativeEngine';
+import { getNarrativeEngine, type StoryAct, type StoryEntity, type NarrativeEngine } from './narrativeEngine';
+import type { MemoryShard } from './memoryShardsTypes';
 
-// Memory Shard Interface
-export interface MemoryShard {
-  id: string;
-  shardId: number; // 1-219
-  title: string;
-  content: string;
-  entity: StoryEntity;
-  act: StoryAct;
-  puzzleId: string;
-  emotionalImpact: number; // -10 to +10
-  storySignificance: 'minor' | 'major' | 'critical';
-  unlocks: {
-    nextPuzzle?: string;
-    storyFragment?: string;
-    dialogueChange?: string;
-    uiEffect?: string;
-  };
-  theme: {
-    color: string;
-    audio: string;
-    visualEffect: string;
-  };
-}
+// Re-export for backward compatibility
+export type { MemoryShard } from './memoryShardsTypes';
 
 // Complete Memory Shards Timeline (219 shards)
 export const MEMORY_SHARDS_TIMELINE: MemoryShard[] = [
@@ -863,7 +843,10 @@ export function generateOriginalMemoryShards(): MemoryShard[] {
 // Memory Shards System Class
 export class MemoryShardsSystem {
   private _gameStore: any = null;
-  private narrativeEngine = narrativeEngine;
+
+  private get narrativeEngine(): NarrativeEngine {
+    return getNarrativeEngine();
+  }
 
   constructor() {}
 
@@ -902,7 +885,7 @@ export class MemoryShardsSystem {
   // Get unlocked memory shards
   getUnlockedMemoryShards(): MemoryShard[] {
     const gs = this.gameStore;
-    const unlockedPuzzles = gs.solvedPuzzles ? gs.solvedPuzzles.map(p => p.id) : [];
+    const unlockedPuzzles = gs.puzzles ? gs.puzzles.filter(p => p.status === 'solved').map(p => p.id) : [];
     return MEMORY_SHARDS_TIMELINE.filter(shard =>
       unlockedPuzzles.includes(shard.puzzleId)
     );
@@ -911,7 +894,7 @@ export class MemoryShardsSystem {
   // Get locked memory shards
   getLockedMemoryShards(): MemoryShard[] {
     const gs = this.gameStore;
-    const unlockedPuzzles = gs.solvedPuzzles ? gs.solvedPuzzles.map(p => p.id) : [];
+    const unlockedPuzzles = gs.puzzles ? gs.puzzles.filter(p => p.status === 'solved').map(p => p.id) : [];
     return MEMORY_SHARDS_TIMELINE.filter(shard =>
       !unlockedPuzzles.includes(shard.puzzleId)
     );
@@ -920,7 +903,7 @@ export class MemoryShardsSystem {
   // Get memory shard progress
   getMemoryShardProgress(): number {
     const gs = this.gameStore;
-    const unlockedPuzzles = gs.solvedPuzzles ? gs.solvedPuzzles.map(p => p.id) : [];
+    const unlockedPuzzles = gs.puzzles ? gs.puzzles.filter(p => p.status === 'solved').map(p => p.id) : [];
     const unlockedShards = MEMORY_SHARDS_TIMELINE.filter(shard =>
       unlockedPuzzles.includes(shard.puzzleId)
     );
@@ -945,6 +928,14 @@ export class MemoryShardsSystem {
     const endings = this.narrativeEngine.getAllEndings();
     const result: Record<string, number> = {};
 
+    // Map StoryEntity to EntityId for gameStore access
+    const storyEntityToEntityId: Record<StoryEntity, EntityId> = {
+      'kenja_core': 'architect',
+      'lina_memory': 'signal',
+      'echo_main': 'echo',
+      'watcher_antagonist': 'watcher'
+    };
+
     endings.forEach(ending => {
       const requirements = this.narrativeEngine.getEndingRequirements(ending);
       const metRequirements = requirements.filter(req => {
@@ -956,7 +947,8 @@ export class MemoryShardsSystem {
           case 'memory':
             return gs.memory.fragmentsCollected >= req.value;
           case 'entity':
-            const entity = gs.entities[req.entity as StoryEntity];
+            const entityId = storyEntityToEntityId[req.entity as StoryEntity];
+            const entity = entityId ? gs.entities[entityId] : undefined;
             return entity?.puzzlesSolved >= req.value;
           case 'act':
             return this.narrativeEngine.getCurrentAct() === req.value;

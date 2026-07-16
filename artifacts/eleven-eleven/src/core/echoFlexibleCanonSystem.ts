@@ -60,6 +60,7 @@ export class EchoFlexibleCanonEngine {
   private flexibleShards: FlexibleMemoryShard[];
   private state: FlexibleCanonState;
   private initialized: boolean;
+  private flexibilityMonitoringIntervalId: number | null = null;
 
   constructor() {
     this.canonicalSystem = echoCanonicalSystem;
@@ -198,10 +199,18 @@ export class EchoFlexibleCanonEngine {
   }
 
   private startFlexibilityMonitoring() {
-    setInterval(() => {
+    this.flexibilityMonitoringIntervalId = window.setInterval(() => {
       this.updateFlexibilityState();
       this.applyMemoryDistortions();
     }, 5000);
+  }
+
+  // ─── CLEANUP ─────────────────────────────────────────────────────────
+  public destroy() {
+    if (this.flexibilityMonitoringIntervalId !== null) {
+      window.clearInterval(this.flexibilityMonitoringIntervalId);
+      this.flexibilityMonitoringIntervalId = null;
+    }
   }
 
   private updateFlexibilityState() {
@@ -539,9 +548,18 @@ export class EchoFlexibleCanonEngine {
   public getAllFlexibleShards(): FlexibleMemoryShard[] {
     return [...this.flexibleShards];
   }
-}
 
-// ─── EXPORT MAIN FLEXIBLE CANON SYSTEM ──────────────────────────
+  public getOptimalVideoPacing(puzzleId: number): { shouldShowVideo: boolean; videoId?: number } {
+    const videoMilestones = [25, 50, 75, 100, 150, 200, 250, 300, 333];
+    if (videoMilestones.includes(puzzleId)) {
+      const videoMapping: Record<number, number> = {
+        25: 1, 50: 2, 75: 3, 100: 4, 150: 1, 200: 2, 250: 3, 300: 4, 333: 5
+      };
+      return { shouldShowVideo: true, videoId: videoMapping[puzzleId] };
+    }
+    return { shouldShowVideo: false };
+  }
+}
 export const echoFlexibleCanonSystem = new EchoFlexibleCanonEngine();
 
 // Export types for integration
@@ -590,5 +608,9 @@ export function getExampleFlexibleMemories(): FlexibleMemoryShard[] {
 }
 
 export function getFlexibleCanonState(): FlexibleCanonState {
-  return echoFlexibleCanonSystem.getFlexibilityState();
+  return echoFlexibleCanonSystem.getFlexibleCanonState();
+}
+
+export function getOptimalVideoPacing(puzzleId: number): { shouldShowVideo: boolean; videoId?: number } {
+  return echoFlexibleCanonSystem.getOptimalVideoPacing(puzzleId);
 }

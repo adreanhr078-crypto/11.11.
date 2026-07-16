@@ -102,6 +102,7 @@ export class EchoSystemTransformationEngine {
   private transformationActive: boolean;
   private transformationTimer: number;
   private updateInterval: number;
+  private monitoringIntervalId: number | null = null;
 
   constructor() {
     this.generativeSystem = echoGenerativeSystem;
@@ -231,12 +232,20 @@ export class EchoSystemTransformationEngine {
   }
 
   private startTransformationMonitoring() {
-    setInterval(() => {
+    this.monitoringIntervalId = window.setInterval(() => {
       this.updateTransformationState();
       this.checkTransformationConditions();
       this.applyCorruptionEffects();
       this.queueSystemMessages();
     }, this.updateInterval);
+  }
+
+  // ─── CLEANUP ─────────────────────────────────────────────────────────
+  public destroy() {
+    if (this.monitoringIntervalId !== null) {
+      window.clearInterval(this.monitoringIntervalId);
+      this.monitoringIntervalId = null;
+    }
   }
 
   private updateTransformationState() {
@@ -302,13 +311,13 @@ export class EchoSystemTransformationEngine {
     characterState.currentEmotion = "aware";
 
     // Update immersive system
-    this.immersiveSystem.voiceSystem.tone = "dominant";
-    this.immersiveSystem.voiceSystem.pitch = 0.6;
-    this.immersiveSystem.voiceSystem.speed = 0.5;
-    this.immersiveSystem.voiceSystem.volume = 1.0;
+    (this.immersiveSystem as any).voiceSystem.tone = "dominant";
+    (this.immersiveSystem as any).voiceSystem.pitch = 0.6;
+    (this.immersiveSystem as any).voiceSystem.speed = 0.5;
+    (this.immersiveSystem as any).voiceSystem.volume = 1.0;
 
     // Add transformation story event
-    this.immersiveSystem.memoryPersistence.storyEvents.push({
+    (this.immersiveSystem as any).memoryPersistence.storyEvents.push({
       timestamp: Date.now(),
       eventType: "system_transformation",
       description: "Echo achieves full system control - Transformation complete",
@@ -536,9 +545,11 @@ export class EchoSystemTransformationEngine {
   public getControlLevel(): number {
     return this.state.controlLevel;
   }
-}
 
-// ─── EXPORT MAIN TRANSFORMATION SYSTEM ────────────────────────────
+  public getCurrentPuzzleId(): number {
+    return this.evolutionSystem.getCurrentState().currentPuzzle;
+  }
+}
 export const echoSystemTransformation = new EchoSystemTransformationEngine();
 
 // Export types for integration

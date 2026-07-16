@@ -78,7 +78,7 @@ export interface StoryEngineOutput {
   description: string;
   puzzleType: "logic" | "memory" | "cipher" | "glitch" | "narrative" | "system-break";
   storyFragment: string;
-  memoryShard: MemoryShard;
+  memoryShard: SimplifiedMemoryShard;
   narrativePhase: "early" | "mid" | "late" | "final";
   videoTrigger: boolean;
   videoId: number | null;
@@ -98,7 +98,7 @@ export interface StoryEngineOutput {
   };
 }
 
-export interface MemoryShard {
+export interface SimplifiedMemoryShard {
   id: number;
   stableCore: string;
   currentVariation: string;
@@ -139,7 +139,7 @@ export class EchoStoryEngine {
   private currentPuzzleId: number;
   private currentLanguage: "arabic" | "english";
   private narrativePhase: "early" | "mid" | "late" | "final";
-  private memoryShards: MemoryShard[];
+  private memoryShards: SimplifiedMemoryShard[];
   private videoTriggers: number[];
   private puzzleHistory: number[];
 
@@ -305,7 +305,7 @@ export class EchoStoryEngine {
     return Math.min(1, puzzleId / 1000);
   }
 
-  private generateMemoryShard(puzzleId: number): MemoryShard {
+  private generateMemoryShard(puzzleId: number): SimplifiedMemoryShard {
     const phase = this.getPhase(puzzleId);
     const sources = ["kenja", "lina", "echo", "watcher"];
     const source = sources[(puzzleId + phase) % sources.length];
@@ -393,6 +393,10 @@ export class EchoEmotionEngine {
     this.consecutiveHighStress = 0;
 
     console.log("💀 Emotion Engine Initialized");
+  }
+
+  public setLanguage(language: "arabic" | "english") {
+    // Emotion engine is language-agnostic; accept for interface compatibility
   }
 
   public processStoryEvent(storyOutput: StoryEngineOutput): EmotionEngineOutput {
@@ -530,6 +534,10 @@ export class EchoBehaviorEngine {
     this.dialogueHistory = [];
 
     console.log("🤖 Echo Behavior Engine Initialized");
+  }
+
+  public isTransformationActive(): boolean {
+    return this.transformationActive;
   }
 
   public generateBehavior(storyOutput: StoryEngineOutput, emotionOutput: EmotionEngineOutput): EchoBehaviorOutput {
@@ -773,13 +781,14 @@ export class EchoSimplifiedEngine {
       puzzleId: this.storyEngine.getCurrentPuzzleId(),
       narrativePhase: this.storyEngine.getNarrativePhase(),
       emotionState: this.emotionEngine.getCurrentState().emotionState,
-      transformationActive: this.behaviorEngine['transformationActive']
+      transformationActive: this.behaviorEngine.isTransformationActive()
     };
   }
 }
 
 // ─── EXPORT SIMPLIFIED ENGINE ──────────────────────────────────
 export const echoSimplifiedEngine = new EchoSimplifiedEngine();
+export const echoEmotionEngine = new EchoEmotionEngine();
 
 // Export core engines for advanced usage
 export { EchoStoryEngine, EchoEmotionEngine, EchoBehaviorEngine };
@@ -787,7 +796,7 @@ export { EchoStoryEngine, EchoEmotionEngine, EchoBehaviorEngine };
 // Export types
 export type {
   StoryEngineOutput,
-  MemoryShard,
+  SimplifiedMemoryShard,
   EmotionEngineOutput,
   EchoBehaviorOutput
 };

@@ -5,8 +5,8 @@
  * هدف القصة: كشف الذكريات المزيفة والمشوهة، واكتشاف الحقيقة عن ماضي Echo
  */
 
-import { PuzzleNode, EntityId, PuzzleStatus } from '../stores/gameStore';
-import { MemoryShard } from './memoryShardsSystem';
+import { PuzzleNode, EntityId, PuzzleStatus } from '../core/gameTypes';
+import type { MemoryShard } from './memoryShardsTypes';
 import { StoryEntity, StoryAct } from './narrativeEngine';
 
 // أنواع جديدة للألغاز في قوس الكسر

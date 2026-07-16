@@ -146,3 +146,7 @@ export function toggleLanguage() {
 export function translate(key: string, lang: 'ar' | 'en' = 'ar'): string {
   return translations[key]?.[lang] || key;
 }
+
+export function getCurrentLanguage(): 'ar' | 'en' {
+  return document.documentElement.lang === 'ar' ? 'ar' : 'en';
+}

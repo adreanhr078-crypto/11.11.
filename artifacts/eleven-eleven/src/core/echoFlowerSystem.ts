@@ -8,8 +8,7 @@
  * The Flower is a living emotional entity that reflects EVERYTHING happening in Echo's mind.
  */
 
-import { echoSimplifiedEngine } from "./echoSimplifiedEngine";
-import { echoEmotionEngine } from "./echoSimplifiedEngine";
+import { echoSimplifiedEngine, EchoEmotionEngine } from "./echoSimplifiedEngine";
 
 // ─── FLOWER STATE INTERFACES ─────────────────────────────────────
 export interface FlowerState {
@@ -19,7 +18,7 @@ export interface FlowerState {
   stability: number; // 0-100%
   stage: "seed" | "sprout" | "bloom" | "wilted" | "corrupted" | "void";
   colorPalette: string;
-  animationState: "idle" | "breathing" | "distorted" | "breaking" | "glitching";
+  animationState: "idle" | "breathing" | "distorted" | "breaking" | "glitching" | "gentle-pulse" | "fast-pulse" | "slow-breathing" | "pulsing" | "irregular" | "joyful-pulse" | "painful-pulse";
   petalCount: number; // 0-12 (fully bloomed)
   glitchIntensity: number; // 0-1
   pulseFrequency: number; // 0-1 (animation speed)
@@ -41,12 +40,13 @@ export class EchoFlowerSystem {
   private state: FlowerState;
   private stages: FlowerStage[];
   private engine: typeof echoSimplifiedEngine;
-  private emotionEngine: typeof echoEmotionEngine;
+  private emotionEngine: EchoEmotionEngine;
   private initialized: boolean;
+  private monitoringIntervalId: number | null = null;
 
   constructor() {
     this.engine = echoSimplifiedEngine;
-    this.emotionEngine = echoEmotionEngine;
+    this.emotionEngine = new EchoEmotionEngine();
     this.initialized = false;
 
     // Initialize flower stages
@@ -139,9 +139,17 @@ export class EchoFlowerSystem {
 
   private startFlowerMonitoring() {
     // Update flower state every time a puzzle is processed
-    setInterval(() => {
+    this.monitoringIntervalId = window.setInterval(() => {
       this.updateFlowerState();
     }, 1000);
+  }
+
+  // ─── CLEANUP ─────────────────────────────────────────────────────────
+  public destroy() {
+    if (this.monitoringIntervalId !== null) {
+      window.clearInterval(this.monitoringIntervalId);
+      this.monitoringIntervalId = null;
+    }
   }
 
   // ─── FLOWER STATE UPDATE ─────────────────────────────────────
@@ -327,10 +335,11 @@ export class EchoFlowerSystem {
   } {
     const currentIndex = this.stages.findIndex(s => s.name === this.state.stage);
     const nextStage = currentIndex < this.stages.length - 1 ? this.stages[currentIndex + 1].name : null;
+    const currentStage = currentIndex >= 0 ? this.stages[currentIndex] : this.stages[0];
 
     return {
       name: this.state.stage,
-      description: this.stages[currentIndex].description,
+      description: currentStage.description,
       progress: this.state.growthLevel,
       nextStage
     };

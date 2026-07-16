@@ -43,7 +43,8 @@ export default function App() {
   useEffect(() => {
     if (time.phaseIndex >= 3 && !showCinematic) {
       setShowCinematic(true);
-      setTimeout(() => setShowCinematic(false), 8000);
+      const timer = setTimeout(() => setShowCinematic(false), 8000);
+      return () => clearTimeout(timer);
     }
   }, [time.phaseIndex, time.hour, time.minute]);
 

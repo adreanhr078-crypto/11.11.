@@ -5,7 +5,7 @@
  * هدف القصة: اكتشف الحقيقة النهائية وأكمل رحلة Echo
  */
 
-import { PuzzleNode, EntityId, PuzzleStatus } from '../stores/gameStore';
+import { PuzzleNode, EntityId, PuzzleStatus } from '../core/gameTypes';
 
 // أنواع ألغاز المرحلة النهائية
 type FinalPuzzleType =

@@ -39,6 +39,7 @@ export const NightGlitchOverlay: React.FC<GlitchOverlayProps> = ({ theme }) => {
   const [showWarning, setShowWarning] = useState(false);
   const [warningText, setWarningText] = useState("");
   const [crackStyle, setCrackStyle] = useState<React.CSSProperties>({});
+  const warningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // عداد عشوائي للرسائل التحذيرية
   useEffect(() => {
@@ -54,11 +55,17 @@ export const NightGlitchOverlay: React.FC<GlitchOverlayProps> = ({ theme }) => {
         const msg = warnings[Math.floor(Math.random() * warnings.length)];
         setWarningText(msg);
         setShowWarning(true);
-        setTimeout(() => setShowWarning(false), 2500 + Math.random() * 2000);
+        if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
+        warningTimeoutRef.current = setTimeout(() => setShowWarning(false), 2500 + Math.random() * 2000);
       }
     }, 4000 - instabilityLevel * 1000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (warningTimeoutRef.current) {
+        clearTimeout(warningTimeoutRef.current);
+      }
+    };
   }, [instabilityLevel]);
 
   // تأثير التشققات

@@ -5,7 +5,7 @@
  */
 
 import { worldState } from "./worldStateEngine";
-import { narrativeEngine } from "./narrativeEngine";
+import { getNarrativeEngine } from "./narrativeEngine";
 import { checkStoryEvents, STORY_EVENTS, NARRATIVE_MOMENTS } from "./worldEvents";
 
 export interface SystemHealth {
@@ -33,7 +33,7 @@ export function verifySystemHealth(): SystemHealth {
 
   // 2. Narrative Engine
   const neErrors: string[] = [];
-  narrativeEngine.getNarrativeGuide();
+  getNarrativeEngine().getNarrativeGuide();
 
   // 3. Story Events
   const firedCount = STORY_EVENTS.filter(e => e.fired).length;
@@ -89,7 +89,7 @@ export function getWorldReport(): string {
   Overall: ${ws.story.overall}% | Memories: ${ws.story.memoriesDiscovered} | Puzzles: ${ws.story.puzzlesSolved}
   Flowers: ${ws.story.flowerProgress}% | Days: ${ws.story.activeDays}
 
-📜 ${narrativeEngine.getNarrativeGuide()}
+📜 ${getNarrativeEngine().getNarrativeGuide()}
 
 🔍 SYSTEM HEALTH: ${health.overall.toUpperCase()}
   WorldState: ${health.worldState.ok ? "✅" : "❌"} (${health.worldState.fields} fields)

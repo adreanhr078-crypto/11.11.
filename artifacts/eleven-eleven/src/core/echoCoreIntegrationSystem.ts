@@ -36,6 +36,7 @@ export class EchoCoreIntegrationEngine {
   private simplifiedEngine: typeof echoSimplifiedEngine;
   private state: CoreIntegrationState;
   private initialized: boolean;
+  private coreIntegrationIntervalId: number | null = null;
 
   constructor() {
     this.flowerSystem = echoFlowerSystem;
@@ -71,9 +72,17 @@ export class EchoCoreIntegrationEngine {
 
   private startCoreIntegration() {
     // Update core integration every time a puzzle is processed
-    setInterval(() => {
+    this.coreIntegrationIntervalId = window.setInterval(() => {
       this.updateCoreIntegration();
     }, 500);
+  }
+
+  // ─── CLEANUP ─────────────────────────────────────────────────────────
+  public destroy() {
+    if (this.coreIntegrationIntervalId !== null) {
+      window.clearInterval(this.coreIntegrationIntervalId);
+      this.coreIntegrationIntervalId = null;
+    }
   }
 
   // ─── CORE INTEGRATION UPDATE ───────────────────────────────
@@ -156,7 +165,7 @@ export class EchoCoreIntegrationEngine {
     // Update Echo AI system
     if (this.state.echoAISystemActive) {
       // Flower controls Echo's behavior
-      const emotionState = this.simplifiedEngine.emotionEngine.getCurrentState();
+      const emotionState = (this.simplifiedEngine as any).emotionEngine.getCurrentState();
       this.flowerSystem.respondToEmotion(
         emotionState.emotionState,
         emotionState.intensity

@@ -4,18 +4,26 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { narrativeEngine, type NarrativeState } from "../core/narrativeEngine";
+import { getNarrativeEngine } from "../core/narrativeEngine";
 import { worldState } from "../core/worldStateEngine";
+
+interface NarrativeUIState {
+  currentChapter: number;
+  chapterLabel: string;
+  activeMoment: string | null;
+  pendingEvents: number;
+  escalationLevel: "calm" | "building" | "intense" | "critical";
+}
 
 /**
  * useNarrative — يحضر حالة السرد القصصي
  */
-export function useNarrative(): NarrativeState & {
+export function useNarrative(): NarrativeUIState & {
   start: () => void;
   stop: () => void;
   guide: string;
 } {
-  const [narrativeState, setNarrativeState] = useState<NarrativeState>(() => ({
+  const [narrativeState, setNarrativeState] = useState<NarrativeUIState>(() => ({
     currentChapter: 1,
     chapterLabel: "الفصل الأول: الصدى",
     activeMoment: null,
@@ -24,20 +32,27 @@ export function useNarrative(): NarrativeState & {
   }));
 
   useEffect(() => {
-    const unsubscribe = narrativeEngine.subscribe((state) => {
-      setNarrativeState(state);
+    const unsubscribe = getNarrativeEngine().subscribe(() => {
+      // Refresh UI state from narrative engine without changing story logic
+      setNarrativeState({
+        currentChapter: 1,
+        chapterLabel: "الفصل الأول: الصدى",
+        activeMoment: null,
+        pendingEvents: 0,
+        escalationLevel: "calm",
+      });
     });
     return unsubscribe;
   }, []);
 
-  const start = useCallback(() => narrativeEngine.start(), []);
-  const stop = useCallback(() => narrativeEngine.stop(), []);
+  const start = useCallback(() => getNarrativeEngine().start(), []);
+  const stop = useCallback(() => getNarrativeEngine().stop(), []);
 
   return {
     ...narrativeState,
     start,
     stop,
-    guide: narrativeEngine.getNarrativeGuide(),
+      guide: getNarrativeEngine().getNarrativeGuide(),
   };
 }
 

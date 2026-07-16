@@ -5,7 +5,7 @@
  * هدف القصة: اكتشف أصل Signal ودوره في النظام
  */
 
-import { PuzzleNode, EntityId, PuzzleStatus } from '../stores/gameStore';
+import { PuzzleNode, EntityId, PuzzleStatus } from '../core/gameTypes';
 
 // أنواع ألغاز مرحلة Signal
 type SignalPuzzleType =

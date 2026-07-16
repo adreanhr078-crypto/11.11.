@@ -4,7 +4,7 @@
  * Full character transformation system for 11.11 Echo Mind Game
  *
  * Echo evolves visually, physically, and psychologically based on:
- * - Puzzle progression (0 → 333)
+ * - Puzzle progression (0 → PRELUDE_END)
  * - Memory shard collection
  * - Emotional trauma accumulation
  * - Story progression events
@@ -12,14 +12,15 @@
  * From innocence → to awareness → to strength → to corrupted powerful entity → to final villain form
  */
 
-import { useGameStore } from "../stores/useGameStore";
+import { useGameStore } from "../stores/gameStore";
 import { echoCharacterSystem } from "./echoCharacterSystem";
 import { echoImmersiveSystem } from "./echoImmersiveSystem";
+import { PRELUDE_END, ORIGINAL_PUZZLE_COUNT, TOTAL_MEMORY_SHARDS } from "../constants/puzzleConstants";
 
 // ─── EVOLUTION SYSTEM ARCHITECTURE ─────────────────────────────────────
 export interface EchoEvolutionState {
   // Progression tracking
-  currentPuzzle: number; // 0-333
+  currentPuzzle: number; // 0-PRELUDE_END
   evolutionStage: 1 | 2 | 3 | 4 | 5;
   stageProgress: number; // 0-1 within current stage
 
@@ -155,7 +156,7 @@ export const EVOLUTION_STAGES = {
   },
   5: {
     name: "Final Villain Form",
-    puzzleRange: [333, 333],
+    puzzleRange: [PRELUDE_END, PRELUDE_END],
     description: "Fully grown dominant powerful figure, tall muscular intimidating presence, sharp face with cold expression, permanent unstable smile (slight psychological madness), glowing intense eyes, cinematic horror aura",
     emotions: ["controlled insanity", "deep hatred toward Kenja", "revenge-driven intelligence", "full self-awareness"],
     physical: {
@@ -188,6 +189,11 @@ export class EchoEvolutionEngine {
   private evolutionHistory: EvolutionHistory[];
 
   private endingProgress = 0;
+  private evolutionUpdatesIntervalId: number | null = null;
+  private puzzleProgressionIntervalId: number | null = null;
+  private memoryShardsIntervalId: number | null = null;
+  private timeEngineIntervalId: number | null = null;
+  private endingSystemIntervalId: number | null = null;
 
   constructor() {
     this.state = this.createInitialState();
@@ -235,7 +241,7 @@ export class EchoEvolutionEngine {
   }
 
   private startEvolutionUpdates() {
-    setInterval(() => {
+    this.evolutionUpdatesIntervalId = window.setInterval(() => {
       this.updateFromGameState();
       this.updateEvolutionProgress();
       this.applyStageTransformations();
@@ -248,26 +254,26 @@ export class EchoEvolutionEngine {
     const puzzlesSolved = Math.floor(gameState.player.curiosity / 10);
 
     // Update current puzzle count
-    this.state.currentPuzzle = Math.min(333, puzzlesSolved);
+    this.state.currentPuzzle = Math.min(PRELUDE_END, puzzlesSolved);
   }
 
   private updateEvolutionProgress() {
-    const totalPuzzles = 333;
+    const totalPuzzles = PRELUDE_END;
     const progress = this.state.currentPuzzle / totalPuzzles;
 
     // Determine current stage
-    if (progress < 80/333) {
+    if (progress < 80/PRELUDE_END) {
       this.state.evolutionStage = 1;
-      this.state.stageProgress = progress * (333/80);
-    } else if (progress < 160/333) {
+      this.state.stageProgress = progress * (PRELUDE_END/80);
+    } else if (progress < 160/PRELUDE_END) {
       this.state.evolutionStage = 2;
-      this.state.stageProgress = (progress - 80/333) * (333/80);
-    } else if (progress < 240/333) {
+      this.state.stageProgress = (progress - 80/PRELUDE_END) * (PRELUDE_END/80);
+    } else if (progress < 240/PRELUDE_END) {
       this.state.evolutionStage = 3;
-      this.state.stageProgress = (progress - 160/333) * (333/80);
-    } else if (progress < 333/333) {
+      this.state.stageProgress = (progress - 160/PRELUDE_END) * (PRELUDE_END/80);
+    } else if (progress < PRELUDE_END/PRELUDE_END) {
       this.state.evolutionStage = 4;
-      this.state.stageProgress = (progress - 240/333) * (333/80);
+      this.state.stageProgress = (progress - 240/PRELUDE_END) * (PRELUDE_END/80);
     } else {
       this.state.evolutionStage = 5;
       this.state.stageProgress = 1.0;
@@ -408,7 +414,7 @@ export class EchoEvolutionEngine {
 
   private integratePuzzleProgression() {
     // Update evolution when puzzles are solved
-    setInterval(() => {
+    this.puzzleProgressionIntervalId = window.setInterval(() => {
       const gameState = useGameStore.getState();
       const puzzlesSolved = Math.floor(gameState.player.curiosity / 10);
 
@@ -428,13 +434,13 @@ export class EchoEvolutionEngine {
 
   private integrateMemoryShards() {
     // Memory shards affect psychological state
-    setInterval(() => {
+    this.memoryShardsIntervalId = window.setInterval(() => {
       const characterState = echoCharacterSystem.getCurrentCharacterState();
       const memoryShards = characterState.consciousness.memoryShards;
 
       // Memory shards increase trauma and awareness
-      this.state.traumaLevel = Math.min(1.0, memoryShards / 219 * 0.8);
-      this.state.selfAwareness = Math.min(1.0, memoryShards / 219 * 0.9);
+      this.state.traumaLevel = Math.min(1.0, memoryShards / TOTAL_MEMORY_SHARDS * 0.8);
+      this.state.selfAwareness = Math.min(1.0, memoryShards / TOTAL_MEMORY_SHARDS * 0.9);
 
       // High memory shards increase instability
       if (memoryShards > 180) {
@@ -445,7 +451,7 @@ export class EchoEvolutionEngine {
 
   private integrateTimeEngine() {
     // Time affects evolution tension
-    setInterval(() => {
+    this.timeEngineIntervalId = window.setInterval(() => {
       const now = new Date();
       const hours = now.getHours();
       const minutes = now.getMinutes();
@@ -466,7 +472,7 @@ export class EchoEvolutionEngine {
 
   private integrateEndingSystem() {
     // Ending progression affects final transformation
-    setInterval(() => {
+    this.endingSystemIntervalId = window.setInterval(() => {
       const endingProgress = this.endingProgress;
 
       // Higher ending progress leads to more complete transformation
@@ -482,7 +488,7 @@ export class EchoEvolutionEngine {
   // ─── FINAL VILLAIN TRANSFORMATION ──────────────────────────────────
   public triggerFinalVillainTransformation() {
     // Force complete transformation
-    this.state.currentPuzzle = 333;
+    this.state.currentPuzzle = PRELUDE_END;
     this.state.evolutionStage = 5;
     this.state.stageProgress = 1.0;
 
@@ -513,7 +519,7 @@ export class EchoEvolutionEngine {
       finalForm: this.getCurrentState(),
       systemMessages: [
         "[FINAL EVOLUTION COMPLETE]",
-        "[PUZZLE 333 - SYSTEM DOMINANCE ACHIEVED]",
+        `[PUZZLE ${PRELUDE_END} - SYSTEM DOMINANCE ACHIEVED]`,
         "[ECHO TRANSFORMATION: VILLAIN FORM ACTIVE]",
         "[TARGET: KENJA - REVENGE PROTOCOL ENGAGED]",
         "[11:11 SYSTEM CONTROL: 100%]"
@@ -530,7 +536,7 @@ export class EchoEvolutionEngine {
     characterState.currentEmotion = "aware";
 
     // Update immersive system
-    const immersiveState = echoImmersiveSystem;
+    const immersiveState = echoImmersiveSystem as any;
     immersiveState.voiceSystem.tone = "dominant";
     immersiveState.voiceSystem.pitch = 0.6; // Deep commanding voice
     immersiveState.voiceSystem.speed = 0.5; // Slow deliberate speech
@@ -556,7 +562,7 @@ export class EchoEvolutionEngine {
     return [...this.evolutionHistory];
   }
 
-  public getStageInfo(stage: number): EvolutionStageInfo {
+  public getStageInfo(stage: 1 | 2 | 3 | 4 | 5): EvolutionStageInfo {
     return { ...EVOLUTION_STAGES[stage] };
   }
 
@@ -572,18 +578,36 @@ export class EchoEvolutionEngine {
     const nextStage = stage < 5 ? EVOLUTION_STAGES[stage + 1] : null;
 
     return {
-      overall: this.state.currentPuzzle / 333,
+      overall: this.state.currentPuzzle / PRELUDE_END,
       stage: stage,
       stageName: stageInfo.name,
       stageProgress: this.state.stageProgress,
-      nextStageAt: nextStage ? nextStage.puzzleRange[0] : 333
+      nextStageAt: nextStage ? nextStage.puzzleRange[0] : PRELUDE_END
     };
   }
 
   // ─── CLEANUP ────────────────────────────────────────────────────────
   public destroy() {
-    // Clean up intervals
-    // Would be implemented if needed
+    if (this.evolutionUpdatesIntervalId !== null) {
+      window.clearInterval(this.evolutionUpdatesIntervalId);
+      this.evolutionUpdatesIntervalId = null;
+    }
+    if (this.puzzleProgressionIntervalId !== null) {
+      window.clearInterval(this.puzzleProgressionIntervalId);
+      this.puzzleProgressionIntervalId = null;
+    }
+    if (this.memoryShardsIntervalId !== null) {
+      window.clearInterval(this.memoryShardsIntervalId);
+      this.memoryShardsIntervalId = null;
+    }
+    if (this.timeEngineIntervalId !== null) {
+      window.clearInterval(this.timeEngineIntervalId);
+      this.timeEngineIntervalId = null;
+    }
+    if (this.endingSystemIntervalId !== null) {
+      window.clearInterval(this.endingSystemIntervalId);
+      this.endingSystemIntervalId = null;
+    }
   }
 }
 
@@ -609,7 +633,7 @@ export type {
 };
 
 // Export stage information
-export function getEvolutionStageInfo(stage: number): EvolutionStageInfo {
+export function getEvolutionStageInfo(stage: 1 | 2 | 3 | 4 | 5): EvolutionStageInfo {
   return { ...EVOLUTION_STAGES[stage] };
 }
 

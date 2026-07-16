@@ -106,6 +106,30 @@ export function isEntityComplete(entity: EntityId, solved: string[]): boolean {
   return entityPuzzles.every(p => solved.includes(p.id));
 }
 
+export function isEntityUnlocked(entity: EntityId, solved: string[]): boolean {
+  const meta = ENTITIES[entity];
+  if (!meta) return false;
+  return meta.requires.every(req => isEntityComplete(req, solved));
+}
+
+export function getEntityPuzzles(entity: EntityId): Puzzle[] {
+  return PUZZLES.filter(p => p.entity === entity);
+}
+
+export function getPuzzleById(id: string): Puzzle | undefined {
+  return PUZZLES.find(p => p.id === id);
+}
+
+export function isPuzzleUnlocked(puzzle: Puzzle, solved: string[]): boolean {
+  if (solved.includes(puzzle.id)) return false;
+  return isEntityUnlocked(puzzle.entity, solved);
+}
+
+export function checkAnswer(puzzle: Puzzle, input: string): boolean {
+  const normalized = input.trim().toLowerCase();
+  return puzzle.answers.some(a => a.toLowerCase() === normalized);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // الألغاز — كل لغز يكشف جزءاً من القصة
 // ═══════════════════════════════════════════════════════════════════════════════
