@@ -39,7 +39,7 @@ export const NightGlitchOverlay: React.FC<GlitchOverlayProps> = ({ theme }) => {
   const [showWarning, setShowWarning] = useState(false);
   const [warningText, setWarningText] = useState("");
   const [crackStyle, setCrackStyle] = useState<React.CSSProperties>({});
-  const warningTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const warningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // عداد عشوائي للرسائل التحذيرية
   useEffect(() => {

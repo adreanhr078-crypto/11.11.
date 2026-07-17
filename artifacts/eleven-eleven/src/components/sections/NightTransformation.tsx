@@ -1,268 +1,65 @@
-/**
- * NightTransformation.tsx — التحول الليلي
- */
 import React from 'react';
 import { useGameStore } from '../../stores/gameStore';
 
 export const NightTransformation: React.FC = () => {
-  const { time, echo, world, flower, memory } = useGameStore();
-  const phase = time.phaseIndex;
-
-  const PHASES = [
-    {
-      time: '11:00 PM', label: 'بداية عدم الاستقرار', phase: 1,
-      bullets: ['واجهة مستقرة مع نتوجات خفيفة', 'رسائل Echo خافتة وأكثر مكثفة', 'الأحلام تظهر بصريًا بعيدًا', 'الزهور تبدأ الدبول تدريجياً'],
-    },
-    {
-      time: '11:05 PM', label: 'تصاعد التشوهات', phase: 2,
-      bullets: ['تردد الواجهة وتشققات رقمية', 'رسائل Echo تتكرر وتزداد وضوحًا', 'الأحلام تتحول إلى مشاهد أطول وأكثر إيلاماً', 'الزهور تنال تمامًا وتبقى نقاتها'],
-    },
-    {
-      time: '11:11 PM', label: 'الانتقال السينمائي الكامل', phase: 3,
-      bullets: ['تحول كامل إلى الوضع السينمائي', 'رسائل Echo تنص بوضوح وتكشف الحقيقة', 'الأحلام تصبح سرداً داخليًا مؤثراً', 'الزهور تندال تماماً وتحل فائقاتها'],
-    },
-  ];
-
-  const ECHO_MSGS = [
-    { time: '11:00 PM', text: '… هل تسمعني؟', type: 'new' },
-    { time: '11:05 PM', text: 'أنت… أراك.', type: 'new' },
-    { time: '11:11 PM', text: 'لا مزيد من الهروب.', type: 'urgent' },
-  ];
-
-  const nightSubjects = [
-    { icon: '🌸', label: 'تغيير الزهور', desc: 'الزهور تعكس حالة Echo الداخلية وتتحول مع مرور الوقت' },
-    { icon: '✉️', label: 'رسائل Echo', desc: 'تظهر رسائل قصيرة تحدّق أفكار Echo وتقوده مواجهة ما بخلفه' },
-    { icon: '🎵', label: 'الصوت الليلي', desc: 'يتغير التصميم الصوتي ليعكس حالة Echo الداخلية ويلود الإحساسي الاندماجي بالتوتر' },
-    { icon: '💭', label: 'الأحلام والذكريات المؤلمة', desc: 'تحول اللقطات العابرة إلى مشاهد أطول وأكثر تفصيلًا تقرّب من الحقيقة' },
+  const { time, world, echo } = useGameStore();
+  const stages = [
+    { time:'11:00 PM', label:'بداية عدم الاستقرار', status:'stable', text:'SYSTEM STABLE', items:['تمويجات خفيفة','أصوات ناعمة','رسالة تحذير'] },
+    { time:'11:05 PM', label:'تزايد التشويش', status:'warning', text:'SIGNAL UNSTABLE', items:['تقلبات بصرية','ومضات قصيرة','رسائل عاطفية'] },
+    { time:'11:11 PM', label:'التحول السينمائي', status:'danger', text:'CINEMATIC MODE', items:['تفكك الواجهة','تحول كامل','كشف الحقيقة'] },
   ];
 
   return (
-    <div className="night-section">
-      <div className="section-header">
-        <div>
-          <div className="section-title" style={{ color: phase >= 1 ? 'var(--danger)' : 'var(--text-primary)' }}>
-            ◑ التحول الليلي — 11.11
-          </div>
-          <div className="section-subtitle">
-            «عندما تتوقف عن مقاومة الليل، تبدأ في كشف ما خانه الذاكرة.»
-          </div>
-        </div>
+    <div className="dashboard-home">
+      <div className="section-header-custom">
+        <h1>التحول الليلي <span style={{color:'var(--accent)'}}>11:11</span></h1>
+        <p className="subtitle">{time.isNight?'🌙 نشط':'☀️ غير نشط'} · تشويش {Math.round(world.glitchLevel)}%</p>
       </div>
-
-      {/* الحالة الحالية */}
-      <div className={`night-status-banner phase-${phase}`}>
-        <span className="night-banner-icon">
-          {phase >= 3 ? '🔴' : phase >= 2 ? '🟠' : phase >= 1 ? '🟡' : '🟢'}
-        </span>
-        <div>
-          <div className="night-banner-title">
-            الحالة الحالية: {
-              phase >= 3 ? '11:11 — الانتقال السينمائي الكامل' :
-              phase >= 2 ? '11:05 — تزايد حالة عدم الاستقرار' :
-              phase >= 1 ? '11:00 — بداية عدم الاستقرار' :
-              'النهار — الوضع طبيعي'
-            }
-          </div>
-          <div className="night-banner-sub">
-            {phase >= 3 ? 'غير مستقر تماماً — سينمائي · مشاهد عاطفية مؤثرة'
-            : phase >= 2 ? 'البيئة غير مستقرة — القصة تتفاعل أكثر — التوتر يرتفع'
-            : phase >= 1 ? 'النظام لا يزال قابلاً للاستخدام لكن القصة — المستقرة — تصاعد تدريجياً'
-            : 'النظام مستقر · واجهة نظيفة وعناصر داعمة للإنتاجية والنمو'}
-          </div>
-        </div>
-      </div>
-
-      {/* مراحل التحول */}
-      <div className="night-phase-timeline">
-        {PHASES.map((p) => (
-          <div key={p.time} className={`night-phase-block${phase >= p.phase ? ' active' : ''}`}>
-            <div className="night-phase-time" style={{ color: phase >= p.phase ? 'var(--danger)' : 'var(--text-muted)' }}>
-              {p.time}
+      <div className="night-stages-3">
+        {stages.map((s,i) => (
+          <div key={i} className={`night-stage ${time.phaseIndex>=i+1?'active':''}`}>
+            <div className="night-time">{s.time}</div>
+            <div className="night-label">{s.label}</div>
+            <div className={`night-status ${s.status}`}>● {s.text}</div>
+            <div style={{marginTop:'0.75rem'}}>
+              {s.items.map((item,j) => (
+                <div key={j} style={{fontSize:'0.55rem',color:'rgba(224,220,212,0.45)',padding:'0.15rem 0'}}>• {item}</div>
+              ))}
             </div>
-            <div className="night-phase-name">{p.label}</div>
-            <ul className="night-phase-bullets">
-              {p.bullets.map((b, i) => <li key={i}>{b}</li>)}
-            </ul>
-            {phase >= p.phase && (
-              <div style={{ marginTop: '8px', fontSize: '0.5rem', color: 'var(--danger)', fontWeight: 700 }}>
-                ● نشط الآن
+            <div style={{marginTop:'0.5rem'}}>
+              <div className="puzzle-status" style={{background:time.phaseIndex>=i+1?'rgba(76,175,80,0.1)':'rgba(100,100,100,0.1)',color:time.phaseIndex>=i+1?'#4CAF50':'#666'}}>
+                {time.phaseIndex>=i+1?'✓ نشط':'○ غير نشط'}
               </div>
-            )}
+            </div>
           </div>
         ))}
       </div>
-
-      {/* شبكة المكونات الليلية */}
-      <div className="dash-grid-main">
-        {/* رسائل Echo */}
-        <div className="card" style={{ borderColor: phase >= 1 ? 'rgba(212,80,80,0.3)' : 'var(--border)' }}>
-          <div className="card-header">
-            <div className="card-title">
-              <span className="card-title-icon">✉️</span> رسائل Echo
-            </div>
-            <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>
-              تظهر رسائل قصيرة تحدق أفكار Echo
-            </div>
-          </div>
-          <div className="card-body">
-            <div className="echo-night-messages">
-              {ECHO_MSGS.map((m, i) => (
-                <div key={i} className={`echo-night-msg ${phase > i ? m.type : ''}`}
-                  style={{ opacity: phase > i ? 1 : 0.35 }}
-                >
-                  <span className="echo-night-msg-icon">✉️</span>
-                  <span>{m.text}</span>
-                  <span className="echo-night-msg-time">{m.time}</span>
-                </div>
-              ))}
-            </div>
-            {phase === 0 && (
-              <div style={{ textAlign: 'center', padding: '16px', fontSize: '0.6rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                الرسائل تظهر عند الساعة 11:00 مساءً…
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* الأحلام والذكريات المؤلمة */}
-        <div className="card" style={{ borderColor: phase >= 2 ? 'rgba(212,80,80,0.3)' : 'var(--border)' }}>
-          <div className="card-header">
-            <div className="card-title">
-              <span className="card-title-icon">💭</span> الأحلام والذكريات المؤلمة
-            </div>
-          </div>
-          <div className="card-body">
-            <div className="dreams-grid">
-              {[
-                { icon: '🌊', label: 'صوت قديم', locked: phase < 1 },
-                { icon: '🌙', label: 'لقاء تحت المطر', locked: phase < 2 },
-                { icon: '🌸', label: 'حديقة الزهور', locked: phase < 2 },
-                { icon: '🌑', label: 'حجرة النسيان', locked: phase < 3 },
-              ].map((d, i) => (
-                <div key={i} className="dream-card" style={{ opacity: d.locked ? 0.4 : 1 }}>
-                  <div className="dream-card-img" style={{
-                    background: d.locked ? 'var(--bg-secondary)' :
-                    `linear-gradient(135deg, rgba(${i * 30}, ${20 + i * 10}, ${40 + i * 20}, 0.3), var(--bg-secondary))`,
-                  }}>
-                    {d.locked ? '🔒' : d.icon}
-                  </div>
-                  <div className="dream-card-title">{d.label}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ marginTop: '8px', fontSize: '0.55rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-              تحول اللقطات العابرة إلى مشاهد أطول وأكثر تفصيلًا…
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* مكونات ثانوية */}
-      <div className="dash-grid-main">
-        {/* الصوت الليلي */}
-        <div className="card">
-          <div className="card-header">
-            <div className="card-title"><span className="card-title-icon">🎵</span> الصوت الليلي</div>
-          </div>
-          <div className="card-body">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {['11:00', '11:05', '11:11'].map((t, i) => (
-                <div key={t} style={{ display: 'flex', alignItems: 'center', gap: '8px', opacity: phase > i ? 1 : 0.35 }}>
-                  <span style={{ fontSize: '0.6rem', color: 'var(--accent)', fontFamily: 'monospace', width: '42px' }}>{t}</span>
-                  <div style={{ flex: 1, height: '24px', background: 'var(--bg-secondary)', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
-                    {phase > i && (
-                      <div style={{
-                        position: 'absolute', inset: 0,
-                        background: `linear-gradient(90deg, var(--accent-soft), var(--accent-border), transparent)`,
-                        animation: 'flicker 2s ease-in-out infinite',
-                      }} />
-                    )}
-                    {[...Array(8)].map((_, j) => (
-                      <div key={j} style={{
-                        position: 'absolute', bottom: 0, left: `${j * 12.5}%`, width: '8%',
-                        height: `${20 + Math.sin(j * 1.2 + i) * 30}%`,
-                        background: phase > i ? 'var(--accent)' : 'var(--border)',
-                        borderRadius: '2px 2px 0 0',
-                        opacity: 0.7,
-                      }} />
-                    ))}
-                  </div>
-                  <span style={{ fontSize: '0.52rem', color: 'var(--text-muted)' }}>
-                    {i === 0 ? 'هادئ' : i === 1 ? 'غير ثابت داخلي' : 'عميق ومؤثر'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* تغيير الزهور */}
-        <div className="card">
-          <div className="card-header">
-            <div className="card-title"><span className="card-title-icon">🌸</span> تغيير الزهور ليلاً</div>
-          </div>
-          <div className="card-body">
-            <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', padding: '8px 0' }}>
-              {[
-                { t: '11:00', icon: flower.stage === 'completed' ? '🌺' : '🌸', label: 'تبدأ الدبول' },
-                { t: '11:05', icon: '🌷', label: 'تتحول' },
-                { t: '11:08', icon: '🌑', label: 'تنحو' },
-                { t: '11:11', icon: phase >= 3 ? '✦' : '❋', label: 'ذروة التحول' },
-              ].map((item, i) => (
-                <div key={i} style={{ textAlign: 'center', opacity: phase > i ? 1 : 0.4 }}>
-                  <div style={{ fontSize: '1.4rem', transition: 'all 0.5s' }}>{item.icon}</div>
-                  <div style={{ fontSize: '0.45rem', color: 'var(--accent)', fontFamily: 'monospace', marginTop: '3px' }}>{item.t}</div>
-                  <div style={{ fontSize: '0.48rem', color: 'var(--text-muted)', marginTop: '2px' }}>{item.label}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ marginTop: '8px', fontSize: '0.55rem', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center' }}>
-              «الليل لا يرحم… لكنه يكشف.»
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* كيف يتغير النظام */}
       <div className="card">
-        <div className="card-header">
-          <div className="card-title"><span className="card-title-icon">⊛</span> كيف يتغير النظام مع الوقت؟</div>
-        </div>
+        <div className="card-header"><h3 className="card-title"><span>🔄</span> تقدم التحول</h3></div>
         <div className="card-body">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
-            {[
-              { icon: '🖥️', label: 'الواجهة', desc: 'من نظيفة إلى منكسرة' },
-              { icon: '🎨', label: 'اللون والإضاءة', desc: 'من هادئ إلى مظلم' },
-              { icon: '🔊', label: 'الصوت', desc: 'من خفيف إلى مشوّش ومؤثر' },
-              { icon: '📖', label: 'القصة', desc: 'من خفية إلى واضحة ومؤلمة' },
-            ].map((item, i) => (
-              <div key={i} style={{
-                padding: '10px 8px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '5px',
-              }}>
-                <div style={{ fontSize: '1.2rem' }}>{item.icon}</div>
-                <div style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-primary)' }}>{item.label}</div>
-                <div style={{ fontSize: '0.52rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>{item.desc}</div>
-              </div>
-            ))}
-          </div>
+          <Bar label="تشويش" val={world.glitchLevel} c="#FF9800" />
+          <Bar label="استقرار" val={world.stability} c={world.stability<40?'#f44336':'#2196F3'} />
+          <Bar label="خوف Echo" val={echo.fear} c="#cc6644" />
         </div>
       </div>
-
-      {/* اقتباس ختامي */}
-      <div style={{
-        padding: '14px 18px', textAlign: 'center',
-        background: 'var(--accent-soft)', border: '1px solid var(--accent-border)',
-        borderRadius: 'var(--radius)', fontSize: '0.7rem', color: 'var(--text-secondary)', fontStyle: 'italic', lineHeight: 1.8,
-      }}>
-        «اللا يرحم… لكنه يكشف.»<br/>
-        <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>
-          الهدف من التحول الليلي: خلق تجربة عاطفية عميقة وشخصية · تعزيز ارتباط المستخدم بـ Echo وقصتنا
-          · استخدام الوقت الحقيقي كأداة سردية · مقاومة الألم والكشف والاستكشاف والتحول
-        </span>
+      <div className="card">
+        <div className="card-header"><h3 className="card-title"><span>💌</span> رسائل Echo الليلية</h3></div>
+        <div className="card-body">
+          {[{time:'11:00 PM',msg:'هل تتهرب مني؟'},{time:'11:05 PM',msg:'أنت تهرب، وأنا أراك.'},{time:'11:11 PM',msg:'لا مزيد من الهروب.'}].map((r,i) => (
+            <div key={i} style={{padding:'0.5rem',background:'rgba(20,16,25,0.4)',border:'1px solid var(--accent-border)',borderRadius:'8px',marginBottom:'0.5rem'}}>
+              <span style={{fontSize:'0.5rem',color:'rgba(200,120,90,0.4)',fontFamily:'monospace'}}>{r.time}</span>
+              <p style={{fontSize:'0.65rem',color:'rgba(224,220,212,0.5)',marginTop:'0.2rem'}}>"{r.msg}"</p>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
 };
-
+const Bar: React.FC<{label:string;val:number;c:string}> = ({label,val,c}) => (
+  <div style={{marginBottom:'0.3rem'}}>
+    <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.55rem',color:'rgba(224,220,212,0.45)'}}><span>{label}</span><span>{Math.round(val)}%</span></div>
+    <div style={{height:'4px',background:'rgba(180,120,80,0.08)',borderRadius:'99px',overflow:'hidden'}}><div style={{height:'100%',width:`${Math.min(100,Math.max(0,val))}%`,background:c,borderRadius:'99px'}}/></div>
+  </div>
+);
 export default NightTransformation;

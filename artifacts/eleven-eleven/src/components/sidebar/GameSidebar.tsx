@@ -1,115 +1,122 @@
 /**
- * GameSidebar.tsx — الشريط الجانبي الكامل
+ * GameSidebar.tsx — الشريط الجانبي الكامل (C66)
+ * 7 عناصر قائمة + زر الوضع الليلي + ملف المستخدم
  */
 
 import React from 'react';
-import { useGameStore } from '../../stores/gameStore';
+import { useGameStore, type TimePhase } from '../../stores/gameStore';
 
 const XP_MAX = 3500;
+import { motion } from 'framer-motion';
 
-export type SectionId =
-  | 'dashboard' | 'echo-mind' | 'day' | 'memories' | 'puzzles'
-  | 'wishes' | 'flowers' | 'achievements' | 'night' | 'overview';
+export type SectionId = 'dashboard' | 'echo-mind' | 'day' | 'memories' | 'puzzles' | 'wishes' | 'flowers' | 'achievements' | 'night' | 'overview';
 
 interface Props {
   activeSection: SectionId;
-  onNavigate: (s: SectionId) => void;
-  isNightMode: boolean;
-  onToggleNight: () => void;
+  onNavigate: (section: SectionId) => void;
 }
 
-const NAV: { id: SectionId; label: string; icon: string; sub?: string }[] = [
-  { id: 'dashboard',    label: 'الرئيسية',       icon: '⊹',  sub: 'لوحة التحكم' },
-  { id: 'echo-mind',   label: 'Echo Mind',       icon: '◈',  sub: 'عقل الصدى' },
-  { id: 'day',         label: 'النهار',          icon: '◐',  sub: 'النظام الصباحي' },
-  { id: 'memories',    label: 'الذكريات',        icon: '◫',  sub: 'أحلام وشظايا' },
-  { id: 'puzzles',     label: 'الألغاز',         icon: '⬡',  sub: 'استعادة الحقيقة' },
-  { id: 'wishes',      label: 'الأمنيات',        icon: '✦',  sub: 'ما تريده يحدث' },
-  { id: 'flowers',     label: 'الأزهار',         icon: '❋',  sub: 'نمو وتحول' },
-  { id: 'achievements',label: 'الإنجازات',       icon: '◉',  sub: 'محطات الرحلة' },
-  { id: 'night',       label: 'الليل',           icon: '◑',  sub: 'التحول 11:11' },
-  { id: 'overview',    label: 'الرؤية',          icon: '⊛',  sub: 'الصورة الكاملة' },
+const NAV_ITEMS: { id: SectionId; label: string; icon: string }[] = [
+  { id: 'dashboard', label: 'الرئيسية', icon: '🏠' },
+  { id: 'echo-mind', label: 'Echo Mind', icon: '🧠' },
+  { id: 'day', label: 'النظام الصباحي', icon: '☀️' },
+  { id: 'memories', label: 'الذكريات والأحلام', icon: '💠' },
+  { id: 'puzzles', label: 'الألغاز', icon: '🧩' },
+  { id: 'wishes', label: 'الأمنيات', icon: '⭐' },
+  { id: 'flowers', label: 'نظام الأزهار', icon: '🌸' },
+  { id: 'achievements', label: 'الإنجازات', icon: '🏆' },
+  { id: 'night', label: 'التحول الليلي', icon: '🌙' },
+  { id: 'overview', label: 'الروية الشاملة', icon: '👁️' },
 ];
 
-export const GameSidebar: React.FC<Props> = ({ activeSection, onNavigate, isNightMode, onToggleNight }) => {
-  const { echo, solvedPuzzles, totalPuzzles, flower, achievements, time } = useGameStore();
+export const GameSidebar: React.FC<Props> = ({ activeSection, onNavigate }) => {
+  const { echo, solvedPuzzles, totalPuzzles, time, flower, achievements } = useGameStore();
+  const [isNightMode, setIsNightMode] = React.useState(false);
 
+  const emoji = echo.corruption > 70 ? '😰' : echo.fear > 70 ? '😨' : echo.trust > 60 ? '😊' : '😐';
   const xpPct = Math.min(100, (echo.xp / XP_MAX) * 100);
   const nightActive = time.phaseIndex >= 1;
-  const moodEmoji =
-    echo.corruption > 70 ? '🌑' :
-    echo.fear > 70       ? '🌘' :
-    echo.trust > 60      ? '🌕' : '🌗';
 
   return (
-    <aside className="app-sidebar">
-      {/* الشعار */}
-      <div className="sidebar-logo">
-        <div className="sidebar-logo-title">11.11</div>
-        <div className="sidebar-logo-sub">رحلة الذاكرة</div>
-        <div className="sidebar-logo-tag">كل قصة تقرب من الحقيقة…</div>
+    <aside className="game-sidebar">
+      {/* Brand */}
+      <div className="sidebar-brand">
+        <h2>11:11</h2>
+        <div className="brand-subtitle">المشروع</div>
+        <div className="brand-tagline">كل قصة تقرب من الحقيقة... أو تبعد عنها.</div>
       </div>
 
-      {/* القائمة */}
+      {/* Navigation */}
       <nav className="sidebar-nav">
-        {NAV.map(item => (
+        {NAV_ITEMS.map(item => (
           <button
             key={item.id}
-            className={`sidebar-nav-item${activeSection === item.id ? ' active' : ''}`}
+            className={`sidebar-nav-item ${activeSection === item.id ? 'active' : ''}`}
             onClick={() => onNavigate(item.id)}
-            title={item.sub}
           >
-            <span className="nav-icon" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
-              {item.icon}
-            </span>
+            <span className="nav-icon">{item.icon}</span>
             <span className="nav-label">{item.label}</span>
             {item.id === 'puzzles' && (
-              <span className="nav-badge">{solvedPuzzles}</span>
+              <span className="nav-badge">{solvedPuzzles}/{totalPuzzles}</span>
             )}
             {item.id === 'night' && nightActive && (
-              <span className="nav-dot" />
+              <span className="nav-alert">🌙</span>
             )}
           </button>
         ))}
       </nav>
 
-      {/* الجزء السفلي */}
-      <div className="sidebar-bottom">
-        {/* معلومات المستخدم */}
-        <div className="sidebar-user">
-          <div className="sidebar-user-avatar">{moodEmoji}</div>
-          <div className="sidebar-user-info">
-            <div className="sidebar-user-name">Echo · الصدى</div>
-            <div className="sidebar-user-level">المستوى {echo.level} · {echo.mood}</div>
-            <div className="sidebar-xp-bar">
-              <div className="sidebar-xp-fill" style={{ width: `${xpPct}%` }} />
-            </div>
-          </div>
-        </div>
+      {/* Night Toggle */}
+      <div className="sidebar-night-toggle">
+        <button
+          className={`night-toggle-btn ${nightActive ? 'active' : ''}`}
+          onClick={() => {
+            setIsNightMode(!isNightMode);
+            document.getElementById('app')?.classList.toggle('night-active');
+          }}
+        >
+          <span>{nightActive ? '🔥' : '🌙'}</span>
+          <span>{nightActive ? 'التحول الليلي نشط' : 'الوضع الليلي'}</span>
+        </button>
+      </div>
 
-        {/* إحصائيات سريعة */}
-        <div className="sidebar-stats-row">
-          <div className="sidebar-stat-chip">
-            <span>⬡</span>
-            <span>{solvedPuzzles}</span>
+      {/* User Profile */}
+      <div className="sidebar-user-card">
+        <div className="user-avatar">{emoji}</div>
+        <div className="user-info">
+          <span className="user-name">Echo</span>
+          <span className="user-level">المستوى {echo.level} · {echo.mood}</span>
+          <div className="user-xp-bar">
+            <div className="user-xp-fill" style={{ width: `${xpPct}%` }} />
           </div>
-          <div className="sidebar-stat-chip">
-            <span>❋</span>
-            <span>{Math.round(flower.growth)}%</span>
-          </div>
-          <div className="sidebar-stat-chip">
-            <span>◉</span>
-            <span>{achievements.filter(a => a.unlocked).length}</span>
-          </div>
-          <div className="sidebar-stat-chip">
-            <span>◈</span>
-            <span>{echo.trust}%</span>
-          </div>
+          <span className="user-xp-text">{echo.xp} / {XP_MAX} XP</span>
         </div>
+      </div>
 
-        {/* زر الوضع */}
-        <button className="sidebar-continue-btn" onClick={onToggleNight}>
-          {isNightMode ? '☀️ الوضع النهاري' : '🌙 الوضع الليلي'}
+      {/* Quick Stats */}
+      <div className="sidebar-stats">
+        <div className="sidebar-stat">
+          <span>🧩</span>
+          <span>{solvedPuzzles}</span>
+        </div>
+        <div className="sidebar-stat">
+          <span>🌸</span>
+          <span>{Math.round(flower.growth)}%</span>
+        </div>
+        <div className="sidebar-stat">
+          <span>🏆</span>
+          <span>{achievements.filter(a => a.unlocked).length}</span>
+        </div>
+        <div className="sidebar-stat">
+          <span>🧠</span>
+          <span>{echo.trust}%</span>
+        </div>
+      </div>
+
+      {/* Continue Button */}
+      <div className="sidebar-continue">
+        <button className="continue-btn" onClick={() => onNavigate('echo-mind')}>
+          متابعة ▶
         </button>
       </div>
     </aside>

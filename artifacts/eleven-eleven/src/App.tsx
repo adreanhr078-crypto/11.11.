@@ -1,198 +1,123 @@
 /**
- * App.tsx — التطبيق الرئيسي 11.11
+ * App.tsx — نقطة الدخول الرئيسية مع الشريط الجانبي الكامل
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useGameStore } from './stores/gameStore';
 import { GameSidebar, type SectionId } from './components/sidebar/GameSidebar';
 import { EchoChat } from './components/echo/EchoChat';
 import { PuzzleEngine } from './components/puzzle/PuzzleEngine';
 import { FlowerSystem } from './components/flower/FlowerSystem';
 import { MemorySystem } from './components/memory/MemorySystem';
+import './styles/eleven-theme.css';
+
+// الأقسام الـ 10 الكاملة
 import { DashboardHome } from './components/sections/DashboardHome';
 import { DaySection } from './components/sections/DaySection';
 import { WishesSection } from './components/sections/WishesSection';
 import { AchievementsSection } from './components/sections/AchievementsSection';
 import { NightTransformation } from './components/sections/NightTransformation';
 import { OverviewSection } from './components/sections/OverviewSection';
-import { CinematicMode } from './components/effects/CinematicMode';
+import { EndingPanel } from './components/sections/EndingPanel';
+import { TimelineSection } from './components/sections/TimelineSection';
+import { NightAlert, CinematicMode } from './components/effects/CinematicMode';
 import { AnimationSystem } from './components/effects/AnimationSystem';
+import { useAudioSystem } from './hooks/useAudioSystem';
 import { VideoMemorySystem } from './components/video/VideoMemorySystem';
-import { toggleLanguage } from './core/echoMultilingualSystem';
-import './styles/eleven-theme.css';
-
-const SECTION_META: Record<SectionId, { title: string; subtitle: string }> = {
-  dashboard:     { title: 'الرئيسية',          subtitle: 'نظرة عامة على رحلتك مع Echo' },
-  'echo-mind':   { title: 'Echo Mind',          subtitle: 'تحدّث مع Echo واستكشف ذاكرته' },
-  day:           { title: 'النظام الصباحي',     subtitle: 'تذكّر، تفاهم، وتواصل بهدوء' },
-  memories:      { title: 'الذكريات والأحلام', subtitle: 'استرجاع الماضي شظية بشظية' },
-  puzzles:       { title: 'الألغاز',            subtitle: 'حل الألغاز لكشف الحقيقة' },
-  wishes:        { title: 'الأمنيات',           subtitle: 'أمنياتك توجّه مسار القصة للنمو' },
-  flowers:       { title: 'نظام الأزهار',       subtitle: 'تنمو مع كل تقدم، وتتحول مع الليل' },
-  achievements:  { title: 'الإنجازات',          subtitle: 'محطات في رحلة استعادة الذاكرة' },
-  night:         { title: 'التحول الليلي',      subtitle: 'النظام يتغير عند 11:11' },
-  overview:      { title: 'الرؤية الشاملة',    subtitle: 'هذه ليست مجرد لعبة… إنها رحلتك' },
-};
+import { toggleLanguage, translate } from './core/echoMultilingualSystem';
 
 export default function App() {
   const actions = useGameStore(s => s.actions);
-  const time    = useGameStore(s => s.time);
-  const echo    = useGameStore(s => s.echo);
-  const world   = useGameStore(s => s.world);
-
+  const time = useGameStore(s => s.time);
   const [activeSection, setActiveSection] = useState<SectionId>('dashboard');
   const [showCinematic, setShowCinematic] = useState(false);
-  const [isNightMode, setIsNightMode] = useState(false);
-  const [lang, setLang] = useState<'ar' | 'en'>('ar');
 
   // دورة الوقت
   useEffect(() => {
     actions.advanceTime();
-    const iv = setInterval(() => actions.advanceTime(), 30_000);
-    return () => clearInterval(iv);
+    const interval = setInterval(() => actions.advanceTime(), 30000);
+    return () => clearInterval(interval);
   }, [actions]);
 
-  // وضع الليل التلقائي
-  useEffect(() => {
-    if (time.phaseIndex >= 1 && !isNightMode) setIsNightMode(true);
-    if (time.phaseIndex === 0 && isNightMode)  setIsNightMode(false);
-  }, [time.phaseIndex]);
-
-  // تحديث data-mode على <html>
-  useEffect(() => {
-    document.documentElement.setAttribute('data-mode', isNightMode ? 'night' : 'day');
-  }, [isNightMode]);
-
-  // سينمائي 11:11
+  // مراقبة 11:11 للوضع السينمائي
   useEffect(() => {
     if (time.phaseIndex >= 3 && !showCinematic) {
       setShowCinematic(true);
-      const t = setTimeout(() => setShowCinematic(false), 8_000);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => setShowCinematic(false), 8000);
+      return () => clearTimeout(timer);
     }
-    return undefined;
   }, [time.phaseIndex, time.hour, time.minute]);
 
-  const handleLangToggle = useCallback(() => {
-    toggleLanguage();
-    setLang(l => l === 'ar' ? 'en' : 'ar');
-  }, []);
+  // النظام الصوتي
+  useAudioSystem(time.phase, time.phaseIndex);
 
-  const toggleNight = useCallback(() => {
-    setIsNightMode(n => {
-      const next = !n;
-      document.documentElement.setAttribute('data-mode', next ? 'night' : 'day');
-      return next;
-    });
-  }, []);
-
-  const meta = SECTION_META[activeSection];
-
-  const statusLabel =
-    time.phaseIndex >= 3 ? 'خطر: 11:11' :
-    time.phaseIndex >= 2 ? 'غير مستقر'  :
-    time.phaseIndex >= 1 ? 'تحذير'       :
-    'مستقر';
-  const statusClass =
-    time.phaseIndex >= 3 ? 'critical' :
-    time.phaseIndex >= 2 ? 'unstable'  :
-    time.phaseIndex >= 1 ? 'unstable'  :
-    'stable';
-
+  // محتوى الأقسام
   const renderSection = () => {
-    const cls = 'page-enter';
     switch (activeSection) {
-      case 'dashboard':   return <div className={cls} key="dashboard"><DashboardHome onNavigate={setActiveSection} /></div>;
-      case 'echo-mind':   return <div className={cls} key="echo"><EchoChat /></div>;
-      case 'day':         return <div className={cls} key="day"><DaySection /></div>;
-      case 'memories':    return <div className={cls} key="mem"><MemorySystem /></div>;
-      case 'puzzles':     return <div className={cls} key="puzz"><PuzzleEngine /></div>;
-      case 'wishes':      return <div className={cls} key="wish"><WishesSection /></div>;
-      case 'flowers':     return <div className={cls} key="flow"><FlowerSystem /></div>;
-      case 'achievements':return <div className={cls} key="ach"><AchievementsSection /></div>;
-      case 'night':       return <div className={cls} key="night"><NightTransformation /></div>;
-      case 'overview':    return <div className={cls} key="ov"><OverviewSection /></div>;
-      default:            return <div className={cls} key="d"><DashboardHome onNavigate={setActiveSection} /></div>;
+      case 'dashboard': return <DashboardHome />;
+      case 'echo-mind': return <EchoChat />;
+      case 'day': return <DaySection />;
+      case 'memories': return <MemorySystem />;
+      case 'puzzles': return <PuzzleEngine />;
+      case 'wishes': return <WishesSection />;
+      case 'flowers': return <FlowerSystem />;
+      case 'achievements': return <AchievementsSection />;
+      case 'night': return <NightTransformation />;
+      case 'overview': return <OverviewSection />;
+      default: return <DashboardHome />;
     }
   };
 
   return (
-    <div className={`app-root ${isNightMode ? 'night-mode' : ''}`} dir="rtl">
-      {/* تأثيرات عالمية */}
+    <div id="app" className="app-root" dir="rtl">
       {showCinematic && <CinematicMode onEnd={() => setShowCinematic(false)} />}
       <AnimationSystem />
       <VideoMemorySystem />
-
-      {/* تشويش الليل */}
-      {time.phaseIndex >= 2 && (
-        <div className="night-glitch-overlay" aria-hidden="true">
-          <div className="glitch-line" />
-          <div className="glitch-line" />
-          <div className="glitch-line" />
-        </div>
-      )}
-
-      {/* شريط عدم الاستقرار */}
-      {time.phaseIndex >= 1 && (
-        <div className={`system-instability-bar phase-${time.phaseIndex}`}>
-          <span className="sys-badge">SYSTEM INSTABILITY</span>
-          <span className="sys-badge">SIGNAL LOST</span>
-          {time.phaseIndex >= 2 && <span className="sys-badge">MEMORY CORRUPTION</span>}
-          {time.phaseIndex >= 3 && <span className="sys-badge" style={{animation:'blink 0.8s step-end infinite'}}>LINK ACTIVE — Echo</span>}
-        </div>
-      )}
-
-      {/* الشريط الجانبي */}
-      <GameSidebar
-        activeSection={activeSection}
-        onNavigate={setActiveSection}
-        isNightMode={isNightMode}
-        onToggleNight={toggleNight}
-      />
-
-      {/* المحتوى الرئيسي */}
-      <main className="app-main" style={{ marginTop: time.phaseIndex >= 1 ? '32px' : 0 }}>
-        {/* الشريط العلوي */}
-        <header className="app-topbar">
-          <div>
-            <div className="topbar-section-title">{meta.title}</div>
-            <div className="topbar-section-sub">{meta.subtitle}</div>
+      <NightAlert phaseIndex={time.phaseIndex} phase={time.phase} />
+      
+      <GameSidebar activeSection={activeSection} onNavigate={setActiveSection} />
+      
+      <main className="main-content">
+        <header className="topbar">
+          <div className="topbar-right">
+            <h2 className="topbar-brand">
+              <span className="brand-11">11.11</span>
+              <span className="brand-time">
+                {time.isNight ? '🌙' : '☀️'} {time.phase}
+                {time.phaseIndex >= 1 && ` ⚠ مرحله ${time.phaseIndex}/3`}
+              </span>
+            </h2>
           </div>
-
-          <div className="topbar-center">
-            <div className="topbar-time-badge">
-              <span className="topbar-time-icon">{time.isNight ? '🌙' : '☀️'}</span>
-              <div>
-                <div className="topbar-time-text">
-                  {String(time.hour).padStart(2,'0')}:{String(time.minute).padStart(2,'0')}
-                </div>
-                <div className="topbar-time-sub">{time.phase}</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="topbar-right-cluster">
-            <div className="topbar-day-chip">
-              <span>📅</span>
-              <span>اليوم {time.dayCycle}</span>
-            </div>
-            <div className={`topbar-status-chip ${statusClass}`}>
-              <span>{statusClass === 'stable' ? '✦' : '⚠'}</span>
-              <span>{statusLabel}</span>
-            </div>
-            <button className="topbar-night-btn" onClick={toggleNight} title="تبديل الوضع">
-              {isNightMode ? '☀️ نهاري' : '🌙 ليلي'}
-            </button>
-            <button className="topbar-lang-btn" onClick={handleLangToggle}>
-              {lang === 'ar' ? '🇬🇧 EN' : '🇸🇦 AR'}
+          <div className="topbar-left">
+            <button
+              onClick={() => toggleLanguage()}
+              style={{
+                padding: '0.4rem 0.8rem',
+                background: 'rgba(180,120,80,0.2)',
+                border: '1px solid rgba(180,120,80,0.3)',
+                color: 'var(--accent)',
+                fontSize: '0.6rem',
+                cursor: 'pointer',
+                borderRadius: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem'
+              }}
+            >
+              {document.documentElement.lang === 'ar' ? '🇬🇧 English' : '🇸🇦 العربية'}
             </button>
           </div>
         </header>
 
-        {/* منطقة المحتوى */}
-        <div className="app-content">
+        <div className="content-area">
           {renderSection()}
         </div>
+
+        <footer className="footer">
+          <p className="footer-meta">
+            11.11 — رحلة عاطفية تفاعلية · {time.dayCycle} يوم
+          </p>
+        </footer>
       </main>
     </div>
   );

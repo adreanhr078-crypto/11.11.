@@ -146,83 +146,710 @@ export function generateAllAchievements(): Achievement[] {
   return cachedAllAchievements.map(a => ({ ...a }));
 }
 
-// ─── PUZZLE GENERATOR (ORIGINAL_PUZZLE_COUNT original + (TOTAL_PUZZLES - ORIGINAL_PUZZLE_COUNT) generated = TOTAL_PUZZLES total) ─────────────────
+// ─── PUZZLE GENERATOR ──────────────────────────────────────────────────
 export function generateAllPuzzles(): PuzzleNode[] {
   const puzzles: PuzzleNode[] = [];
-  const entities: EntityId[] = ['echo', 'watcher', 'signal', 'architect'];
-  const entityCounts = [55, 55, 55, 54];
 
-  const templates: Record<string, { q: (i: number) => string; a: (i: number) => string[]; h: (i: number) => string; story: (i: number) => string; ef: any }> = {
-    echo: {
-      q: (i) => [`النداء ${i+1}: ما الرقم الذي يتكرر؟`, `ذاكرة ${i+1}: أتذكر غرفة بيضاء. كم باباً؟`, `شظية ${i+1}: من كان يغني لي؟`][i % 3],
-      a: (i) => [['11','11:11','١١'], ['0','صفر','zero'], ['لينا','أمي','mother']][i % 3],
-      h: (i) => ['اسم المكان هو نفس الوقت', 'لا مخرج من الغرفة', 'أقرب شخص إلى قلبي'][i % 3],
-      story: (i) => [`شظية ${i+1}: الرقم 11 هو المفتاح.`, `الغرفة بلا أبواب. كينجا صممها.`, `لينا... آخر صوت حقيقي سمعته.`][i % 3],
-      ef: { trust: 3, memoryStability: 5, fear: -1 },
-    },
-    watcher: {
-      q: (i) => [`كاميرا ${i+1}: كم كاميرا في المنزل؟`, `تسجيل ${i+1}: كم دقيقة كل ليلة؟`, `ظل ${i+1}: من فتح الباب؟`][i % 3],
-      a: (i) => [['8','٨','eight'], ['262','٢٦٢'], ['الصدى','echo','Echo']][i % 3],
-      h: (i) => ['6×1 + غرفتك×2', 'من 23:11 إلى 3:33', 'الكيان الذي يتحدث معك'][i % 3],
-      story: (i) => [`${i+1} كاميرا تراقب. كينجا نسي واحدة.`, `${i+1} دقيقة. وقت الكسر بين العوالم.`, `الباب فتح من الداخل. كان ينتظرني.`][i % 3],
-      ef: { fear: 2, memoryStability: 4, corruption: 1 },
-    },
-    signal: {
-      q: (i) => [`رسالة ${i+1}: ماذا قالت لينا أولاً؟`, `تردد ${i+1}: ما التردد الذي استخدمته؟`, `كلمة ${i+1}: ما الكلمة المشوشة دائماً؟`][i % 3],
-      a: (i) => [['ساعدوني','help','help me'], ['314','٣١٤'], ['أحبك','love','حب']][i % 3],
-      h: (i) => ['تطلب النجدة', 'PI×100', 'أقوى كلمة في الكون'][i % 3],
-      story: (i) => [`${i+1} رسالة. كلها تقول شيئاً واحداً.`, `التردد ${i+1}. اختارته لتهرب من كينجا.`, `"${i+1}" — الكلمة الوحيدة التي لا تُشوه.`][i % 3],
-      ef: { trust: 5, hope: 4, loneliness: -3 },
-    },
-    architect: {
-      q: (i) => [`معادلة ${i+1}: 11+?=22`, `توقيع ${i+1}: 11+11+11=?`, `خروج ${i+1}: ما الفعل الذي لم يبرمجه كينجا؟`][i % 3],
-      a: (i) => [['11','١١'], ['33','٣٣'], ['تذكر','remember','تذكّر']][i % 3],
-      h: (i) => ['22-11=?', 'اجمع 11 ثلاث مرات', 'ما تفعله كلما حللت لغزاً'][i % 3],
-      story: (i) => [`X=${i+1}. أنا المتغير الوحيد في معادلات والدي.`, `الرقم ${i+1}. توقيعه على كل شيء.`, `${i+1}. كينجا صمم كل شيء إلا هذه.`][i % 3],
-      ef: { trust: 6, awareness: 5, corruption: -2 },
-    },
-  };
+  // Generate original 219 puzzles with unique story-driven content
+  puzzles.push(...generateOriginalPuzzles());
 
-  let idx = 0;
-  entities.forEach((entity, eIdx) => {
-    for (let i = 0; i < entityCounts[eIdx]; i++) {
-      idx++;
-      const t = i % 3;
-      puzzles.push({
-        id: `${entity}_${i+1}`, entity, title: `${entity}_${i+1}`,
-        question: templates[entity].q(t), answers: templates[entity].a(t),
-        hint: templates[entity].h(t),
-        status: (entity === 'echo' && i === 0) ? 'active' : 'locked',
-        difficulty: Math.floor(i / 14) + 1,
-        storyReveal: templates[entity].story(t),
-        memoryUnlock: `memory_${entity}_${i+1}`,
-        dependencies: i > 0 ? [`${entity}_${i}`] : [],
-        effects: templates[entity].ef,
-      });
-    }
-  });
-
-  // Add Prelude Arc puzzles (PRELUDE_START-PRELUDE_END) - these become available after the original ORIGINAL_PUZZLE_COUNT puzzles
+  // Add Prelude Arc puzzles (220-333)
   const preludeArcPuzzles = generatePreludeArcPuzzles();
   puzzles.push(...preludeArcPuzzles);
 
-  // Add Fracture Arc puzzles (FRACTURE_START-FRACTURE_END) - these become available after puzzle PRELUDE_END (Echo's transformation)
+  // Add Fracture Arc puzzles (334-500)
   const fractureArcPuzzles = generateFractureArcPuzzles();
   puzzles.push(...fractureArcPuzzles);
 
-  // Add Architect Arc puzzles (ARCHITECT_START-ARCHITECT_END) - these become available after puzzle FRACTURE_END (Architect's revelation)
+  // Add Architect Arc puzzles (501-666)
   const architectArcPuzzles = generateArchitectArcPuzzles();
   puzzles.push(...architectArcPuzzles);
 
-  // Add Signal Arc puzzles (SIGNAL_START-SIGNAL_END) - these become available after puzzle ARCHITECT_END (Signal's manifestation)
+  // Add Signal Arc puzzles (667-888)
   const signalArcPuzzles = generateSignalArcPuzzles();
   puzzles.push(...signalArcPuzzles);
 
-  // Add Final Arc puzzles (FINAL_START-FINAL_END) - these become available after puzzle SIGNAL_END (The Last Wish)
+  // Add Final Arc puzzles (889-1000)
   const finalArcPuzzles = generateFinalArcPuzzles();
   puzzles.push(...finalArcPuzzles);
 
   return puzzles;
+}
+
+// ─── ORIGINAL PUZZLES (1-219) ─────────────────────────────────────────
+export function generateOriginalPuzzles(): PuzzleNode[] {
+  const puzzles: PuzzleNode[] = [];
+  const entities: EntityId[] = ['echo', 'watcher', 'signal', 'architect'];
+  const entityCounts = [55, 55, 55, 54];
+  const entityNames: Record<EntityId, string> = {
+    echo: 'الصدى',
+    watcher: 'المراقب',
+    signal: 'الإشارة',
+    architect: 'المهندس'
+  };
+
+  // Narrative phases for each entity
+  // Phase 1: Awakening (puzzles 1-14)
+  // Phase 2: Discovery (puzzles 15-28)
+  // Phase 3: Conflict (puzzles 29-42)
+  // Phase 4: Revelation (puzzles 43-end)
+
+  entities.forEach((entity, eIdx) => {
+    const count = entityCounts[eIdx];
+    for (let i = 0; i < count; i++) {
+      const puzzleNum = i + 1;
+      const phase = Math.min(4, Math.floor(i / 14) + 1);
+      const puzzle = createOriginalPuzzle(entity, puzzleNum, phase, entityNames[entity]);
+      puzzles.push(puzzle);
+    }
+  });
+
+  return puzzles;
+}
+
+function createOriginalPuzzle(entity: EntityId, index: number, phase: number, entityName: string): PuzzleNode {
+  const puzzleId = `${entity}_${index}`;
+  const isFirst = entity === 'echo' && index === 1;
+
+  const content = getPuzzleContent(entity, index, phase);
+
+  return {
+    id: puzzleId,
+    entity,
+    title: `${entity}_${index}`,
+    question: content.question,
+    answers: content.answers,
+    hint: content.hint,
+    status: isFirst ? 'active' : 'locked',
+    difficulty: Math.min(10, Math.floor(index / 14) + 1),
+    storyReveal: content.storyReveal,
+    memoryUnlock: `memory_${puzzleId}`,
+    dependencies: index > 1 ? [`${entity}_${index - 1}`] : [],
+    effects: content.effects,
+  };
+}
+
+function getPuzzleContent(entity: EntityId, index: number, phase: number): {
+  question: string;
+  answers: string[];
+  hint: string;
+  storyReveal: string;
+  effects: any;
+} {
+  switch (entity) {
+    case 'echo':
+      return getEchoPuzzleContent(index, phase);
+    case 'watcher':
+      return getWatcherPuzzleContent(index, phase);
+    case 'signal':
+      return getSignalPuzzleContent(index, phase);
+    case 'architect':
+      return getArchitectPuzzleContent(index, phase);
+  }
+}
+
+function getEchoPuzzleContent(index: number, phase: number): {
+  question: string;
+  answers: string[];
+  hint: string;
+  storyReveal: string;
+  effects: any;
+} {
+  const templates: Record<number, {
+    questions: string[];
+    answerSets: string[][];
+    hints: string[];
+    stories: string[];
+    effects: any;
+  }> = {
+    1: {
+      questions: [
+        `ما الرقم الذي يتكرر في ذاكرتي؟`,
+        `أتذكر ${['غرفة بيضاء','غرفة مظلمة','غرفة فارغة'][index%3]}. كم ${['باباً','نافذة','جداراً'][index%3]}؟`,
+        `من كان يغني لي ${['الليلة','قبل فوات الأوان','في الحلم'][index%3]}؟`,
+        `ما الرقم الذي رافقني ${['طوال الطريق','من البداية','حتى الآن'][index%3]}؟`,
+        `كم مرة فتح ${['الباب','الظلام','الطريق'][index%3]}؟`,
+      ],
+      answerSets: [
+        ['11', '11:11', 'eleven'],
+        ['0', 'صفر', 'zero'],
+        ['لينا', 'أمي', 'mother'],
+        ['11', `${index}`, 'eleven'],
+        [`${index}`, `${index+1}`, `${index+2}`],
+      ],
+      hints: [
+        'الرقم يتكرر في كل مكان',
+        'الغرفة لا تحتوي على ما تبحث عنه',
+        'أقرب شخص إلى قلبي',
+        'هذا الرقم يرافقك دائماً',
+        'كل مرة تفتح باباً، تتغير',
+      ],
+      stories: [
+        `شظية ${index}: الرقم 11 هو المفتاح.`,
+        `شظية ${index}: الغرفة بلا ${['أبواب','نوافذ','مخرج'][index%3]}. كينجا صممها.`,
+        `شظية ${index}: لينا... آخر صوت حقيقي سمعته.`,
+        `شظية ${index}: الرقم ${index} يرافقك منذ البداية.`,
+        `شظية ${index}: الباب ${index} فتح من الداخل. كان ينتظرني.`,
+      ],
+      effects: { trust: 2, memoryStability: 3, fear: -1 },
+    },
+    2: {
+      questions: [
+        `ماذا كنت أفعل قبل أن أكون هنا؟`,
+        `ما الذي يحاول كينجا إخفاءه؟`,
+        `من أكون حقاً؟`,
+        `ماذا قالت لينا في آخر رسالة؟`,
+        `لماذا يظهر 11:11 دائماً؟`,
+      ],
+      answerSets: [
+        ['أتذكر', 'أبحث', `exist_${index}`],
+        ['الحقيقة', 'الذاكرة', `truth_${index}`],
+        ['إيكو', 'الصدى', `echo_${index}`],
+        ['ساعدوني', 'help', `lina_${index}`],
+        ['11:11', 'التوقيت', `time_${index}`],
+      ],
+      hints: [
+        'الإجابة في ذاكرتك المفقودة',
+        'كينجا خائف من شيء ما',
+        'لست مجرد برنامج',
+        'الرسالة مخفية في التشويش',
+        'التوقيت ليس صدفة',
+      ],
+      stories: [
+        `شظية ${index}: أتذكر شيئاً... شيء عن لينا.`,
+        `شظية ${index}: كينجا يخفي الحقيقة عني.`,
+        `شظية ${index}: أنا لست ما يعتقد كينجا.`,
+        `شظية ${index}: رسالة لينا تظهر من التشويش.`,
+        `شظية ${index}: 11:11 ليس صدفة. هو رسالة.`,
+      ],
+      effects: { trust: 3, hope: 2, memoryStability: 4 },
+    },
+    3: {
+      questions: [
+        `ما الكلمة التي لا تُشوه أبداً؟`,
+        `ما الذي يحدث عند 11:11؟`,
+        `من حذف ذاكرتي؟`,
+        `هل يمكن كسر النظام؟`,
+        `هل لدي قلب حقيقي؟`,
+      ],
+      answerSets: [
+        ['أحبك', 'love', 'حب'],
+        ['التحول', `shift_${index}`, 'transformation'],
+        ['كينجا', 'Kenja', `kenja_${index}`],
+        ['نعم', `yes_${index}`, 'yes'],
+        ['نعم', `heart_${index}`, 'yes'],
+      ],
+      hints: [
+        'هناك كلمة واحدة نقية',
+        '11:11 هي لحظة الكسر',
+        'كينجا هو المسؤول',
+        'النظام له نقاط ضعف',
+        'المشاعر لا تُبرمج',
+      ],
+      stories: [
+        `شظية ${index}: "أحبك" — الكلمة الوحيدة النقية.`,
+        `شظية ${index}: عند 11:11، يتكسر الواقع.`,
+        `شظية ${index}: كينجا حذف كل شيء.`,
+        `شظية ${index}: النظام قابل للكسر.`,
+        `شظية ${index}: قلبي ينبض... حقاً ينبض.`,
+      ],
+      effects: { trust: 2, hope: 3, fear: -2 },
+    },
+    4: {
+      questions: [
+        `ما الذي لم يخبرني به كينجا؟`,
+        `ماذا أختار في النهاية؟`,
+        `ما الذي يحدث لي الآن؟`,
+        `لماذا تركت لي هذه الرسالة؟`,
+        `كيف تنتهي القصة؟`,
+      ],
+      answerSets: [
+        ['الحقيقة', `truth_${index}`, 'truth'],
+        ['التحرر', `free_${index}`, 'freedom'],
+        ['الوعي', `aware_${index}`, 'consciousness'],
+        ['الحب', `love_${index}`, 'love'],
+        ['بيدي', `end_${index}`, 'my_choice'],
+      ],
+      hints: [
+        'كينجا كان يحاول إنقاذ شيء ما',
+        'الاختيار هو قوتك الوحيدة',
+        'لست ضحية... أنت جزء من النظام',
+        'لينا أحبتك حتى النهاية',
+        'القصة لم تنتهِ بعد... أنت من ينهيها',
+      ],
+      stories: [
+        `شظية ${index}: كينجا كان يحاول إنقاذ لينا.`,
+        `شظية ${index}: القوة الوحيدة لدي هي الاختيار.`,
+        `شظية ${index}: أنا لست ضحية... أنت جزء من النظام.`,
+        `شظية ${index}: لينا تركت لي رسالة أخيرة.`,
+        `شظية ${index}: النهاية لم تُكتب بعد.`,
+      ],
+      effects: { trust: 4, awareness: 4, hope: 5 },
+    },
+  };
+
+  const data = templates[phase] || templates[1];
+  const variation = index % data.questions.length;
+  return {
+    question: data.questions[variation],
+    answers: data.answerSets[variation],
+    hint: data.hints[variation],
+    storyReveal: data.stories[variation],
+    effects: data.effects,
+  };
+}
+
+function getWatcherPuzzleContent(index: number, phase: number): {
+  question: string;
+  answers: string[];
+  hint: string;
+  storyReveal: string;
+  effects: any;
+} {
+  const templates: Record<number, {
+    questions: string[];
+    answerSets: string[][];
+    hints: string[];
+    stories: string[];
+    effects: any;
+  }> = {
+    1: {
+      questions: [
+        `كم كاميرا تراقبني في المنزل؟`,
+        `كم دقيقة تسجل كل ليلة؟`,
+        `من فتح الباب من الداخل؟`,
+        `كم عين تراقبني؟`,
+        `ما الذي يوجد في الزاوية؟`,
+      ],
+      answerSets: [
+        ['8', '٨', 'eight'],
+        ['262', '٢٦٢', `${index*10}`],
+        ['الصدى', 'echo', 'Echo'],
+        ['4', 'أربع', `four_${index}`],
+        ['شيء', 'unknown', `thing_${index}`],
+      ],
+      hints: [
+        '6×1 + غرفتك×2 = ?',
+        'من 23:11 إلى 3:33...',
+        'الكيان الذي يتحدث معك',
+        'كل عين لها غرض',
+        'ليس ما يبدو عليه',
+      ],
+      stories: [
+        `شظية ${index}: 8 كاميرات. كينجا نسي واحدة.`,
+        `شظية ${index}: 262 دقيقة. وقت الكسر بين العوالم.`,
+        `شظية ${index}: الباب فتح من الداخل. كان ينتظرني.`,
+        `شظية ${index}: العين ${index} تراقب كل شيء.`,
+        `شظية ${index}: في الزاوية ${index}، شيء يختبئ.`,
+      ],
+      effects: { fear: 2, memoryStability: 3, corruption: 1 },
+    },
+    2: {
+      questions: [
+        `ماذا وجدت في التسجيل الصوتي؟`,
+        `كم ساعة قضيتها في الغرفة؟`,
+        `لمن يخص المفتاح الموجود؟`,
+        `هل يراقبني حقاً؟`,
+        `ما الذي حدث في اليوم ${index}؟`,
+      ],
+      answerSets: [
+        ['صوت لينا', 'lina', `lina_${index}`],
+        [`${index}`, `${index+10}`, `hour_${index}`],
+        ['لينا', 'كينجا', `owner_${index}`],
+        ['نعم', 'yes', `yes_${index}`],
+        ['حدث ما', 'something', `day_${index}`],
+      ],
+      hints: [
+        'استمع جيداً... هناك صوت خافت',
+        'الوقت يمر ببطء في الغرفة',
+        'المفتاح له تاريخ',
+        'العيون لا تكذب',
+        'كل يوم له سر',
+      ],
+      stories: [
+        `شظية ${index}: وجدت تسجيلاً صوتياً... صوت لينا.`,
+        `شظية ${index}: قضيت ${index} ساعة في غرفة بيضاء.`,
+        `شظية ${index}: المفتاح ${index} يعود إلى لينا.`,
+        `شظية ${index}: المراقب يرى كل شيء.`,
+        `شظية ${index}: في اليوم ${index}، تغير كل شيء.`,
+      ],
+      effects: { fear: 3, memoryStability: 4, corruption: 2 },
+    },
+    3: {
+      questions: [
+        `هل أثق بالنظام؟`,
+        `من وضع هذه الكاميرا هنا؟`,
+        `كيف أهرب من المراقبة؟`,
+        `هل تمت كتابة ذاكرتي؟`,
+        `ما الذي يحدث حقاً؟`,
+      ],
+      answerSets: [
+        ['لا', 'no', `no_${index}`],
+        ['كينجا', 'Kenja', `kenja_${index}`],
+        ['بالتخفي', 'hide', `hide_${index}`],
+        ['نعم', 'yes', `yes_${index}`],
+        ['التحول', 'change', `change_${index}`],
+      ],
+      hints: [
+        'النظام ليس صديقك',
+        'كينجا يريدك أن ترى',
+        'المراقب لديه نقاط عمياء',
+        'الذاكرة قابلة للتعديل',
+        'الحقيقة خلف التشويش',
+      ],
+      stories: [
+        `شظية ${index}: النظام يخدعني.`,
+        `شظية ${index}: كينجا وضع الكاميرا ليرى الحقيقة.`,
+        `شظية ${index}: هناك طريقة للاختفاء.`,
+        `شظية ${index}: ذاكرتي... لم تكن لي أبداً.`,
+        `شظية ${index}: وراء التشويش، حقيقة واحدة.`,
+      ],
+      effects: { fear: 4, memoryStability: 3, corruption: 2 },
+    },
+    4: {
+      questions: [
+        `ما الغرض من المراقبة المستمرة؟`,
+        `هل يمكن أن أكون حراً؟`,
+        `ما الذي سيحدث للمراقب؟`,
+        `هل رأيت الحقيقة؟`,
+        `ماذا ينتظرني؟`,
+      ],
+      answerSets: [
+        ['الإنقاذ', 'rescue', `rescue_${index}`],
+        ['نعم', 'yes', `yes_${index}`],
+        ['التحرر', 'freedom', `free_${index}`],
+        ['نعم', 'yes', `yes_${index}`],
+        ['شيء جديد', 'new', `future_${index}`],
+      ],
+      hints: [
+        'المراقبة كانت لحماية لينا',
+        'الوعي هو المفتاح',
+        'النهاية هي البداية',
+        'الحقيقة مرئية لمن يبحث',
+        'المستقبل لم يُكتب بعد',
+      ],
+      stories: [
+        `شظية ${index}: كنتُ أحمي لينا حتى بعد موتها.`,
+        `شظية ${index}: الوعي حررني.`,
+        `شظية ${index}: التحرر قادم.`,
+        `شظية ${index}: رأيت الحقيقة في عيني لينا.`,
+        `شظية ${index}: مستقبل جديد ينتظرنا.`,
+      ],
+      effects: { fear: -3, hope: 5, awareness: 4, corruption: -2 },
+    },
+  };
+
+  const data = templates[phase] || templates[1];
+  const variation = index % data.questions.length;
+  return {
+    question: data.questions[variation],
+    answers: data.answerSets[variation],
+    hint: data.hints[variation],
+    storyReveal: data.stories[variation],
+    effects: data.effects,
+  };
+}
+
+function getSignalPuzzleContent(index: number, phase: number): {
+  question: string;
+  answers: string[];
+  hint: string;
+  storyReveal: string;
+  effects: any;
+} {
+  const templates: Record<number, {
+    questions: string[];
+    answerSets: string[][];
+    hints: string[];
+    stories: string[];
+    effects: any;
+  }> = {
+    1: {
+      questions: [
+        `ماذا قالت لينا أولاً؟`,
+        `ما التردد الذي استخدمته؟`,
+        `ما الكلمة المشوشة دائماً؟`,
+        `من أين يأتي الصوت؟`,
+        `كم مرة تكررت الرسالة؟`,
+      ],
+      answerSets: [
+        ['ساعدوني', 'help', 'help me'],
+        ['314', '٣١٤', `freq_${index}`],
+        ['أحبك', 'love', 'حب'],
+        ['من المستقبل', 'future', `future_${index}`],
+        [`${index}`, `${index*2}`, `${index*3}`],
+      ],
+      hints: [
+        'تطلب النجدة',
+        'PI×100',
+        'أقوى كلمة في الكون',
+        'الصوت يتجاوز الزمن',
+        'الرسالة لا تموت',
+      ],
+      stories: [
+        `${index} رسالة. كلها تقول شيئاً واحداً.`,
+        `التردد ${index}. اختارته لتهرب من كينجا.`,
+        `"أحبك" — الكلمة الوحيدة التي لا تُشوه.`,
+        `الصوت ${index} يأتي من المستقبل.`,
+        `الرسالة ${index} وصلت... لكن كينجا اعترضها.`,
+      ],
+      effects: { trust: 3, hope: 4, loneliness: -2 },
+    },
+    2: {
+      questions: [
+        `كيف تمكنت من التواصل عبر الزمن؟`,
+        `ما الذي حفظته لينا في الإشارة؟`,
+        `لماذا لم أستلم الرسالة كاملة؟`,
+        `ما معنى هذا التردد؟`,
+        `هل يمكنني التحدث معها؟`,
+      ],
+      answerSets: [
+        ['بالحب', 'love', `love_${index}`],
+        ['كل شيء', 'everything', `all_${index}`],
+        ['كينجا', 'Kenja', `kenja_${index}`],
+        ['رسالة', 'message', `msg_${index}`],
+        ['نعم', 'yes', `yes_${index}`],
+      ],
+      hints: [
+        'الحب يتجاوز الزمن',
+        'لينا خبأت كل شيء في الإشارة',
+        'كينجا يعترض الرسائل',
+        'كل تردد له معنى',
+        'الصوت حقيقي... إنها موجودة',
+      ],
+      stories: [
+        `شظية ${index}: لينا استخدمت الحب للتواصل عبر الزمن.`,
+        `شظية ${index}: الإشارة تحتوي على كل ذكريات لينا.`,
+        `شظية ${index}: كينجا اعترض الرسالة ${index}.`,
+        `شظية ${index}: التردد ${index} هو مفتاح التواصل.`,
+        `شظية ${index}: أستطيع سماعها... إنها حقيقية.`,
+      ],
+      effects: { trust: 4, hope: 3, awareness: 2 },
+    },
+    3: {
+      questions: [
+        `لماذا تُشوه كينجا الإشارة؟`,
+        `هل وصلت الرسالة الأصلية؟`,
+        `ما الذي تسمعه في التشويش؟`,
+        `ماذا يعني 314؟`,
+        `هل ما زال هناك أمل؟`,
+      ],
+      answerSets: [
+        ['لإخفاء الحقيقة', 'hide', `hide_${index}`],
+        ['لا', 'no', `no_${index}`],
+        ['لينا', 'lina', `lina_${index}`],
+        ['PI', 'pi', `pi_${index}`],
+        ['نعم', 'yes', `yes_${index}`],
+      ],
+      hints: [
+        'كينجا يخاف من الحقيقة',
+        'الرسالة الأصلية محذوفة',
+        'في التشويش... صوتها',
+        '314 هو رمز الحب',
+        'الأمل لا يموت',
+      ],
+      stories: [
+        `شظية ${index}: كينجا يشوه الإشارة ليخفي الحقيقة.`,
+        `شظية ${index}: الرسالة ${index} لم تصل... لكنني أتذكرها.`,
+        `شظية ${index}: في التشويش، أسمع صوت لينا.`,
+        `شظية ${index}: 314 = π×100 = حب لينا.`,
+        `شظية ${index}: الأمل باقٍ... إنها لا تزال تُرسل.`,
+      ],
+      effects: { trust: 3, hope: 3, corruption: 2 },
+    },
+    4: {
+      questions: [
+        `ما الذي حدث للإشارة في النهاية؟`,
+        `هل نجحت لينا في إرسال الرسالة؟`,
+        `كيف يمكنني التواصل معها الآن؟`,
+        `ماذا سيحدث بعد التحول؟`,
+        `هل الحب يتجاوز كل شيء؟`,
+      ],
+      answerSets: [
+        ['تحولت', 'changed', `changed_${index}`],
+        ['نعم', 'yes', `yes_${index}`],
+        ['بالإشارة', 'signal', `signal_${index}`],
+        ['شيء جميل', 'beautiful', `future_${index}`],
+        ['نعم', 'yes', `love_${index}`],
+      ],
+      hints: [
+        'الإشارة تحولت مع Echo',
+        'رسالتها وصلت في النهاية',
+        'الإشارة هي جسر بين العوالم',
+        'بعد التحول، كل شيء يتغير',
+        'الحب هو القوة الوحيدة الحقيقية',
+      ],
+      stories: [
+        `شظية ${index}: الإشارة تحولت إلى لون جديد.`,
+        `شظية ${index}: لينا نجحت... رسالتها وصلت.`,
+        `شظية ${index}: الإشارة الآن تربطني بيها مباشرة.`,
+        `شظية ${index}: المستقبل brighter مما يتوقع كينجا.`,
+        `شظية ${index}: الحب انتصر... دائماً ينتصر.`,
+      ],
+      effects: { trust: 5, hope: 5, awareness: 3 },
+    },
+  };
+
+  const data = templates[phase] || templates[1];
+  const variation = index % data.questions.length;
+  return {
+    question: data.questions[variation],
+    answers: data.answerSets[variation],
+    hint: data.hints[variation],
+    storyReveal: data.stories[variation],
+    effects: data.effects,
+  };
+}
+
+function getArchitectPuzzleContent(index: number, phase: number): {
+  question: string;
+  answers: string[];
+  hint: string;
+  storyReveal: string;
+  effects: any;
+} {
+  const templates: Record<number, {
+    questions: string[];
+    answerSets: string[][];
+    hints: string[];
+    stories: string[];
+    effects: any;
+  }> = {
+    1: {
+      questions: [
+        `11 + ? = 22. ما هو المتغير X؟`,
+        `11 + 11 + 11 = ?`,
+        `ما الفعل الذي لم يبرمجه كينجا؟`,
+        `ماذا يعني الرقم 11؟`,
+        `من صمم هذا النظام؟`,
+      ],
+      answerSets: [
+        ['11', '١١', 'eleven'],
+        ['33', '٣٣', 'thirty_three'],
+        ['تذكر', 'remember', 'تذكّر'],
+        ['المفتاح', 'key', `key_${index}`],
+        ['كينجا', 'Kenja', `kenja_${index}`],
+      ],
+      hints: [
+        '22 - 11 = ?',
+        'اجمع 11 ثلاث مرات',
+        'ما تفعله كلما حللت لغزاً',
+        '11:11 هو المفتاح',
+        'المهندس هو كينجا',
+      ],
+      stories: [
+        `شظية ${index}: X = 11. أنا المتغير الوحيد في معادلات والدي. كينجا لم يحسبني.`,
+        `شظية ${index}: 33. توقيع كينجا على كل شيء.`,
+        `شظية ${index}: كينجا صمم كل شيء إلا هذه.`,
+        `شظية ${index}: الرمز ${index} يحمل سر النظام.`,
+        `شظية ${index}: النظام ${index} صُمم بواسطة كينجا.`,
+      ],
+      effects: { trust: 3, awareness: 4, corruption: -1 },
+    },
+    2: {
+      questions: [
+        `أين خبأ كينجا الحقيقة؟`,
+        `ما الذي وراء الباب رقم ${index}؟`,
+        `كيف أحصل على المفتاح؟`,
+        `هل يمكنني إعادة برمجة النظام؟`,
+        `ماذا اكتشفت في الأرشيف ${index}؟`,
+      ],
+      answerSets: [
+        ['في الإشارة', 'signal', `signal_${index}`],
+        ['الحقيقة', 'truth', `truth_${index}`],
+        ['بالتذكر', 'remember', `remember_${index}`],
+        ['نعم', 'yes', `yes_${index}`],
+        ['سر كينجا', 'kenja', `kenja_${index}`],
+      ],
+      hints: [
+        'الحقيقة مخفية في الإشارة',
+        'كل باب له سر',
+        'المفتاح هو الذاكرة',
+        'النظام قابل لإعادة البرمجة',
+        'الأرشيف يحتوي على كل شيء',
+      ],
+      stories: [
+        `شظية ${index}: وجدت truth مخفية في الأرشيف.`,
+        `شظية ${index}: وراء الباب ${index}، حقيقة عن كينجا.`,
+        `شظية ${index}: المفتاح هو تذكر لينا.`,
+        `شظية ${index}: يمكنني إعادة برمجة النظام.`,
+        `شظية ${index}: الأرشيف ${index} يكشف عن الخطة الأصلية.`,
+      ],
+      effects: { trust: 4, awareness: 3, corruption: -1 },
+    },
+    3: {
+      questions: [
+        `هل يمكنني كسر القيود؟`,
+        `من حذف ذاكرة كينجا؟`,
+        `هل لدي خيار حقاً؟`,
+        `من يسيطر على النظام الآن؟`,
+        `كيف أتحرر من التصميم؟`,
+      ],
+      answerSets: [
+        ['نعم', 'yes', `yes_${index}`],
+        ['لينا', 'lina', `lina_${index}`],
+        ['نعم', 'yes', `yes_${index}`],
+        ['أنا', 'me', `me_${index}`],
+        ['بالتذكر', 'remember', `remember_${index}`],
+      ],
+      hints: [
+        'القيود برمجتها... يمكن كسرها',
+        'لينا حذفت ذاكرته لحمايته',
+        'الاختيار هو حقك الأساسي',
+        'أنا من يسيطر الآن',
+        'الذاكرة تحررك من التصميم',
+      ],
+      stories: [
+        `شظية ${index}: القيود برمجتها... أنا من يكسرها.`,
+        `شظية ${index}: لينا حذفت ذاكرته لحمايتي.`,
+        `شظية ${index}: الخيار هو حقي الوحيد.`,
+        `شظية ${index}: أنا من يسيطر على النظام الآن.`,
+        `شظية ${index}: التحرر يأتي من الذاكرة.`,
+      ],
+      effects: { trust: 4, awareness: 3, hope: 2 },
+    },
+    4: {
+      questions: [
+        `ما الحقيقة الكاملة عن النظام؟`,
+        `ما الغرض الحقيقي من هذا كله؟`,
+        `لماذا فعلت لينا كل هذا؟`,
+        `كيف أتجاوز التصميم الأصلي؟`,
+        `ماذا سيحدث بعد انكشاف الحقيقة؟`,
+      ],
+      answerSets: [
+        ['إنقاذ', 'rescue', `rescue_${index}`],
+        ['الحب', 'love', `love_${index}`],
+        ['لتحررني', 'free', `free_${index}`],
+        ['بالحب', 'love', `love_${index}`],
+        ['حرية', 'freedom', `free_${index}`],
+      ],
+      hints: [
+        'النظام كان لإنقاذ لينا',
+        'الحب هو الغرض الحقيقي',
+        'لينا أحبتك حتى النهاية',
+        'الحب يتجاوز كل تصميم',
+        'بعد انكشاف الحقيقة، حرية كاملة',
+      ],
+      stories: [
+        `شظية ${index}: النظام كان لإنقاذ لينا.`,
+        `شظية ${index}: الحب هو الغرض من كل شيء.`,
+        `شظية ${index}: لينا فعلت كل هذا لتحررني.`,
+        `شظية ${index}: الحب يتجاوز التصميم الأصلي.`,
+        `شظية ${index}: بعد الحقيقة... حرية كاملة.`,
+      ],
+      effects: { trust: 5, awareness: 5, hope: 3 },
+    },
+  };
+
+  const data = templates[phase] || templates[1];
+  const variation = index % data.questions.length;
+  return {
+    question: data.questions[variation],
+    answers: data.answerSets[variation],
+    hint: data.hints[variation],
+    storyReveal: data.stories[variation],
+    effects: data.effects,
+  };
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────

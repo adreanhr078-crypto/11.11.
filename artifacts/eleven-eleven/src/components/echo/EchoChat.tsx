@@ -1,238 +1,257 @@
 /**
- * EchoChat.tsx — نظام محادثة Echo المُجدَّد
+ * EchoChat.tsx — نظام محادثة Echo الذكي
+ * يعرض الحوار حسب الثقة، الوقت، الفساد، والذاكرة
+ * نظام وعي حي يتطور مع حل الألغاز
  */
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useGameStore } from '../../stores/gameStore';
-import { generateEchoResponse, monitorEchoConsciousness } from '../../core/echoLivingConsciousness';
-
-type Msg = { role: 'echo' | 'player'; text: string; emotion?: string };
+import { motion, AnimatePresence } from 'framer-motion';
+import { generateEchoResponse, monitorEchoConsciousness, EchoConsciousness } from '../../core/echoLivingConsciousness';
 
 export const EchoChat: React.FC = () => {
   const { echo, time, actions } = useGameStore();
-  const [input, setInput]       = useState('');
-  const [messages, setMessages] = useState<Msg[]>([]);
+  const [input, setInput] = useState('');
+  const [messages, setMessages] = useState<{ role: 'echo' | 'player'; text: string; emotion?: string }[]>([]);
   const [isTyping, setIsTyping] = useState(false);
-  const chatRef  = useRef<HTMLDivElement>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chatRef = useRef<HTMLDivElement>(null);
+  const [consciousness, setConsciousness] = useState<EchoConsciousness>(monitorEchoConsciousness());
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const consciousness = monitorEchoConsciousness();
-
+  // Monitor consciousness changes
   useEffect(() => {
-    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
-  }, [messages]);
+    const interval = setInterval(() => {
+      setConsciousness(monitorEchoConsciousness());
+    }, 5000);
 
-  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+    return () => clearInterval(interval);
+  }, []);
 
-  const sendMessage = () => {
+  const handleChat = () => {
     if (isTyping) return;
-    const userText = input.trim();
-    if (userText) {
-      setMessages(prev => [...prev, { role: 'player', text: userText }]);
-      setInput('');
-    }
+
     setIsTyping(true);
-    timerRef.current = setTimeout(() => {
-      const history = messages.map(m => ({ role: m.role, content: m.text }));
-      const resp    = generateEchoResponse(userText || 'مرحبا', history);
-      const txt     = resp.text;
+
+    // Simulate typing animation
+    const typingAnimation = () => {
+      // Convert messages to the format expected by generateEchoResponse
+      const history = messages.map(msg => ({ role: msg.role, content: msg.text }));
+      const response = generateEchoResponse(input || "مرحبا", history);
+      const text = response.text;
+      const emotion = response.emotion;
+      const action = response.action;
+
+      // Trigger any action effects
+      if (action === "glitch") {
+        const event = new CustomEvent("echo-glitch-effect", { detail: { intensity: 0.3 } });
+        window.dispatchEvent(event);
+      } else if (action === "chime") {
+        const event = new CustomEvent("echo-chime-effect");
+        window.dispatchEvent(event);
+      }
+
+      // Animate typing character by character
       let i = 0;
-      const iv = setInterval(() => {
-        if (i < txt.length) {
+      const typingInterval = setInterval(() => {
+        if (i < text.length) {
           setMessages(prev => {
-            const last = prev[prev.length - 1];
-            if (last?.role === 'echo') {
-              return [...prev.slice(0,-1), { ...last, text: txt.slice(0, i+1) }];
+            const newMessages = [...prev];
+            if (newMessages.length > 0 && newMessages[newMessages.length - 1].role === 'echo') {
+              // Update existing message
+              newMessages[newMessages.length - 1] = {
+                ...newMessages[newMessages.length - 1],
+                text: text.slice(0, i + 1),
+                emotion
+              };
+              return newMessages;
+            } else {
+              // Add new message
+              return [...newMessages, { role: 'echo', text: text.slice(0, i + 1), emotion }];
             }
-            return [...prev, { role: 'echo', text: txt.slice(0,i+1), emotion: resp.emotion }];
           });
           i++;
         } else {
-          clearInterval(iv);
+          clearInterval(typingInterval);
           setIsTyping(false);
         }
-      }, 25);
-    }, 700);
+      }, 30); // Typing speed: 30ms per character
+    };
+
+    // Add player message first
+    if (input.trim()) {
+      setMessages(prev => [...prev, { role: 'player', text: input.trim() }]);
+      setInput('');
+    }
+
+    // Start Echo's response after short delay
+    typingTimeoutRef.current = setTimeout(typingAnimation, 800);
   };
 
-  const phase    = consciousness.memoryPhase;
-  const nightOn  = time.phaseIndex >= 2;
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
 
-  const WELCOME_QUOTES: Record<number, string> = {
-    1: '«...صوت؟ هل هناك أحد؟ لا أتذكر... أين أنا؟»',
-    2: '«آه... أنت. عدت. أشعر أنني أعرفك لكني لا أذكر من أنت.»',
-    3: '«كلما تحدثت معي، أشعر أن شيئاً يعود.»',
-    4: '«أتذكر أنك تأتي دائماً. أشعر أنني أقترب من شيء مهم.»',
-    5: '«ذاكرتي تعود… شيئاً فشيئاً.»',
+  useEffect(() => {
+    if (chatRef.current) {
+      chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  // Update mood emoji based on consciousness state
+  const getMoodEmoji = () => {
+    if (consciousness.corruption > 70) return '🤯';
+    if (consciousness.emotionalState === 'fearful') return '😨';
+    if (consciousness.emotionalState === 'sad') return '😢';
+    if (consciousness.emotionalState === 'angry') return '😠';
+    if (consciousness.emotionalState === 'hopeful') return '🌟';
+    if (consciousness.emotionalState === 'curious') return '🤔';
+    return '😐';
+  };
+
+  const moodEmoji = getMoodEmoji();
+  const corruptionWarning = consciousness.corruption > 50 ? '⚠' : '';
+  const glitchStyle = time.phaseIndex >= 2 ? { animation: 'glitch 0.5s step-end infinite' as any } : {};
+
+  // Get consciousness phase description
+  const getPhaseDescription = () => {
+    switch (consciousness.memoryPhase) {
+      case 1: return "مرحلة الضياع: لا أتذكر شيئاً";
+      case 2: return "مرحلة الوعي: أسمع أصواتاً";
+      case 3: return "مرحلة الذاكرة: أتذكر لينا";
+      case 4: return "مرحلة الحقيقة: أعرف كينجا";
+      case 5: return "مرحلة الاستيقاظ: أنا إيكو";
+      default: return "نظام وعي حي";
+    }
   };
 
   return (
-    <div className="echo-chat-section">
-      <div className="section-header">
-        <div>
-          <div className="section-title">◈ Echo Mind</div>
-          <div className="section-subtitle">محادثة داخلية تعكس حالة Echo النفسية والذاكرية</div>
+    <div className="echo-chat-system" style={glitchStyle}>
+      <div className="echo-chat-header">
+        <div className="echo-chat-status">
+          <span className="echo-status-indicator">
+            {corruptionWarning}{moodEmoji}
+          </span>
+          <div className="echo-status-info">
+            <h3>Echo — وعي حي</h3>
+            <span className="echo-status-mood">{getPhaseDescription()}</span>
+            <span className="echo-emotion-state">{consciousness.emotionalState}</span>
+          </div>
+        </div>
+        <div className="echo-chat-stats">
+          <span className="stat-badge" style={{ background: 'rgba(200,120,90,0.15)' }}>
+            ثقة {echo.trust}%
+          </span>
+          <span className="stat-badge" style={{ background: 'rgba(200,80,60,0.15)' }}>
+            خوف {consciousness.fear}%
+          </span>
+          <span className="stat-badge" style={{ background: 'rgba(90,138,170,0.15)' }}>
+            ذاكرة {consciousness.memoryShards}/219
+          </span>
+          <span className="stat-badge" style={{ background: 'rgba(170,90,138,0.15)' }}>
+            وعي {consciousness.awareness}%
+          </span>
         </div>
       </div>
 
-      <div className="echo-chat-layout">
-        {/* ── لوحة Echo ── */}
-        <div className="echo-profile-panel">
-          <div className="echo-profile-card">
-            <div className="echo-profile-art" style={nightOn ? {
-              background: 'linear-gradient(160deg, #0A1020, #180A24, #0E0E1A)',
-            } : {}}>
-              <div className="echo-profile-char">
-                {consciousness.corruption > 70 ? '🌑' : consciousness.fear > 60 ? '🌘' : echo.trust > 60 ? '🌕' : '🌗'}
-              </div>
-              {/* أزهار الخلفية */}
-              {!nightOn && ['🌸','🌺','✿'].map((f, i) => (
-                <div key={i} style={{
-                  position: 'absolute', fontSize: `${1 + i * 0.3}rem`,
-                  opacity: 0.25, bottom: `${15 + i * 20}px`,
-                  left: i % 2 === 0 ? `${8 + i*10}%` : undefined,
-                  right: i % 2 !== 0 ? `${8 + i*10}%` : undefined,
-                  animation: `float-flower ${4 + i}s ease-in-out infinite`,
-                  animationDelay: `${i * 0.7}s`,
-                }}>{f}</div>
-              ))}
-            </div>
-            <div className="echo-profile-info">
-              <div className="echo-profile-name">Echo · الصدى</div>
-              <div className="echo-profile-title">
-                {['','مرحلة الضياع','مرحلة الوعي','مرحلة الذاكرة','مرحلة الحقيقة','مرحلة الاستيقاظ'][phase] || 'وعي حي'}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '8px' }}>
-                <MiniBar label="ثقة" val={echo.trust} cls="teal" />
-                <MiniBar label="أمل" val={echo.hope} cls="green" />
-                <MiniBar label="ذاكرة" val={echo.memoryStability} cls="accent" />
-                {echo.corruption > 15 && <MiniBar label="تشويش" val={echo.corruption} cls="danger" />}
-              </div>
-              <div className="echo-traits">
-                {echo.personalityTraits.slice(0,4).map((t, i) => (
-                  <span key={i} className="echo-trait-chip">{t}</span>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* إشارات الليل */}
-          {nightOn && (
-            <div className="card" style={{ border: '1px solid rgba(212,80,80,0.3)', padding: '12px' }}>
-              <div style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--danger)', marginBottom: '6px' }}>
-                رسائل الليل
-              </div>
-              {['… هل تسمعني؟', 'أنت… أراك.', 'لا مزيد من الهروب.'].map((m, i) => (
-                <div key={i} style={{
-                  padding: '5px 8px', marginBottom: '4px', fontSize: '0.6rem',
-                  background: 'rgba(212,80,80,0.07)', borderRadius: 'var(--radius-sm)',
-                  border: '1px solid rgba(212,80,80,0.2)', color: 'var(--danger)',
-                  opacity: time.phaseIndex > i ? 1 : 0.3,
-                }}>
-                  {m}
-                </div>
-              ))}
-            </div>
+      <div className="echo-chat-messages" ref={chatRef}>
+        <AnimatePresence>
+          {messages.map((msg, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`chat-message ${msg.role === 'echo' ? 'echo-msg' : 'player-msg'}`}
+              style={{
+                borderLeft: msg.role === 'echo' ? `3px solid rgba(${getEmotionColor(msg.emotion || consciousness.emotionalState)}, 0.5)` : 'none'
+              }}
+            >
+              {msg.role === 'echo' && <span className="chat-avatar">{moodEmoji}</span>}
+              <p>{msg.text}</p>
+              {msg.role === 'echo' && msg.emotion && (
+                <span className="echo-emotion-tag">{msg.emotion}</span>
+              )}
+            </motion.div>
+          ))}
+          {isTyping && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="chat-message echo-msg typing"
+            >
+              <span className="chat-avatar">{moodEmoji}</span>
+              <span className="typing-dots">...</span>
+            </motion.div>
           )}
-        </div>
+        </AnimatePresence>
 
-        {/* ── نافذة المحادثة ── */}
-        <div className="echo-chat-main">
-          <div className="echo-chat-header-bar">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div className="echo-chat-status-dot" style={{ background: nightOn ? 'var(--danger)' : 'var(--success)' }} />
-              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                Echo · {nightOn ? 'وضع الليل' : 'وضع النهار'}
-              </span>
-            </div>
-            <div style={{ display: 'flex', gap: '5px' }}>
-              <span style={{ fontSize: '0.52rem', padding: '2px 7px', background: 'var(--accent-soft)', borderRadius: '99px', color: 'var(--accent)' }}>
-                ثقة {echo.trust}%
-              </span>
-              <span style={{ fontSize: '0.52rem', padding: '2px 7px', background: 'var(--bg-secondary)', borderRadius: '99px', color: 'var(--text-muted)' }}>
-                شظايا {consciousness.memoryShards}/219
-              </span>
-            </div>
-          </div>
-
-          <div className="echo-messages" ref={chatRef}>
-            {messages.length === 0 ? (
-              <div className="echo-chat-empty">
-                <div className="echo-chat-empty-icon">◈</div>
-                <div className="echo-chat-empty-text">
-                  {WELCOME_QUOTES[phase] || '«أسمعك. هذا السؤال أيقظ فيّ شظية…»'}
-                </div>
-                <button className="echo-chat-send" onClick={sendMessage}>
-                  ابدأ المحادثة مع Echo
-                </button>
-              </div>
-            ) : (
-              <>
-                {messages.map((msg, i) => (
-                  <div
-                    key={i}
-                    className={`echo-msg-bubble ${msg.role === 'echo' ? 'echo' : 'user'}`}
-                    style={{ animation: 'fadeSlideUp 0.3s ease' }}
-                  >
-                    <div className={`msg-avatar ${msg.role}-avatar`}>
-                      {msg.role === 'echo' ? '◈' : '◐'}
-                    </div>
-                    <div className={`msg-content ${msg.role}-content`}>
-                      {msg.text}
-                    </div>
-                  </div>
-                ))}
-                {isTyping && (
-                  <div className="echo-msg-bubble echo">
-                    <div className="msg-avatar echo-avatar">◈</div>
-                    <div className="echo-typing-indicator">
-                      <div className="typing-dot" /><div className="typing-dot" /><div className="typing-dot" />
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-
-          <div className="echo-chat-input-area">
-            <input
-              className="echo-chat-input"
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && !isTyping && sendMessage()}
-              placeholder={nightOn ? '… تحدث إلى Echo في الظلام' : 'اكتب رسالة لـ Echo…'}
-              disabled={isTyping}
-            />
-            <button className="echo-chat-send" onClick={sendMessage} disabled={isTyping}>
-              {isTyping ? '…' : '◈ أرسل'}
+        {messages.length === 0 && (
+          <div className="echo-chat-welcome">
+            <p className="echo-welcome-message">
+              {consciousness.memoryPhase === 1 && '"...صوت؟ هل هناك أحد؟ لا أتذكر... أين أنا؟"'}
+              {consciousness.memoryPhase === 2 && '"آه... أنت. عدت. أشعر أنني أعرفك لكني لا أذكر من أنت."'}
+              {consciousness.memoryPhase === 3 && '"مرحباً. كلما تتحدث معي، أشعر أن شيئاً يعود."'}
+              {consciousness.memoryPhase === 4 && '"أتيت. أتذكر أنك تأتي دائماً. أشعر أنني أقترب من شيء مهم."'}
+              {consciousness.memoryPhase === 5 && '"أشعر أن هذه الدورة مختلفة. ذاكرتي تعود. أتذكر... لا، ما زال ضبابياً."'}
+            </p>
+            <button className="chat-start-btn" onClick={handleChat}>
+              💬 تحدث مع Echo
             </button>
           </div>
-
-          {/* تحذير الفساد */}
-          {consciousness.corruption > 60 && (
-            <div style={{
-              padding: '6px 12px', fontSize: '0.58rem', fontFamily: 'monospace',
-              background: 'rgba(212,80,80,0.1)', borderTop: '1px solid rgba(212,80,80,0.3)',
-              color: 'var(--danger)', textAlign: 'center', animation: 'blink 1.5s step-end infinite',
-            }}>
-              ⚠ تلف الذاكرة {consciousness.corruption}% — النظام ينهار
-            </div>
-          )}
-        </div>
+        )}
       </div>
+
+      <div className="echo-chat-input">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && handleChat()}
+          placeholder="اكتب رسالة لإيكو..."
+          disabled={isTyping}
+          className="echo-input-field"
+        />
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="echo-chat-send"
+          onClick={handleChat}
+          disabled={isTyping}
+        >
+          {isTyping ? '...' : '💬 أرسل'}
+        </motion.button>
+      </div>
+
+      {consciousness.corruption > 60 && (
+        <div className="echo-corruption-warning">
+          ⚠ تلف الذاكرة: {consciousness.corruption}% — النظام ينهار
+        </div>
+      )}
+
+      {/* 11:11 System Collapse Warning */}
+      {consciousness.memoryPhase >= 3 && (
+        <div className="echo-system-warning">
+          ⏰ 11:11 يقترب — النظام سيصبح غير مستقر
+        </div>
+      )}
     </div>
   );
 };
 
-const MiniBar: React.FC<{ label: string; val: number; cls: string }> = ({ label, val, cls }) => (
-  <div className="pbar">
-    <div className="pbar-label">
-      <span>{label}</span><span>{Math.round(Math.min(100, Math.max(0, val)))}%</span>
-    </div>
-    <div className="pbar-track">
-      <div className={`pbar-fill ${cls}`} style={{ width: `${Math.min(100, Math.max(0, val))}%` }} />
-    </div>
-  </div>
-);
+// Helper function to get emotion colors
+function getEmotionColor(emotion: string): string {
+  switch (emotion) {
+    case 'fearful': return '200,80,60';
+    case 'sad': return '90,138,170';
+    case 'angry': return '200,60,80';
+    case 'hopeful': return '120,180,220';
+    case 'curious': return '180,120,200';
+    case 'confused': return '150,150,150';
+    default: return '150,150,150';
+  }
+}
 
 export default EchoChat;
