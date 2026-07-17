@@ -46,6 +46,7 @@ export default function App() {
       const timer = setTimeout(() => setShowCinematic(false), 8000);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [time.phaseIndex, time.hour, time.minute]);
 
   // النظام الصوتي
