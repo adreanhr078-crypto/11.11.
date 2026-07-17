@@ -1,5 +1,5 @@
 {
-  "name": "eleven-eleven",
+  "name": "@workspace/eleven-eleven",
   "version": "0.0.0",
   "private": true,
   "type": "module",
