@@ -40,7 +40,7 @@ export function SyncMeter({ spikeCount = 0 }: { spikeCount?: number }) {
 
   useEffect(() => {
     if (spikeCount === 0) return;
-    const size = spikeSize(fear);
+    const size = spikeSize(echo.fear);
     setSpikeSegments(size);
     const t = setTimeout(() => setSpikeSegments(0), 800);
     return () => clearTimeout(t);

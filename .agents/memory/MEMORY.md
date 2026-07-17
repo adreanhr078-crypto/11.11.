@@ -1,1 +1,2 @@
 - [11.11 story canon](eleven-eleven-lore.md) — lore.ts is the single source of truth; every puzzle must tie to it and reveal a new fragment.
+- [11.11 workspace setup](eleven-eleven-workspace.md) — pnpm supply-chain quirks, port config, and how to run the dev server.
