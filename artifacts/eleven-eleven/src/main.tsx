@@ -17,9 +17,17 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: '2rem', color: 'red', direction: 'rtl' }}>
-          <h1>حدث خطأ غير متوقع</h1>
-          <pre>{this.state.error?.message}</pre>
+        <div style={{
+          position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          background: '#000', color: '#f87171', fontFamily: 'monospace',
+          padding: '2rem', direction: 'rtl', zIndex: 9999, textAlign: 'center'
+        }}>
+          <h1 style={{ margin: 0, fontSize: '1.5rem' }}>حدث خطأ غير متوقع</h1>
+          <pre style={{ maxWidth: '80vw', whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: '#fff' }}>
+            {this.state.error?.message}
+          </pre>
+          <p style={{ color: '#9ca3af' }}>تحقق من Console للتفاصيل</p>
         </div>
       );
     }
