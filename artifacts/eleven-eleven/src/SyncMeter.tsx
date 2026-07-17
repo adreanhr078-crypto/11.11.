@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { useGameStore } from "./stores/gameStore";
+import { useGameStore } from "../stores/gameStore";
 
 const SEGMENTS = 10;
 
@@ -40,7 +40,7 @@ export function SyncMeter({ spikeCount = 0 }: { spikeCount?: number }) {
 
   useEffect(() => {
     if (spikeCount === 0) return;
-    const size = spikeSize(echo.fear);
+    const size = spikeSize(fear);
     setSpikeSegments(size);
     const t = setTimeout(() => setSpikeSegments(0), 800);
     return () => clearTimeout(t);
