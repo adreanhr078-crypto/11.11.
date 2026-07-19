@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { useGameStore } from '../../stores/gameStore';
+import Icon from '../ui/Icon';
 
 export const DashboardHome: React.FC = () => {
   const { echo, solvedPuzzles, totalPuzzles, flower, memory, world, time, entities, achievements } = useGameStore();
@@ -14,7 +15,7 @@ export const DashboardHome: React.FC = () => {
     <div className="dashboard-home">
       <div className="grid-2">
         <div className="card">
-          <div className="card-header"><h3 className="card-title"><span>🧠</span> Echo</h3></div>
+          <div className="card-header"><h3 className="card-title"><Icon name="echo" className="card-svg-icon" /> Echo</h3></div>
           <div className="card-body">
             <div className="echo-mood-big">{echo.mood}</div>
             <Bar label="ثقة" val={echo.trust} c="#c8785a" />
@@ -24,21 +25,21 @@ export const DashboardHome: React.FC = () => {
           </div>
         </div>
         <div className="card">
-          <div className="card-header"><h3 className="card-title"><span>🧩</span> الألغاز</h3></div>
+          <div className="card-header"><h3 className="card-title"><Icon name="puzzle" className="card-svg-icon" /> الألغاز</h3></div>
           <div className="card-body">
             <div className="big-number">{solvedPuzzles}</div>
             <Bar label={`من ${totalPuzzles}`} val={pct} c="#c8785a" />
           </div>
         </div>
         <div className="card">
-          <div className="card-header"><h3 className="card-title"><span>🌸</span> الأزهار</h3></div>
+          <div className="card-header"><h3 className="card-title"><Icon name="flower" className="card-svg-icon" /> الأزهار</h3></div>
           <div className="card-body">
             <div className="flower-icon-big">{flowerIcon}</div>
             <Bar label={flower.stage} val={Math.round(flower.growth)} c="#4CAF50" />
           </div>
         </div>
         <div className="card">
-          <div className="card-header"><h3 className="card-title"><span>🌍</span> العالم</h3></div>
+          <div className="card-header"><h3 className="card-title"><Icon name="world" className="card-svg-icon" /> العالم</h3></div>
           <div className="card-body">
             <div className="time-phase-big">{time.isNight ? '🌙' : '☀️'} {time.phase}</div>
             <Bar label="استقرار" val={Math.round(world.stability)} c={world.stability < 40 ? '#f44336' : '#2196F3'} />
@@ -47,7 +48,7 @@ export const DashboardHome: React.FC = () => {
         </div>
       </div>
       <div className="card">
-        <div className="card-header"><h3 className="card-title"><span>📊</span> التقدم</h3></div>
+        <div className="card-header"><h3 className="card-title"><Icon name="progress" className="card-svg-icon" /> التقدم</h3></div>
         <div className="card-body">
           <div className="grid-4">
             <div className="text-center"><div className="stat-value">{memory.fragmentsCollected}/{memory.totalFragments}</div><div className="stat-label">ذكريات</div></div>
@@ -58,7 +59,7 @@ export const DashboardHome: React.FC = () => {
         </div>
       </div>
       <div className="card">
-        <div className="card-header"><h3 className="card-title"><span>📜</span> الأحداث</h3></div>
+        <div className="card-header"><h3 className="card-title"><Icon name="events" className="card-svg-icon" /> الأحداث</h3></div>
         <div className="card-body">
           {memory.timelineEvents.slice(-5).reverse().map((ev, i) => (
             <div key={i} style={{display:'flex',gap:'0.5rem',fontSize:'0.6rem',padding:'0.2rem 0',borderBottom:'1px solid rgba(180,120,80,0.05)'}}>

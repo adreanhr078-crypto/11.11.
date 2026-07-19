@@ -126,10 +126,14 @@ class WorldStateEngine {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        return { ...DEFAULT_WORLD_STATE, ...parsed, lastUpdated: Date.now() };
+        const parsed = JSON.parse(saved) as Record<string, unknown> | null;
+        if (parsed && typeof parsed === 'object') {
+          return { ...DEFAULT_WORLD_STATE, ...parsed, lastUpdated: Date.now() };
+        }
       }
-    } catch {}
+    } catch {
+      // corrupted data — fall through to default
+    }
     return { ...DEFAULT_WORLD_STATE };
   }
 

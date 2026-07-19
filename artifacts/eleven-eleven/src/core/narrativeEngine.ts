@@ -346,6 +346,54 @@ export class NarrativeEngine {
     return 'awakening';
   }
 
+  // Get current narrative state snapshot
+  public getState(): NarrativeState {
+    const currentState = this.state;
+    const totalSolved = Object.values(currentState.entities).reduce(
+      (sum, e) => sum + (e?.puzzlesSolved || 0), 0
+    );
+    const currentAct = this.getCurrentAct();
+
+    return {
+      currentAct,
+      actProgress: Math.min(100, Math.round((totalSolved / 160) * 100)),
+      entities: {
+        kenja_core: {
+          unlocked: true,
+          puzzlesSolved: currentState.entities.architect?.puzzlesSolved || 0,
+          emotionalState: 0,
+          storyFragments: [],
+        },
+        lina_memory: {
+          unlocked: true,
+          puzzlesSolved: currentState.entities.signal?.puzzlesSolved || 0,
+          emotionalState: 0,
+          storyFragments: [],
+        },
+        echo_main: {
+          unlocked: true,
+          puzzlesSolved: currentState.entities.echo?.puzzlesSolved || 0,
+          emotionalState: 0,
+          storyFragments: [],
+        },
+        watcher_antagonist: {
+          unlocked: true,
+          puzzlesSolved: currentState.entities.watcher?.puzzlesSolved || 0,
+          emotionalState: 0,
+          storyFragments: [],
+        },
+      },
+      endings: {
+        freedom: { unlocked: currentState.unlockedEndings.includes('freedom'), progress: 0, requirementsMet: [] },
+        kenja_control: { unlocked: currentState.unlockedEndings.includes('kenja_control'), progress: 0, requirementsMet: [] },
+        lina_memory: { unlocked: currentState.unlockedEndings.includes('lina_memory'), progress: 0, requirementsMet: [] },
+        true_secret: { unlocked: currentState.unlockedEndings.includes('true_secret'), progress: 0, requirementsMet: [] },
+      },
+      criticalStoryPoints: [],
+      timeBasedEvents: [],
+    };
+  }
+
   // Get story entity data
   public getEntityData(entity: StoryEntity) {
     const act = this.getCurrentAct();

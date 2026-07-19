@@ -1,0 +1,285 @@
+/**
+ * EchoPortrait.css — أنماط صورة Echo الرئيسية
+ */
+
+.echo-portrait {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  gap: 1.5rem;
+  overflow: hidden;
+}
+
+/* ─── BACKGROUND ─── */
+.portrait-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  opacity: 0.3;
+}
+
+.portrait-background svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* ─── CHARACTER ─── */
+.portrait-character {
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: float 4s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+.portrait-character svg {
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.2));
+}
+
+.echo-portrait.night .portrait-character svg {
+  filter: drop-shadow(0 8px 20px rgba(0, 184, 230, 0.3)) drop-shadow(0 0 20px rgba(232, 93, 93, 0.15));
+}
+
+/* ─── STAT CIRCLES ─── */
+.stat-circles {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.stat-circle {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  z-index: 5;
+}
+
+.stat-circle.top-left {
+  top: 15%;
+  left: 5%;
+}
+
+.stat-circle.top-right {
+  top: 15%;
+  right: 5%;
+}
+
+.stat-circle.bottom-left {
+  bottom: 20%;
+  left: 8%;
+}
+
+.stat-circle.bottom-center {
+  bottom: 15%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.stat-circle.bottom-right {
+  bottom: 20%;
+  right: 8%;
+}
+
+/* ─── CIRCLE INNER ─── */
+.circle-inner {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  border: 2px solid var(--circle-color);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.1), inset 0 0 8px rgba(255, 255, 255, 0.05);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.echo-portrait.night .circle-inner {
+  background: rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 16px var(--circle-color), inset 0 0 8px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes pulse {
+  0%, 100% { 
+    box-shadow: 0 0 12px rgba(0, 0, 0, 0.1), inset 0 0 8px rgba(255, 255, 255, 0.05);
+  }
+  50% { 
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.15), inset 0 0 12px rgba(255, 255, 255, 0.08);
+  }
+}
+
+.echo-portrait.night .circle-inner {
+  animation: pulse-night 2s ease-in-out infinite;
+}
+
+@keyframes pulse-night {
+  0%, 100% { 
+    box-shadow: 0 0 16px var(--circle-color), inset 0 0 8px rgba(0, 0, 0, 0.5);
+  }
+  50% { 
+    box-shadow: 0 0 24px var(--circle-color), inset 0 0 12px rgba(0, 0, 0, 0.7);
+  }
+}
+
+.circle-icon {
+  font-size: 1.2rem;
+}
+
+.circle-value {
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: var(--circle-color);
+}
+
+.echo-portrait.night .circle-value {
+  text-shadow: 0 0 4px var(--circle-color);
+}
+
+/* ─── CIRCLE LABEL ─── */
+.circle-label {
+  font-size: 0.65rem;
+  color: rgba(0, 0, 0, 0.6);
+  font-weight: 500;
+  margin-top: 0.2rem;
+  text-align: center;
+}
+
+.echo-portrait.night .circle-label {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ─── PROGRESS BAR ─── */
+.portrait-progress {
+  z-index: 20;
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0 1rem;
+}
+
+.progress-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.7);
+  text-align: center;
+}
+
+.echo-portrait.night .progress-label {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.progress-bar-container {
+  width: 100%;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.echo-portrait.night .progress-bar-container {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #5A9FBE, #7EB3D4);
+  border-radius: 3px;
+  transition: width 0.5s ease;
+  box-shadow: 0 0 8px rgba(90, 159, 190, 0.4);
+}
+
+.echo-portrait.night .progress-bar {
+  background: linear-gradient(90deg, #00B8E6, #1AC8FF);
+  box-shadow: 0 0 8px rgba(0, 184, 230, 0.5);
+}
+
+.progress-value {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #5A9FBE;
+  text-align: center;
+}
+
+.echo-portrait.night .progress-value {
+  color: #00B8E6;
+  text-shadow: 0 0 4px rgba(0, 184, 230, 0.3);
+}
+
+/* ─── REVEAL BUTTON ─── */
+.reveal-btn {
+  z-index: 20;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #5A9FBE, #7EB3D4);
+  color: white;
+  border: none;
+  border-radius: 24px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(90, 159, 190, 0.3);
+}
+
+.reveal-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(90, 159, 190, 0.4);
+}
+
+.echo-portrait.night .reveal-btn {
+  background: linear-gradient(135deg, #E85D5D, #F07070);
+  box-shadow: 0 4px 12px rgba(232, 93, 93, 0.3);
+}
+
+.echo-portrait.night .reveal-btn:hover {
+  box-shadow: 0 6px 16px rgba(232, 93, 93, 0.4);
+}
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 768px) {
+  .stat-circle.top-left { top: 5%; left: 2%; }
+  .stat-circle.top-right { top: 5%; right: 2%; }
+  .stat-circle.bottom-left { bottom: 10%; left: 2%; }
+  .stat-circle.bottom-right { bottom: 10%; right: 2%; }
+  
+  .circle-inner {
+    width: 55px;
+    height: 55px;
+    border-width: 1.5px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stat-circle {
+    display: none;
+  }
+  
+  .portrait-progress {
+    max-width: 280px;
+  }
+}

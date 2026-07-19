@@ -1,0 +1,269 @@
+/**
+ * night-dashboard.css — أنماط لوحة التحكم الليلية
+ * تطبيق الألوان والتأثيرات الليلية على الواجهة
+ */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NIGHT MODE SIDEBAR
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.night-active .dashboard-sidebar {
+  background: rgba(10, 8, 12, 0.98);
+  border-left-color: rgba(232, 93, 93, 0.12);
+}
+
+.night-active .sidebar-brand h2 {
+  color: #E85D5D;
+}
+
+.night-active .sidebar-brand .brand-subtitle {
+  color: rgba(232, 93, 93, 0.5);
+}
+
+.night-active .sidebar-nav-item {
+  color: rgba(216, 212, 208, 0.4);
+}
+
+.night-active .sidebar-nav-item:hover {
+  background: rgba(232, 93, 93, 0.08);
+  color: rgba(216, 212, 208, 0.8);
+}
+
+.night-active .sidebar-nav-item.active {
+  background: rgba(232, 93, 93, 0.15);
+  color: #E85D5D;
+  border-right-color: #E85D5D;
+  text-shadow: 0 0 8px rgba(232, 93, 93, 0.3);
+}
+
+/* ─── NIGHT TOGGLE ─── */
+.night-active .night-toggle-btn {
+  background: rgba(232, 93, 93, 0.1);
+  border-color: rgba(232, 93, 93, 0.3);
+  color: #E85D5D;
+}
+
+.night-active .night-toggle-btn:hover {
+  background: rgba(232, 93, 93, 0.15);
+  border-color: rgba(232, 93, 93, 0.5);
+  box-shadow: 0 0 12px rgba(232, 93, 93, 0.2);
+}
+
+.night-active .night-toggle-icon {
+  display: flex;
+  align-items: center;
+}
+
+/* ─── USER CARD ─── */
+.night-active .user-avatar-small {
+  background: rgba(232, 93, 93, 0.12);
+  border-color: rgba(232, 93, 93, 0.2);
+}
+
+.night-active .user-name-small {
+  color: #D8D4D0;
+}
+
+.night-active .user-level-small {
+  color: rgba(216, 212, 208, 0.4);
+}
+
+.night-active .user-xp-bar {
+  background: rgba(232, 93, 93, 0.08);
+}
+
+.night-active .user-xp-fill {
+  background: linear-gradient(90deg, #E85D5D, #F07070);
+  box-shadow: 0 0 8px rgba(232, 93, 93, 0.4);
+}
+
+/* ─── SIDEBAR STATS ─── */
+.night-active .sidebar-stats {
+  border-top-color: rgba(232, 93, 93, 0.08);
+}
+
+.night-active .sidebar-stat {
+  color: rgba(216, 212, 208, 0.6);
+}
+
+.night-active .sidebar-stat:first-child {
+  color: #00B8E6;
+}
+
+.night-active .stat-icon {
+  filter: drop-shadow(0 0 4px rgba(0, 184, 230, 0.3));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NIGHT MODE CARDS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.night-active .card {
+  background: rgba(15, 15, 18, 0.9);
+  border: 1px solid rgba(232, 93, 93, 0.12);
+  box-shadow: 0 8px 32px rgba(232, 93, 93, 0.08), 
+              0 0 20px rgba(0, 184, 230, 0.04);
+}
+
+.night-active .card:hover {
+  border-color: rgba(232, 93, 93, 0.2);
+  box-shadow: 0 12px 40px rgba(232, 93, 93, 0.12),
+              0 0 24px rgba(0, 184, 230, 0.06);
+}
+
+.night-active .card-header {
+  border-bottom-color: rgba(232, 93, 93, 0.08);
+}
+
+.night-active .card-title {
+  color: #D8D4D0;
+}
+
+.night-active .card-title svg {
+  color: #00B8E6;
+  filter: drop-shadow(0 0 6px rgba(0, 184, 230, 0.3));
+}
+
+/* ─── CARD BODY ─── */
+.night-active .card-body {
+  color: rgba(216, 212, 208, 0.7);
+}
+
+.night-active .big-number {
+  color: #E85D5D;
+  text-shadow: 0 0 12px rgba(232, 93, 93, 0.3);
+}
+
+.night-active .stat-value {
+  color: #00B8E6;
+}
+
+.night-active .stat-label {
+  color: rgba(216, 212, 208, 0.4);
+}
+
+/* ─── PROGRESS BAR IN CARDS ─── */
+.night-active .card .progress-bar {
+  background: linear-gradient(90deg, #00B8E6, #1AC8FF);
+  box-shadow: 0 0 8px rgba(0, 184, 230, 0.4);
+}
+
+.night-active .card .progress-container {
+  background: rgba(0, 184, 230, 0.08);
+}
+
+/* ─── FLOWER ICONS ─── */
+.night-active .flower-icon-big {
+  filter: drop-shadow(0 0 12px rgba(232, 93, 93, 0.3));
+}
+
+.night-active .time-phase-big {
+  color: #E85D5D;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NIGHT MODE GRID
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.night-active .grid-2 {
+  gap: 1.25rem;
+}
+
+.night-active .grid-4 {
+  gap: 0.75rem;
+}
+
+/* ─── TEXT STYLING ─── */
+.night-active .text-center {
+  color: rgba(216, 212, 208, 0.6);
+}
+
+.night-active .echo-mood-big {
+  color: #E85D5D;
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(232, 93, 93, 0.2);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NIGHT MODE TOPBAR
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.night-active .dashboard-topbar {
+  background: rgba(15, 12, 18, 0.85);
+  border-color: rgba(232, 93, 93, 0.1);
+}
+
+.night-active .topbar-time {
+  color: #E85D5D;
+  text-shadow: 0 0 8px rgba(232, 93, 93, 0.3);
+}
+
+.night-active .topbar-label {
+  color: rgba(216, 212, 208, 0.4);
+}
+
+.night-active .discovery-badge {
+  background: rgba(0, 184, 230, 0.1);
+  border-color: rgba(0, 184, 230, 0.2);
+  color: #00B8E6;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NIGHT SPECIFIC EFFECTS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── GLOWING ACCENTS ─── */
+.night-active [data-accent] {
+  color: #00B8E6;
+  text-shadow: 0 0 6px rgba(0, 184, 230, 0.4);
+}
+
+.night-active [data-danger] {
+  color: #E85D5D;
+  text-shadow: 0 0 6px rgba(232, 93, 93, 0.3);
+}
+
+/* ─── BORDERS AND SEPARATORS ─── */
+.night-active hr,
+.night-active .separator {
+  border-color: rgba(232, 93, 93, 0.08);
+}
+
+/* ─── BUTTONS ─── */
+.night-active .sidebar-continue {
+  border-top-color: rgba(232, 93, 93, 0.08);
+}
+
+.night-active .continue-btn {
+  background: linear-gradient(135deg, #E85D5D, #D84545);
+  border-color: rgba(232, 93, 93, 0.3);
+  color: white;
+  box-shadow: 0 0 12px rgba(232, 93, 93, 0.2);
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+}
+
+.night-active .continue-btn:hover {
+  background: linear-gradient(135deg, #F07070, #E85D5D);
+  box-shadow: 0 0 16px rgba(232, 93, 93, 0.3);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NIGHT ALERT BANNER
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.night-active .night-bar {
+  background: rgba(232, 93, 93, 0.12) !important;
+  border-color: rgba(232, 93, 93, 0.25) !important;
+  color: #E85D5D !important;
+  text-shadow: 0 0 4px rgba(232, 93, 93, 0.3);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  .night-active .dashboard-sidebar {
+    border-left-color: rgba(232, 93, 93, 0.15);
+  }
+}

@@ -62,14 +62,15 @@ export type { MemoryShard } from '../core/memoryShardsTypes';
 // ─── STORE ────────────────────────────────────────────────────────────
 const _initialState = buildInitialState();
 const SAFE_STORAGE_NAME = '11-11-game-store-v2';
+const ECHO_STATE_KEY = 'eleven_echo_state';
+const WORLD_STATE_KEY = 'eleven_world_state';
+const FULL_SAVE_KEY = 'eleven_full_save';
 
 export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
       ..._initialState,
-      puzzles: _initialState.puzzles,
       memory: { ..._initialState.memory, totalFragments: _initialState.allMemoryShards.length },
-      allMemoryShards: _initialState.allMemoryShards,
 
       // ─── ACTIONS ──────────────────────────────────────────────────────
       actions: {
@@ -206,7 +207,7 @@ export const useGameStore = create<GameState>()(
           if (phaseIndex >= 1 && !state.narrativeTriggers.first_night) newTriggers.first_night = true;
 
           set({
-            time: { ...state.time, hour: h, minute: m, phase: phase as TimePhase, phaseIndex, isNight, dayCycle: h < 5 && state.time.hour >= 23 ? state.time.dayCycle + 1 : state.time.dayCycle },
+            time: { ...state.time, hour: h, minute: m, phase: phase as TimePhase, phaseIndex, isNight, dayCycle: h === 0 && state.time.hour === 23 ? state.time.dayCycle + 1 : state.time.dayCycle },
             world: newWorld, echo: { ...newEcho, mood: updateEchoMood(newEcho), personalityTraits: updateTraits(newEcho) },
             narrativeTriggers: newTriggers,
           });
@@ -267,7 +268,10 @@ export const useGameStore = create<GameState>()(
         // 🔄 RESET GAME
         resetGame: () => {
           if (window.confirm('هل أنت متأكد من أنك تريد إعادة تعيين التقدم؟ سيتم حذف جميع البيانات!')) {
-            localStorage.removeItem('11-11-game-store');
+            localStorage.removeItem(SAFE_STORAGE_NAME);
+            localStorage.removeItem(ECHO_STATE_KEY);
+            localStorage.removeItem(WORLD_STATE_KEY);
+            localStorage.removeItem(FULL_SAVE_KEY);
             window.location.reload();
           }
         },

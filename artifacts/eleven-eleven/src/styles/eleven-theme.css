@@ -3,15 +3,26 @@
  * RTL، داكن، لمسات ذهبية/بيج، تأثيرات تشويش
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap');
-
 :root {
+  /* Night Mode (الليل) */
   --bg: #0a0a0f;
   --bg-card: rgba(15,12,20,0.85);
   --text: #e0dcd4;
   --text-muted: rgba(224,220,212,0.4);
   --accent: #c8785a;
   --accent-border: rgba(180,120,80,0.12);
+  
+  /* Night Colors (من الصورة الليلية) */
+  --night-primary: #e85d5d;
+  --night-secondary: #00b8e6;
+  --night-dark-bg: #0a0a0f;
+  
+  /* Day Mode Colors (من الصورة النهارية) */
+  --day-primary: #5b9bd5;
+  --day-secondary: #70ad47;
+  --day-light-bg: #f5f3f0;
+  --day-accent: #d4a574;
+  
   --danger: #cc4444;
   --success: #4CAF50;
   --warning: #FF9800;
@@ -330,10 +341,10 @@ body {
 .glitch-effect {
   position: relative;
   color: white;
-  animation: glitch 1s linear infinite;
+  animation: glitch-intense 1s linear infinite;
 }
 
-@keyframes glitch {
+@keyframes glitch-intense {
   0% { clip-path: inset(40% 0 61% 0); transform: translate(-2px, 2px); }
   20% { clip-path: inset(92% 0 1% 0); transform: translate(1px, -3px); }
   40% { clip-path: inset(43% 0 1% 0); transform: translate(-1px, 3px); }

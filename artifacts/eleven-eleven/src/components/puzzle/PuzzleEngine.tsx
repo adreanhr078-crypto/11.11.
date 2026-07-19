@@ -47,7 +47,7 @@ export const PuzzleEngine: React.FC<{ entity?: EntityId }> = ({ entity }) => {
   };
 
   // تأثير التشويش على النص
-  const glitchText = (text: string) => {
+  const glitchText = (text: string): React.ReactNode => {
     if (world.glitchLevel < 40) return text;
     return text.split('').map((c, i) => 
       Math.random() > 0.9 ? <span key={i} style={{ opacity: 0.3, textDecoration: 'line-through' }}>{c}</span> : c

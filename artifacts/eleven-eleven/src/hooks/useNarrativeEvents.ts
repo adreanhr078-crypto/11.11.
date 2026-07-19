@@ -1,11 +1,10 @@
 /**
- * useNarrativeEvents — يربط أحداث WorldState بردود فعل UI
+ * useNarrative — يربط أحداث WorldState بردود فعل UI
  * لا يحتوي على منطق UI مباشر — فقط يوجّه الأحداث
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { getNarrativeEngine } from "../core/narrativeEngine";
-import { worldState } from "../core/worldStateEngine";
+import { getNarrativeEngine, type NarrativeState } from "../core/narrativeEngine";
 
 interface NarrativeUIState {
   currentChapter: number;
@@ -13,6 +12,30 @@ interface NarrativeUIState {
   activeMoment: string | null;
   pendingEvents: number;
   escalationLevel: "calm" | "building" | "intense" | "critical";
+}
+
+const ACT_LABELS: Record<string, string> = {
+  awakening: "الفصل الأول: الاستيقاظ",
+  corruption: "الفصل الثاني: الفساد",
+  fragment_war: "الفصل الثالث: حرب الشظايا",
+  truth_revelation: "الفصل الرابع: كشف الحقيقة",
+};
+
+const ESCALATION_MAP: Record<string, "calm" | "building" | "intense" | "critical"> = {
+  awakening: "calm",
+  corruption: "building",
+  fragment_war: "intense",
+  truth_revelation: "critical",
+};
+
+function deriveNarrativeUI(state: NarrativeState): NarrativeUIState {
+  return {
+    currentChapter: 1,
+    chapterLabel: ACT_LABELS[state.currentAct] || "الفصل الأول: الصدى",
+    activeMoment: null,
+    pendingEvents: 0,
+    escalationLevel: ESCALATION_MAP[state.currentAct] || "calm",
+  };
 }
 
 /**
@@ -23,25 +46,16 @@ export function useNarrative(): NarrativeUIState & {
   stop: () => void;
   guide: string;
 } {
-  const [narrativeState, setNarrativeState] = useState<NarrativeUIState>(() => ({
-    currentChapter: 1,
-    chapterLabel: "الفصل الأول: الصدى",
-    activeMoment: null,
-    pendingEvents: 0,
-    escalationLevel: "calm",
-  }));
+  const [narrativeState, setNarrativeState] = useState<NarrativeUIState>(() => {
+    return deriveNarrativeUI(getNarrativeEngine().getState());
+  });
 
   useEffect(() => {
-    const unsubscribe = getNarrativeEngine().subscribe(() => {
-      // Refresh UI state from narrative engine without changing story logic
-      setNarrativeState({
-        currentChapter: 1,
-        chapterLabel: "الفصل الأول: الصدى",
-        activeMoment: null,
-        pendingEvents: 0,
-        escalationLevel: "calm",
-      });
-    });
+    const updateFromEngine = () => {
+      setNarrativeState(deriveNarrativeUI(getNarrativeEngine().getState()));
+    };
+    const unsubscribe = getNarrativeEngine().subscribe(updateFromEngine);
+    updateFromEngine();
     return unsubscribe;
   }, []);
 
@@ -52,7 +66,7 @@ export function useNarrative(): NarrativeUIState & {
     ...narrativeState,
     start,
     stop,
-      guide: getNarrativeEngine().getNarrativeGuide(),
+    guide: getNarrativeEngine().getNarrativeGuide(),
   };
 }
 

@@ -1,0 +1,225 @@
+/**
+ * backgrounds.css — الخلفيات والتأثيرات البصرية
+ * تطبيق الخلفيات الصباحية والليلية مع التأثيرات المطلوبة
+ */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DAY MODE BACKGROUND — الخلفية الصباحية
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.day-dashboard::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #F5F3F0 0%, #EEE9E1 50%, #E8DDD2 100%);
+  z-index: -2;
+  pointer-events: none;
+}
+
+.day-dashboard::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(ellipse at 30% 40%, rgba(184, 212, 232, 0.08) 0%, transparent 60%);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NIGHT MODE BACKGROUND — الخلفية الليلية
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.night-active::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #0A0808 0%, #1A1015 50%, #0D0A0C 100%);
+  z-index: -2;
+  pointer-events: none;
+}
+
+.night-active::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: 
+    radial-gradient(circle at 20% 30%, rgba(0, 184, 230, 0.04) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(232, 93, 93, 0.03) 0%, transparent 50%);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* ─── NIGHT NOISE/GLITCH OVERLAY ─── */
+.night-active .noise-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' /%3E%3C/filter%3E%3Crect width='100' height='100' fill='%23000' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.3;
+  animation: noise-flicker 0.15s infinite;
+}
+
+@keyframes noise-flicker {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.35; }
+}
+
+/* ─── VIGNETTE EFFECT ─── */
+.day-dashboard,
+.night-active {
+  box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.08);
+}
+
+.night-active {
+  box-shadow: inset 0 0 150px rgba(0, 0, 0, 0.4);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CARD STYLES — تأثيرات البطاقات
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.card {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.3s ease;
+}
+
+.day-dashboard .card {
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(100, 150, 180, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+.night-active .card {
+  background: rgba(15, 15, 18, 0.85);
+  border: 1px solid rgba(232, 93, 93, 0.15);
+  box-shadow: 0 8px 32px rgba(232, 93, 93, 0.1), 0 0 40px rgba(0, 184, 230, 0.05);
+}
+
+/* ─── ECHO CARD SPECIAL STYLING ─── */
+.echo-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.day-dashboard .echo-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at center, rgba(184, 212, 232, 0.1) 0%, transparent 70%);
+  animation: shimmer-day 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.night-active .echo-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at center, rgba(0, 184, 230, 0.08) 0%, transparent 70%);
+  animation: shimmer-night 6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes shimmer-day {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(10px, 10px); }
+}
+
+@keyframes shimmer-night {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-10px, 10px); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ICON STYLING FOR DAY/NIGHT
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.day-dashboard svg {
+  filter: drop-shadow(0 0 2px rgba(90, 159, 190, 0.2));
+}
+
+.night-active svg {
+  filter: drop-shadow(0 0 4px rgba(0, 184, 230, 0.3)) drop-shadow(0 0 8px rgba(232, 93, 93, 0.15));
+}
+
+/* ─── SIDEBAR STYLING ─── */
+.day-dashboard .dashboard-sidebar {
+  background: rgba(255, 255, 255, 0.7);
+  border-right: 1px solid rgba(100, 150, 180, 0.1);
+}
+
+.night-active .dashboard-sidebar {
+  background: rgba(15, 15, 18, 0.95);
+  border-right: 1px solid rgba(232, 93, 93, 0.1);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TEXT AND ACCENT COLORS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.day-dashboard {
+  --accent-color: #5A9FBE;
+  --accent-muted: rgba(90, 159, 190, 0.3);
+}
+
+.night-active {
+  --accent-color: #00B8E6;
+  --accent-muted: rgba(0, 184, 230, 0.3);
+  --danger-color: #E85D5D;
+}
+
+/* ─── PROGRESS BARS ─── */
+.day-dashboard .progress-bar {
+  background: linear-gradient(90deg, #5A9FBE, #7EB3D4);
+}
+
+.night-active .progress-bar {
+  background: linear-gradient(90deg, #00B8E6, #1AC8FF);
+  box-shadow: 0 0 8px rgba(0, 184, 230, 0.4);
+}
+
+/* ─── LINKS AND BUTTONS ─── */
+.day-dashboard a,
+.day-dashboard .sidebar-nav-item.active {
+  color: #5A9FBE;
+}
+
+.night-active a,
+.night-active .sidebar-nav-item.active {
+  color: #E85D5D;
+  text-shadow: 0 0 8px rgba(232, 93, 93, 0.3);
+}
+
+/* ─── STATS AND BADGES ─── */
+.day-dashboard .stat-value,
+.day-dashboard .badge {
+  color: #2C2C2C;
+}
+
+.night-active .stat-value,
+.night-active .badge {
+  color: #E85D5D;
+}

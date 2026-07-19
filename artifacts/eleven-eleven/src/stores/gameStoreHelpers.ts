@@ -6,7 +6,7 @@
 import type {
   GameState, EchoState, TimeState, PuzzleNode, EntityId, FlowerStage,
   EchoMood, WishStatus, MemoryShard, Achievement, EndingState, TimelineEvent
-} from './gameStore';
+} from '../core/gameTypes';
 import {
   ORIGINAL_PUZZLE_COUNT,
   TOTAL_PUZZLES,
@@ -92,7 +92,7 @@ export function buildInitialState(): GameState {
       mystery: { unlocked: false, progress: 0 },
     },
     narrativeTriggers: {},
-    actions: {} as any,
+    actions: {} as GameState['actions'],
   };
 }
 

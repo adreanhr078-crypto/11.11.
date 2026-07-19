@@ -10,6 +10,11 @@ import { PuzzleEngine } from './components/puzzle/PuzzleEngine';
 import { FlowerSystem } from './components/flower/FlowerSystem';
 import { MemorySystem } from './components/memory/MemorySystem';
 import './styles/eleven-theme.css';
+import './styles/dashboard.css';
+import './styles/day-mode.css';
+import './styles/backgrounds.css';
+import './styles/EchoPortrait.css';
+import './styles/night-dashboard.css';
 
 // الأقسام الـ 10 الكاملة
 import { DashboardHome } from './components/sections/DashboardHome';
@@ -25,10 +30,12 @@ import { AnimationSystem } from './components/effects/AnimationSystem';
 import { useAudioSystem } from './hooks/useAudioSystem';
 import { VideoMemorySystem } from './components/video/VideoMemorySystem';
 import { toggleLanguage, translate } from './core/echoMultilingualSystem';
+import { useTheme } from './hooks/useTheme';
 
 export default function App() {
   const actions = useGameStore(s => s.actions);
   const time = useGameStore(s => s.time);
+  const theme = useTheme();
   const [activeSection, setActiveSection] = useState<SectionId>('dashboard');
   const [showCinematic, setShowCinematic] = useState(false);
 
@@ -69,7 +76,7 @@ export default function App() {
   };
 
   return (
-    <div id="app" className="app-root" dir="rtl">
+    <div id="app" className={`app-root ${time.isNight ? 'night-active' : 'day-dashboard'}`} dir="rtl">
       {showCinematic && <CinematicMode onEnd={() => setShowCinematic(false)} />}
       <AnimationSystem />
       <VideoMemorySystem />
