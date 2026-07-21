@@ -91,7 +91,7 @@ export const VideoMemorySystem: React.FC = () => {
   ];
 
   // Add Prelude Arc Cinematic Scenes (230-333)
-  const preludeScenes = generatePreludeCinematicScenes().map((scene, index) => ({
+  const preludeScenes = generatePreludeCinematicScenes().map((scene: any, index: number) => ({
     id: `prelude_vm${index + 1}`,
     title: scene.title,
     milestone: scene.triggerPuzzle,
@@ -102,7 +102,7 @@ export const VideoMemorySystem: React.FC = () => {
   videoMemories.push(...preludeScenes);
 
   // Add Fracture Arc Cinematic Scenes (350-500)
-  const fractureScenes = generateFractureCinematicScenes().map((scene, index) => ({
+  const fractureScenes = generateFractureCinematicScenes().map((scene: any, index: number) => ({
     id: `fracture_vm${index + 1}`,
     title: scene.title,
     milestone: scene.triggerPuzzle,
@@ -113,7 +113,7 @@ export const VideoMemorySystem: React.FC = () => {
   videoMemories.push(...fractureScenes);
 
   // Add Architect Arc Cinematic Scenes (520-666)
-  const architectScenes = generateArchitectCinematicScenes().map((scene, index) => ({
+  const architectScenes = generateArchitectCinematicScenes().map((scene: any, index: number) => ({
     id: `architect_vm${index + 1}`,
     title: scene.title,
     milestone: scene.triggerPuzzle,
@@ -124,7 +124,7 @@ export const VideoMemorySystem: React.FC = () => {
   videoMemories.push(...architectScenes);
 
   // Add Signal Arc Cinematic Scenes (690-888)
-  const signalScenes = generateSignalCinematicScenes().map((scene, index) => ({
+  const signalScenes = generateSignalCinematicScenes().map((scene: any, index: number) => ({
     id: `signal_vm${index + 1}`,
     title: scene.title,
     milestone: scene.triggerPuzzle,
@@ -135,7 +135,7 @@ export const VideoMemorySystem: React.FC = () => {
   videoMemories.push(...signalScenes);
 
   // Add Final Arc Cinematic Scenes (900-1000)
-  const finalScenes = generateFinalCinematicScenes().map((scene, index) => ({
+  const finalScenes = generateFinalCinematicScenes().map((scene: any, index: number) => ({
     id: `final_vm${index + 1}`,
     title: scene.title,
     milestone: scene.triggerPuzzle,

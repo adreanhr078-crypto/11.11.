@@ -25,6 +25,7 @@ const NAV_ITEMS: { id: SectionId; label: string; icon: string }[] = [
   { id: 'wishes', label: 'الأمنيات', icon: '⭐' },
   { id: 'overview', label: 'الأرشيف', icon: '📚' },
   { id: 'achievements', label: 'الإنجازات', icon: '🏆' },
+  { id: 'flowers', label: 'الزهور', icon: '🌸' },
   { id: 'day', label: 'الوضع النهاري', icon: '☀️' },
   { id: 'night', label: 'التحول الليلي', icon: '🌙' },
 ];
@@ -77,6 +78,16 @@ export const GameSidebar: React.FC<Props> = ({ activeSection, onNavigate }) => {
           <svg className="sidebar-nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <circle cx="12" cy="8" r="3" fill="currentColor" />
             <path d="M7 21l5-3 5 3V17a5 5 0 00-10 0v4z" fill="currentColor" opacity="0.95" />
+          </svg>
+        );
+      case 'flowers':
+        return (
+          <svg className="sidebar-nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="3" fill="currentColor" />
+            <path d="M12 2a4 4 0 0 1 4 4c0 1.5-.5 2.5-1.5 3.5L12 12l-2.5-2.5C9.5 8.5 9 7.5 9 6a4 4 0 0 1 4-4z" fill="currentColor" opacity="0.8" />
+            <path d="M22 12a4 4 0 0 1-4 4c-1.5 0-2.5-.5-3.5-1.5L12 12l2.5-2.5C15.5 8.5 16.5 8 18 8a4 4 0 0 1 4 4z" fill="currentColor" opacity="0.8" />
+            <path d="M2 12a4 4 0 0 0 4 4c1.5 0 2.5-.5 3.5-1.5L12 12l-2.5-2.5C8.5 8.5 7.5 8 6 8A4 4 0 0 0 2 12z" fill="currentColor" opacity="0.8" />
+            <path d="M12 22a4 4 0 0 1-4-4c0-1.5.5-2.5 1.5-3.5L12 12l2.5 2.5C14.5 15.5 15 16.5 15 18a4 4 0 0 1-4 4z" fill="currentColor" opacity="0.8" />
           </svg>
         );
       case 'day':

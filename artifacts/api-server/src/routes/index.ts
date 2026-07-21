@@ -5,14 +5,17 @@ import userProfileRouter from "./user-profile";
 import pushRouter from "./push";
 import progressRouter from "./progress";
 import argRouter from "./arg";
+import { authenticate } from "../middleware/authenticate";
 
 const router: IRouter = Router();
 
-router.use(healthRouter);
-router.use(aiChatRouter);
-router.use(userProfileRouter);
-router.use(pushRouter);
-router.use(progressRouter);
-router.use(argRouter);
+router.use("/healthz", healthRouter);
+
+router.use(authenticate);
+router.use("/ai", aiChatRouter);
+router.use("/user", userProfileRouter);
+router.use("/push", pushRouter);
+router.use("/progress", progressRouter);
+router.use("/arg", argRouter);
 
 export default router;

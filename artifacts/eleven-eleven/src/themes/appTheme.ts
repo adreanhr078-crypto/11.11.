@@ -106,17 +106,17 @@ const nightTheme: AppTheme = {
     danger: "#E85D5D",
     success: "#2B5A3A",
     warning: "#D4A040",
-    glitchColor: "rgba(232, 93, 93, 0.08)",
-    glitchOverlay: "rgba(0, 184, 230, 0.05)",
+    glitchColor: "rgba(0,0,0,0)", // لا glitches في الليل
+    glitchOverlay: "rgba(0,0,0,0)", // لا glitches في الليل
   },
   effects: {
     blur: 0.8,
-    glitchIntensity: 0.1,
-    crackOpacity: 0.05,
-    redTint: 0.08,
+    glitchIntensity: 0, // ❌ لا glitches
+    crackOpacity: 0, // ❌ لا تشققات
+    redTint: 0.02, // خفيف جداً بدون تأثيرات مرعبة
     vignette: 0.35,
-    scanLine: true,
-    noise: true,
+    scanLine: false, // ❌ لا خطوط مسح
+    noise: false, // ❌ لا ضوضاء
   },
   isNight: true,
   instabilityLevel: 0,
@@ -130,17 +130,17 @@ const instability1100: AppTheme = {
     ...nightTheme.colors,
     background: "#0D0A0A",
     foreground: "#D4D0CE",
-    glitchColor: "rgba(139, 42, 42, 0.08)",
-    glitchOverlay: "rgba(139, 42, 42, 0.03)",
+    glitchColor: "rgba(0,0,0,0)", // لا glitches
+    glitchOverlay: "rgba(0,0,0,0)", // لا glitches
   },
   effects: {
     blur: 0.5,
-    glitchIntensity: 0.15,
-    crackOpacity: 0.1,
-    redTint: 0.1,
+    glitchIntensity: 0, // ❌ لا glitches
+    crackOpacity: 0, // ❌ لا تشققات
+    redTint: 0.03, // لون داكن هادئ بدون رعب
     vignette: 0.35,
-    scanLine: true,
-    noise: true,
+    scanLine: false, // ❌ لا خطوط مسح
+    noise: false, // ❌ لا ضوضاء
   },
   isNight: true,
   instabilityLevel: 1,
@@ -157,17 +157,17 @@ const instability1105: AppTheme = {
     primary: "#AA2222",
     primaryGlow: "rgba(170, 34, 34, 0.3)",
     cardBorder: "rgba(170, 34, 34, 0.3)",
-    glitchColor: "rgba(170, 34, 34, 0.15)",
-    glitchOverlay: "rgba(170, 34, 34, 0.06)",
+    glitchColor: "rgba(0,0,0,0)", // لا glitches
+    glitchOverlay: "rgba(0,0,0,0)", // لا glitches
   },
   effects: {
     blur: 1.5,
-    glitchIntensity: 0.35,
-    crackOpacity: 0.3,
-    redTint: 0.2,
+    glitchIntensity: 0, // ❌ لا glitches
+    crackOpacity: 0, // ❌ لا تشققات
+    redTint: 0.05, // لون داكن هادئ بدون رعب
     vignette: 0.45,
-    scanLine: true,
-    noise: true,
+    scanLine: false, // ❌ لا خطوط مسح
+    noise: false, // ❌ لا ضوضاء
   },
   isNight: true,
   instabilityLevel: 2,
@@ -193,17 +193,17 @@ const cinematic1111: AppTheme = {
     danger: "#CC0000",
     success: "#2A4A2A",
     warning: "#8B4A10",
-    glitchColor: "rgba(204, 17, 17, 0.25)",
-    glitchOverlay: "rgba(204, 17, 17, 0.1)",
+    glitchColor: "rgba(0,0,0,0)", // لا glitches
+    glitchOverlay: "rgba(0,0,0,0)", // لا glitches
   },
   effects: {
     blur: 3,
-    glitchIntensity: 0.6,
-    crackOpacity: 0.6,
-    redTint: 0.35,
+    glitchIntensity: 0, // ❌ لا glitches
+    crackOpacity: 0, // ❌ لا تشققات
+    redTint: 0.1, // لون داكن بدون رعب
     vignette: 0.6,
-    scanLine: true,
-    noise: true,
+    scanLine: false, // ❌ لا خطوط مسح
+    noise: false, // ❌ لا ضوضاء
   },
   isNight: true,
   instabilityLevel: 3,

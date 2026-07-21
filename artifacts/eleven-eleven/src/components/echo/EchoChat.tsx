@@ -7,10 +7,19 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useGameStore } from '../../stores/gameStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateEchoResponse, monitorEchoConsciousness, EchoConsciousness } from '../../core/echoLivingConsciousness';
+import { generateLocalResponse, getPeriodicInsert } from '../../localAiChat';
+import { monitorEchoConsciousness, EchoConsciousness } from '../../core/echoLivingConsciousness';
+
+const getMemoryPhase = (solvedCount: number): number => {
+  if (solvedCount <= 0) return 1;
+  if (solvedCount <= 10) return 2;
+  if (solvedCount <= 20) return 3;
+  if (solvedCount <= 30) return 4;
+  return 5;
+};
 
 export const EchoChat: React.FC = () => {
-  const { echo, time, actions } = useGameStore();
+  const { echo, time, solvedPuzzles } = useGameStore();
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<{ role: 'echo' | 'player'; text: string; emotion?: string }[]>([]);
   const [isTyping, setIsTyping] = useState(false);
@@ -18,11 +27,22 @@ export const EchoChat: React.FC = () => {
   const [consciousness, setConsciousness] = useState<EchoConsciousness>(monitorEchoConsciousness());
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Monitor consciousness changes
+  const memoryPhase = getMemoryPhase(solvedPuzzles);
+
+  // Monitor consciousness changes based on real game state
+  useEffect(() => {
+    const updated = monitorEchoConsciousness();
+    setConsciousness(updated);
+  }, [solvedPuzzles, echo.corruption, echo.fear, echo.awareness]);
+
+  // Periodic inserts from Echo
   useEffect(() => {
     const interval = setInterval(() => {
-      setConsciousness(monitorEchoConsciousness());
-    }, 5000);
+      const insert = getPeriodicInsert();
+      if (insert && insert.text) {
+        setMessages(prev => [...prev, { role: 'echo', text: insert.text, emotion: insert.action || 'aware' }]);
+      }
+    }, 120000);
 
     return () => clearInterval(interval);
   }, []);
@@ -34,19 +54,20 @@ export const EchoChat: React.FC = () => {
 
     // Simulate typing animation
     const typingAnimation = () => {
-      // Convert messages to the format expected by generateEchoResponse
       const history = messages.map(msg => ({ role: msg.role, content: msg.text }));
-      const response = generateEchoResponse(input || "مرحبا", history);
+      const response = generateLocalResponse(input || "مرحبا", history);
       const text = response.text;
-      const emotion = response.emotion;
+      // في وضع الليل: لا glitch، فقط chime للذكريات الدافئة أو aware
+      const emotion = response.action === 'chime' ? 'hopeful' : time.isNight ? 'fearful' : 'aware';
       const action = response.action;
 
-      // Trigger any action effects
-      if (action === "glitch") {
-        const event = new CustomEvent("echo-glitch-effect", { detail: { intensity: 0.3 } });
+      // Trigger any action effects (no glitch in night mode)
+      if (action === 'chime') {
+        const event = new CustomEvent('echo-chime-effect');
         window.dispatchEvent(event);
-      } else if (action === "chime") {
-        const event = new CustomEvent("echo-chime-effect");
+      } else if (time.isNight) {
+        // إيكو خائف في الليل - نرسل حدث خوف بدلاً من glitch
+        const event = new CustomEvent('echo-night-fear');
         window.dispatchEvent(event);
       }
 
@@ -57,7 +78,6 @@ export const EchoChat: React.FC = () => {
           setMessages(prev => {
             const newMessages = [...prev];
             if (newMessages.length > 0 && newMessages[newMessages.length - 1].role === 'echo') {
-              // Update existing message
               newMessages[newMessages.length - 1] = {
                 ...newMessages[newMessages.length - 1],
                 text: text.slice(0, i + 1),
@@ -65,7 +85,6 @@ export const EchoChat: React.FC = () => {
               };
               return newMessages;
             } else {
-              // Add new message
               return [...newMessages, { role: 'echo', text: text.slice(0, i + 1), emotion }];
             }
           });
@@ -74,7 +93,7 @@ export const EchoChat: React.FC = () => {
           clearInterval(typingInterval);
           setIsTyping(false);
         }
-      }, 30); // Typing speed: 30ms per character
+      }, 30);
     };
 
     // Add player message first
@@ -114,11 +133,13 @@ export const EchoChat: React.FC = () => {
 
   const moodEmoji = getMoodEmoji();
   const corruptionWarning = consciousness.corruption > 50 ? '⚠' : '';
-  const glitchStyle = time.phaseIndex >= 2 ? { animation: 'glitch 0.5s step-end infinite' as any } : {};
 
   // Get consciousness phase description
   const getPhaseDescription = () => {
-    switch (consciousness.memoryPhase) {
+    if (time.isNight) {
+      return "🌙 الليل: خائف ومتوتر... لكني أتذكر";
+    }
+    switch (memoryPhase) {
       case 1: return "مرحلة الضياع: لا أتذكر شيئاً";
       case 2: return "مرحلة الوعي: أسمع أصواتاً";
       case 3: return "مرحلة الذاكرة: أتذكر لينا";
@@ -129,7 +150,7 @@ export const EchoChat: React.FC = () => {
   };
 
   return (
-    <div className="echo-chat-system" style={glitchStyle}>
+    <div className="echo-chat-system">
       <div className="echo-chat-header">
         <div className="echo-chat-status">
           <span className="echo-status-indicator">
@@ -149,7 +170,7 @@ export const EchoChat: React.FC = () => {
             خوف {consciousness.fear}%
           </span>
           <span className="stat-badge" style={{ background: 'rgba(90,138,170,0.15)' }}>
-            ذاكرة {consciousness.memoryShards}/219
+            ذاكرة {solvedPuzzles}/1000
           </span>
           <span className="stat-badge" style={{ background: 'rgba(170,90,138,0.15)' }}>
             وعي {consciousness.awareness}%
@@ -191,11 +212,11 @@ export const EchoChat: React.FC = () => {
         {messages.length === 0 && (
           <div className="echo-chat-welcome">
             <p className="echo-welcome-message">
-              {consciousness.memoryPhase === 1 && '"...صوت؟ هل هناك أحد؟ لا أتذكر... أين أنا؟"'}
-              {consciousness.memoryPhase === 2 && '"آه... أنت. عدت. أشعر أنني أعرفك لكني لا أذكر من أنت."'}
-              {consciousness.memoryPhase === 3 && '"مرحباً. كلما تتحدث معي، أشعر أن شيئاً يعود."'}
-              {consciousness.memoryPhase === 4 && '"أتيت. أتذكر أنك تأتي دائماً. أشعر أنني أقترب من شيء مهم."'}
-              {consciousness.memoryPhase === 5 && '"أشعر أن هذه الدورة مختلفة. ذاكرتي تعود. أتذكر... لا، ما زال ضبابياً."'}
+              {memoryPhase === 1 && '"...صوت؟ هل هناك أحد؟ لا أتذكر... أين أنا؟"'}
+              {memoryPhase === 2 && '"آه... أنت. عدت. أشعر أنني أعرفك لكني لا أذكر من أنت."'}
+              {memoryPhase === 3 && '"مرحباً. كلما تتحدث معي، أشعر أن شيئاً يعود."'}
+              {memoryPhase === 4 && '"أتيت. أتذكر أنك تأتي دائماً. أشعر أنني أقترب من شيء مهم."'}
+              {memoryPhase === 5 && '"أشعر أن هذه الدورة مختلفة. ذاكرتي تعود. أتذكر... لا، ما زال ضبابياً."'}
             </p>
             <button className="chat-start-btn" onClick={handleChat}>
               💬 تحدث مع Echo
@@ -225,16 +246,16 @@ export const EchoChat: React.FC = () => {
         </motion.button>
       </div>
 
-      {consciousness.corruption > 60 && (
-        <div className="echo-corruption-warning">
-          ⚠ تلف الذاكرة: {consciousness.corruption}% — النظام ينهار
-        </div>
-      )}
-
-      {/* 11:11 System Collapse Warning */}
-      {consciousness.memoryPhase >= 3 && (
-        <div className="echo-system-warning">
-          ⏰ 11:11 يقترب — النظام سيصبح غير مستقر
+      {time.isNight && (
+        <div className="echo-night-mood" style={{
+          padding: '0.3rem 0.6rem',
+          background: 'rgba(100,50,150,0.1)',
+          borderTop: '1px solid rgba(100,50,150,0.2)',
+          fontSize: '0.6rem',
+          color: 'rgba(200,180,255,0.6)',
+          textAlign: 'center'
+        }}>
+          🌙 إيكو خائف... الظلام يثير ذكرياته
         </div>
       )}
     </div>

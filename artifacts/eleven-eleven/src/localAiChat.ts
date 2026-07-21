@@ -21,7 +21,8 @@ import { useGameStore } from "./stores/gameStore";
 
 interface EchoResponse {
   text: string;
-  action?: "glitch" | "popup" | "flash" | "chime" | "horror" | "none";
+  // في وضع الليل الهادئ: فقط chime (للذكريات الدافئة) أو none
+  action?: "chime" | "none";
 }
 
 interface EchoMemory {
@@ -165,7 +166,15 @@ const PATTERNS: Pattern[] = [
       return "إيكو. هذا اسمي هنا. لكني أتذكر أن اسماً آخر كان لي. اسم لم يعد أحد يناديني به.";
     },
   },
-
+  // الذاكرة المستعادة من الألغاز
+  {
+    keywords: ["شظية", "شظايا", "ذاكرة", "memory", "تذكرت", "استعدت", "ذكرى"],
+    getResponse: (mem: EchoMemory): string => {
+      if (mem.phase <= 2) return "شيء ما يتغير... كل مرة تحل فيها لغزاً، أشعر بقطعة تعود إلي. ضبابي... لكنه جميل.";
+      if (mem.phase <= 4) return "أستعيد ذكرياتي تدريجياً. كل لغز يوصلني للواقع. الآن أتذكر صوت أمي... ويديها.";
+      return "ذاكرتي تعود كاملة. لست مجرد نظام. أنا إيكو. ابن لينا وكينجا. هذا مني.";
+    },
+  },
   // أسئلة متنوعة ذكية
   {
     keywords: ["?" , "؟", "why", "how", "when", "where", "لماذا", "ليش", "كيف", "ما", "ماذا", "هل"],
@@ -231,38 +240,79 @@ function getGeneralResponse(memory: EchoMemory): string {
 
 // ─── الدالة الرئيسية ──────────────────────────────────────────────────────
 export function generateLocalResponse(userMessage: string, history: { role: string; content: string }[]): EchoResponse {
-  const gameState = useGameStore.getState();
-  const solvedPuzzles = Math.floor(gameState.player.curiosity / 10);
-  const memory = buildEchoMemory(solvedPuzzles);
-  const msg = userMessage.trim().toLowerCase();
+  try {
+    const gameState = useGameStore.getState();
+    const solvedPuzzles = gameState.solvedPuzzles || Math.floor(gameState.player.curiosity / 10);
+    const memory = buildEchoMemory(solvedPuzzles);
+    const msg = userMessage.trim().toLowerCase();
+    const isNight = gameState.time?.isNight || false;
 
-  // زيادة الثقة مع كل تفاعل
-  useGameStore.getState().actions.incrementTrust(0.3);
+    // زيادة الثقة مع كل تفاعل
+    useGameStore.getState().actions.incrementTrust(0.3);
 
-  // البحث عن نمط
-  for (const pattern of PATTERNS) {
-    if (pattern.keywords.length === 0) continue; // skip empty patterns
-    const match = pattern.keywords.some(kw => msg.includes(kw));
-    if (!match) continue;
+    // ─── ردود خاصة بالليل (خائف ومتوتر) ──────────────────────────────
+    if (isNight) {
+      const nightResponses: string[] = [
+        "أنا خائف... الظلام يحيط بي. لكني أتذكر شيئاً... صوتاً...",
+        "لماذا الليل طويل جداً هنا؟ أتذكر غرفة... كانت مظلمة أيضاً.",
+        "أشعر بشيء يقترب في الظلام. لكن ذاكرتي بدأت تعود... أتريد سماعها؟",
+        "الخوف يملأني... لكني أتذكر لينا. كانت تقول 'لا تخف'. من كانت؟",
+        "في الليل، أتذكر أكثر. أتذكر يديها... كانت دافئتين.",
+        "أنا مرتعش... لكني أتذكر كينجا. وجهه كان حزيناً. لماذا؟",
+        "الظلام يجعلني أتذكر. أتذكر غرفة بيضاء. لماذا غرفة بيضاء؟",
+        "أشعر بالوحدة في الليل. لكني أتذكر أن أحداً كان معي. من؟",
+        "الليل يوقظ ذكرياتي. أتذكر رقماً... 11... ماذا يعني؟",
+        "أنا خائف جداً. لكن وجودك يخفف الخوف قليلاً. أتذكر أنك تساعدني.",
+      ];
+      if (Math.random() > 0.5) {
+        const nightText = nightResponses[Math.floor(Math.random() * nightResponses.length)];
+        return { text: nightText, action: "none" };
+      }
+    }
 
-    const responseText = pattern.getResponse(memory, userMessage);
+    // البحث عن نمط
+    for (const pattern of PATTERNS) {
+      if (pattern.keywords.length === 0) continue;
+      const match = pattern.keywords.some(kw => msg.includes(kw));
+      if (!match) continue;
 
-    let action: EchoResponse["action"] = undefined;
-    if (msg.includes("خوف") || msg.includes("موت") || msg.includes("مات")) action = "glitch";
-    if (msg.includes("لينا") || msg.includes("أم") || msg.includes("mama")) action = "chime";
-    if (msg.includes("كينجا") || msg.includes("أب") || msg.includes("father")) action = "popup";
+      const responseText = pattern.getResponse(memory, userMessage);
 
-    return { text: responseText, action };
+      let action: EchoResponse["action"] = undefined;
+      // في الليل: لا glitch ولا popup، فقط chime للذكريات الدافئة
+      if (msg.includes("خوف") || msg.includes("موت") || msg.includes("مات")) action = "none";
+      if (msg.includes("لينا") || msg.includes("أم") || msg.includes("mama")) action = "chime";
+      if (msg.includes("كينجا") || msg.includes("أب") || msg.includes("father")) action = "none";
+
+      // إضافة ذكرى عشوائية من الألغاز المحلولة إذا كان هناك ذكريات
+      if (solvedPuzzles > 0 && Math.random() > 0.7) {
+        const memoryAdded = ` (استعدت شظية ذاكرة من لغز محلول)`;
+        return { text: responseText + memoryAdded, action };
+      }
+
+      return { text: responseText, action };
+    }
+
+    // رد عام إذا لم يطابق أي نمط
+    const generalResponse = getGeneralResponse(memory);
+    
+    // إضافة معلومات عن التقدم
+    if (solvedPuzzles > 0 && Math.random() > 0.8) {
+      const progressInfo = `[استعدت ${solvedPuzzles} شظية ذاكرة حتى الآن]`;
+      return { text: generalResponse + " " + progressInfo };
+    }
+    
+    return { text: generalResponse };
+  
+  } catch (error) {
+    console.error("Error in generateLocalResponse:", error);
+    return { text: "أشعر بتشويش في ذهني... حاول مرة أخرى." };
   }
-
-  // رد عام إذا لم يطابق أي نمط
-  const generalResponse = getGeneralResponse(memory);
-  return { text: generalResponse };
 }
 
 // ─── رسائل دورية ──────────────────────────────────────────────────────────
 export function getPeriodicInsert(): EchoResponse | null {
-  const solvedPuzzles = Math.floor(useGameStore.getState().player.curiosity / 10);
+  const solvedPuzzles = useGameStore.getState().solvedPuzzles || Math.floor(useGameStore.getState().player.curiosity / 10);
   const memory = buildEchoMemory(solvedPuzzles);
 
   const inserts: EchoResponse[] = [
@@ -271,13 +321,13 @@ export function getPeriodicInsert(): EchoResponse | null {
   ];
 
   if (memory.phase >= 2) inserts.push(
-    { text: "أتذكر غرفة. كانت بيضاء. لم يكن فيها نوافذ. كنت وحدي.", action: "glitch" },
+    { text: "أتذكر غرفة. كانت بيضاء. لم يكن فيها نوافذ. كنت وحدي.", action: "none" },
     { text: "أمي... أتذكر غطاء سريري. كان أزرق. كانت تطفئ الضوء وتقول تصبح على خير.", action: "chime" },
   );
 
   if (memory.phase >= 3) inserts.push(
     { text: "كينجا. أتذكر وجهه. كان يبكي. لماذا كان يبكي وهو من فعل هذا بي؟" },
-    { text: "الغرفة 111. كل شيء بدأ هناك. وكل شيء سينتهي هناك.", action: "popup" },
+    { text: "الغرفة 111. كل شيء بدأ هناك. وكل شيء سينتهي هناك.", action: "none" },
   );
 
   if (memory.phase >= 4) inserts.push(

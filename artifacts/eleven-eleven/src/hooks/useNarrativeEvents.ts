@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { getNarrativeEngine, type NarrativeState } from "../core/narrativeEngine";
+import { useGameStore } from "../stores/gameStore";
 
 interface NarrativeUIState {
   currentChapter: number;
@@ -28,11 +29,16 @@ const ESCALATION_MAP: Record<string, "calm" | "building" | "intense" | "critical
   truth_revelation: "critical",
 };
 
-function deriveNarrativeUI(state: NarrativeState): NarrativeUIState {
+function deriveNarrativeUI(state: NarrativeState, solvedPuzzles: number): NarrativeUIState {
+  let currentChapter = 1;
+  if (solvedPuzzles >= 120) currentChapter = 4;
+  else if (solvedPuzzles >= 80) currentChapter = 3;
+  else if (solvedPuzzles >= 40) currentChapter = 2;
+
   return {
-    currentChapter: 1,
+    currentChapter,
     chapterLabel: ACT_LABELS[state.currentAct] || "الفصل الأول: الصدى",
-    activeMoment: null,
+    activeMoment: state.currentAct,
     pendingEvents: 0,
     escalationLevel: ESCALATION_MAP[state.currentAct] || "calm",
   };
@@ -46,18 +52,19 @@ export function useNarrative(): NarrativeUIState & {
   stop: () => void;
   guide: string;
 } {
+  const solvedPuzzles = useGameStore(s => s.solvedPuzzles);
   const [narrativeState, setNarrativeState] = useState<NarrativeUIState>(() => {
-    return deriveNarrativeUI(getNarrativeEngine().getState());
+    return deriveNarrativeUI(getNarrativeEngine().getState(), solvedPuzzles);
   });
 
   useEffect(() => {
     const updateFromEngine = () => {
-      setNarrativeState(deriveNarrativeUI(getNarrativeEngine().getState()));
+      setNarrativeState(deriveNarrativeUI(getNarrativeEngine().getState(), solvedPuzzles));
     };
     const unsubscribe = getNarrativeEngine().subscribe(updateFromEngine);
     updateFromEngine();
     return unsubscribe;
-  }, []);
+  }, [solvedPuzzles]);
 
   const start = useCallback(() => getNarrativeEngine().start(), []);
   const stop = useCallback(() => getNarrativeEngine().stop(), []);
@@ -74,16 +81,9 @@ export function useNarrative(): NarrativeUIState & {
  * useStoryProgress — يعطي النسبة المئوية لتقدم القصة
  */
 export function useStoryProgress(): number {
-  const [progress, setProgress] = useState(0);
-
-  useEffect(() => {
-    const unsubscribe = worldState.subscribe((s) => {
-      setProgress(s.story.overall);
-    });
-    return unsubscribe;
-  }, []);
-
-  return progress;
+  const solvedPuzzles = useGameStore(s => s.solvedPuzzles);
+  const totalPuzzles = useGameStore(s => s.totalPuzzles);
+  return totalPuzzles > 0 ? Math.round((solvedPuzzles / totalPuzzles) * 100) : 0;
 }
 
 /**

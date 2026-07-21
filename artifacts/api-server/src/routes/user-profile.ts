@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Router } from "express";
 import { db, usersTable, userSessionsTable, chatHistoryTable } from "@workspace/db";
 import { eq, asc } from "drizzle-orm";
+import { authenticate, AuthenticatedRequest } from "../middleware/authenticate";
 
 const router = Router();
 
@@ -17,11 +18,12 @@ function isValidUuid(s: unknown): s is string {
 // Cross-device identity resolution order:
 //   1. Client sends a well-formed UUIDv4 that exists in DB → reuse it (same device/browser)
 //   2. Client sends a well-formed UUIDv4 not yet in DB (e.g. cleared DB) → trust & reinsert
-//   3. Client sends no UUID but does send a fingerprint that matches a DB row → reuse that UID
-//   4. Otherwise → mint a fresh UUID, insert new user, store fingerprint
+//   3. Client sends no UUID but does send a fingerprint → mint a fresh UID (fingerprint-only
+//      lookup is no longer allowed to prevent account hijacking via fingerprint spoofing)
+//   4. Otherwise → mint a fresh UUID, insert new user
 //
-// This means a user arriving on a new device with the same browser+hardware fingerprint
-// will have their existing wish/rooms/chat restored without any login.
+// Fingerprints are stored for future reference but are no longer used for identity lookup
+// without explicit uid authentication.
 router.post("/user/init", async (req, res) => {
   try {
     const {
@@ -44,7 +46,6 @@ router.post("/user/init", async (req, res) => {
     let uid: string;
 
     if (isValidUuid(existingUid)) {
-      // Client claims an identity — verify it exists
       const [existing] = await db
         .select({ uid: usersTable.uid })
         .from(usersTable)
@@ -52,7 +53,6 @@ router.post("/user/init", async (req, res) => {
 
       if (existing) {
         uid = existingUid;
-        // Keep fingerprint current (device may have updated or first time we see it)
         if (fp) {
           await db
             .update(usersTable)
@@ -60,33 +60,15 @@ router.post("/user/init", async (req, res) => {
             .where(eq(usersTable.uid, uid));
         }
       } else {
-        // Valid UUID but not in DB (cleared DB / migration) — restore with new insert
         uid = existingUid;
         await db.insert(usersTable).values({ uid, geoCity: city ?? null, fingerprint: fp });
       }
-    } else if (fp) {
-      // No UUID — try fingerprint cross-device lookup
-      const [byFp] = await db
-        .select({ uid: usersTable.uid })
-        .from(usersTable)
-        .where(eq(usersTable.fingerprint, fp))
-        .limit(1);
-
-      if (byFp) {
-        // Fingerprint matched an existing user → restore that identity cross-device
-        uid = byFp.uid;
-      } else {
-        // Completely new visitor — mint a fresh UUID
-        uid = randomUUID();
-        await db.insert(usersTable).values({ uid, geoCity: city ?? null, fingerprint: fp });
-      }
     } else {
-      // No UUID, no fingerprint — mint a fresh UUID
+      // Fingerprint-only lookup removed for security. Mint a fresh UID.
       uid = randomUUID();
-      await db.insert(usersTable).values({ uid, geoCity: city ?? null });
+      await db.insert(usersTable).values({ uid, geoCity: city ?? null, fingerprint: fp });
     }
 
-    // Record this session
     await db.insert(userSessionsTable).values({ uid, userAgent: ua, city: city ?? null });
 
     res.json({ uid });
@@ -97,14 +79,11 @@ router.post("/user/init", async (req, res) => {
 });
 
 // GET /api/user/profile?uid=xxx
-router.get("/user/profile", async (req, res) => {
-  try {
-    const uid = req.query["uid"];
-    if (!isValidUuid(uid)) {
-      res.status(400).json({ error: "invalid uid" });
-      return;
-    }
+router.get("/user/profile", async (req: AuthenticatedRequest, res) => {
+  const uid = req.uid;
+  if (!uid) { res.status(401).json({ error: "unauthorized" }); return; }
 
+  try {
     const [profile] = await db
       .select()
       .from(usersTable)
@@ -136,23 +115,18 @@ router.get("/user/profile", async (req, res) => {
 });
 
 // POST /api/user/profile — partial upsert; only explicitly provided non-empty fields are written
-router.post("/user/profile", async (req, res) => {
+router.post("/user/profile", async (req: AuthenticatedRequest, res) => {
+  const uid = req.uid;
+  if (!uid) { res.status(401).json({ error: "unauthorized" }); return; }
+
   try {
-    const { uid, geoCity, wish, persona, discoveredRooms } = req.body as {
-      uid: string;
+    const { geoCity, wish, persona, discoveredRooms } = req.body as {
       geoCity?: string | null;
       wish?: string | null;
       persona?: string;
       discoveredRooms?: string[];
     };
 
-    if (!isValidUuid(uid)) {
-      res.status(400).json({ error: "invalid uid" });
-      return;
-    }
-
-    // Only include fields that were explicitly sent and are non-empty, so we never
-    // overwrite DB with blank defaults before hydration completes on the client.
     const updateFields: Partial<typeof usersTable.$inferInsert> = {};
     if (geoCity !== undefined && geoCity !== null) updateFields.geoCity = geoCity;
     if (wish !== undefined) updateFields.wish = wish ?? null;
@@ -182,20 +156,17 @@ router.post("/user/profile", async (req, res) => {
 });
 
 // POST /api/user/gamestate — upsert fear/curiosity/trustAI for a user
-router.post("/user/gamestate", async (req, res) => {
+router.post("/user/gamestate", async (req: AuthenticatedRequest, res) => {
+  const uid = req.uid;
+  if (!uid) { res.status(401).json({ error: "unauthorized" }); return; }
+
   try {
-    const { uid, fear, curiosity, trustAI, level } = req.body as {
-      uid: string;
+    const { fear, curiosity, trustAI, level } = req.body as {
       fear?: number;
       curiosity?: number;
       trustAI?: number;
       level?: number;
     };
-
-    if (!isValidUuid(uid)) {
-      res.status(400).json({ error: "invalid uid" });
-      return;
-    }
 
     const clamp = (v: number | undefined, min: number, max: number, def: number) =>
       typeof v === "number" && Number.isFinite(v) ? Math.max(min, Math.min(max, Math.round(v))) : def;
@@ -221,14 +192,16 @@ router.post("/user/gamestate", async (req, res) => {
 });
 
 // POST /api/user/chat — replaces stored chat history for this UID
-router.post("/user/chat", async (req, res) => {
+router.post("/user/chat", async (req: AuthenticatedRequest, res) => {
+  const uid = req.uid;
+  if (!uid) { res.status(401).json({ error: "unauthorized" }); return; }
+
   try {
-    const { uid, messages } = req.body as {
-      uid: string;
+    const { messages } = req.body as {
       messages: { role: string; content: string }[];
     };
 
-    if (!isValidUuid(uid) || !Array.isArray(messages)) {
+    if (!Array.isArray(messages)) {
       res.status(400).json({ error: "invalid" });
       return;
     }

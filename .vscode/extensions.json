@@ -4,6 +4,7 @@
         "phondani0.vite-serve",
         "vscjava.vscode-java-pack",
         "ms-edgedevtools.vscode-edge-devtools",
-        "redhat.java"
+        "redhat.java",
+        "openai.chatgpt"
     ]
 }

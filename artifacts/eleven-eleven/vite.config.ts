@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import path from 'path';
 
 export default defineConfig({
   root: '.',
@@ -10,10 +11,17 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    rollupOptions: {
+      input: path.resolve(__dirname, 'index.html'),
+    },
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'zustand'],
   },
   resolve: {
     alias: {
-      '@': new URL('src', import.meta.url),
+      '@': path.resolve(__dirname, 'src'),
     },
+    dedupe: ['react', 'react-dom'],
   },
 });

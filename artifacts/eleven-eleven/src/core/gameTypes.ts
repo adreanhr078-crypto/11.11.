@@ -1,10 +1,10 @@
 /**
  * gameTypes.ts — shared type definitions used by gameStore and core modules
- * Extracted to break circular dependencies between gameStore.ts and core systems.
+ * Updated v4.0: Now includes new puzzle system, Echo transformation, and story arcs
  */
 
-import type { StoryAct, StoryEntity } from './narrativeEngine';
 import type { MemoryShard } from './memoryShardsTypes';
+import type { EchoTransformationStage, StoryPhase, PuzzleEffects } from './puzzleTypes';
 
 // ─── Basic Types ─────────────────────────────────────────────────────
 export type TimePhase = 'morning' | 'day' | 'evening' | '11:00' | '11:05' | '11:11';
@@ -18,10 +18,16 @@ export type WishStatus = 'active' | 'completed' | 'failed';
 // ─── State Interfaces ────────────────────────────────────────────────
 export interface EchoState {
   trust: number; fear: number; memoryStability: number; corruption: number;
-  hope: number; loneliness: number; awareness: number;
+  hope: number; loneliness: number; awareness: number; isolation: number;
   mood: EchoMood; personalityTraits: string[];
   lastDialogue: string; dialogueHistory: string[];
   level: number; xp: number; xpMax: number;
+  
+  // New: Echo transformation system
+  transformationStage: EchoTransformationStage;
+  ragePoints: number;
+  forgivenessPoints: number;
+  xpMultiplier?: number;
 }
 
 export interface TimeState {
@@ -35,7 +41,12 @@ export interface PuzzleNode {
   status: PuzzleStatus; difficulty: number;
   storyReveal: string; memoryUnlock: string | null;
   dependencies: string[];
-  effects: { trust?: number; fear?: number; memoryStability?: number; corruption?: number; hope?: number; flower?: number; awareness?: number; };
+  effects: PuzzleEffects;
+  // New fields
+  act?: number;
+  phase?: StoryPhase;
+  hints?: string[];
+  puzzleType?: string;
 }
 
 export interface EntityState {
@@ -43,6 +54,7 @@ export interface EntityState {
   unlocked: boolean; completed: boolean;
   puzzlesSolved: number; totalPuzzles: number;
   dialogueProgress: number; loreUnlocked: string[];
+  emotionalState: number;
 }
 
 export interface FlowerState {
@@ -77,6 +89,9 @@ export interface EndingState {
   truth: { unlocked: boolean; progress: number; };
   dark: { unlocked: boolean; progress: number; };
   mystery: { unlocked: boolean; progress: number; };
+  // New endings
+  vengeance?: { unlocked: boolean; progress: number; };
+  redemption?: { unlocked: boolean; progress: number; };
 }
 
 export interface GameState {
@@ -112,5 +127,7 @@ export interface GameState {
     decrementFear: (amount?: number) => void;
     incrementCuriosity: (amount?: number) => void;
     setLevel: (level: number) => void;
+    // New action for transformation
+    updateTransformation?: (type: 'rage' | 'forgiveness', amount: number) => void;
   };
 }

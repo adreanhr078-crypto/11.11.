@@ -132,6 +132,21 @@ export function saveToLocal(data: SaveData): void {
 
 // ─── SERVER SYNC ─────────────────────────────────────────────────────────────
 
+import { auth } from "./lib/firebase/config";
+
+async function getAuthHeader(): Promise<Record<string, string>> {
+  try {
+    const user = auth.currentUser;
+    if (user) {
+      const token = await user.getIdToken();
+      return { Authorization: `Bearer ${token}` };
+    }
+  } catch {
+    // ignore auth errors
+  }
+  return {};
+}
+
 /**
  * Push solved puzzles and achievements to the server.
  * Silently fails — the local save is always authoritative.
@@ -139,11 +154,14 @@ export function saveToLocal(data: SaveData): void {
 export async function syncToServer(data: SaveData): Promise<void> {
   if (!data.uid || data.uid.length < 4) return;
   try {
+    const authHeaders = await getAuthHeader();
     await fetch("/api/arg/sync", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders,
+      },
       body: JSON.stringify({
-        uid: data.uid,
         solvedPuzzles: data.solvedPuzzles,
         unlockedAchievements: data.unlockedAchievements,
         gameState: data.gameState,
@@ -158,10 +176,15 @@ export async function syncToServer(data: SaveData): Promise<void> {
  */
 export async function pullFromServer(uid: string, local: SaveData): Promise<SaveData> {
   try {
+    const authHeaders = await getAuthHeader();
     const [argRes, profileRes] = await Promise.all([
-      fetch(`/api/arg?uid=${encodeURIComponent(uid)}`),
-      fetch(`/api/user/profile?uid=${encodeURIComponent(uid)}`),
-    ]);
+      fetch(`/api/arg`, {
+        headers: { ...authHeaders },
+      }),
+      fetch(`/api/user/profile`, {
+        headers: { ...authHeaders },
+      }),
+    ];
 
     let serverSolved: string[] = [];
     let serverAchievements: string[] = [];
@@ -177,7 +200,7 @@ export async function pullFromServer(uid: string, local: SaveData): Promise<Save
     }
 
     if (profileRes.ok) {
-      const pData = await profileRes.json() as {
+      const pData = await argRes.json() as {
         gameState?: { fear: number; curiosity: number; trustAI: number; level: number } | null;
       };
       if (pData.gameState) serverGameState = pData.gameState;

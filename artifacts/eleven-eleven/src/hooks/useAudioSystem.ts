@@ -27,18 +27,27 @@ export function useAudioSystem(phase: TimePhase, phaseIndex: number) {
       const gain = ctx.createGain();
       const filter = ctx.createBiquadFilter();
 
-      osc.type = phaseIndex >= 2 ? 'sawtooth' : phaseIndex === 1 ? 'triangle' : 'sine';
+      // في الليل: صوت هادئ جداً بدون ضوضاء أو تشويش
+      const isNight = phase === '11:00' || phase === '11:05' || phase === '11:11';
       
-      const frequencies: Record<string, number> = {
-        'morning': 220, 'day': 256, 'evening': 200,
-        '11:00': 180, '11:05': 150, '11:11': 110,
-      };
-      osc.frequency.value = frequencies[phase] || 220;
-
-      filter.type = phaseIndex >= 2 ? 'highpass' : 'lowpass';
-      filter.frequency.value = phaseIndex >= 2 ? 800 : 400;
-
-      gain.gain.value = 0.03;
+      if (isNight) {
+        // وضع الليل الهادئ: نغمة ناعمة بدون ضوضاء
+        osc.type = 'sine';
+        osc.frequency.value = 174; // نغمة هادئة منخفضة
+        filter.type = 'lowpass';
+        filter.frequency.value = 300; // قطع الترددات العالية
+        gain.gain.value = 0.015; // صوت منخفض جداً
+      } else {
+        // الوضع النهاري
+        osc.type = phaseIndex >= 2 ? 'sawtooth' : 'sine';
+        const frequencies: Record<string, number> = {
+          'morning': 220, 'day': 256, ' evening': 200,
+        };
+        osc.frequency.value = frequencies[phase] || 220;
+        filter.type = 'lowpass';
+        filter.frequency.value = 400;
+        gain.gain.value = 0.03;
+      }
 
       osc.connect(filter);
       filter.connect(gain);
@@ -47,11 +56,13 @@ export function useAudioSystem(phase: TimePhase, phaseIndex: number) {
 
       oscillatorRef.current = osc;
 
-      if (phaseIndex >= 2) {
+      // إيقاف الضوضاء العشوائية في الليل
+      if (!isNight && phaseIndex >= 2) {
         noiseIntervalRef.current = setInterval(() => {
           if (Math.random() > 0.7) {
-            osc.frequency.value = frequencies[phase] + Math.random() * 50;
-            setTimeout(() => { osc.frequency.value = frequencies[phase]; }, 200);
+            const baseFreq = isNight ? 174 : 150;
+            osc.frequency.value = baseFreq + Math.random() * 50;
+            setTimeout(() => { osc.frequency.value = baseFreq; }, 200);
           }
         }, 1000);
       }
@@ -63,7 +74,7 @@ export function useAudioSystem(phase: TimePhase, phaseIndex: number) {
         }
       };
     } catch {
-      // تجاهل أخطاء الصوت
+      return () => {};
     }
   }, [phase, phaseIndex]);
 

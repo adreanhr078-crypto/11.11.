@@ -176,3 +176,9 @@ export const useAuthStore = create<AuthState>()(
 useAuthStore.getState().actions.initializeAuth();
 
 export default useAuthStore;
+
+// Call this from a useEffect in App.jsx to initialize auth state lazily.
+// Keeping the eager init above for backward compatibility.
+export function initializeAuthStore() {
+  useAuthStore.getState().actions.initializeAuth();
+}

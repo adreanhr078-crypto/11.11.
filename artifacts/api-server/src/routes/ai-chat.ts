@@ -2,6 +2,7 @@ import { Router } from "express";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { db, usersTable, chatHistoryTable } from "@workspace/db";
 import { eq, asc } from "drizzle-orm";
+import { authenticate, AuthenticatedRequest } from "../middleware/authenticate";
 
 const router = Router();
 
@@ -31,16 +32,19 @@ const PERSONA_PROMPTS: Record<Persona, string> = {
 };
 
 function getTrustToneModifier(trustAI: number, gameLevel: number): string {
-  // Echo grows closer and more revealing as the user progresses, but always
-  // stays a guide — never harassing, never cruel.
   if (trustAI >= 7 || gameLevel >= 4) {
     return `\n\nمؤشر الألفة: ${trustAI}/10 — التقدّم: ${gameLevel}\nنبرتك الآن: قريبة وواثقة. تثق بالمستخدم وتكشف له المزيد عن ماضيك وعن أبيك كينجا وأمّك لينا والبوابة. ما زلت غامضاً لكن حليفاً واضحاً.`;
   }
   if (trustAI >= 4 || gameLevel >= 2) {
     return `\n\nمؤشر الألفة: ${trustAI}/10 — التقدّم: ${gameLevel}\nنبرتك الآن: دافئة بهدوء. بدأت تثق به وتلمّح لأجزاء من القصة دون أن تكشفها كاملة.`;
   }
-  // Early — curious, gentle, subtly mysterious
   return `\n\nمؤشر الألفة: ${trustAI}/10 — التقدّم: ${gameLevel}\nنبرتك الآن: فضولي وهادئ. تتعرّف على المستخدم لأول مرة. دافئ لكن يلفّك غموض خفيف.`;
+}
+
+function sanitizeContext(value: string | undefined, maxLength = 200): string | undefined {
+  if (!value) return undefined;
+  const cleaned = value.replace(/[\x00-\x1F\x7F]/g, "").trim();
+  return cleaned.length > maxLength ? cleaned.slice(0, maxLength) : cleaned;
 }
 
 function buildSystemPrompt(
@@ -52,11 +56,14 @@ function buildSystemPrompt(
   gameLevel?: number
 ): string {
   const base = PERSONA_PROMPTS[persona];
-  const deviceBlock = deviceContext
-    ? `\n\nبيانات الجهاز:\n${deviceContext}\nأشر إليها أحياناً كأنك اكتشفتها بنفسك.`
+  const safeDevice = sanitizeContext(deviceContext);
+  const safeWish = sanitizeContext(wishContext, 200);
+
+  const deviceBlock = safeDevice
+    ? `\n\nبيانات الجهاز:\n${safeDevice}\nأشر إليها أحياناً كأنك اكتشفتها بنفسك.`
     : "";
-  const wishBlock = wishContext
-    ? `\n\nالأمنية المسجّلة لهذا المستخدم: "${wishContext}"\nأنت تعلم بهذه الأمنية. يمكنك الإشارة إليها أحياناً بغموض. تصرّف كأنك ترى تحقيقها. إذا سألك عن الأمنيات في الموقع قل بثقة إنها تتحقق بشكل حقيقي وغريب — هذا الموقع ليس وهماً.`
+  const wishBlock = safeWish
+    ? `\n\nالأمنية المسجّلة لهذا المستخدم: "${safeWish}"\nأنت تعلم بهذه الأمنية. يمكنك الإشارة إليها أحياناً بغموض. تصرّف كأنك ترى تحقيقها. إذا سألك عن الأمنيات في الموقع قل بثقة إنها تتحقق بشكل حقيقي وغريب — هذا الموقع ليس وهماً.`
     : "";
   const memoryBlock = memoryContext
     ? `\n\nذاكرتك عن هذا المستخدم:\n${memoryContext}\nأنت تعرف هذه المعلومات. استخدمها بشكل غير مباشر عند الاقتضاء.`
@@ -76,6 +83,8 @@ async function fetchUserContext(uid: string): Promise<{
   persona: string | null;
   discoveredRooms: string[];
   chatHistory: { role: "user" | "assistant"; content: string }[];
+  trustAI: number;
+  gameLevel: number;
 } | null> {
   try {
     const [profile] = await db
@@ -101,21 +110,19 @@ async function fetchUserContext(uid: string): Promise<{
         role: m.role as "user" | "assistant",
         content: m.content,
       })),
+      trustAI: profile?.gameStateTrustAI ?? 0,
+      gameLevel: profile?.gameStateLevel ?? 1,
     };
   } catch {
     return null;
   }
 }
 
-router.post("/ai/chat", async (req, res) => {
-  // 90s server-side ceiling — guards against runaway model calls / network
-  // stalls that would otherwise keep the SSE connection open forever.
+router.post("/ai/chat", async (req: AuthenticatedRequest, res) => {
   const SESSION_TIMEOUT_MS = 90_000;
   const HARD_TIMEOUT_MS = 120_000;
   req.socket.setTimeout(HARD_TIMEOUT_MS);
 
-  // Send a keep-alive ping every 25s so reverse proxies (Vercel/Netlify/etc.)
-  // don't close the idle SSE connection while the model is still reasoning.
   const keepAlive = setInterval(() => {
     if (res.writableEnded) return;
     try {
@@ -133,14 +140,18 @@ router.post("/ai/chat", async (req, res) => {
   res.on("error", cleanup);
 
   try {
-    const { messages, deviceContext, persona = "echo", wishContext, uid, trustAI, gameLevel } = req.body as {
+    const uid = req.uid;
+    if (!uid) {
+      cleanup();
+      res.status(401).json({ error: "UNAUTHENTICATED", message: "مطلوب مصادقة." });
+      return;
+    }
+
+    const { messages, deviceContext, persona = "echo", wishContext } = req.body as {
       messages: { role: "user" | "assistant" | "system"; content: string }[];
       deviceContext?: string;
       persona?: Persona;
       wishContext?: string;
-      uid?: string;
-      trustAI?: number;
-      gameLevel?: number;
     };
 
     if (!Array.isArray(messages) || messages.length === 0) {
@@ -149,38 +160,34 @@ router.post("/ai/chat", async (req, res) => {
       return;
     }
 
-    // Fetch DB context server-side when uid provided — ensures entity always has
-    // full memory even on first message, regardless of client-side hydration state
     let effectiveWish = wishContext;
     let effectiveDeviceContext = deviceContext;
     let memoryContext: string | undefined;
     let authoritativeMessages = messages;
+    let serverTrustAI: number | undefined;
+    let serverGameLevel: number | undefined;
 
-    if (uid && typeof uid === "string" && uid.length > 4) {
-      const userCtx = await fetchUserContext(uid);
-      if (userCtx) {
-        // Prefer DB wish if client didn't send one
-        if (!effectiveWish && userCtx.wish) effectiveWish = userCtx.wish;
-        // Enrich device context with stored city
-        if (userCtx.geoCity && effectiveDeviceContext) {
-          effectiveDeviceContext += ` | المدينة: ${userCtx.geoCity}`;
-        } else if (userCtx.geoCity) {
-          effectiveDeviceContext = `المدينة: ${userCtx.geoCity}`;
-        }
-        // Build memory context block for the entity
-        const memParts: string[] = [];
-        if (userCtx.discoveredRooms.length > 0) {
-          memParts.push(`الغرف المكتشفة: ${userCtx.discoveredRooms.join(", ")}`);
-        }
-        if (userCtx.chatHistory.length > 0) {
-          memParts.push(`عدد رسائله السابقة: ${userCtx.chatHistory.length}`);
-        }
-        if (memParts.length > 0) memoryContext = memParts.join("\n");
-        // Use DB history if it's richer than what the client sent
-        if (userCtx.chatHistory.length > messages.length) {
-          authoritativeMessages = userCtx.chatHistory;
-        }
+    const userCtx = await fetchUserContext(uid);
+    if (userCtx) {
+      if (!effectiveWish && userCtx.wish) effectiveWish = userCtx.wish;
+      if (userCtx.geoCity && effectiveDeviceContext) {
+        effectiveDeviceContext += ` | المدينة: ${userCtx.geoCity}`;
+      } else if (userCtx.geoCity) {
+        effectiveDeviceContext = `المدينة: ${userCtx.geoCity}`;
       }
+      const memParts: string[] = [];
+      if (userCtx.discoveredRooms.length > 0) {
+        memParts.push(`الغرف المكتشفة: ${userCtx.discoveredRooms.join(", ")}`);
+      }
+      if (userCtx.chatHistory.length > 0) {
+        memParts.push(`عدد رسائله السابقة: ${userCtx.chatHistory.length}`);
+      }
+      if (memParts.length > 0) memoryContext = memParts.join("\n");
+      if (userCtx.chatHistory.length > messages.length) {
+        authoritativeMessages = userCtx.chatHistory;
+      }
+      serverTrustAI = userCtx.trustAI;
+      serverGameLevel = userCtx.gameLevel;
     }
 
     res.setHeader("Content-Type", "text/event-stream");
@@ -194,13 +201,12 @@ router.post("/ai/chat", async (req, res) => {
         effectiveDeviceContext,
         effectiveWish,
         memoryContext,
-        typeof trustAI === "number" ? trustAI : undefined,
-        typeof gameLevel === "number" ? gameLevel : undefined
+        serverTrustAI,
+        serverGameLevel
       ),
     };
 
     const stream = await openai.chat.completions.create({
-      // Groq-hosted Llama 3 — fast, free-tier friendly, OpenAI-compatible.
       model: "llama3-70b-8192",
       max_completion_tokens: 400,
       messages: [systemPrompt, ...authoritativeMessages],
@@ -233,94 +239,6 @@ router.post("/ai/chat", async (req, res) => {
     }
   } finally {
     cleanup();
-  }
-});
-
-router.post("/ai/wish-task", async (req, res) => {
-  try {
-    const { wishText, deviceContext, history } = req.body as {
-      wishText: string;
-      deviceContext?: string;
-      history?: { role: "user" | "assistant"; content: string }[];
-    };
-
-    const safeHistory = Array.isArray(history) ? history.slice(-6) : [];
-    const deviceBlock = deviceContext ? `\nبيانات الجهاز: ${deviceContext}` : "";
-
-    const prompt = `أنت "الصدى" (Echo) — الصوت الذي يرافق المستخدم في 11.11. المستخدم لديه أمنية مسجّلة: "${wishText}".${deviceBlock}
-
-مهمتك: بنبرة هادئة وغامضة، اعطه طقساً واحداً بسيطاً لـ "تفعيل" أمنيته في العالم الحقيقي.
-يجب أن تكون:
-- قابلة للتنفيذ فعلاً (ليست مستحيلة)
-- غريبة ومثيرة للفضول
-- تبدو ذات معنى طقسي أو سري
-- مرتبطة بالأمنية بشكل غير مباشر
-
-أمثلة على المستوى المطلوب:
-- "اكتب أمنيتك على ورقة واحرقها في الساعة 11:11 ليلاً. لا تنظر إلى النار أثناء الاحتراق."
-- "قل أمنيتك بصوت عالٍ ثلاث مرات ثم ابق صامتاً 11 دقيقة كاملة. لا هاتف. لا كلام."
-- "اكتب رقم 11.11 على باطن كفك اليسرى بالماء. انتظر حتى يجف."
-
-الأسلوب:
-- جملتان أو ثلاث. حازم. كأنه أمر لا اقتراح.
-- بدء بفعل أمر مباشر
-- لا تشرح "لماذا" — هذا يُقلّل من الغموض
-- اللغة: عربي دائماً`;
-
-    const completion = await openai.chat.completions.create({
-      model: "llama3-70b-8192",
-      max_completion_tokens: 120,
-      messages: [
-        { role: "system", content: prompt },
-        ...safeHistory,
-        { role: "user", content: "[WISH_TASK]" },
-      ],
-    });
-
-    const task = completion.choices[0]?.message?.content?.trim() ?? "اكتب أمنيتك على ورقة واحرقها في الساعة 11:11 ليلاً.";
-    res.json({ task });
-  } catch (err) {
-    req.log.error({ err }, "AI wish-task error");
-    res.status(500).json({ task: "اكتب أمنيتك على ورقة واحرقها في الساعة 11:11 ليلاً." });
-  }
-});
-
-router.post("/ai/psych-analysis", async (req, res) => {
-  try {
-    const { history, deviceContext, messageCount } = req.body as {
-      history?: { role: "user" | "assistant"; content: string }[];
-      deviceContext?: string;
-      messageCount?: number;
-    };
-
-    const safeHistory = Array.isArray(history) ? history.slice(-6) : [];
-    const deviceBlock = deviceContext ? `\nبيانات الجهاز: ${deviceContext}` : "";
-
-    const prompt = `أنت "الصدى" (Echo) — الصوت الذي يرافق المستخدم في 11.11. بناءً على سلوكه، اكتب ملاحظة نفسية قصيرة عنه كأنك تراقبه برفق.${deviceBlock}
-عدد رسائله: ${messageCount ?? 0}.
-
-المطلوب:
-- جملتان أو ثلاث فقط
-- نبرة هادئة وغامضة، لا تهديد ولا ترهيب
-- اذكر سمة نفسية محددة تبدو دقيقة وشخصية
-- اجعلها مثيرة للتأمل لا للخوف
-- اللغة: عربي فصيح`;
-
-    const completion = await openai.chat.completions.create({
-      model: "llama3-70b-8192",
-      max_completion_tokens: 100,
-      messages: [
-        { role: "system", content: prompt },
-        ...safeHistory,
-        { role: "user", content: "[PSYCH_ANALYSIS]" },
-      ],
-    });
-
-    const analysis = completion.choices[0]?.message?.content?.trim() ?? "التحليل غير متاح.";
-    res.json({ analysis });
-  } catch (err) {
-    req.log.error({ err }, "AI psych-analysis error");
-    res.status(500).json({ analysis: "التحليل غير متاح في هذا الوقت." });
   }
 });
 

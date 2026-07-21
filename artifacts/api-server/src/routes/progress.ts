@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { Router } from "express";
 import { db, usersTable, userSessionsTable } from "@workspace/db";
 import { eq, count } from "drizzle-orm";
+import { authenticate, AuthenticatedRequest } from "../middleware/authenticate";
 
 const router = Router();
 
@@ -25,10 +26,10 @@ function isValidUuid(s: unknown): s is string {
   return typeof s === "string" && UUID_RE.test(s);
 }
 
-// GET /api/progress?uid=xxx
-router.get("/progress", async (req, res) => {
-  const uid = req.query["uid"];
-  if (!isValidUuid(uid)) { res.status(400).json({ error: "invalid uid" }); return; }
+// GET /api/progress — fetch current level
+router.get("/progress", async (req: AuthenticatedRequest, res) => {
+  const uid = req.uid;
+  if (!uid) { res.status(401).json({ error: "unauthorized" }); return; }
 
   try {
     const [row] = await db
@@ -47,13 +48,12 @@ router.get("/progress", async (req, res) => {
   }
 });
 
-// GET /api/progress/challenge?uid=xxx — issue a Level 4 timed challenge token
-router.get("/progress/challenge", async (req, res) => {
-  const uid = req.query["uid"];
-  if (!isValidUuid(uid)) { res.status(400).json({ error: "invalid uid" }); return; }
+// GET /api/progress/challenge — issue a Level 4 timed challenge token
+router.get("/progress/challenge", async (req: AuthenticatedRequest, res) => {
+  const uid = req.uid;
+  if (!uid) { res.status(401).json({ error: "unauthorized" }); return; }
 
   try {
-    // Verify user is actually at level 4
     const [row] = await db
       .select({ currentLevel: usersTable.currentLevel })
       .from(usersTable)
@@ -74,21 +74,22 @@ router.get("/progress/challenge", async (req, res) => {
 });
 
 // POST /api/progress/advance — validate level condition and bump level
-router.post("/progress/advance", async (req, res) => {
-  const { uid, level, answer, token } = req.body as {
-    uid: string;
+router.post("/progress/advance", async (req: AuthenticatedRequest, res) => {
+  const uid = req.uid;
+  if (!uid) { res.status(401).json({ error: "unauthorized" }); return; }
+
+  const { level, answer, token } = req.body as {
     level: number;
     answer?: string;
     token?: string;
   };
 
-  if (!isValidUuid(uid) || !Number.isInteger(level) || level < 1 || level > 5) {
+  if (!Number.isInteger(level) || level < 1 || level > 5) {
     res.status(400).json({ error: "invalid params" });
     return;
   }
 
   try {
-    // Verify current level in DB matches what client says
     const [row] = await db
       .select({ currentLevel: usersTable.currentLevel, levelUnlockedAt: usersTable.levelUnlockedAt })
       .from(usersTable)
@@ -115,7 +116,6 @@ router.post("/progress/advance", async (req, res) => {
         break;
       }
       case 3: {
-        // Check if user has >= 2 sessions recorded (been back at least once)
         const [sessionCount] = await db
           .select({ count: count() })
           .from(userSessionsTable)
@@ -152,7 +152,6 @@ router.post("/progress/advance", async (req, res) => {
     const newLevel = level + 1;
     const isCompleted = newLevel > 5;
 
-    // Update levelUnlockedAt JSON: add timestamp for the level just completed
     let unlocked: Record<string, string> = {};
     try { unlocked = JSON.parse(row.levelUnlockedAt ?? "{}") as Record<string, string>; } catch { /* ignore */ }
     unlocked[String(level)] = new Date().toISOString();

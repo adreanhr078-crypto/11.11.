@@ -101,4 +101,44 @@ const Bar: React.FC<{label:string;val:number;c:string}> = ({label,val,c}) => (
   </div>
 );
 
+// ─── ResetConfirmModal ──────────────────────────────────────────────────────
+export const ResetConfirmModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const actions = useGameStore(s => s.actions);
+
+  const handleReset = () => {
+    actions.resetGame();
+    onClose();
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      background: 'rgba(0,0,0,0.7)', zIndex: 10000,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      direction: 'rtl'
+    }}>
+      <div style={{
+        background: '#1A1515', border: '1px solid rgba(200,80,80,0.3)',
+        borderRadius: '8px', padding: '1.5rem', maxWidth: '350px',
+        textAlign: 'center'
+      }}>
+        <h3 style={{ color: '#FF6B6B', margin: '0 0 0.5rem' }}>⚠ إعادة تعيين التقدم</h3>
+        <p style={{ color: 'rgba(224,220,212,0.7)', fontSize: '0.8rem', margin: '0 0 1rem' }}>
+          هل أنت متأكد؟ سيتم حذف جميع البيانات ولن يمكن استعادتها!
+        </p>
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+          <button onClick={onClose}
+            style={{ padding: '0.5rem 1rem', background: 'rgba(180,120,80,0.2)', border: '1px solid rgba(180,120,80,0.3)', color: 'var(--accent)', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem' }}>
+            إلغاء
+          </button>
+          <button onClick={handleReset}
+            style={{ padding: '0.5rem 1rem', background: 'rgba(180,50,50,0.3)', border: '1px solid rgba(180,50,50,0.5)', color: '#FF6B6B', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem' }}>
+            🔄 نعم، إعادة تعيين
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default EndingPanel;

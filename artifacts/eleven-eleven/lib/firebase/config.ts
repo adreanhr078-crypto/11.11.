@@ -1,22 +1,32 @@
 /**
  * Firebase Configuration for 11.11 Echo Mind System
  * Production-ready Firebase setup with all required providers
+ *
+ * IMPORTANT: All values MUST be provided via Vite environment variables
+ * prefixed with VITE_. Never hardcode secrets in source control.
  */
 
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, FacebookAuthProvider, OAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-// Firebase configuration - REPLACE WITH YOUR ACTUAL CONFIG
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
-  measurementId: "YOUR_MEASUREMENT_ID"
+  apiKey: process.env.VITE_FIREBASE_API_KEY ?? "",
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN ?? "",
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID ?? "",
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET ?? "",
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID ?? "",
+  appId: process.env.VITE_FIREBASE_APP_ID ?? "",
+  measurementId: process.env.VITE_FIREBASE_MEASUREMENT_ID ?? "",
 };
+
+const missing = Object.entries(firebaseConfig)
+  .filter(([, v]) => !v)
+  .map(([k]) => k);
+
+if (missing.length > 0) {
+  console.warn(`Firebase config missing env vars: ${missing.join(", ")}. Client-side Firebase will not function correctly.`);
+}
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);

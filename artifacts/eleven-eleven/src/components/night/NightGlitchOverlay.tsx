@@ -4,7 +4,7 @@
  * تزداد حدة التأثيرات مع زيادة instabilityLevel
  */
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import type { AppTheme } from "../../themes/appTheme";
 
 interface GlitchOverlayProps {

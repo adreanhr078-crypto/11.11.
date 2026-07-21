@@ -16,7 +16,7 @@ import './styles/backgrounds.css';
 import './styles/EchoPortrait.css';
 import './styles/night-dashboard.css';
 
-// الأقسام الـ 10 الكاملة
+// الأقسام الأساسية
 import { DashboardHome } from './components/sections/DashboardHome';
 import { DaySection } from './components/sections/DaySection';
 import { WishesSection } from './components/sections/WishesSection';
@@ -24,20 +24,33 @@ import { AchievementsSection } from './components/sections/AchievementsSection';
 import { NightTransformation } from './components/sections/NightTransformation';
 import { OverviewSection } from './components/sections/OverviewSection';
 import { EndingPanel } from './components/sections/EndingPanel';
-import { TimelineSection } from './components/sections/TimelineSection';
-import { NightAlert, CinematicMode } from './components/effects/CinematicMode';
+import { EndingResultScreen } from './components/sections/EndingResultScreen';
+import { FinalChoiceSystem } from './components/sections/FinalChoiceSystem';
+import { CinematicMode } from './components/effects/CinematicMode';
 import { AnimationSystem } from './components/effects/AnimationSystem';
 import { useAudioSystem } from './hooks/useAudioSystem';
-import { VideoMemorySystem } from './components/video/VideoMemorySystem';
-import { toggleLanguage, translate } from './core/echoMultilingualSystem';
-import { useTheme } from './hooks/useTheme';
+import { toggleLanguage } from './core/echoMultilingualSystem';
+import { getNarrativeEngine } from './core/narrativeEngine';
+import { AchievementToast } from './components/AchievementToast';
+import { ResetConfirmModal } from './components/sections/EndingPanel';
 
 export default function App() {
+  // تهيئة محرك السرد بعد تحميل React
+  useEffect(() => {
+    getNarrativeEngine().initialize();
+  }, []);
+
   const actions = useGameStore(s => s.actions);
   const time = useGameStore(s => s.time);
-  const theme = useTheme();
+  const solvedPuzzles = useGameStore(s => s.solvedPuzzles);
+  const totalPuzzles = useGameStore(s => s.totalPuzzles);
+  const finalChoice = useGameStore(s => s.finalChoice);
+  const achievedEnding = useGameStore(s => s.achievedEnding);
   const [activeSection, setActiveSection] = useState<SectionId>('dashboard');
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showCinematic, setShowCinematic] = useState(false);
+  const [showEndingResult, setShowEndingResult] = useState(false);
+  const direction = document.documentElement.lang === 'ar' ? 'rtl' : 'ltr';
 
   // دورة الوقت
   useEffect(() => {
@@ -53,7 +66,15 @@ export default function App() {
       const timer = setTimeout(() => setShowCinematic(false), 8000);
       return () => clearTimeout(timer);
     }
+    return;
   }, [time.phaseIndex, time.hour, time.minute]);
+
+  // Show ending result when achieved
+  useEffect(() => {
+    if (achievedEnding || finalChoice) {
+      setShowEndingResult(true);
+    }
+  }, [achievedEnding, finalChoice]);
 
   // النظام الصوتي
   useAudioSystem(time.phase, time.phaseIndex);
@@ -75,15 +96,19 @@ export default function App() {
     }
   };
 
+  // شريط التقدم العام
+  const overallProgress = totalPuzzles > 0 ? Math.round((solvedPuzzles / totalPuzzles) * 100) : 0;
+
   return (
-    <div id="app" className={`app-root ${time.isNight ? 'night-active' : 'day-dashboard'}`} dir="rtl">
+    <div id="app" className={`app-root ${time.isNight ? 'night-active' : 'day-dashboard'}`} dir={direction}>
       {showCinematic && <CinematicMode onEnd={() => setShowCinematic(false)} />}
       <AnimationSystem />
-      <VideoMemorySystem />
-      <NightAlert phaseIndex={time.phaseIndex} phase={time.phase} />
-      
+      <AchievementToast />
+      {showEndingResult && <EndingResultScreen />}
+      {solvedPuzzles >= 1000 && !finalChoice && <FinalChoiceSystem />}
+
       <GameSidebar activeSection={activeSection} onNavigate={setActiveSection} />
-      
+
       <main className="main-content">
         <header className="topbar">
           <div className="topbar-right">
@@ -91,30 +116,35 @@ export default function App() {
               <span className="brand-11">11.11</span>
               <span className="brand-time">
                 {time.isNight ? '🌙' : '☀️'} {time.phase}
-                {time.phaseIndex >= 1 && ` ⚠ مرحله ${time.phaseIndex}/3`}
               </span>
             </h2>
+          </div>
+          <div className="topbar-center">
+            <div className="progress-bar-mini">
+              <div className="progress-bar-fill" style={{ width: `${overallProgress}%` }} />
+            </div>
+            <span className="progress-text">{overallProgress}%</span>
           </div>
           <div className="topbar-left">
             <button
               onClick={() => toggleLanguage()}
-              style={{
-                padding: '0.4rem 0.8rem',
-                background: 'rgba(180,120,80,0.2)',
-                border: '1px solid rgba(180,120,80,0.3)',
-                color: 'var(--accent)',
-                fontSize: '0.6rem',
-                cursor: 'pointer',
-                borderRadius: '4px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.3rem'
-              }}
+              className="lang-toggle-btn"
             >
-              {document.documentElement.lang === 'ar' ? '🇬🇧 English' : '🇸🇦 العربية'}
+              {document.documentElement.lang === 'ar' ? 'EN' : 'عر'}
+            </button>
+            <button
+              onClick={() => setShowResetConfirm(true)}
+              className="reset-btn-topbar"
+              title="إعادة تعيين التقدم"
+            >
+              ↺
             </button>
           </div>
         </header>
+
+        {showResetConfirm && (
+          <ResetConfirmModal onClose={() => setShowResetConfirm(false)} />
+        )}
 
         <div className="content-area">
           {renderSection()}
@@ -122,7 +152,7 @@ export default function App() {
 
         <footer className="footer">
           <p className="footer-meta">
-            11.11 — رحلة عاطفية تفاعلية · {time.dayCycle} يوم
+            11.11 — رحلة عاطفية تفاعلية
           </p>
         </footer>
       </main>

@@ -6,6 +6,7 @@
  */
 
 import { generateLocalResponse } from "./localAiChat";
+import { auth } from "./lib/firebase/config";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare const import_meta_env: any;
@@ -26,16 +27,19 @@ export interface EchoStreamOptions {
   temperature?: number;
 }
 
-/**
- * Stream a chat completion — tries server API first, falls back to local AI
- *
- * @param messages   - Full conversation history
- * @param onChunk    - Called with each text delta from the model
- * @param onDone     - Called once the stream finishes successfully
- * @param onError    - Called with a localized Arabic error message
- * @param deviceContext / wishContext / trustAI / gameLevel - Echo persona knobs
- * @returns          AbortController so the caller can cancel
- */
+async function getAuthHeader(): Promise<Record<string, string>> {
+  try {
+    const user = auth.currentUser;
+    if (user) {
+      const token = await user.getIdToken();
+      return { Authorization: `Bearer ${token}` };
+    }
+  } catch {
+    // ignore auth errors — fall back to unauthenticated request
+  }
+  return {};
+}
+
 export function streamEcho(
   messages: EchoMessage[],
   onChunk: (text: string) => void,
@@ -50,7 +54,7 @@ export function streamEcho(
   const controller = new AbortController();
   const { signal } = controller;
 
-  const FIRST_BYTE_TIMEOUT_MS = 8_000; // shorter timeout for fast fallback
+  const FIRST_BYTE_TIMEOUT_MS = 8_000;
   const STALL_TIMEOUT_MS = 20_000;
 
   let firstByteTimer: ReturnType<typeof setTimeout> | null = null;
@@ -70,9 +74,13 @@ export function streamEcho(
     let usedLocalFallback = false;
 
     try {
+      const authHeaders = await getAuthHeader();
       const res = await fetch("/api/ai/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
         body: JSON.stringify({
           messages,
           deviceContext,
@@ -134,7 +142,6 @@ export function streamEcho(
       const e = err as { name?: string; message?: string };
       
       // ─── FALLBACK TO LOCAL AI ENGINE ───────────────────────────
-      // إذا فشل الاتصال بالخادم، استخدم المحرك المحلي
       const lastUserMessage = messages.filter(m => m.role === "user").pop()?.content || "";
       
       if (lastUserMessage) {
@@ -143,7 +150,6 @@ export function streamEcho(
           messages.map(m => ({ role: m.role, content: m.content }))
         );
         
-        // محاكاة الـ streaming بالتأخير
         usedLocalFallback = true;
         const chars = localResponse.text.split("");
         let i = 0;
@@ -155,17 +161,10 @@ export function streamEcho(
           } else {
             clearInterval(streamInterval);
             onDone();
-            // تنفيذ الإجراء المصاحب إن وجد
-            if (localResponse.action === "glitch") {
-              try { 
-                const event = new CustomEvent("echo-local-action", { detail: { action: "glitch" } });
-                window.dispatchEvent(event);
-              } catch { /* */ }
-            }
+            // No local side-effects/events for chime/none actions in peaceful night mode
           }
-        }, 15); // سرعة كتابة 15ms لكل 3 أحرف
+        }, 15);
         
-        // تأكد من تنظيف الـ interval إذا تم إلغاء الطلب
         signal?.addEventListener("abort", () => {
           clearInterval(streamInterval);
         });
@@ -183,7 +182,6 @@ export function streamEcho(
         return;
       }
       if (e?.message?.includes("Failed to fetch") || e?.message?.includes("NetworkError") || e?.message === "NO_BODY") {
-        // This will be handled by the fallback above if we have a user message
         if (!lastUserMessage) {
           onError("لا يوجد اتصال. الرجاء المحاولة لاحقاً.");
         }

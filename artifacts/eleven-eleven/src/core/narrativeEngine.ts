@@ -243,12 +243,18 @@ export class NarrativeEngine {
       'signal': 'lina_memory',
       'architect': 'kenja_core'
     };
+    const reverseEntityMap: Record<StoryEntity, EntityId> = {
+      'echo_main': 'echo',
+      'watcher_antagonist': 'watcher',
+      'lina_memory': 'signal',
+      'kenja_core': 'architect'
+    };
 
     const storyEntity = entity in entityMap ? entityMap[entity as EntityId] : 'echo_main';
     const currentState = this.state;
 
     // Update entity progress
-    const entityProgress = currentState.entities[storyEntity] || {
+    const entityProgress = currentState.entities[reverseEntityMap[storyEntity]] || {
       unlocked: true,
       puzzlesSolved: 0,
       emotionalState: 0,
@@ -276,7 +282,7 @@ export class NarrativeEngine {
       },
       entities: {
         ...currentState.entities,
-        [storyEntity]: {
+        [reverseEntityMap[storyEntity]]: {
           ...entityProgress,
           puzzlesSolved: entityProgress.puzzlesSolved + 1,
           emotionalState: Math.min(100, Math.max(-100, entityProgress.emotionalState + (emotionalChanges[storyEntity] || 0)))
@@ -397,13 +403,15 @@ export class NarrativeEngine {
   // Get story entity data
   public getEntityData(entity: StoryEntity) {
     const act = this.getCurrentAct();
-    return COMPLETE_STORY[`act${act.split('_')[0]}`]?.entities[entity] || null;
+    const actKey = `act${act.split('_')[0]}` as keyof typeof COMPLETE_STORY;
+    return COMPLETE_STORY[actKey]?.entities[entity] || null;
   }
 
   // Get current story theme
   public getCurrentTheme() {
     const act = this.getCurrentAct();
-    return COMPLETE_STORY[`act${act.split('_')[0]}`]?.uiTheme || COMPLETE_STORY.act1.uiTheme;
+    const actKey = `act${act.split('_')[0]}` as keyof typeof COMPLETE_STORY;
+    return COMPLETE_STORY[actKey]?.uiTheme || COMPLETE_STORY.act1.uiTheme;
   }
 
   // Check ending conditions
@@ -411,6 +419,12 @@ export class NarrativeEngine {
     const state = this.state;
     const possibleEndings: StoryEnding[] = ['freedom', 'kenja_control', 'lina_memory', 'true_secret'];
     const unlockedEndings: StoryEnding[] = [];
+    const reverseEntityMap: Record<StoryEntity, EntityId> = {
+      'echo_main': 'echo',
+      'watcher_antagonist': 'watcher',
+      'lina_memory': 'signal',
+      'kenja_core': 'architect'
+    };
 
     // Check each ending's requirements
     possibleEndings.forEach(ending => {
@@ -418,14 +432,16 @@ export class NarrativeEngine {
       const isUnlocked = requirements.every(req => {
         switch (req.type) {
           case 'puzzles':
-            return state.solvedPuzzles >= req.value;
+            return state.solvedPuzzles >= Number(req.value);
           case 'trust':
-            return state.echo.trust >= req.value;
+            return state.echo.trust >= Number(req.value);
           case 'memory':
-            return state.memory.fragmentsCollected >= req.value;
-          case 'entity':
-            const entity = state.entities[req.entity as StoryEntity];
-            return entity?.puzzlesSolved >= req.value;
+            return state.memory.fragmentsCollected >= Number(req.value);
+          case 'entity': {
+            const entityId = reverseEntityMap[req.entity as StoryEntity];
+            const entity = entityId ? state.entities[entityId] : undefined;
+            return (entity?.puzzlesSolved || 0) >= Number(req.value);
+          }
           case 'act':
             return this.getCurrentAct() === req.value;
           default:

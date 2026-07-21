@@ -3,6 +3,7 @@ import webpush from "web-push";
 import { db, pushSubscriptionsTable, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
+import { authenticate, AuthenticatedRequest } from "../middleware/authenticate";
 
 const router = Router();
 
@@ -17,18 +18,15 @@ if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
 }
 
 // POST /api/push/subscribe — save a Web Push or Expo push subscription
-// Web format:  { uid, subscription: { endpoint, keys: { p256dh, auth } } }
-// Expo format: { uid, token_type: "expo", endpoint: "ExponentPushToken[xxx]" }
-router.post("/push/subscribe", async (req, res) => {
+router.post("/push/subscribe", async (req: AuthenticatedRequest, res) => {
+  const uid = req.uid ?? "anonymous";
+
   try {
     const body = req.body as {
-      uid?: string;
       token_type?: string;
       endpoint?: string;
       subscription?: { endpoint: string; keys: { p256dh: string; auth: string } };
     };
-
-    const uid = body.uid ?? "anonymous";
 
     // Expo push token (direct endpoint + token_type)
     if (body.token_type === "expo" && body.endpoint) {
@@ -72,7 +70,7 @@ router.post("/push/subscribe", async (req, res) => {
 });
 
 // DELETE /api/push/subscribe — opt-out, remove this subscription entirely
-router.delete("/push/subscribe", async (req, res) => {
+router.delete("/push/subscribe", async (req: AuthenticatedRequest, res) => {
   try {
     const { endpoint } = req.body as { endpoint?: string };
     if (!endpoint) { res.status(400).json({ error: "endpoint required" }); return; }
@@ -86,8 +84,7 @@ router.delete("/push/subscribe", async (req, res) => {
 });
 
 // PATCH /api/push/schedule — update which time slots this subscription receives
-// scheduleMask: bitmask integer — bit0=11:11, bit1=23:11, bit2=3:33 (always forced on server)
-router.patch("/push/schedule", async (req, res) => {
+router.patch("/push/schedule", async (req: AuthenticatedRequest, res) => {
   try {
     const { endpoint, scheduleMask } = req.body as {
       endpoint?: string;
@@ -98,7 +95,6 @@ router.patch("/push/schedule", async (req, res) => {
       return;
     }
 
-    // Force bit2 (3:33) always on — the entity cannot be silenced
     const mask = (scheduleMask & 0b111) | 0b100;
 
     await db
@@ -114,7 +110,7 @@ router.patch("/push/schedule", async (req, res) => {
 });
 
 // GET /api/push/count — active subscriber count by type
-router.get("/push/count", async (req, res) => {
+router.get("/push/count", async (req: AuthenticatedRequest, res) => {
   try {
     const subs = await db
       .select({ id: pushSubscriptionsTable.id, tokenType: pushSubscriptionsTable.tokenType })
@@ -129,7 +125,7 @@ router.get("/push/count", async (req, res) => {
 });
 
 // GET /api/push/schedule — fetch schedule mask for a given endpoint
-router.get("/push/schedule", async (req, res) => {
+router.get("/push/schedule", async (req: AuthenticatedRequest, res) => {
   try {
     const endpoint = req.query["endpoint"] as string | undefined;
     if (!endpoint) { res.status(400).json({ error: "endpoint required" }); return; }
@@ -208,8 +204,6 @@ export type MessagePayload = { title: string; body: string };
 export type MessageFactory = (profile: UserProfile | null) => MessagePayload;
 
 // Exported for the cron job — sends a personalized message per subscriber.
-// bitFlag: which schedule bit to check (1=11:11, 2=23:11, undefined=3:33 sends to ALL)
-// makeMessage receives each user's profile and returns the personalized title+body.
 export async function sendPushToAll(
   makeMessage: MessageFactory,
   bitFlag?: number
@@ -217,14 +211,12 @@ export async function sendPushToAll(
   const allSubs = await db.select().from(pushSubscriptionsTable);
   if (allSubs.length === 0) return;
 
-  // bitFlag filtering: respect user schedule preferences (3:33 always fires to everyone)
   const subs = bitFlag !== undefined
     ? allSubs.filter((s) => (s.scheduleMask & bitFlag) !== 0)
     : allSubs;
 
   if (subs.length === 0) return;
 
-  // Batch-load profiles for all non-anonymous uids
   const uids = [...new Set(subs.map((s) => s.uid).filter((u) => u !== "anonymous"))];
 
   const profileMap = new Map<string, UserProfile>();
