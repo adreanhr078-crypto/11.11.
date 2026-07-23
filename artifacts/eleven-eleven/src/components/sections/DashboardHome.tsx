@@ -7,7 +7,7 @@ import { useGameStore } from '../../stores/gameStore';
 import Icon from '../ui/Icon';
 
 export const DashboardHome: React.FC = () => {
-  const { echo, solvedPuzzles, totalPuzzles, flower, memory, world, time, entities, achievements } = useGameStore();
+  const { echo, solvedPuzzles, totalPuzzles, flower, memory, world, time, achievements } = useGameStore();
   const flowerIcon = ['🌱','🌿','🌷','🌸','🌺'][['seed','sprout','bloom','flourish','completed'].indexOf(flower.stage)] || '🌱';
   const pct = Math.round((solvedPuzzles / totalPuzzles) * 100);
 

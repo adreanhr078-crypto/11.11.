@@ -8,12 +8,6 @@ import type {
   EchoMood, WishStatus, Achievement, EndingState, TimelineEvent, PuzzleStatus, ChapterState
 } from '../core/gameTypes';
 import type { MemoryShard } from '../core/memoryShardsTypes';
-import { getCollectedShards, ALL_MEMORY_SHARDS } from '../core/memoryShardsSystem';
-import {
-  ORIGINAL_PUZZLE_COUNT,
-  TOTAL_PUZZLES,
-  TOTAL_MEMORY_SHARDS,
-} from '../constants/puzzleConstants';
 import {
   getPuzzleByNumber,
   getAllPuzzles,
@@ -28,7 +22,21 @@ import {
   applyTransformation
 } from '../core/echoTransformationSystem';
 import { CHAPTER_DATASETS, CHAPTER_ORDER } from '../core/chapterSystem';
-import { STORY_ARCS } from '../core/storyActs';
+import { createInitialEchoPersonality } from '../domain/echo/echoPersonality';
+import {
+  createInitialProgression,
+  getChapterForPuzzleNumber as findChapterForPuzzleNumber,
+} from '../domain/progression/progression';
+import { createInitialNarrativeState } from '../domain/narrative/narrativeState';
+import {
+  CHAPTER_DEFINITIONS,
+  CONTENT_COUNTS,
+  CONTENT_MANIFEST,
+} from '../infrastructure/content/contentRegistry';
+
+const CONFIGURED_PUZZLE_COUNT = (
+  CHAPTER_DEFINITIONS.at(-1)?.puzzleRange[1] ?? 0
+);
 
 // ─── INITIAL STATE ─────────────────────────────────────────────────────
 export function buildInitialState(): GameState {
@@ -36,6 +44,7 @@ export function buildInitialState(): GameState {
   
   return {
     echo: {
+      personality: createInitialEchoPersonality(),
       trust: 15, fear: 70, memoryStability: 5, corruption: 2,
       hope: 20, loneliness: 80, awareness: 3, isolation: 0,
       mood: 'خائف', personalityTraits: ['خائف', 'متردد'],
@@ -54,10 +63,15 @@ export function buildInitialState(): GameState {
     },
     time: { phase: 'morning', phaseIndex: 0, isNight: false, hour: 8, minute: 0, dayCycle: 1 },
     flower: { stage: 'seed', growth: 0, decay: 0, hiddenUnlocked: false, maxStage: 5 },
-    memory: { fragmentsCollected: 0, totalFragments: TOTAL_MEMORY_SHARDS, corruptedFragments: 0, timelineEvents: [], logsUnlocked: [] },
+    memory: { fragmentsCollected: 0, totalFragments: CONTENT_COUNTS.memories, corruptedFragments: 0, timelineEvents: [], logsUnlocked: [] },
     allMemoryShards: [],
     puzzles: [], // Will be populated by chapter datasets
-    totalPuzzles: TOTAL_PUZZLES, solvedPuzzles: 0,
+    totalPuzzles: CONFIGURED_PUZZLE_COUNT, solvedPuzzles: 0,
+    progression: createInitialProgression(
+      CONTENT_MANIFEST.contentVersion,
+      CHAPTER_DEFINITIONS,
+    ),
+    narrative: createInitialNarrativeState(),
     finalChoice: null,
     unlockedEndings: [],
     seenEndings: [],
@@ -75,12 +89,22 @@ export function buildInitialState(): GameState {
           unlocked: id === 'chapter_1',
           completed: false,
           puzzlesSolved: 0,
-          totalPuzzles: CHAPTER_DATASETS[id].puzzles.length,
+          totalPuzzles: (
+            CHAPTER_DATASETS[id].puzzleRange[1]
+            - CHAPTER_DATASETS[id].puzzleRange[0]
+            + 1
+          ),
           progress: 0,
         } as ChapterState,
       ])
     ) as Record<ChapterId, ChapterState>,
     currentChapter: 'chapter_1',
+    entities: {
+      echo: { unlocked: true, puzzlesSolved: 0, emotionalState: 0, storyFragments: [] },
+      watcher: { unlocked: false, puzzlesSolved: 0, emotionalState: 0, storyFragments: [] },
+      signal: { unlocked: false, puzzlesSolved: 0, emotionalState: 0, storyFragments: [] },
+      architect: { unlocked: false, puzzlesSolved: 0, emotionalState: 0, storyFragments: [] },
+    },
     wishes: [
       { id: 'w1', text: 'أتمنى أن أتذكر من أنا', progress: 0, status: 'active', createdAt: '2025-05-01', storyImpact: 25 },
       { id: 'w2', text: 'أتمنى أن أسامح نفسي', progress: 0, status: 'active', createdAt: '2025-05-01', storyImpact: 30 },
@@ -175,9 +199,10 @@ export function generateAllAchievements(): Achievement[] {
 
 // ─── PUZZLE GENERATOR (MANUAL ONLY) ──────────────────────────────
 export function generateAllPuzzles(): PuzzleNode[] {
-  return getAllPuzzles().map((manual, idx) => {
+  const authoredPuzzles = getAllPuzzles();
+  return authoredPuzzles.map((manual, idx) => {
     const puzzleNumber = idx + 1;
-    const previousPuzzleId = idx > 0 ? getAllPuzzles()[idx - 1].id : null;
+    const previousPuzzleId = idx > 0 ? authoredPuzzles[idx - 1].id : null;
     const chapterId = getChapterForPuzzleNumber(puzzleNumber);
     return {
       id: manual.id,
@@ -207,7 +232,9 @@ export function ensurePuzzleGenerated(state: GameState, puzzleNumber: number): P
 
   const manual = getPuzzleByNumber(puzzleNumber);
   if (!manual) {
-    throw new Error(`No manual puzzle found for puzzle #${puzzleNumber}. Add it to batch_01.ts`);
+    throw new Error(
+      `No authored puzzle found for #${puzzleNumber}. Add it through data/puzzles.`,
+    );
   }
   const previousPuzzleId = puzzleNumber > 1 ? getPuzzleByNumber(puzzleNumber - 1)?.id : null;
   const chapterId = getChapterForPuzzleNumber(puzzleNumber);
@@ -237,13 +264,14 @@ export function ensurePuzzleGenerated(state: GameState, puzzleNumber: number): P
 }
 
 function getChapterForPuzzleNumber(puzzleNumber: number): ChapterId {
-  // Distribute puzzles across chapters based on puzzle number
-  // This is a simple distribution - can be made more sophisticated later
-  if (puzzleNumber <= 400) return 'chapter_1';
-  if (puzzleNumber <= 800) return 'chapter_2';
-  if (puzzleNumber <= 1200) return 'chapter_3';
-  if (puzzleNumber <= 1600) return 'chapter_4';
-  return 'chapter_5';
+  const chapterId = findChapterForPuzzleNumber(
+    puzzleNumber,
+    CHAPTER_DEFINITIONS,
+  );
+  if (!chapterId) {
+    throw new Error(`Puzzle ${puzzleNumber} is outside configured chapter ranges`);
+  }
+  return chapterId;
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────
@@ -300,7 +328,15 @@ export function generateEchoDialogue(state: GameState): string {
 }
 
 // ─── ACHIEVEMENT CHECKER ─────────────────────────────────────────────
-export function checkAllAchievements(solved: number, echo: EchoState, flowerStage: string, wishCount: number, dayCycle: number, endings: EndingState): Achievement[] {
+export function checkAllAchievements(
+  solved: number,
+  echo: EchoState,
+  flowerStage: string,
+  wishCount: number,
+  dayCycle: number,
+  endings: EndingState,
+  memoryProgress?: { collected: number; total: number },
+): Achievement[] {
   const list: Achievement[] = generateAllAchievements();
   const u = (id: string) => {
     const achievement = list.find(a => a.id === id);
@@ -313,7 +349,7 @@ export function checkAllAchievements(solved: number, echo: EchoState, flowerStag
   if (solved >= 20) u('twenty_puzzles');
   if (solved >= 50) u('fifty_puzzles');
   if (solved >= 100) u('hundred_puzzles');
-  if (solved >= ORIGINAL_PUZZLE_COUNT) u('all_puzzles');
+  if (solved >= CONFIGURED_PUZZLE_COUNT) u('all_puzzles');
   if (echo.trust >= 25) u('trust_25');
   if (echo.trust >= 50) u('trust_50');
   if (echo.trust >= 75) u('trust_75');
@@ -335,10 +371,10 @@ export function checkAllAchievements(solved: number, echo: EchoState, flowerStag
   if (echo.transformationStage === 'redeemed') u('echo_redeemed');
   if (echo.transformationStage === 'ascended') u('echo_ascended');
 
-  // Story arc achievements — derived dynamically from STORY_ARCS
-  STORY_ARCS.forEach(arc => {
-    const actId = `act${arc.act}_complete`;
-    if (solved >= arc.puzzleRange[1]) u(actId);
+  // Compatibility achievement IDs are derived from canonical chapter ranges.
+  CHAPTER_DEFINITIONS.forEach(chapter => {
+    const actId = `act${chapter.order}_complete`;
+    if (solved >= chapter.puzzleRange[1]) u(actId);
   });
   
   // Level achievements
@@ -348,9 +384,12 @@ export function checkAllAchievements(solved: number, echo: EchoState, flowerStag
   if (echo.level >= 50) u('level_50');
 
   // Shard achievements
-  const collected = getCollectedShards();
-  if (collected.length >= 5) u('shard_collector');
-  if (collected.length >= ALL_MEMORY_SHARDS.length) u('shard_master');
+  if (memoryProgress && memoryProgress.collected >= 5) u('shard_collector');
+  if (
+    memoryProgress
+    && memoryProgress.total > 0
+    && memoryProgress.collected >= memoryProgress.total
+  ) u('shard_master');
 
   return list;
 }

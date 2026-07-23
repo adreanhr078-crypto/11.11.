@@ -2,7 +2,7 @@
  * App.tsx — نقطة الدخول الرئيسية مع الشريط الجانبي الكامل
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { useGameStore } from './stores/gameStore';
 import { GameSidebar, type SectionId } from './components/sidebar/GameSidebar';
 import { EchoChat } from './components/echo/EchoChat';
@@ -30,20 +30,19 @@ import { CinematicMode } from './components/effects/CinematicMode';
 import { AnimationSystem } from './components/effects/AnimationSystem';
 import { useAudioSystem } from './hooks/useAudioSystem';
 import { toggleLanguage } from './core/echoMultilingualSystem';
-import { getNarrativeEngine } from './core/narrativeEngine';
 import { AchievementToast } from './components/AchievementToast';
 import { ResetConfirmModal } from './components/sections/EndingPanel';
 
-export default function App() {
-  // تهيئة محرك السرد بعد تحميل React
-  useEffect(() => {
-    getNarrativeEngine().initialize();
-  }, []);
+const NarrativeDebugPanel = import.meta.env.DEV
+  ? React.lazy(() => import('./features/devtools/NarrativeDebugPanel'))
+  : null;
 
+export default function App() {
   const actions = useGameStore(s => s.actions);
   const time = useGameStore(s => s.time);
   const solvedPuzzles = useGameStore(s => s.solvedPuzzles);
   const totalPuzzles = useGameStore(s => s.totalPuzzles);
+  const progression = useGameStore(s => s.progression);
   const finalChoice = useGameStore(s => s.finalChoice);
   const achievedEnding = useGameStore(s => s.achievedEnding);
   const [activeSection, setActiveSection] = useState<SectionId>('dashboard');
@@ -103,9 +102,19 @@ export default function App() {
     <div id="app" className={`app-root ${time.isNight ? 'night-active' : 'day-dashboard'}`} dir={direction}>
       {showCinematic && <CinematicMode onEnd={() => setShowCinematic(false)} />}
       <AnimationSystem />
+      {NarrativeDebugPanel && (
+        <Suspense fallback={null}>
+          <NarrativeDebugPanel />
+        </Suspense>
+      )}
       <AchievementToast />
       {showEndingResult && <EndingResultScreen />}
-      {solvedPuzzles >= 1000 && !finalChoice && <FinalChoiceSystem />}
+      {
+        progression.completedPuzzleIds.length
+          + progression.skippedPuzzleIds.length >= totalPuzzles
+        && !finalChoice
+        && <FinalChoiceSystem />
+      }
 
       <GameSidebar activeSection={activeSection} onNavigate={setActiveSection} />
 

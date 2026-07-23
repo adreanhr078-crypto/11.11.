@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "items": [
+    {
+      "id": "chapter_1",
+      "order": 1,
+      "title": { "ar": "الصحوة", "en": "Awakening" },
+      "description": { "ar": "الفصل الأول", "en": "Chapter one" },
+      "glyph": "01",
+      "color": "#c8785a",
+      "puzzleRange": [1, 100]
+    },
+    {
+      "id": "chapter_2",
+      "order": 2,
+      "title": { "ar": "الاكتشاف", "en": "Discovery" },
+      "description": { "ar": "الفصل الثاني", "en": "Chapter two" },
+      "glyph": "02",
+      "color": "#d08a54",
+      "puzzleRange": [101, 250]
+    },
+    {
+      "id": "chapter_3",
+      "order": 3,
+      "title": { "ar": "الاتصال", "en": "Connection" },
+      "description": { "ar": "الفصل الثالث", "en": "Chapter three" },
+      "glyph": "03",
+      "color": "#5a8aaa",
+      "puzzleRange": [251, 400]
+    },
+    {
+      "id": "chapter_4",
+      "order": 4,
+      "title": { "ar": "الحقيقة", "en": "Truth" },
+      "description": { "ar": "الفصل الرابع", "en": "Chapter four" },
+      "glyph": "04",
+      "color": "#aa8b40",
+      "puzzleRange": [401, 550]
+    },
+    {
+      "id": "chapter_5",
+      "order": 5,
+      "title": { "ar": "الكسر", "en": "Fracture" },
+      "description": { "ar": "الفصل الخامس", "en": "Chapter five" },
+      "glyph": "05",
+      "color": "#b55252",
+      "puzzleRange": [551, 700]
+    },
+    {
+      "id": "chapter_6",
+      "order": 6,
+      "title": { "ar": "المواجهة", "en": "Confrontation" },
+      "description": { "ar": "الفصل السادس", "en": "Chapter six" },
+      "glyph": "06",
+      "color": "#d04a4a",
+      "puzzleRange": [701, 850]
+    },
+    {
+      "id": "chapter_7",
+      "order": 7,
+      "title": { "ar": "الخاتمة", "en": "Finale" },
+      "description": { "ar": "الفصل السابع", "en": "Chapter seven" },
+      "glyph": "07",
+      "color": "#8d6fb3",
+      "puzzleRange": [851, 1000]
+    }
+  ]
+}

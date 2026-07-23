@@ -1,5 +1,5 @@
 [build]
-  command = "cd artifacts/eleven-eleven && npm install && npx vite build"
+  command = "npm --prefix artifacts/eleven-eleven ci && npm --prefix artifacts/eleven-eleven run check"
   publish = "artifacts/eleven-eleven/dist"
 
 [[redirects]]

@@ -5,19 +5,17 @@
 
 import {
   addToBank,
-  clearBank,
   getAllPuzzles as getBankPuzzles,
   isAnswerCorrect,
   type PuzzleTemplate,
 } from './puzzleBank';
-import { BATCH_1 } from './batch_01';
-
-// register batches into the bank on import
-clearBank();
-addToBank(BATCH_1);
 
 // ─── App-facing API ──────────────────────────────────────────────────
 export { isAnswerCorrect };
+
+export function registerPuzzleBatch(puzzles: PuzzleTemplate[]): void {
+  addToBank(puzzles);
+}
 
 export function getAllPuzzles(): PuzzleTemplate[] {
   return getBankPuzzles();

@@ -26,13 +26,9 @@ export const PuzzleEngine: React.FC<{ chapter?: ChapterId }> = ({ chapter }) => 
 
   const solvedInChapter = puzzles.filter(p => p.chapterId === activeTab && (p.status === 'solved' || p.status === 'skipped')).length;
 
-  const chapterColors: Record<ChapterId, string> = {
-    chapter_1: '#c8785a',
-    chapter_2: '#FF9800',
-    chapter_3: '#5A8AAA',
-    chapter_4: '#AA8B40',
-    chapter_5: '#888',
-  };
+  const getChapterColor = (id: ChapterId): string => (
+    chapters[id]?.color ?? '#888'
+  );
 
   const flash = (msg: string, type: ShopActionFeedback['type'] = 'info') => {
     setFeedback({ type, msg });
@@ -109,7 +105,7 @@ export const PuzzleEngine: React.FC<{ chapter?: ChapterId }> = ({ chapter }) => 
             key={id}
             className={`chapter-tab ${activeTab === id ? 'active' : ''} ${ch.unlocked ? '' : 'locked'}`}
             onClick={() => ch.unlocked && setActiveTab(id as ChapterId)}
-            style={activeTab === id ? { borderColor: chapterColors[id as ChapterId], color: chapterColors[id as ChapterId] } : {}}
+            style={activeTab === id ? { borderColor: getChapterColor(id as ChapterId), color: getChapterColor(id as ChapterId) } : {}}
           >
             <span className="chapter-glyph">{ch.glyph}</span>
             <span className="chapter-name">{ch.title}</span>
@@ -128,10 +124,11 @@ export const PuzzleEngine: React.FC<{ chapter?: ChapterId }> = ({ chapter }) => 
             className="puzzle-active-card"
           >
             <div className="puzzle-meta">
-              <span className="puzzle-difficulty" style={{ color: chapterColors[activeTab] }}>
-                {'⬤'.repeat(activePuzzle.difficulty)}{'○'.repeat(4 - activePuzzle.difficulty)}
+              <span className="puzzle-difficulty" style={{ color: getChapterColor(activeTab) }}>
+                {'⬤'.repeat(Math.min(10, Math.max(0, activePuzzle.difficulty)))}
+                {'○'.repeat(Math.max(0, 10 - activePuzzle.difficulty))}
               </span>
-              <span className="puzzle-chapter-badge" style={{ background: chapterColors[activeTab] + '22', color: chapterColors[activeTab] }}>
+              <span className="puzzle-chapter-badge" style={{ background: getChapterColor(activeTab) + '22', color: getChapterColor(activeTab) }}>
                 {chapters[activeTab]?.title || activeTab}
               </span>
             </div>
@@ -154,7 +151,7 @@ export const PuzzleEngine: React.FC<{ chapter?: ChapterId }> = ({ chapter }) => 
                   whileTap={{ scale: 0.98 }}
                   className="puzzle-submit-btn"
                   onClick={handleSubmit}
-                  style={{ background: chapterColors[activeTab] + '22', borderColor: chapterColors[activeTab] + '44' }}
+                  style={{ background: getChapterColor(activeTab) + '22', borderColor: getChapterColor(activeTab) + '44' }}
                 >
                   ↵ حل
                 </motion.button>
@@ -226,7 +223,9 @@ export const PuzzleEngine: React.FC<{ chapter?: ChapterId }> = ({ chapter }) => 
         ) : (
           <div className="puzzle-empty-state">
             <p>
-              {solvedInChapter >= (chapters[activeTab]?.totalPuzzles || 0)
+              {puzzles.length === 0
+                ? 'لا يوجد محتوى ألغاز مؤلف بعد'
+                : solvedInChapter >= (chapters[activeTab]?.totalPuzzles || 0)
                 ? '✅ جميع الألغاز محلولة!'
                 : '🔒 افتح الفصل السابق أولاً'}
             </p>
@@ -242,7 +241,7 @@ export const PuzzleEngine: React.FC<{ chapter?: ChapterId }> = ({ chapter }) => 
         <div className="progress-track-puzzle">
           <div
             className="progress-fill-puzzle"
-            style={{ width: `${(solvedPuzzles / totalPuzzles) * 100}%` }}
+            style={{ width: `${totalPuzzles > 0 ? (solvedPuzzles / totalPuzzles) * 100 : 0}%` }}
           />
         </div>
       </div>

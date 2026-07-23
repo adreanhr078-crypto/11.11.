@@ -1,6 +1,6 @@
 {
   "include": ["src/**/*", "tools/**/*"],
-  "exclude": ["node_modules", "build", "dist", "**/*.test.ts", "src/components/ui/**", "tools/project-doctor/index.ts"],
+  "exclude": ["node_modules", "build", "dist", "src/legacy/**", "src/components/ui/**", "tools/project-doctor/index.ts"],
   "compilerOptions": {
     "target": "es2022",
     "useDefineForClassFields": true,

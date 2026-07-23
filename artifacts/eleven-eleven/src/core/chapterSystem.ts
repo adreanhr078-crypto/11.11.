@@ -1,32 +1,22 @@
 /**
- * chapterSystem.ts — نظام الفصول الجديد
- * يحل محل نظام الكيانات القديم
+ * Compatibility facade for the legacy UI.
  *
- * البنية:
- * - كل Chapter يحتوي على مجموعات بيانات مستقلة
- * - عدد الألغاز في كل Chapter مرن ويُقرأ من البيانات
- * - الفصل التالي يفتح فقط بعد استيفاء شروط الفصل الحالي
- *
- * الأنواع المدعومة:
- * - Main Story Puzzles
- * - Side Puzzles
- * - Hidden Puzzles
- * - Secret Puzzles
- * - Rare Puzzles
- * - Time-based Puzzles
- * - Memory Puzzles
- * - Cipher Puzzles
- * - Logic Puzzles
- * - Investigation Puzzles
- * - Audio Puzzles
- * - Visual Puzzles
- * - Pattern Puzzles
- * - Psychological Puzzles
- * - Choice-based Puzzles
- * - Multi-step Puzzles
+ * Canonical chapter metadata is loaded and validated by contentRegistry.
+ * New domain code should use domain/progression directly.
  */
 
-export type ChapterId = 'chapter_1' | 'chapter_2' | 'chapter_3' | 'chapter_4' | 'chapter_5';
+import type {
+  ChapterDefinition,
+  ChapterId,
+} from '../domain/content/contracts';
+import {
+  CHAPTER_DEFINITIONS,
+} from '../infrastructure/content/contentRegistry';
+import {
+  getChapterForPuzzleNumber as findChapterForPuzzleNumber,
+} from '../domain/progression/progression';
+
+export type { ChapterId } from '../domain/content/contracts';
 
 export type PuzzleCategory =
   | 'main_story'
@@ -53,13 +43,14 @@ export interface ChapterDataset {
   glyph: string;
   color: string;
   order: number;
-  puzzles: any[]; // PuzzleNode[] — فارغة حالياً
-  memoryFragments: any[]; // MemoryShard[] — فارغة حالياً
-  storyEvents: any[]; // StoryEvent[] — فارغة حالياً
-  echoDialogues: any[]; // EchoDialogue[] — فارغة حالياً
-  unlockConditions: any[]; // UnlockCondition[] — فارغة حالياً
-  rewards: any[]; // ChapterReward[] — فارغة حالياً
-  difficultyProgression: number[]; // فارغة حالياً
+  puzzleRange: readonly [number, number];
+  puzzles: unknown[];
+  memoryFragments: unknown[];
+  storyEvents: unknown[];
+  echoDialogues: unknown[];
+  unlockConditions: UnlockCondition[];
+  rewards: ChapterReward[];
+  difficultyProgression: number[];
 }
 
 export interface ChapterState {
@@ -76,7 +67,13 @@ export interface ChapterState {
 }
 
 export interface UnlockCondition {
-  type: 'puzzles_solved' | 'chapter_complete' | 'achievement' | 'memory_fragments' | 'time_played' | 'specific_puzzle';
+  type:
+    | 'puzzles_solved'
+    | 'chapter_complete'
+    | 'achievement'
+    | 'memory_fragments'
+    | 'time_played'
+    | 'specific_puzzle';
   targetId?: string;
   requiredValue: number;
   currentValue?: number;
@@ -89,108 +86,74 @@ export interface ChapterReward {
   description?: string;
 }
 
-// ─── CHAPTER ORDER ───────────────────────────────────────────────────
-export const CHAPTER_ORDER: ChapterId[] = ['chapter_1', 'chapter_2', 'chapter_3', 'chapter_4', 'chapter_5'];
+function toDataset(definition: ChapterDefinition): ChapterDataset {
+  return {
+    id: definition.id,
+    title: definition.title.ar,
+    description: definition.description.ar,
+    glyph: definition.glyph,
+    color: definition.color,
+    order: definition.order,
+    puzzleRange: definition.puzzleRange,
+    puzzles: [],
+    memoryFragments: [],
+    storyEvents: [],
+    echoDialogues: [],
+    unlockConditions: definition.order === 1
+      ? []
+      : [{
+          type: 'chapter_complete',
+          targetId: `chapter_${definition.order - 1}`,
+          requiredValue: 1,
+        }],
+    rewards: [],
+    difficultyProgression: [],
+  };
+}
 
-// ─── CHAPTER DATASETS (فارغة حالياً، ستُملأ لاحقاً) ──────────────────
-export const CHAPTER_DATASETS: Record<ChapterId, ChapterDataset> = {
-  chapter_1: {
-    id: 'chapter_1',
-    title: 'الصحوة',
-    description: 'البداية. Echo يستيقظ في عالم غريب.',
-    glyph: '◈',
-    color: '#c8785a',
-    order: 1,
-    puzzles: [],
-    memoryFragments: [],
-    storyEvents: [],
-    echoDialogues: [],
-    unlockConditions: [],
-    rewards: [],
-    difficultyProgression: [],
-  },
-  chapter_2: {
-    id: 'chapter_2',
-    title: 'الاكتشاف',
-    description: 'اكتشاف الحقيقة تدريجياً.',
-    glyph: '◉',
-    color: '#FF9800',
-    order: 2,
-    puzzles: [],
-    memoryFragments: [],
-    storyEvents: [],
-    echoDialogues: [],
-    unlockConditions: [],
-    rewards: [],
-    difficultyProgression: [],
-  },
-  chapter_3: {
-    id: 'chapter_3',
-    title: 'الاتصال',
-    description: 'التواصل مع الماضي.',
-    glyph: '≋',
-    color: '#5A8AAA',
-    order: 3,
-    puzzles: [],
-    memoryFragments: [],
-    storyEvents: [],
-    echoDialogues: [],
-    unlockConditions: [],
-    rewards: [],
-    difficultyProgression: [],
-  },
-  chapter_4: {
-    id: 'chapter_4',
-    title: 'الحقيقة',
-    description: 'الحقيقة المخفية.',
-    glyph: '▲',
-    color: '#AA8B40',
-    order: 4,
-    puzzles: [],
-    memoryFragments: [],
-    storyEvents: [],
-    echoDialogues: [],
-    unlockConditions: [],
-    rewards: [],
-    difficultyProgression: [],
-  },
-  chapter_5: {
-    id: 'chapter_5',
-    title: 'الخاتمة',
-    description: 'النهاية.',
-    glyph: '◉',
-    color: '#888',
-    order: 5,
-    puzzles: [],
-    memoryFragments: [],
-    storyEvents: [],
-    echoDialogues: [],
-    unlockConditions: [],
-    rewards: [],
-    difficultyProgression: [],
-  },
-};
+export const CHAPTER_ORDER: ChapterId[] = CHAPTER_DEFINITIONS.map(
+  (chapter) => chapter.id,
+);
 
-// ─── CHAPTER HELPERS ─────────────────────────────────────────────────
-export function isChapterUnlocked(chapterId: ChapterId, solvedPuzzles: number, completedChapters: ChapterId[]): boolean {
+export const CHAPTER_DATASETS = Object.fromEntries(
+  CHAPTER_DEFINITIONS.map((definition) => [
+    definition.id,
+    toDataset(definition),
+  ]),
+) as Record<ChapterId, ChapterDataset>;
+
+export function isChapterUnlocked(
+  chapterId: ChapterId,
+  _solvedPuzzles: number,
+  completedChapters: ChapterId[],
+): boolean {
   const chapterIndex = CHAPTER_ORDER.indexOf(chapterId);
   if (chapterIndex === 0) return true;
-  const prevChapter = CHAPTER_ORDER[chapterIndex - 1];
-  return completedChapters.includes(prevChapter);
+  if (chapterIndex < 0) return false;
+  return completedChapters.includes(CHAPTER_ORDER[chapterIndex - 1]);
 }
 
 export function getNextChapter(currentChapter: ChapterId): ChapterId | null {
   const currentIndex = CHAPTER_ORDER.indexOf(currentChapter);
-  if (currentIndex < CHAPTER_ORDER.length - 1) {
-    return CHAPTER_ORDER[currentIndex + 1];
-  }
-  return null;
+  return currentIndex >= 0 && currentIndex < CHAPTER_ORDER.length - 1
+    ? CHAPTER_ORDER[currentIndex + 1]
+    : null;
 }
 
 export function getChapterById(chapterId: ChapterId): ChapterDataset {
-  return CHAPTER_DATASETS[chapterId];
+  const chapter = CHAPTER_DATASETS[chapterId];
+  if (!chapter) {
+    throw new Error(`Unknown chapter: ${chapterId}`);
+  }
+  return chapter;
 }
 
 export function getAllChapters(): ChapterDataset[] {
-  return CHAPTER_ORDER.map(id => CHAPTER_DATASETS[id]);
+  return CHAPTER_ORDER.map(getChapterById);
+}
+
+export function getChapterForPuzzleNumber(
+  puzzleNumber: number,
+): ChapterId | null {
+  return findChapterForPuzzleNumber(puzzleNumber, CHAPTER_DEFINITIONS);
 }

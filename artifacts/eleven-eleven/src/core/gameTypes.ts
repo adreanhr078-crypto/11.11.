@@ -6,6 +6,10 @@
 import type { MemoryShard } from './memoryShardsTypes';
 import type { EchoTransformationStage, StoryPhase, PuzzleEffects } from './puzzleTypes';
 import type { ChapterId, ChapterState } from './chapterSystem';
+import type { EchoPersonality } from '../domain/echo/echoPersonality';
+import type { ProgressionState } from '../domain/progression/progression';
+import type { NarrativeState } from '../domain/narrative/narrativeState';
+import type { DialogueId } from '../domain/content/contracts';
 export { type ChapterId, type ChapterState } from './chapterSystem';
 
 // ─── Basic Types ─────────────────────────────────────────────────────
@@ -16,6 +20,14 @@ export type Ending = 'sorrow' | 'truth' | 'dark' | 'mystery';
 export type EchoMood = 'خائف' | 'متردد' | 'واثق' | 'متذكر' | 'مشوش' | 'مذعور' | 'هادئ' | 'متفائل';
 export type WishStatus = 'active' | 'completed' | 'failed';
 export type MissionType = 'story' | 'quick' | 'cipher' | 'reflection' | 'challenge';
+export type EntityId = 'echo' | 'watcher' | 'signal' | 'architect';
+
+export interface LegacyEntityProgress {
+  unlocked: boolean;
+  puzzlesSolved: number;
+  emotionalState: number;
+  storyFragments: string[];
+}
 
 // ─── Daily Mission Types ────────────────────────────────────────────
 export interface DailyMission {
@@ -39,6 +51,8 @@ export interface CoinShopPrices {
 
 // ─── State Interfaces ────────────────────────────────────────────────
 export interface EchoState {
+  /** Canonical personality model. Legacy scalar fields remain as UI aliases. */
+  personality: EchoPersonality;
   trust: number; fear: number; memoryStability: number; corruption: number;
   hope: number; loneliness: number; awareness: number; isolation: number;
   mood: EchoMood; personalityTraits: string[];
@@ -117,11 +131,58 @@ export interface EndingState {
   redemption?: { unlocked: boolean; progress: number; };
 }
 
+export interface GameActions {
+  chat: () => { dialogue: string; effects: Partial<EchoState>; };
+  solve: (puzzleId: string, answer: string) => { success: boolean; message: string; achievement?: Achievement; };
+  advanceTime: () => void;
+  addWish: (text: string) => void;
+  completeWish: (wishId: string) => void;
+  checkEndings: () => void;
+  makeFinalChoice: (choice: string) => void;
+  resetGame: () => void;
+  replayEnding: (endingId: string) => void;
+  incrementTrust: (amount?: number) => void;
+  decrementTrust: (amount?: number) => void;
+  incrementFear: (amount?: number) => void;
+  decrementFear: (amount?: number) => void;
+  incrementCuriosity: (amount?: number) => void;
+  setLevel: (level: number) => void;
+  updateTransformation?: (type: 'rage' | 'forgiveness', amount: number) => void;
+  buyHint: (puzzleId: string) => { success: boolean; message: string; hint?: string };
+  skipPuzzle: (puzzleId: string) => { success: boolean; message: string };
+  rerollPuzzle: (puzzleId: string) => { success: boolean; message: string; newPuzzleId?: string };
+  completeDailyMission: (missionId: string) => {
+    success: boolean;
+    message: string;
+    reward?: { coins: number; crystals: number; shardId?: string };
+  };
+  refreshDailyMissions: () => void;
+  setNarrativeFlag: (flag: string, value: boolean) => void;
+  recordNarrativeDecision: (
+    decisionId: string,
+    choiceId: string,
+    source?: 'dialogue' | 'puzzle' | 'system' | 'ending',
+  ) => void;
+  unlockEligibleMemories: () => {
+    unlockedMemoryIds: string[];
+    unlockedFragmentIds: string[];
+  };
+  startDialogueGraph: (dialogueId: DialogueId) => void;
+  chooseDialogueOption: (choiceId: string) => void;
+  evaluateNarrativeEndings: () => string[];
+}
+
 export interface GameState {
   echo: EchoState; time: TimeState; flower: FlowerState;
   memory: MemoryState; puzzles: PuzzleNode[];
   totalPuzzles: number; solvedPuzzles: number;
+  /** Canonical progression state. Legacy counters are derived compatibility fields. */
+  progression: ProgressionState;
+  /** Canonical narrative gameplay state for memories, decisions, dialogue, and endings. */
+  narrative: NarrativeState;
   chapters: Record<ChapterId, ChapterState>; currentChapter: ChapterId;
+  /** @deprecated Compatibility only; not a progression source of truth. */
+  entities: Record<EntityId, LegacyEntityProgress>;
   wishes: WishNode[];
   player: { curiosity: number; interactions: number; choices: string[]; };
   world: { stability: number; glitchLevel: number; corruptionLevel: number; anomalyCount: number; };
@@ -140,29 +201,5 @@ export interface GameState {
   lastMissionRefresh: number;
   shopPrices: CoinShopPrices;
   
-  actions: {
-    chat: () => { dialogue: string; effects: Partial<EchoState>; };
-    solve: (puzzleId: string, answer: string) => { success: boolean; message: string; achievement?: Achievement; };
-    advanceTime: () => void;
-    addWish: (text: string) => void;
-    completeWish: (wishId: string) => void;
-    checkEndings: () => void;
-    makeFinalChoice: (choice: string) => void;
-    resetGame: () => void;
-    replayEnding: (endingId: string) => void;
-    incrementTrust: (amount?: number) => void;
-    decrementTrust: (amount?: number) => void;
-    incrementFear: (amount?: number) => void;
-    decrementFear: (amount?: number) => void;
-    incrementCuriosity: (amount?: number) => void;
-    setLevel: (level: number) => void;
-    // New action for transformation
-    updateTransformation?: (type: 'rage' | 'forgiveness', amount: number) => void;
-    // New currency actions
-    buyHint: (puzzleId: string) => { success: boolean; message: string; hint?: string };
-    skipPuzzle: (puzzleId: string) => { success: boolean; message: string };
-    rerollPuzzle: (puzzleId: string) => { success: boolean; message: string; newPuzzleId?: string };
-    completeDailyMission: (missionId: string) => { success: boolean; message: string; reward?: { coins: number; crystals: number; shardId?: string } };
-    refreshDailyMissions: () => void;
-  };
+  actions: GameActions;
 }

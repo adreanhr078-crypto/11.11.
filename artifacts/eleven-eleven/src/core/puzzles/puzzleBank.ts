@@ -3,6 +3,8 @@
  * كل لغز مصمم يدوياً مع fuzzy matching + أنواع متعددة
  */
 
+import type { PuzzleEffects } from '../puzzleTypes';
+
 export type PuzzleType =
   | 'numeric'
   | 'word'
@@ -37,9 +39,11 @@ export interface PuzzleTemplate {
   shardId?: string;
   achievementId?: string;
   xp: number;
-  effects: Record<string, number>;
+  effects: PuzzleEffects;
   context?: string;
 }
+
+export type AnswerablePuzzle = Pick<PuzzleTemplate, 'answers'>;
 
 // ─── FUZZY HELPERS ───────────────────────────────────────────────────
 function normalize(text: string): string {
@@ -108,7 +112,10 @@ const SYNONYM_GROUPS: string[][] = [
   ['الذاكرة', 'memory', 'zakira', 'الذكريات'],
 ];
 
-export function isAnswerCorrect(puzzle: PuzzleTemplate | undefined, answer: string): boolean {
+export function isAnswerCorrect(
+  puzzle: AnswerablePuzzle | undefined,
+  answer: string,
+): boolean {
   if (!puzzle) return false;
   const normalized = normalize(answer);
   if (!normalized) return false;
@@ -124,10 +131,11 @@ export function isAnswerCorrect(puzzle: PuzzleTemplate | undefined, answer: stri
 
   for (const a of puzzle.answers) {
     const normalizedA = normalize(a);
-    if (normalizedA.length >= 2 && normalized.includes(normalizedA)) return true;
-    const wordsAnswer = normalized.split(' ');
-    const wordsA = normalizedA.split(' ');
-    if (wordsA.some(w => w.length >= 2 && wordsAnswer.includes(w))) return true;
+    if (
+      normalizedA.length >= 4
+      && normalized.length >= normalizedA.length
+      && normalized.includes(normalizedA)
+    ) return true;
   }
 
   if (puzzle.answers.some(a => isClose(answer, a))) return true;
@@ -136,9 +144,9 @@ export function isAnswerCorrect(puzzle: PuzzleTemplate | undefined, answer: stri
 }
 
 // ─── BANK ───────────────────────────────────────────────────────────
-import { BATCH_1 } from './batch_01';
-
-export const PUZZLE_BANK: PuzzleTemplate[] = [BATCH_1].flat();
+// Authored puzzle data is registered by the content adapter. The bank starts
+// empty so a missing content batch cannot crash application bootstrap.
+export const PUZZLE_BANK: PuzzleTemplate[] = [];
 
 export function clearBank(): void {
   PUZZLE_BANK.length = 0;

@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { getNarrativeEngine, type NarrativeState } from "../core/narrativeEngine";
 import { useGameStore } from "../stores/gameStore";
+import { CHAPTER_DEFINITIONS } from "../infrastructure/content/contentRegistry";
 
 interface NarrativeUIState {
   currentChapter: number;
@@ -15,11 +16,29 @@ interface NarrativeUIState {
   escalationLevel: "calm" | "building" | "intense" | "critical";
 }
 
-const ACT_LABELS: Record<string, string> = {
+const LEGACY_ACT_LABELS: Record<string, string> = {
   awakening: "الفصل الأول: الاستيقاظ",
   corruption: "الفصل الثاني: الفساد",
   fragment_war: "الفصل الثالث: حرب الشظايا",
   truth_revelation: "الفصل الرابع: كشف الحقيقة",
+};
+
+const ACT_PHASES = [
+  'awakening',
+  'discovery',
+  'connection',
+  'truth',
+  'fracture',
+  'vengeance',
+  'finale',
+];
+
+const ACT_LABELS: Record<string, string> = {
+  ...LEGACY_ACT_LABELS,
+  ...Object.fromEntries(CHAPTER_DEFINITIONS.map((chapter, index) => [
+    ACT_PHASES[index],
+    `${chapter.order}. ${chapter.title.ar}`,
+  ])),
 };
 
 const ESCALATION_MAP: Record<string, "calm" | "building" | "intense" | "critical"> = {
@@ -27,13 +46,18 @@ const ESCALATION_MAP: Record<string, "calm" | "building" | "intense" | "critical
   corruption: "building",
   fragment_war: "intense",
   truth_revelation: "critical",
+  discovery: "building",
+  connection: "building",
+  truth: "intense",
+  fracture: "intense",
+  vengeance: "critical",
+  finale: "critical",
 };
 
 function deriveNarrativeUI(state: NarrativeState, solvedPuzzles: number): NarrativeUIState {
-  let currentChapter = 1;
-  if (solvedPuzzles >= 120) currentChapter = 4;
-  else if (solvedPuzzles >= 80) currentChapter = 3;
-  else if (solvedPuzzles >= 40) currentChapter = 2;
+  const currentChapter = Number(
+    state.currentChapterId.replace('chapter_', ''),
+  ) || 1;
 
   return {
     currentChapter,
@@ -53,18 +77,20 @@ export function useNarrative(): NarrativeUIState & {
   guide: string;
 } {
   const solvedPuzzles = useGameStore(s => s.solvedPuzzles);
+  const progression = useGameStore(s => s.progression);
   const [narrativeState, setNarrativeState] = useState<NarrativeUIState>(() => {
     return deriveNarrativeUI(getNarrativeEngine().getState(), solvedPuzzles);
   });
 
   useEffect(() => {
+    getNarrativeEngine().syncProgression(progression);
     const updateFromEngine = () => {
       setNarrativeState(deriveNarrativeUI(getNarrativeEngine().getState(), solvedPuzzles));
     };
     const unsubscribe = getNarrativeEngine().subscribe(updateFromEngine);
     updateFromEngine();
     return unsubscribe;
-  }, [solvedPuzzles]);
+  }, [progression, solvedPuzzles]);
 
   const start = useCallback(() => getNarrativeEngine().start(), []);
   const stop = useCallback(() => getNarrativeEngine().stop(), []);

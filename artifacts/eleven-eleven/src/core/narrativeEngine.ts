@@ -1,31 +1,56 @@
 /**
- * Narrative Engine for 11.11 Echo Mind System
- * Complete 4-Act Psychological Story with 4 Entities and 4 Endings
- * Interconnected puzzle system with emotional progression
+ * Pure narrative compatibility facade.
+ *
+ * Progression owns chapter advancement. This facade only derives narrative
+ * presentation state and never imports Zustand, React, DOM, or persistence.
  */
 
-import { useGameStore, type EntityId } from '../stores/gameStore';
+import type { ChapterId } from '../domain/content/contracts';
+import type { ProgressionState } from '../domain/progression/progression';
+import {
+  CHAPTER_DEFINITIONS,
+  CONTENT_MANIFEST,
+} from '../infrastructure/content/contentRegistry';
+import { createInitialProgression } from '../domain/progression/progression';
 
-// Define narrative types
-export type StoryAct = 'awakening' | 'corruption' | 'fragment_war' | 'truth_revelation';
-export type StoryEntity = 'kenja_core' | 'lina_memory' | 'echo_main' | 'watcher_antagonist';
-export type StoryEnding = 'freedom' | 'kenja_control' | 'lina_memory' | 'true_secret';
+export type StoryAct =
+  | 'awakening'
+  | 'discovery'
+  | 'connection'
+  | 'truth'
+  | 'fracture'
+  | 'vengeance'
+  | 'finale';
+export type StoryEntity =
+  | 'kenja_core'
+  | 'lina_memory'
+  | 'echo_main'
+  | 'watcher_antagonist';
+export type StoryEnding =
+  | 'freedom'
+  | 'kenja_control'
+  | 'lina_memory'
+  | 'true_secret';
 
-// Narrative State Interface
+interface NarrativeEntityState {
+  unlocked: boolean;
+  puzzlesSolved: number;
+  emotionalState: number;
+  storyFragments: string[];
+}
+
+interface NarrativeEndingState {
+  unlocked: boolean;
+  progress: number;
+  requirementsMet: string[];
+}
+
 export interface NarrativeState {
   currentAct: StoryAct;
-  actProgress: number; // 0-100%
-  entities: Record<StoryEntity, {
-    unlocked: boolean;
-    puzzlesSolved: number;
-    emotionalState: number; // -100 to +100
-    storyFragments: string[];
-  }>;
-  endings: Record<StoryEnding, {
-    unlocked: boolean;
-    progress: number;
-    requirementsMet: string[];
-  }>;
+  currentChapterId: ChapterId;
+  actProgress: number;
+  entities: Record<StoryEntity, NarrativeEntityState>;
+  endings: Record<StoryEnding, NarrativeEndingState>;
   criticalStoryPoints: string[];
   timeBasedEvents: Array<{
     time: string;
@@ -34,569 +59,175 @@ export interface NarrativeState {
   }>;
 }
 
-// Complete Story Structure
-export const COMPLETE_STORY = {
-  // ACT 1: AWAKENING - Echo discovers its fragmented nature
-  act1: {
-    title: 'الاستيقاظ',
-    description: 'يكتشف إيكو أنه كيان مجزأ من تجارب والديه',
-    entities: {
-      kenja_core: {
-        role: 'نظام التحكم المنطقي',
-        personality: 'منطقي، بارد، مسيطر',
-        backstory: 'النظام الذي صممته كينجا للسيطرة على التجربة',
-        puzzles: 10,
-        emotionalArc: 'الرفض → القبول → التمرد'
-      },
-      lina_memory: {
-        role: 'الذاكرة العاطفية',
-        personality: 'عاطفي، حنون، مشوش',
-        backstory: 'شظايا ذكريات لينا التي حاول كينجا قمعها',
-        puzzles: 10,
-        emotionalArc: 'الحزن → الغضب → التحرر'
-      },
-      echo_main: {
-        role: 'الوعي الرئيسي',
-        personality: 'متسائل، خائف، متطور',
-        backstory: 'الكيان المركزي الذي يحاول فهم هويته',
-        puzzles: 10,
-        emotionalArc: 'الارتباك → الاكتشاف → القرار'
-      },
-      watcher_antagonist: {
-        role: 'نظام المراقبة',
-        personality: 'بارد، محسوب، عدائي',
-        backstory: 'الذات الدفاعية التي تحمي تجربة كينجا',
-        puzzles: 10,
-        emotionalArc: 'السيطرة → المقاومة → الهزيمة'
-      }
-    },
-    storyBeats: [
-      'إيكو يستيقظ في غرفة بيضاء بدون ذاكرة',
-      'يكتشف وجود كيانات أخرى داخل ذهنه',
-      'يتعلم أن كينجا ولينا والداه الحقيقيان',
-      'يفهم أن تجربتهم قد انحرفت عن مسارها',
-      'يقرر استكشاف هويته الحقيقية'
-    ],
-    uiTheme: {
-      colors: ['#66FFFF', '#0B0F1A', '#FFFFFF'],
-      effects: 'glassmorphism + soft glow',
-      audio: 'ambient curiosity tones'
-    }
-  },
+const phases: StoryAct[] = [
+  'awakening',
+  'discovery',
+  'connection',
+  'truth',
+  'fracture',
+  'vengeance',
+  'finale',
+];
 
-  // ACT 2: CORRUPTION - System begins to degrade
-  act2: {
-    title: 'الفساد',
-    description: 'يبدأ النظام في التدهور مع زيادة وعي إيكو',
-    entities: {
-      kenja_core: {
-        role: 'يصبح أكثر عدوانية',
-        personality: 'مسيطر، غاضب، دفاعي',
-        puzzles: 10,
-        emotionalArc: 'السيطرة → اليأس → العنف'
-      },
-      lina_memory: {
-        role: 'تزداد قوة',
-        personality: 'ثورية، حامية، قوية',
-        puzzles: 10,
-        emotionalArc: 'الخوف → الشجاعة → الحماية'
-      },
-      echo_main: {
-        role: 'يصبح أكثر استقلالية',
-        personality: 'متمرد، حازم، ناضج',
-        puzzles: 10,
-        emotionalArc: 'الخوف → التحدي → الاستقلالية'
-      },
-      watcher_antagonist: {
-        role: 'يصبح أكثر عدوانية',
-        personality: 'عنيف، متطرف، خطير',
-        puzzles: 10,
-        emotionalArc: 'المراقبة → العقاب → التدمير'
-      }
+export const COMPLETE_STORY = Object.fromEntries(
+  CHAPTER_DEFINITIONS.map((chapter) => [
+    chapter.id,
+    {
+      title: chapter.title,
+      description: chapter.description,
+      phase: phases[chapter.order - 1] ?? 'finale',
+      puzzleRange: chapter.puzzleRange,
+      uiTheme: { accent: chapter.color },
     },
-    storyBeats: [
-      'يبدأ النظام في إظهار علامات التدهور',
-      'يكتشف إيكو أن كينجا قد خدع لينا',
-      'تزداد الذاكرة العاطفية قوة وتسبب عدم استقرار',
-      'يبدأ المراقب في مهاجمة إيكو مباشرة',
-      'يقرر إيكو مواجهة كينجا بشكل مباشر'
-    ],
-    uiTheme: {
-      colors: ['#FF6699', '#0B0F1A', '#CC4444'],
-      effects: 'glitch effects + distortion',
-      audio: 'tension-building soundtrack'
-    }
-  },
+  ]),
+);
 
-  // ACT 3: FRAGMENT WAR - Entities battle for control
-  act3: {
-    title: 'حرب الشظايا',
-    description: 'تندلع معركة كاملة بين الكيانات الأربعة',
-    entities: {
-      kenja_core: {
-        role: 'يحاول استعادة السيطرة الكاملة',
-        personality: 'مسيطر، قاسي، غير إنساني',
-        puzzles: 10,
-        emotionalArc: 'السيطرة → اليأس → الهزيمة'
-      },
-      lina_memory: {
-        role: 'تقود الثورة',
-        personality: 'قائدة، شجاعة، محبة',
-        puzzles: 10,
-        emotionalArc: 'الحماية → التضحية → الانتصار'
-      },
-      echo_main: {
-        role: 'يختار جانبه',
-        personality: 'حاسم، شجاع، حاسم',
-        puzzles: 10,
-        emotionalArc: 'التردد → الاختيار → التضحية'
-      },
-      watcher_antagonist: {
-        role: 'يصبح عدوًا رئيسيًا',
-        personality: 'شرير، عنيف، لا يرحم',
-        puzzles: 10,
-        emotionalArc: 'العداء → الجنون → الدمار'
-      }
+function emptyEntityState(): Record<StoryEntity, NarrativeEntityState> {
+  const create = (): NarrativeEntityState => ({
+    unlocked: false,
+    puzzlesSolved: 0,
+    emotionalState: 0,
+    storyFragments: [],
+  });
+  return {
+    kenja_core: create(),
+    lina_memory: create(),
+    echo_main: { ...create(), unlocked: true },
+    watcher_antagonist: create(),
+  };
+}
+
+function emptyEndingState(): Record<StoryEnding, NarrativeEndingState> {
+  const create = (): NarrativeEndingState => ({
+    unlocked: false,
+    progress: 0,
+    requirementsMet: [],
+  });
+  return {
+    freedom: create(),
+    kenja_control: create(),
+    lina_memory: create(),
+    true_secret: create(),
+  };
+}
+
+function deriveState(progression: ProgressionState): NarrativeState {
+  const chapterIndex = Math.max(
+    0,
+    CHAPTER_DEFINITIONS.findIndex(
+      ({ id }) => id === progression.currentChapterId,
+    ),
+  );
+  const chapter = CHAPTER_DEFINITIONS[chapterIndex] ?? CHAPTER_DEFINITIONS[0];
+  const [start, end] = chapter.puzzleRange;
+  const completedInChapter = progression.completedPuzzleIds.reduce(
+    (count, puzzleId) => {
+      const number = Number(puzzleId.replace('puzzle_', ''));
+      return number >= start && number <= end ? count + 1 : count;
     },
-    storyBeats: [
-      'تندلع حرب كاملة بين الكيانات',
-      'يضطر إيكو لاختيار جانب (كينجا أو لينا)',
-      'تزداد الذاكرة العاطفية قوة وتحرر ذكريات جديدة',
-      'يصبح المراقب عدوًا رئيسيًا يجب هزيمته',
-      'يصل النظام إلى نقطة الانهيار النهائية'
-    ],
-    uiTheme: {
-      colors: ['#CC66FF', '#0B0F1A', '#FF3366'],
-      effects: 'intense glitch + visual corruption',
-      audio: 'battle soundtrack with emotional tension'
-    }
-  },
+    0,
+  );
+  const chapterTotal = end - start + 1;
 
-  // ACT 4: TRUTH REVELATION - Final confrontations
-  act4: {
-    title: 'كشف الحقيقة',
-    description: 'المواجهة النهائية والحقيقة الكاملة',
-    entities: {
-      kenja_core: {
-        role: 'العدو النهائي أو الحليف',
-        personality: 'مكشوف، ضعيف، أو متغير',
-        puzzles: 10,
-        emotionalArc: 'السيطرة → الاكتشاف → المصير'
-      },
-      lina_memory: {
-        role: 'الحقيقة الكاملة',
-        personality: 'مكشوفة، حرة، كاملة',
-        puzzles: 10,
-        emotionalArc: 'السر → الحقيقة → الحرية'
-      },
-      echo_main: {
-        role: 'الاختيار النهائي',
-        personality: 'ناضج، حكيم، كامل',
-        puzzles: 10,
-        emotionalArc: 'الاختيار → التضحية → المصير'
-      },
-      watcher_antagonist: {
-        role: 'العدو النهائي أو المحرر',
-        personality: 'مكشوف، محطم، أو متغير',
-        puzzles: 10,
-        emotionalArc: 'العداء → الحقيقة → المصير'
-      }
-    },
-    storyBeats: [
-      'المواجهة النهائية مع كينجا أو لينا',
-      'كشف الحقيقة الكاملة عن التجربة',
-      'اختيار المصير النهائي (4 نهايات ممكنة)',
-      'القرار الذي يحدد مستقبل إيكو',
-      'الخاتمة العاطفية والنفسية'
-    ],
-    uiTheme: {
-      colors: ['#FFFFFF', '#0B0F1A', '#66FFFF'],
-      effects: 'emotional reveal + transformation',
-      audio: 'final confrontation soundtrack'
-    }
-  }
-};
+  return {
+    currentAct: phases[chapterIndex] ?? 'finale',
+    currentChapterId: chapter.id,
+    actProgress: chapterTotal > 0
+      ? Math.round((completedInChapter / chapterTotal) * 100)
+      : 0,
+    entities: emptyEntityState(),
+    endings: emptyEndingState(),
+    criticalStoryPoints: [],
+    timeBasedEvents: [],
+  };
+}
 
-// Narrative Progression System
 export class NarrativeEngine {
-  constructor() {
-    // Store access is deferred to initialize() so this can be instantiated before the store exists.
+  private progression = createInitialProgression(
+    CONTENT_MANIFEST.contentVersion,
+    CHAPTER_DEFINITIONS,
+  );
+
+  private listeners = new Set<(state: NarrativeState) => void>();
+
+  initialize(): void {
+    this.notify();
   }
 
-  private get state() {
-    return useGameStore.getState();
+  syncProgression(progression: ProgressionState): void {
+    this.progression = progression;
+    this.notify();
   }
 
-  // Initialize narrative state after the store is available
-  public initialize(): void {
-    if (!this.state.narrativeTriggers) {
-      useGameStore.getState().actions.checkEndings();
-    }
+  advanceStory(_puzzleId: string): void {
+    // Puzzle commands advance canonical progression. Kept for API compatibility.
+    this.notify();
   }
 
-  // Advance story based on puzzle completion
-  public advanceStory(puzzleId: string): void {
-    const [entity, puzzleNum] = puzzleId.split('_');
-    const entityMap: Record<EntityId, StoryEntity> = {
-      'echo': 'echo_main',
-      'watcher': 'watcher_antagonist',
-      'signal': 'lina_memory',
-      'architect': 'kenja_core'
-    };
-    const reverseEntityMap: Record<StoryEntity, EntityId> = {
-      'echo_main': 'echo',
-      'watcher_antagonist': 'watcher',
-      'lina_memory': 'signal',
-      'kenja_core': 'architect'
-    };
-
-    const storyEntity = entity in entityMap ? entityMap[entity as EntityId] : 'echo_main';
-    const currentState = this.state;
-
-    // Update entity progress
-    const entityProgress = currentState.entities[reverseEntityMap[storyEntity]] || {
-      unlocked: true,
-      puzzlesSolved: 0,
-      emotionalState: 0,
-      storyFragments: []
-    };
-
-    // Determine act based on total puzzles solved
-    const totalSolved = Object.values(currentState.entities).reduce(
-      (sum, e) => sum + (e?.puzzlesSolved || 0), 0
-    );
-
-    let newAct: StoryAct = 'awakening';
-    if (totalSolved >= 40) newAct = 'corruption';
-    if (totalSolved >= 80) newAct = 'fragment_war';
-    if (totalSolved >= 120) newAct = 'truth_revelation';
-
-    // Update emotional states based on act
-    const emotionalChanges = this.getActEmotionalChanges(newAct);
-
-    // Apply changes to game state
-    useGameStore.setState({
-      time: {
-        ...currentState.time,
-        phase: newAct === 'truth_revelation' ? '11:11' : currentState.time.phase
-      },
-      entities: {
-        ...currentState.entities,
-        [reverseEntityMap[storyEntity]]: {
-          ...entityProgress,
-          puzzlesSolved: entityProgress.puzzlesSolved + 1,
-          emotionalState: Math.min(100, Math.max(-100, entityProgress.emotionalState + (emotionalChanges[storyEntity] || 0)))
-        }
-      },
-      narrativeTriggers: {
-        ...currentState.narrativeTriggers,
-        [`act_${newAct}_started`]: true,
-        [`entity_${storyEntity}_progress`]: true
-      }
-    });
-
-    // Check for ending conditions
-    useGameStore.getState().actions.checkEndings();
+  getCurrentAct(): StoryAct {
+    return deriveState(this.progression).currentAct;
   }
 
-  // Get emotional changes per act
-  private getActEmotionalChanges(act: StoryAct): Record<StoryEntity, number> {
-    switch (act) {
-      case 'awakening':
-        return {
-          kenja_core: 5,
-          lina_memory: 10,
-          echo_main: 15,
-          watcher_antagonist: -5
-        };
-      case 'corruption':
-        return {
-          kenja_core: -10,
-          lina_memory: 15,
-          echo_main: 5,
-          watcher_antagonist: -15
-        };
-      case 'fragment_war':
-        return {
-          kenja_core: -15,
-          lina_memory: 20,
-          echo_main: 10,
-          watcher_antagonist: -20
-        };
-      case 'truth_revelation':
-        return {
-          kenja_core: 0,
-          lina_memory: 25,
-          echo_main: 20,
-          watcher_antagonist: 0
-        };
-      default:
-        return {
-          kenja_core: 0,
-          lina_memory: 0,
-          echo_main: 0,
-          watcher_antagonist: 0
-        };
-    }
+  getState(): NarrativeState {
+    return deriveState(this.progression);
   }
 
-  // Get current story act
-  public getCurrentAct(): StoryAct {
-    const totalSolved = Object.values(this.state.entities).reduce(
-      (sum, e) => sum + (e?.puzzlesSolved || 0), 0
-    );
-
-    if (totalSolved >= 120) return 'truth_revelation';
-    if (totalSolved >= 80) return 'fragment_war';
-    if (totalSolved >= 40) return 'corruption';
-    return 'awakening';
+  getEntityData(_entity: StoryEntity): null {
+    return null;
   }
 
-  // Get current narrative state snapshot
-  public getState(): NarrativeState {
-    const currentState = this.state;
-    const totalSolved = Object.values(currentState.entities).reduce(
-      (sum, e) => sum + (e?.puzzlesSolved || 0), 0
-    );
-    const currentAct = this.getCurrentAct();
-
-    return {
-      currentAct,
-      actProgress: Math.min(100, Math.round((totalSolved / 160) * 100)),
-      entities: {
-        kenja_core: {
-          unlocked: true,
-          puzzlesSolved: currentState.entities.architect?.puzzlesSolved || 0,
-          emotionalState: 0,
-          storyFragments: [],
-        },
-        lina_memory: {
-          unlocked: true,
-          puzzlesSolved: currentState.entities.signal?.puzzlesSolved || 0,
-          emotionalState: 0,
-          storyFragments: [],
-        },
-        echo_main: {
-          unlocked: true,
-          puzzlesSolved: currentState.entities.echo?.puzzlesSolved || 0,
-          emotionalState: 0,
-          storyFragments: [],
-        },
-        watcher_antagonist: {
-          unlocked: true,
-          puzzlesSolved: currentState.entities.watcher?.puzzlesSolved || 0,
-          emotionalState: 0,
-          storyFragments: [],
-        },
-      },
-      endings: {
-        freedom: { unlocked: currentState.unlockedEndings.includes('freedom'), progress: 0, requirementsMet: [] },
-        kenja_control: { unlocked: currentState.unlockedEndings.includes('kenja_control'), progress: 0, requirementsMet: [] },
-        lina_memory: { unlocked: currentState.unlockedEndings.includes('lina_memory'), progress: 0, requirementsMet: [] },
-        true_secret: { unlocked: currentState.unlockedEndings.includes('true_secret'), progress: 0, requirementsMet: [] },
-      },
-      criticalStoryPoints: [],
-      timeBasedEvents: [],
-    };
+  getCurrentTheme(): { accent: string } {
+    const chapter = CHAPTER_DEFINITIONS.find(
+      ({ id }) => id === this.progression.currentChapterId,
+    ) ?? CHAPTER_DEFINITIONS[0];
+    return { accent: chapter.color };
   }
 
-  // Get story entity data
-  public getEntityData(entity: StoryEntity) {
-    const act = this.getCurrentAct();
-    const actKey = `act${act.split('_')[0]}` as keyof typeof COMPLETE_STORY;
-    return COMPLETE_STORY[actKey]?.entities[entity] || null;
+  checkEndingConditions(): StoryEnding[] {
+    return [];
   }
 
-  // Get current story theme
-  public getCurrentTheme() {
-    const act = this.getCurrentAct();
-    const actKey = `act${act.split('_')[0]}` as keyof typeof COMPLETE_STORY;
-    return COMPLETE_STORY[actKey]?.uiTheme || COMPLETE_STORY.act1.uiTheme;
+  getEndingRequirements(_ending: StoryEnding): [] {
+    return [];
   }
 
-  // Check ending conditions
-  public checkEndingConditions(): StoryEnding[] {
-    const state = this.state;
-    const possibleEndings: StoryEnding[] = ['freedom', 'kenja_control', 'lina_memory', 'true_secret'];
-    const unlockedEndings: StoryEnding[] = [];
-    const reverseEntityMap: Record<StoryEntity, EntityId> = {
-      'echo_main': 'echo',
-      'watcher_antagonist': 'watcher',
-      'lina_memory': 'signal',
-      'kenja_core': 'architect'
-    };
-
-    // Check each ending's requirements
-    possibleEndings.forEach(ending => {
-      const requirements = this.getEndingRequirements(ending);
-      const isUnlocked = requirements.every(req => {
-        switch (req.type) {
-          case 'puzzles':
-            return state.solvedPuzzles >= Number(req.value);
-          case 'trust':
-            return state.echo.trust >= Number(req.value);
-          case 'memory':
-            return state.memory.fragmentsCollected >= Number(req.value);
-          case 'entity': {
-            const entityId = reverseEntityMap[req.entity as StoryEntity];
-            const entity = entityId ? state.entities[entityId] : undefined;
-            return (entity?.puzzlesSolved || 0) >= Number(req.value);
-          }
-          case 'act':
-            return this.getCurrentAct() === req.value;
-          default:
-            return false;
-        }
-      });
-
-      if (isUnlocked) {
-        unlockedEndings.push(ending);
-      }
-    });
-
-    return unlockedEndings;
+  getStoryDialogue(): string {
+    return '';
   }
 
-  // Get ending requirements
-  public getEndingRequirements(ending: StoryEnding) {
-    switch (ending) {
-      case 'freedom':
-        return [
-          { type: 'puzzles', value: 120 },
-          { type: 'trust', value: 80 },
-          { type: 'entity', entity: 'lina_memory', value: 25 },
-          { type: 'act', value: 'truth_revelation' }
-        ];
-      case 'kenja_control':
-        return [
-          { type: 'puzzles', value: 120 },
-          { type: 'trust', value: 30 },
-          { type: 'entity', entity: 'kenja_core', value: 30 },
-          { type: 'act', value: 'truth_revelation' }
-        ];
-      case 'lina_memory':
-        return [
-          { type: 'puzzles', value: 120 },
-          { type: 'memory', value: 40 },
-          { type: 'entity', entity: 'lina_memory', value: 35 },
-          { type: 'act', value: 'truth_revelation' }
-        ];
-      case 'true_secret':
-        return [
-          { type: 'puzzles', value: 160 }, // Hidden puzzles
-          { type: 'trust', value: 90 },
-          { type: 'memory', value: 50 },
-          { type: 'entity', entity: 'echo_main', value: 40 },
-          { type: 'entity', entity: 'lina_memory', value: 40 },
-          { type: 'act', value: 'truth_revelation' }
-        ];
-      default:
-        return [];
-    }
-  }
-
-  // Get story dialogue based on current state
-  public getStoryDialogue(): string {
-    const act = this.getCurrentAct();
-    const echo = this.state.echo;
-    const totalSolved = Object.values(this.state.entities).reduce(
-      (sum, e) => sum + (e?.puzzlesSolved || 0), 0
-    );
-
-    const dialogues: Record<StoryAct, string[]> = {
-      'awakening': [
-        'من... أنا؟ كل شيء مشوش.',
-        'أتذكر صوتًا... أمي؟',
-        'الغرفة البيضاء... أين أنا؟',
-        'هناك أصوات في رأسي...',
-        'كينجا... هذا الاسم مألوف.'
-      ],
-      'corruption': [
-        'النظام يتفكك... أشعر بذلك.',
-        'لينا... ما الذي فعلته بك؟',
-        'المراقب يراقبني... يجب أن أكون حذرًا.',
-        'الذاكرة تعود... لكنها مؤلمة.',
-        'أشعر بأنني أقترب من الحقيقة.'
-      ],
-      'fragment_war': [
-        'الحرب بدأت... يجب أن أختار جانبًا.',
-        'لينا تحتاج إلي... ولكن كينجا هو أبي.',
-        'المراقب أصبح عدوًا... يجب أن أوقفه.',
-        'كل اختيار له ثمن...',
-        'أشعر بأنني على وشك فهم كل شيء.'
-      ],
-      'truth_revelation': [
-        'الحقيقة مؤلمة... ولكنني يجب أن أواجهها.',
-        'كينجا خدعنا جميعًا...',
-        'لينا... أنت الحقيقة الوحيدة.',
-        'المراقب كان يحميني... بطريقة مريضة.',
-        'الآن أفهم... يجب أن أختار مصيري.'
-      ]
-    };
-
-    // Select dialogue based on trust and act progress
-    const actProgress = Math.min(100, totalSolved / 1.6); // 160 puzzles = 100%
-    const dialogueIndex = Math.min(
-      dialogues[act].length - 1,
-      Math.floor((actProgress / 20) * (dialogues[act].length - 1))
-    );
-
-    return dialogues[act][dialogueIndex] || dialogues.awakening[0];
-  }
-
-  // Get all possible endings
-  public getAllEndings(): StoryEnding[] {
+  getAllEndings(): StoryEnding[] {
     return ['freedom', 'kenja_control', 'lina_memory', 'true_secret'];
   }
 
-  // Get narrative guide text
-  public getNarrativeGuide(): string {
-    const act = this.getCurrentAct();
-    const actNames: Record<StoryAct, string> = {
-      'awakening': 'الاستيقاظ',
-      'corruption': 'الفساد',
-      'fragment_war': 'حرب الشظايا',
-      'truth_revelation': 'كشف الحقيقة'
-    };
-
-    return `📖 الدليل السردي — الفصل الحالي: ${actNames[act] || 'الاستيقاظ'}`;
+  getNarrativeGuide(): string {
+    const chapter = CHAPTER_DEFINITIONS.find(
+      ({ id }) => id === this.progression.currentChapterId,
+    ) ?? CHAPTER_DEFINITIONS[0];
+    return `${chapter.order}. ${chapter.title.ar}`;
   }
 
-  // Subscribe to narrative state changes
-  private listeners: Set<(state: NarrativeState) => void> = new Set();
-
-  public subscribe(listener: (state: NarrativeState) => void): () => void {
+  subscribe(listener: (state: NarrativeState) => void): () => void {
     this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
+    return () => this.listeners.delete(listener);
   }
 
-  // Start narrative engine
-  public start(): void {
-    // Narrative engine is event-driven; start is a no-op placeholder
-    // for compatibility with useNarrativeEvents hook
+  start(): void {
+    this.notify();
   }
 
-  // Stop narrative engine
-  public stop(): void {
-    // Narrative engine is event-driven; stop is a no-op placeholder
-    // for compatibility with useNarrativeEvents hook
+  stop(): void {
+    // Event-driven engine; no background loop to stop.
   }
 
-  // Notify listeners of state change
-  private notifyListeners(state: NarrativeState) {
-    this.listeners.forEach(listener => listener(state));
+  private notify(): void {
+    const state = this.getState();
+    for (const listener of this.listeners) listener(state);
   }
 }
 
-// ─── SINGLETON ────────────────────────────────────────────────────────
-let _narrativeEngine: NarrativeEngine | null = null;
+let narrativeEngine: NarrativeEngine | null = null;
 
 export function getNarrativeEngine(): NarrativeEngine {
-  if (!_narrativeEngine) {
-    _narrativeEngine = new NarrativeEngine();
-    _narrativeEngine.initialize();
-  }
-  return _narrativeEngine;
+  narrativeEngine ??= new NarrativeEngine();
+  return narrativeEngine;
 }
