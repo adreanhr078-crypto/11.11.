@@ -4,13 +4,12 @@
  */
 
 import React from 'react';
-import { useGameStore, type TimePhase } from '../../stores/gameStore';
+import { useGameStore } from '../../stores/gameStore';
 import Icon from '../ui/Icon';
-
-const XP_MAX = 3500;
+import { ShopPanel } from '../Shop/ShopPanel';
 import { motion } from 'framer-motion';
 
-export type SectionId = 'dashboard' | 'echo-mind' | 'day' | 'memories' | 'puzzles' | 'wishes' | 'flowers' | 'achievements' | 'night' | 'overview';
+export type SectionId = 'dashboard' | 'echo-mind' | 'day' | 'memories' | 'puzzles' | 'wishes' | 'flowers' | 'achievements' | 'night' | 'overview' | 'shop';
 
 interface Props {
   activeSection: SectionId;
@@ -28,6 +27,7 @@ const NAV_ITEMS: { id: SectionId; label: string; icon: string }[] = [
   { id: 'flowers', label: 'الزهور', icon: '🌸' },
   { id: 'day', label: 'الوضع النهاري', icon: '☀️' },
   { id: 'night', label: 'التحول الليلي', icon: '🌙' },
+  { id: 'shop', label: 'المتجر', icon: '🏪' },
 ];
 
 export const GameSidebar: React.FC<Props> = ({ activeSection, onNavigate }) => {
@@ -102,15 +102,23 @@ export const GameSidebar: React.FC<Props> = ({ activeSection, onNavigate }) => {
             <path d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z" fill="currentColor" />
           </svg>
         );
+      case 'shop':
+        return (
+          <svg className="sidebar-nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M20 7l-5-5H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V9l-5-5z" stroke="currentColor" strokeWidth="1.5" fill="none" />
+            <path d="M9 12h6M9 16h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        );
       default:
         return <span className="sidebar-nav-icon">•</span>;
     }
   };
   const { echo, solvedPuzzles, totalPuzzles, time, flower, achievements } = useGameStore();
   const [isNightMode, setIsNightMode] = React.useState(false);
+  const [shopOpen, setShopOpen] = React.useState(false);
 
   const emoji = echo.corruption > 70 ? '😰' : echo.fear > 70 ? '😨' : echo.trust > 60 ? '😊' : '😐';
-  const xpPct = Math.min(100, (echo.xp / XP_MAX) * 100);
+  const xpPct = Math.min(100, (echo.xp / echo.xpMax) * 100);
   const nightActive = time.phaseIndex >= 1;
 
   return (
@@ -128,7 +136,7 @@ export const GameSidebar: React.FC<Props> = ({ activeSection, onNavigate }) => {
           <button
             key={item.id}
             className={`sidebar-nav-item ${activeSection === item.id ? 'active' : ''}`}
-            onClick={() => onNavigate(item.id)}
+            onClick={() => item.id === 'shop' ? setShopOpen(true) : onNavigate(item.id)}
           >
             <NavIcon id={item.id} />
             <span className="nav-label">{item.label}</span>
@@ -165,7 +173,7 @@ export const GameSidebar: React.FC<Props> = ({ activeSection, onNavigate }) => {
           <div className="user-xp-bar">
             <div className="user-xp-fill" style={{ width: `${xpPct}%` }} />
           </div>
-          <span className="user-xp-text">{echo.xp} / {XP_MAX} XP</span>
+          <span className="user-xp-text">{echo.xp} / {echo.xpMax} XP</span>
         </div>
       </div>
 
@@ -184,6 +192,10 @@ export const GameSidebar: React.FC<Props> = ({ activeSection, onNavigate }) => {
           <span>{achievements.filter(a => a.unlocked).length}</span>
         </div>
         <div className="sidebar-stat">
+                  <Icon name="progress" className="stat-icon" />
+          <span>{echo.crystals} 💎</span>
+        </div>
+        <div className="sidebar-stat">
                   <Icon name="echo" className="stat-icon" />
           <span>{echo.trust}%</span>
         </div>
@@ -195,6 +207,8 @@ export const GameSidebar: React.FC<Props> = ({ activeSection, onNavigate }) => {
           متابعة ▶
         </button>
       </div>
+
+      <ShopPanel isOpen={shopOpen} onClose={() => setShopOpen(false)} />
     </aside>
   );
 };

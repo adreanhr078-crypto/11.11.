@@ -12,6 +12,7 @@ import { getCollectedShards, ALL_MEMORY_SHARDS } from '../core/memoryShardsSyste
 import {
   ORIGINAL_PUZZLE_COUNT,
   TOTAL_PUZZLES,
+  TOTAL_MEMORY_SHARDS,
 } from '../constants/puzzleConstants';
 import {
   getPuzzleByNumber,
@@ -26,6 +27,7 @@ import {
   calculateTransformationEffects,
   applyTransformation
 } from '../core/echoTransformationSystem';
+import { STORY_ARCS } from '../core/storyActs';
 
 // ─── INITIAL STATE ─────────────────────────────────────────────────────
 export function buildInitialState(): GameState {
@@ -51,7 +53,7 @@ export function buildInitialState(): GameState {
     },
     time: { phase: 'morning', phaseIndex: 0, isNight: false, hour: 8, minute: 0, dayCycle: 1 },
     flower: { stage: 'seed', growth: 0, decay: 0, hiddenUnlocked: false, maxStage: 5 },
-    memory: { fragmentsCollected: 0, totalFragments: 0, corruptedFragments: 0, timelineEvents: [], logsUnlocked: [] },
+    memory: { fragmentsCollected: 0, totalFragments: TOTAL_MEMORY_SHARDS, corruptedFragments: 0, timelineEvents: [], logsUnlocked: [] },
     allMemoryShards: [],
     puzzles: [], // Will be populated by generateAllPuzzles
     totalPuzzles: TOTAL_PUZZLES, solvedPuzzles: 0,
@@ -307,14 +309,11 @@ export function checkAllAchievements(solved: number, echo: EchoState, flowerStag
   if (echo.transformationStage === 'redeemed') u('echo_redeemed');
   if (echo.transformationStage === 'ascended') u('echo_ascended');
 
-  // Story arc achievements
-  if (solved >= 150) u('act1_complete');
-  if (solved >= 300) u('act2_complete');
-  if (solved >= 450) u('act3_complete');
-  if (solved >= 600) u('act4_complete');
-  if (solved >= 750) u('act5_complete');
-  if (solved >= 900) u('act6_complete');
-  if (solved >= 1000) u('act7_complete');
+  // Story arc achievements — derived dynamically from STORY_ARCS
+  STORY_ARCS.forEach(arc => {
+    const actId = `act${arc.act}_complete`;
+    if (solved >= arc.puzzleRange[1]) u(actId);
+  });
   
   // Level achievements
   if (echo.level >= 5) u('level_5');

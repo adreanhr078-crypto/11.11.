@@ -29,6 +29,7 @@ import { isAnswerCorrect, getAllPuzzles } from '../core/puzzles/puzzleLoader';
 import { collectShard } from '../core/memoryShardsSystem';
 import { getDailyMissions, shouldRefreshMissions } from '../core/dailyMissions';
 import type { MemoryShard } from '../core/memoryShardsTypes';
+import { TOTAL_MEMORY_SHARDS } from '../constants/puzzleConstants';
 
 // ─── TYPES ────────────────────────────────────────────────────────────
 export type { TimePhase, EntityId, PuzzleStatus, FlowerStage, Ending, EchoMood, WishStatus };
@@ -51,7 +52,7 @@ const FULL_SAVE_KEY = 'eleven_full_save';
 
 // Populate initial puzzles
 _initialState.puzzles = generateAllPuzzles();
-_initialState.memory.totalFragments = _initialState.puzzles.length;
+_initialState.memory.totalFragments = TOTAL_MEMORY_SHARDS;
 
 export const useGameStore = create<GameState>()(
   persist(

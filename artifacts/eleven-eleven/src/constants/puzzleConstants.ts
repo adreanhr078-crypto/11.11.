@@ -1,35 +1,50 @@
 /**
  * Shared puzzle progression constants for 11.11 Echo Mind Game
- * Centralizes magic numbers used across puzzle generation, achievement checks,
- * character evolution, and memory-shard calculations.
+ * Centralizes constants used for story acts, puzzle loading, achievement checks,
+ * and memory-shard calculations.
+ *
+ * Target state: 1000 manual puzzles across 10 batches, with 1000 memory shards.
  */
 
 // ─── Puzzle Counts ────────────────────────────────────────────────────
-export const ORIGINAL_PUZZLE_COUNT = 219;
-export const TOTAL_PUZZLES = 1000;
+export const ORIGINAL_PUZZLE_COUNT = 1000;
+export const TOTAL_PUZZLES = ORIGINAL_PUZZLE_COUNT;
+export const TOTAL_MEMORY_SHARDS = TOTAL_PUZZLES;
+
+// ─── Batch Layout ─────────────────────────────────────────────────────
+export const BATCH_SIZE = 100;
+export const TOTAL_BATCHES = 10;
 
 // ─── Arc Ranges ───────────────────────────────────────────────────────
-export const PRELUDE_START = 220;
-export const PRELUDE_END = 333;
+export const ACT1_START = 1;
+export const ACT1_END = 100;
 
-export const FRACTURE_START = 334;
-export const FRACTURE_END = 500;
+export const ACT2_START = 101;
+export const ACT2_END = 250;
 
-export const ARCHITECT_START = 501;
-export const ARCHITECT_END = 666;
+export const ACT3_START = 251;
+export const ACT3_END = 400;
 
-export const SIGNAL_START = 667;
-export const SIGNAL_END = 888;
+export const ACT4_START = 401;
+export const ACT4_END = 550;
 
-export const FINAL_START = 889;
-export const FINAL_END = 1000;
+export const ACT5_START = 551;
+export const ACT5_END = 700;
+
+export const ACT6_START = 701;
+export const ACT6_END = 850;
+
+export const ACT7_START = 851;
+export const ACT7_END = 1000;
 
 // ─── Arc Puzzle Totals ────────────────────────────────────────────────
-export const PRELUDE_PUZZLE_COUNT = PRELUDE_END - PRELUDE_START + 1; // 114
-export const FRACTURE_PUZZLE_COUNT = FRACTURE_END - FRACTURE_START + 1; // 167
-export const ARCHITECT_PUZZLE_COUNT = ARCHITECT_END - ARCHITECT_START + 1; // 166
-export const SIGNAL_PUZZLE_COUNT = SIGNAL_END - SIGNAL_START + 1; // 222
-export const FINAL_PUZZLE_COUNT = FINAL_END - FINAL_START + 1; // 112
+export const ACT1_PUZZLE_COUNT = ACT1_END - ACT1_START + 1; // 100
+export const ACT2_PUZZLE_COUNT = ACT2_END - ACT2_START + 1; // 150
+export const ACT3_PUZZLE_COUNT = ACT3_END - ACT3_START + 1; // 150
+export const ACT4_PUZZLE_COUNT = ACT4_END - ACT4_START + 1; // 150
+export const ACT5_PUZZLE_COUNT = ACT5_END - ACT5_START + 1; // 150
+export const ACT6_PUZZLE_COUNT = ACT6_END - ACT6_START + 1; // 150
+export const ACT7_PUZZLE_COUNT = ACT7_END - ACT7_START + 1; // 150
 
-// ─── Memory Shard Reference ───────────────────────────────────────────
-export const TOTAL_MEMORY_SHARDS = 219;
+export const ALL_ACTS = [1, 2, 3, 4, 5, 6, 7] as const;
+export type ActNumber = typeof ALL_ACTS[number];

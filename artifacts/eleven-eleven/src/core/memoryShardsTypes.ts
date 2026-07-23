@@ -1,27 +1,44 @@
 /**
  * memoryShardsTypes.ts — shared type definitions for Memory Shards
- * Extracted from memoryShardsSystem.ts to break circular dependency with gameStore.ts
+ * Unified type supporting both narrative engine and memory collection systems.
  */
 
 import type { StoryAct, StoryEntity } from './narrativeEngine';
 
+export type MemoryShardRarity = 'common' | 'rare' | 'epic' | 'legendary' | 'mythic';
+
 export interface MemoryShard {
+  // Core identification
   id: string;
-  shardId: number; // 1-219
-  title: string;
-  content: string;
-  entity: StoryEntity;
-  act: StoryAct;
   puzzleId: string;
-  emotionalImpact: number; // -10 to +10
-  storySignificance: 'minor' | 'major' | 'critical';
-  unlocks: {
+  
+  // Display properties
+  title: string;
+  description: string;
+  icon: string;
+  rarity: MemoryShardRarity;
+  
+  // Collection state
+  collected: boolean;
+  
+  // Story integration
+  storyFragment: string;
+  act: number;
+  phase: string;
+  
+  // Narrative engine fields
+  shardId?: number;
+  content?: string;
+  entity?: StoryEntity;
+  emotionalImpact?: number;
+  storySignificance?: 'minor' | 'major' | 'critical';
+  unlocks?: {
     nextPuzzle?: string;
     storyFragment?: string;
     dialogueChange?: string;
     uiEffect?: string;
   };
-  theme: {
+  theme?: {
     color: string;
     audio: string;
     visualEffect: string;

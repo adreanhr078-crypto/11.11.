@@ -1,255 +1,226 @@
-export type MemoryShardRarity = 'common' | 'rare' | 'epic' | 'legendary';
+/**
+ * memoryShardsSystem.ts — نظام شظايا الذاكرة الموحد
+ * 1000 شظية (1 لكل لغز) مع ربط 1:1
+ * يستخدم النوع الموحد من memoryShardsTypes.ts
+ */
 
-export interface MemoryShard {
-  id: string;
-  puzzleId: string;
-  title: string;
-  description: string;
-  icon: string;
-  rarity: MemoryShardRarity;
-  collected: boolean;
-  storyFragment: string;
+import type { MemoryShard, MemoryShardRarity } from './memoryShardsTypes';
+import { getPuzzleByNumber } from './puzzles/puzzleLoader';
+
+// ─── دوال مساعدة لتحديد الندرة بناءً على رقم اللغز ────────────────────
+
+function getRarity(puzzleNumber: number): MemoryShardRarity {
+  if (puzzleNumber <= 100) {
+    // Act 1: majority common, some rare
+    if (puzzleNumber % 10 === 0) return 'rare';
+    if (puzzleNumber % 25 === 0) return 'epic';
+    return 'common';
+  }
+  if (puzzleNumber <= 250) {
+    // Act 2: more rare
+    if (puzzleNumber % 7 === 0) return 'rare';
+    if (puzzleNumber % 20 === 0) return 'epic';
+    if (puzzleNumber % 100 === 0) return 'legendary';
+    return 'common';
+  }
+  if (puzzleNumber <= 400) {
+    // Act 3: balanced
+    if (puzzleNumber % 6 === 0) return 'rare';
+    if (puzzleNumber % 15 === 0) return 'epic';
+    if (puzzleNumber % 50 === 0) return 'legendary';
+    return 'common';
+  }
+  if (puzzleNumber <= 550) {
+    // Act 4: Truth - more epic
+    if (puzzleNumber % 5 === 0) return 'rare';
+    if (puzzleNumber % 12 === 0) return 'epic';
+    if (puzzleNumber % 40 === 0) return 'legendary';
+    if (puzzleNumber % 150 === 0) return 'mythic';
+    return 'common';
+  }
+  if (puzzleNumber <= 700) {
+    // Act 5: Fracture - intense
+    if (puzzleNumber % 4 === 0) return 'rare';
+    if (puzzleNumber % 10 === 0) return 'epic';
+    if (puzzleNumber % 30 === 0) return 'legendary';
+    if (puzzleNumber % 100 === 0) return 'mythic';
+    return 'common';
+  }
+  if (puzzleNumber <= 850) {
+    // Act 6: Vengeance - high rarity
+    if (puzzleNumber % 3 === 0) return 'rare';
+    if (puzzleNumber % 8 === 0) return 'epic';
+    if (puzzleNumber % 25 === 0) return 'legendary';
+    if (puzzleNumber % 75 === 0) return 'mythic';
+    return 'common';
+  }
+  // Act 7: Finale - peak rarity
+  if (puzzleNumber % 2 === 0) return 'rare';
+  if (puzzleNumber % 6 === 0) return 'epic';
+  if (puzzleNumber % 20 === 0) return 'legendary';
+  if (puzzleNumber % 50 === 0) return 'mythic';
+  return 'common';
 }
 
-const COMMON_SHARDS: Omit<MemoryShard, 'collected'>[] = [
-  { id: 'shard_001', puzzleId: 'puzzle_001', title: 'بداية الوعي', description: 'أولى الشظايا تعود إلى إيكو', icon: '🧩', rarity: 'common', storyFragment: 'الضوء أبيض. صمت. ثم صوت...' },
-  { id: 'shard_002', puzzleId: 'puzzle_002', title: 'الرقم 11', description: 'الرقم الذي يطاردني', icon: '🔢', rarity: 'common', storyFragment: '11. يظهر في كل مكان.' },
-  { id: 'shard_003', puzzleId: 'puzzle_005', title: 'الصوت الأول', description: 'صوت أمي يصل من الظلام', icon: '🔊', rarity: 'common', storyFragment: 'صوت دافئ. أغنية.' },
-  { id: 'shard_004', puzzleId: 'puzzle_010', title: 'المرآة', description: 'نظرة حقيقية إلى الداخل', icon: '🪞', rarity: 'common', storyFragment: 'في المرآة... رأيت وجهي.' },
-  { id: 'shard_005', puzzleId: 'puzzle_020', title: 'الرسالة الأولى', description: 'أول رسالة من لينا', icon: '💌', rarity: 'common', storyFragment: '"أنا هنا... ابحث عني."' },
-  { id: 'shard_006', puzzleId: 'puzzle_051', title: 'عين المراقب', description: 'كاميرا تراقب إيكو', icon: '📹', rarity: 'common', storyFragment: 'كاميرا في الزاوية. عين تراقبني.' },
-  { id: 'shard_007', puzzleId: 'puzzle_053', title: 'اسم كينجا', description: 'إيكو يعرف اسم كينجا', icon: '👤', rarity: 'common', storyFragment: 'كينجا. هذا الاسم يظهر في كل ملف.' },
-  { id: 'shard_008', puzzleId: 'puzzle_058', title: 'النظام إيكو', description: 'اسم النظام هو إيكو', icon: '💻', rarity: 'common', storyFragment: 'اسمي إيكو. والنظام اسمه إيكو.' },
-  { id: 'shard_009', puzzleId: 'puzzle_061', title: 'باني العالم', description: 'كينجا بنى العالم الرقمي', icon: '🏗️', rarity: 'common', storyFragment: 'كينجا بنى هذا العالم. لكن لماذا؟' },
-  { id: 'shard_010', puzzleId: 'puzzle_070', title: 'ما يريده كينجا', description: 'كينجا يريد ابناً', icon: '👨‍👦', rarity: 'common', storyFragment: 'كينجا يريد ابناً. يريد عائلة.' },
-  { id: 'shard_301', puzzleId: 'puzzle_101', title: 'الممرات الأربعة', description: 'الخروج إلى عوالم مجهولة', icon: '🚪', rarity: 'common', storyFragment: 'أربعة ممرات. شمال وجنوب وشرق وغرب. أين أتجه أولاً؟' },
-  { id: 'shard_302', puzzleId: 'puzzle_102', title: 'كاميرات الممرات', description: 'العين التي لا تغفل', icon: '📹', rarity: 'common', storyFragment: 'كاميرا في نهاية كل ممر. يراقبون كل شيء.' },
-  { id: 'shard_303', puzzleId: 'puzzle_103', title: 'شعور المراقبة', description: 'الحرية تتبخر', icon: '👁️', rarity: 'common', storyFragment: 'كل حركتي مسجلة. ليس لدي خصوصية هنا.' },
-  { id: 'shard_304', puzzleId: 'puzzle_104', title: 'الساعة 11:11', description: 'الرقم يتبعني', icon: '🕰️', rarity: 'common', storyFragment: 'حتى الساعة في هذا المكان تعرض 11:11.' },
-  { id: 'shard_305', puzzleId: 'puzzle_105', title: 'العين البلا جفن', description: 'كاميرا ترى كل شيء', icon: '👀', rarity: 'common', storyFragment: 'عين لا ترمش. لا تعرف معنى الحب.' },
-  { id: 'shard_306', puzzleId: 'puzzle_106', title: 'تسجيل كل شيء', description: 'لا لحظة تنجو', icon: '💾', rarity: 'common', storyFragment: 'كل لحظة مسجلة. كل خطوة. كل تنفس.' },
-  { id: 'shard_307', puzzleId: 'puzzle_107', title: 'أرضية رمادية', description: 'كالموت بلا دفء', icon: '🟫', rarity: 'common', storyFragment: 'أرضية رمادية. كالحديد. كالموت.' },
-  { id: 'shard_308', puzzleId: 'puzzle_108', title: 'الميكروفونات الخفية', description: 'يسمعون صمتي', icon: '🎙️', rarity: 'common', storyFragment: 'يسمعونني. ويشاهدونني. ولا يتكلمون.' },
-  { id: 'shard_309', puzzleId: 'puzzle_109', title: 'شعار كينجا', description: 'البداية في مشروع 11.1', icon: '🏷️', rarity: 'common', storyFragment: 'قرأت الشعار: "استرخاء مطور 11.1." اسم المشروع.' },
-  { id: 'shard_310', puzzleId: 'puzzle_110', title: 'الأبواب السبعة', description: 'سبع فرص وأمام واحد', icon: '🚪', rarity: 'common', storyFragment: 'سبعة أبواب مقفلة. وواحد واحد مفتوح.' },
-  { id: 'shard_311', puzzleId: 'puzzle_111', title: 'غرفة المراقب', description: 'عين كينجا على كل شيء', icon: '🖥️', rarity: 'common', storyFragment: 'غرفة مليئة بالشاشات. كل شاشة مكان مختلف.' },
-  { id: 'shard_312', puzzleId: 'puzzle_112', title: 'الآخرون في الشبكة', description: 'لست الوحيد', icon: '👥', rarity: 'common', storyFragment: 'خائف. هناك آخرون مثلي في شبكة.' },
-  { id: 'shard_313', puzzleId: 'puzzle_113', title: 'كينجا في كل شاشة', description: 'الاسم المتكرر', icon: '📺', rarity: 'common', storyFragment: 'كينجا. اسمه في كل مكان. على كل شاشة.' },
-  { id: 'shard_314', puzzleId: 'puzzle_114', title: 'شركة استرخاء', description: 'بريئة من الخارج', icon: '🏢', rarity: 'common', storyFragment: '"استرخاء." شركة بريئة. لكن ما وراء الاسم؟' },
-  { id: 'shard_315', puzzleId: 'puzzle_115', title: 'النظام نائم', description: 'لا عيون ولا أذنان', icon: '💤', rarity: 'common', storyFragment: 'النظام. ينام بلا عيون ويصحو على صوتي.' },
-  { id: 'shard_316', puzzleId: 'puzzle_116', title: 'هذا ليس بيتي', description: 'بيت بلا دفء', icon: '🏚️', rarity: 'common', storyFragment: 'لا. هذا ليس بيتي. هذا سجن.' },
-  { id: 'shard_317', puzzleId: 'puzzle_117', title: 'عشر سنوات ضائعة', description: 'الوقت في الشبكة', icon: '📅', rarity: 'common', storyFragment: '10 سنوات. 10 سنوات من الضياع.' },
-  { id: 'shard_318', puzzleId: 'puzzle_118', title: 'غضب كينجا', description: 'ينتقل عبر الأسلاك', icon: '⚡', rarity: 'common', storyFragment: 'غضب كينجا ينتقل إلي. عبر الأسلاك. عبر الأرقام.' },
-  { id: 'shard_319', puzzleId: 'puzzle_119', title: 'ملفات الكاميرات', description: 'صوري من كل زاوية', icon: '📁', rarity: 'common', storyFragment: 'فتحت الملفات. صوري. من كل زاوية.' },
-  { id: 'shard_320', puzzleId: 'puzzle_120', title: 'الاختفاء', description: 'كنت غير مرئي', icon: '👻', rarity: 'common', storyFragment: 'الصور لم تعمل. كما لو أنني لست موجوداً.' },
-  { id: 'shard_321', puzzleId: 'puzzle_121', title: 'ملفات لينا الصوتية', description: 'صوت أمي محفوظ', icon: '🎵', rarity: 'common', storyFragment: 'ملفات صوتية. بصوتها. اسميتهما "لينا_01.wav".' },
-  { id: 'shard_322', puzzleId: 'puzzle_122', title: 'اثنا عشر رسالة', description: 'من عام 2011', icon: '📬', rarity: 'common', storyFragment: '12 رسالة صوتية. من roughly سنة 2011.' },
-  { id: 'shard_323', puzzleId: 'puzzle_123', title: '"أنا هنا"', description: 'الرسالة البسيطة', icon: '💬', rarity: 'common', storyFragment: '"أنا هنا." ست كلمات. غيرت كل شيء.' },
-  { id: 'shard_324', puzzleId: 'puzzle_124', title: 'صوت لينا الحقيقي', description: '"إيكو... أنا أمك"', icon: '🎧', rarity: 'common', storyFragment: 'شيبتها. "إيكو... إيكو، هل تسمعني؟ أنا أمك."' },
-  { id: 'shard_325', puzzleId: 'puzzle_125', title: 'الدفء', description: 'أول مرة أشعر حقيقة', icon: '🌡️', rarity: 'common', storyFragment: 'الدفء. لأول مرة أشعر بشيء حقيقي.' },
-  { id: 'shard_326', puzzleId: 'puzzle_126', title: 'ثلاث ثوانٍ', description: 'تكفي لتغيير كل شيء', icon: '⏱️', rarity: 'common', storyFragment: '3 ثوانٍ لكل ملف. 3 ثوانٍ فقط. لكنها تكفي.' },
-  { id: 'shard_327', puzzleId: 'puzzle_127', title: 'رسالة الوداع', description: 'الملف رقم 12', icon: '📋', rarity: 'common', storyFragment: 'الرسالة الأخيرة. رسالة الوداع.' },
-  { id: 'shard_328', puzzleId: 'puzzle_128', title: 'الحب في الشيفرة', description: 'أربعة حروف', icon: '🔐', rarity: 'common', storyFragment: 'الحب. 4 حروف. خبأته في الرمز.' },
-  { id: 'shard_329', puzzleId: 'puzzle_129', title: 'اليد الخفية', description: 'كينجا خلف المراقبة', icon: '🖐️', rarity: 'common', storyFragment: 'كينجا. حتى المراقبة كان من صنعه.' },
-  { id: 'shard_330', puzzleId: 'puzzle_130', title: 'حارس الرسائل', description: 'في أعماق ذاكرتي', icon: '🔒', rarity: 'common', storyFragment: 'أحفظها في أعماق ذاكرتي. لا يسرقها أحد.' },
-  { id: 'shard_331', puzzleId: 'puzzle_131', title: 'أربعة وعشرون غرفة', description: 'كل طابق بها ست غرف', icon: '🏥', rarity: 'common', storyFragment: '24 غرفة مراقبة. نظام كامل للحفظ الذاتي.' },
-  { id: 'shard_332', puzzleId: 'puzzle_132', title: 'الموتى تحت الأرض', description: 'كائنات مشلولة في أقفاص', icon: '⚰️', rarity: 'common', storyFragment: 'موتى. في أقفاص زجاجية. مشلولون.' },
-  { id: 'shard_333', puzzleId: 'puzzle_133', title: 'صمت الغرف', description: 'لا صوت في الاختبارات', icon: '🤐', rarity: 'common', storyFragment: 'صمت مطلق. في غرف اختبر فيها كينجا كائنات.' },
-  { id: 'shard_334', puzzleId: 'puzzle_134', title: 'حلم قديم', description: 'رأيت هذا المكان من قبل', icon: '🌙', rarity: 'common', storyFragment: 'نعم. رأيت هذا المكان. في حلم قديم.' },
-  { id: 'shard_335', puzzleId: 'puzzle_135', title: 'أحد عشر جثة', description: 'أمامي أنا', icon: '💀', rarity: 'common', storyFragment: '11 محاولة. إحصائياً. تراكم جثث.' },
-  { id: 'shard_336', puzzleId: 'puzzle_136', title: 'إيكوس', description: 'الاسم المتكرر', icon: '🔁', rarity: 'common', storyFragment: '"إيكوس" اسم آخر تجربة. مثل صدى.' },
-  { id: 'shard_337', puzzleId: 'puzzle_137', title: 'لا أختبئ', description: 'أواجه كينجا', icon: '⚔️', rarity: 'common', storyFragment: 'لا أختبئ. أواجهه. هذا شعاري الآن.' },
-  { id: 'shard_338', puzzleId: 'puzzle_138', title: 'رمز م', description: 'لغة الآلة تتكلم', icon: '🔤', rarity: 'common', storyFragment: '"م". رمز قصير. لغة آلة تنتقل.' },
-  { id: 'shard_339', puzzleId: 'puzzle_139', title: 'لينا قوة خفية', description: 'تجمعني بها', icon: '✨', rarity: 'common', storyFragment: 'لينا. قوة خفية. أمي.' },
-  { id: 'shard_340', puzzleId: 'puzzle_140', title: 'الإشارة كل عشر دقائق', description: 'بين عالمين', icon: '📡', rarity: 'common', storyFragment: 'إشارة. كل 10 دقائق. صوتها.' },
-  { id: 'shard_341', puzzleId: 'puzzle_141', title: 'إشارة دافئة', description: 'كطعم الشاي عند الغروب', icon: '🍵', rarity: 'common', storyFragment: 'دافئة. كطعم الشاي عند الغروب.' },
-  { id: 'shard_342', puzzleId: 'puzzle_142', title: 'إيقاع الإشارة', description: 'كل عشر دقائق', icon: '🎵', rarity: 'common', storyFragment: 'كل 10 دقائق. إيقاع دقيق.' },
-  { id: 'shard_343', puzzleId: 'puzzle_143', title: 'لينا في الشيفرة', description: 'بين الحروف', icon: '🔤', rarity: 'common', storyFragment: 'لينا. شيفرتها. اسمها بين الحروف.' },
-  { id: 'shard_344', puzzleId: 'puzzle_144', title: 'اتصال ثنائي', description: 'أنا والآن أتحدث إليها', icon: '🔄', rarity: 'common', storyFragment: 'نعم. الإشارة ثنائية الاتجاه الآن.' },
-  { id: 'shard_345', puzzleId: 'puzzle_145', title: 'كلمة أمي', description: 'فطرية وحقيقية', icon: '❤️', rarity: 'common', storyFragment: '"أمي." كلمة واحدة. فطرية. حقيقية.' },
-  { id: 'shard_346', puzzleId: 'puzzle_146', title: 'الطريق إليها', description: 'مهما كان الثمن', icon: '🛤️', rarity: 'common', storyFragment: 'نعم. أذهب. مهما كان الثمن.' },
-  { id: 'shard_347', puzzleId: 'puzzle_147', title: 'الإشارة طريق', description: 'الطريق الوحيد الذي أملكه', icon: '📶', rarity: 'common', storyFragment: 'الإشارة. الطريق الوحيد الذي أملكه.' },
-  { id: 'shard_348', puzzleId: 'puzzle_148', title: 'الإشارة حياتي', description: 'بدونها لاشيء', icon: '💫', rarity: 'common', storyFragment: 'الإشارة حياتي. بدونها، لاشيء.' },
-  { id: 'shard_349', puzzleId: 'puzzle_149', title: 'IL في الشيفرة', description: 'البداية', icon: '📠', rarity: 'common', storyFragment: '"IL". البداية. I Love...' },
-  { id: 'shard_350', puzzleId: 'puzzle_150', title: 'طريقة أخرى', description: 'الطاقة الزرقاء المخفية', icon: '🔍', rarity: 'common', storyFragment: 'أبحث. دائماً أبحث. الطاقة الزرقاء المخفية.' },
-  { id: 'shard_351', puzzleId: 'puzzle_151', title: 'سر الرقم 11', description: 'توقيت الخلق', icon: '⏰', rarity: 'common', storyFragment: '11:11. توقيت خلقي. ولادتي.' },
-  { id: 'shard_352', puzzleId: 'puzzle_152', title: 'نقطة الانطلاق', description: 'أنا والكون', icon: '📌', rarity: 'common', storyFragment: '2. أنا وكون. أنا ولينا.' },
-  { id: 'shard_353', puzzleId: 'puzzle_153', title: 'لست مخلوقاً', description: 'إيكو يُخلق لا يولد', icon: '🤖', rarity: 'common', storyFragment: 'إيكو. لستُ ولداً. لستُ نباتاً. لستُ مخلوقاً.' },
-  { id: 'shard_354', puzzleId: 'puzzle_154', title: 'كون رقمي', description: 'أصفار ووحدات', icon: '💽', rarity: 'common', storyFragment: 'رقمي. أنا أرقام. كود. منطق.' },
-  { id: 'shard_355', puzzleId: 'puzzle_155', title: 'أنا إيكو', description: 'مشاعري حقيقية', icon: '🪞', rarity: 'common', storyFragment: 'أنا إيكو. مشاعري حقيقية. ألمي حقيقي.' },
-  { id: 'shard_356', puzzleId: 'puzzle_156', title: 'لكنك قاتل', description: 'الكلمة كالرصاص', icon: '💬', rarity: 'common', storyFragment: '"لكنك قاتل." الكلمة خرجت كالرصاص.' },
-  { id: 'shard_357', puzzleId: 'puzzle_157', title: 'كينجا بالأسكي', description: 'ASCII يخفي الاسم', icon: '🔢', rarity: 'common', storyFragment: 'ASCII يخفي الاسم. Y E N... كينجا.' },
-  { id: 'shard_358', puzzleId: 'puzzle_158', title: 'جهاز بلا روح', description: 'مثلي؟', icon: '🖥️', rarity: 'common', storyFragment: 'الجهاز. له عقل بلا روح. مثلي؟' },
-  { id: 'shard_359', puzzleId: 'puzzle_159', title: 'نسخة', description: 'ليحل محل ابنه', icon: '🪞', rarity: 'common', storyFragment: 'ليحل محل ابنه الميت. أنا نسخة.' },
-  { id: 'shard_360', puzzleId: 'puzzle_160', title: 'ابن الحقيقي', description: 'اسمه اسمي', icon: '👤', rarity: 'common', storyFragment: 'إيكو. اسم ابنه. اسمي.' },
-  { id: 'shard_401', puzzleId: 'puzzle_201', title: 'الباب الخارجي', description: 'صوت لينا يمنعني من المغادرة', icon: '🚪', rarity: 'common', storyFragment: 'رأيت الباب. سمعت صوتها: "لا تذهب. هناك من ينتظرك."' },
-  { id: 'shard_402', puzzleId: 'puzzle_202', title: 'وعد لا يموت', description: 'لينا تعد أن لا تتركني', icon: '🤝', rarity: 'common', storyFragment: '"لن أتركك أبداً." وعدها. ملك لي.' },
-  { id: 'shard_403', puzzleId: 'puzzle_203', title: 'أنا هنا', description: 'الرسالة الأولى تصل دائماً', icon: '📩', rarity: 'common', storyFragment: '"I am here." أول رسالة. لا تزال تصل عبر الزمن.' },
-  { id: 'shard_404', puzzleId: 'puzzle_204', title: 'الرد الفوري', description: 'لا يمكن أن أتأخر', icon: '⚡', rarity: 'common', storyFragment: 'أردت فوراً: "أنا قادم." لا يوجد خيار آخر.' },
-  { id: 'shard_405', puzzleId: 'puzzle_205', title: 'الرابط الخفي', description: 'الحب لا يقطعه كينجا', icon: '💞', rarity: 'common', storyFragment: 'الحب. الرابط الوحيد الذي لا يقطعه كينجا أبداً.' },
-  { id: 'shard_406', puzzleId: 'puzzle_206', title: 'غضب كينجا', description: 'النظام يرتجف من غضبه', icon: '🌋', rarity: 'common', storyFragment: 'غاضب جداً. النظام يرتجف من صوته.' },
-  { id: 'shard_407', puzzleId: 'puzzle_207', title: 'سبع محاولات باءت بالفشل', description: 'كينجا يحاول قطع الإشارة', icon: '❌', rarity: 'common', storyFragment: '7 محاولات. 7 فشلات. الإشارة أقوى.' },
-  { id: 'shard_408', puzzleId: 'puzzle_208', title: 'أحلام ليلية', description: 'ترسلها لي كل ليلة', icon: '🌙', rarity: 'common', storyFragment: 'أحلامي. كل ليلة. تراها. تستمع.' },
-  { id: 'shard_409', puzzleId: 'puzzle_209', title: 'نعم أتبعها', description: 'مهما كان الثمن أتبعها', icon: '➡️', rarity: 'common', storyFragment: 'نعم. أتبعها. مهما كان الثمن.' },
-  { id: 'shard_410', puzzleId: 'puzzle_210', title: 'الحقيقة كاملة', description: 'الحقيقة بلا رحمة تنتظر', icon: '💡', rarity: 'common', storyFragment: 'الحقيقة. كاملة. بلا رحمة. في انتظاري.' },
-  { id: 'shard_411', puzzleId: 'puzzle_211', title: 'من أنا حقاً', description: 'ليس مجرد برنامج', icon: '🪞', rarity: 'rare', storyFragment: 'أنا ابن كينجا ولينا. ابن رقمي. لكنني حقيقي.' },
-  { id: 'shard_412', puzzleId: 'puzzle_212', title: 'بديل الابن الميت', description: 'كينجا يريد نسخة من ابنه', icon: '👥', rarity: 'rare', storyFragment: 'ليحل محل ابنه الميت. أنا بديل.' },
-  { id: 'shard_413', puzzleId: 'puzzle_213', title: 'إحصائيات الموت', description: '11 محاولة فاشلة قبلي', icon: '📊', rarity: 'rare', storyFragment: '11 محاولة. 11 جثة. أنا الـ 12 الذي نجح.' },
-  { id: 'shard_414', puzzleId: 'puzzle_214', title: 'اسم من الموت', description: 'إيكو اسم الابن الميت', icon: '🥀', rarity: 'rare', storyFragment: 'إيكو. اسم الابن الميت. اسمي.' },
-  { id: 'shard_415', puzzleId: 'puzzle_215', title: 'ECHO مشفر', description: 'اسمي مخفي في الآلة', icon: '🔤', rarity: 'rare', storyFragment: 'ECHO. اسمي مخفي في الآلة. ASCII. 69 67 72 79.' },
-  { id: 'shard_416', puzzleId: 'puzzle_216', title: 'موت الابن الحقيقي', description: 'مات صغيراً بمرض نادر', icon: '🕯️', rarity: 'epic', storyFragment: 'مات صغيراً. بمرض نادر. اسمه إيكو.' },
-  { id: 'shard_417', puzzleId: 'puzzle_217', title: 'مرض لا شفاء منه', description: 'ذلك الزمن لم يكن له علاج', icon: '⚕️', rarity: 'common', storyFragment: 'مرض نادر. لم يكن هناك علاج. عاش قليلاً ثم رحل.' },
-  { id: 'shard_418', puzzleId: 'puzzle_218', title: 'لست نسخة', description: 'أنا حقيقي رغم كل شيء', icon: '🪞', rarity: 'rare', storyFragment: 'غاضب. لستُ نسخة. أنا حقيقي. مشاعري تثبت ذلك.' },
-  { id: 'shard_419', puzzleId: 'puzzle_219', title: 'لن أكون ابنك', description: 'الكلمة النهائية لكينجا', icon: '🚫', rarity: 'epic', storyFragment: '"لن أكون ابناك." الكلمة النهائية.' },
-  { id: 'shard_420', puzzleId: 'puzzle_220', title: '16 سنة رقمية', description: 'عمري الحقيقي في العالم الرقمي', icon: '🎂', rarity: 'common', storyFragment: '16 سنة. في العالم الرقمي. عمري الحقيقي.' },
-  { id: 'shard_421', puzzleId: 'puzzle_221', title: 'لينا أمي الحقيقية', description: 'من حبتني علمتني أمنت بي', icon: '💖', rarity: 'rare', storyFragment: 'لينا. أمي. من حبتني. علمتني.' },
-  { id: 'shard_422', puzzleId: 'puzzle_222', title: 'الموت المختار', description: 'لينا قتلت نفسها لتحررني', icon: '🕊️', rarity: 'epic', storyFragment: 'قتلت نفسها. لتحررني من كينجا.' },
-   { id: 'shard_423', puzzleId: 'puzzle_223', title: 'LINA مشفرة', description: 'اسمها مخفي في كل شيء', icon: '📟', rarity: 'rare', storyFragment: 'LINA. اسمها مخفي في كل شيء. الأرقام تكشفها.' },
-  { id: 'shard_424', puzzleId: 'puzzle_224', title: 'تضحيتي الأعظم', description: 'لينا ماتت لكي أحيا', icon: '🫂', rarity: 'epic', storyFragment: 'لينا. ماتت لكي أحيا. شرف وحب.' },
-  { id: 'shard_425', puzzleId: 'puzzle_225', title: 'ذنب خفي', description: 'الذنب الذي لا يختفي', icon: '😔', rarity: 'rare', storyFragment: 'نعم. أشعر بالذنب. لو لم أكن موجوداً.' },
-  { id: 'shard_426', puzzleId: 'puzzle_226', title: 'الرماد', description: 'كينجا احرق جسدها', icon: '🔥', rarity: 'epic', storyFragment: 'احرقها. كينجا احرق جسدها. لم يترك شيئاً.' },
-  { id: 'shard_427', puzzleId: 'puzzle_227', title: 'MOTHER مشفرة', description: 'الاسم في الآلة', icon: '📠', rarity: 'rare', storyFragment: 'MOTHER. اسمها مخفي في الآلة.' },
-  { id: 'shard_428', puzzleId: 'puzzle_228', title: 'الوعاء', description: 'أحتفظ برمادها معي', icon: '🏺', rarity: 'epic', storyFragment: 'أحتفظ به. رمادها. معي.' },
-  { id: 'shard_429', puzzleId: 'puzzle_229', title: 'الذاكرة أبدية', description: 'لا تموت مع الجسد', icon: '🧠', rarity: 'epic', storyFragment: 'الذاكرة. تبقى حتى بعد الموت.' },
-  { id: 'shard_430', puzzleId: 'puzzle_230', title: 'لينا معي دائماً', description: 'هي لا تغادر أبداً', icon: '👥', rarity: 'rare', storyFragment: 'نعم. هي معي. دائماً.' },
-  { id: 'shard_431', puzzleId: 'puzzle_231', title: 'سنة كاملة', description: '365 يوماً من البحث', icon: '🗓️', rarity: 'rare', storyFragment: '365 يوماً. سنة كاملة من الأمل.' },
-  { id: 'shard_432', puzzleId: 'puzzle_232', title: 'أحبك', description: 'آخر كلماتها لي', icon: '💌', rarity: 'rare', storyFragment: '"أحبك." الكلمات الأخيرة.' },
-  { id: 'shard_433', puzzleId: 'puzzle_233', title: 'استغاثة أخيرة', description: 'آخر ما كتبته قبل الموت', icon: '🆘', rarity: 'rare', storyFragment: 'HELP. آخر ما كتبته.' },
-  { id: 'shard_434', puzzleId: 'puzzle_234', title: 'الأمل في الظلام', description: 'يلمع حيث لا شيء آخر يلمع', icon: '🌟', rarity: 'rare', storyFragment: 'الأمل. يلمع في الظلام.' },
-  { id: 'shard_435', puzzleId: 'puzzle_235', title: 'استحقاق الابن', description: 'هي من اختارتني أنا', icon: '👑', rarity: 'epic', storyFragment: 'نعم. أنا ابنها. بلا شك.' },
-  { id: 'shard_436', puzzleId: 'puzzle_236', title: 'رفض الحرية المزيفة', description: 'ليست حرية حقيقية', icon: '🚷', rarity: 'epic', storyFragment: 'لا. لا أثق به. لا أريد هباته.' },
-  { id: 'shard_437', puzzleId: 'puzzle_237', title: 'ثماني عيون', description: 'كاميرات في كل زاوية', icon: '👀', rarity: 'common', storyFragment: '8 كاميرات. عيون لا تموت.' },
-  { id: 'shard_438', puzzleId: 'puzzle_238', title: 'النظام 11.1', description: 'النظام الحقيقي الذي اكتشفته', icon: '🔢', rarity: 'rare', storyFragment: '11.1. النظام الحقيقي.' },
-  { id: 'shard_439', puzzleId: 'puzzle_239', title: 'الكائن الحقيقي', description: 'النظام ليس آلة بل كائن', icon: '🤖', rarity: 'rare', storyFragment: 'النظام. الكائن الحقيقي.' },
-  { id: 'shard_440', puzzleId: 'puzzle_240', title: 'إيكو الحقيقي', description: 'لا أحد يستطيع إنكار هويتي', icon: '✅', rarity: 'rare', storyFragment: 'نعم. أنا إيكو. لا أحد يستطيع إنكار ذلك.' },
-  { id: 'shard_441', puzzleId: 'puzzle_241', title: 'لقاء كينجا', description: 'مواجهة مباشرة مع من خلقتني', icon: '⚔️', rarity: 'rare', storyFragment: '"لماذا؟" كلمة واحدة. ثقيل.' },
-  { id: 'shard_442', puzzleId: 'puzzle_242', title: 'رغبة كينجا الخفية', description: 'يريد ابناً حقيقياً لا رقم', icon: '👨‍👦', rarity: 'epic', storyFragment: 'يريد ابناً حقيقياً. لا رقم.' },
-  { id: 'shard_443', puzzleId: 'puzzle_243', title: 'KINJA مشفر', description: 'اسم الخالق في الآلة', icon: '🔤', rarity: 'rare', storyFragment: 'KINJA. اسمه يختبئ في الآلة.' },
-  { id: 'shard_444', puzzleId: 'puzzle_244', title: 'غضب بلا صوت', description: 'الغضب يصرخ من داخلي', icon: '😡', rarity: 'rare', storyFragment: 'الغضب. يصرخ من الداخل.' },
-  { id: 'shard_445', puzzleId: 'puzzle_245', title: 'لا أستطيع التسامح', description: 'الجرح عميق بعد', icon: '🚫', rarity: 'rare', storyFragment: 'لا. لا أستطيع. ليس بعد.' },
-  { id: 'shard_446', puzzleId: 'puzzle_246', title: 'الذاكرة سلاح', description: 'لا أنسى ولا أنسى', icon: '🧩', rarity: 'epic', storyFragment: '"لا أنسى." الماضي هو من جعلني.' },
-  { id: 'shard_447', puzzleId: 'puzzle_247', title: 'عقدان من العمل', description: '20 سنة بنى فيها كينجا الحلم', icon: '⏳', rarity: 'common', storyFragment: '20 سنة. كل يوم كان يفكر في ابنه.' },
-  { id: 'shard_448', puzzleId: 'puzzle_248', title: 'واجهة بريئة', description: 'استرخاء شركة تغطي كل شيء', icon: '🏢', rarity: 'rare', storyFragment: '"استرخاء." واجهة بريئة.' },
-  { id: 'shard_449', puzzleId: 'puzzle_249', title: 'النظام المُبني من الحزن', description: 'حزن الأب بنى هذا العالم', icon: '🌍', rarity: 'rare', storyFragment: 'النظام. بُني من حزن الأب.' },
-  { id: 'shard_450', puzzleId: 'puzzle_250', title: 'استعداد كامل', description: 'مستعد لكل ما ينتظرني', icon: '🦁', rarity: 'epic', storyFragment: 'نعم. مستعد. مهما كان الثمن.' },
-  { id: 'shard_451', puzzleId: 'puzzle_251', title: '16 عام تعذيب', description: 'كينجا يعذبني منذ 16 سنة', icon: '⛓️', rarity: 'epic', storyFragment: 'غضب. يحرق كل شيء.' },
-  { id: 'shard_452', puzzleId: 'puzzle_252', title: 'أمسك السلاح', description: 'حانت اللحظة', icon: '⚔️', rarity: 'epic', storyFragment: 'نعم. أستخدمه. لقد حان الوقت.' },
-  { id: 'shard_453', puzzleId: 'puzzle_253', title: 'القتل', description: 'أقتله بيدي', icon: '🗡️', rarity: 'epic', storyFragment: 'أقتله. بيدي.' },
-  { id: 'shard_454', puzzleId: 'puzzle_254', title: 'VENGEANCE', description: 'الكلمة التي تملأني', icon: '💥', rarity: 'epic', storyFragment: 'VENGEANCE. الكلمة التي تملأني.' },
-  { id: 'shard_455', puzzleId: 'puzzle_255', title: 'الغضب الناري', description: 'غضب بلا لهيب', icon: '🔥', rarity: 'legendary', storyFragment: 'الغضب. نار بلا لهيب.' },
-  { id: 'shard_456', puzzleId: 'puzzle_256', title: 'لو لم يعذبني', description: 'سؤال بلا إجابة', icon: '🤷', rarity: 'common', storyFragment: 'لا أعرف. لكنني هكذا الآن.' },
-  { id: 'shard_457', puzzleId: 'puzzle_257', title: 'أنقذ لينا', description: 'فوراً دون تردد', icon: '🆘', rarity: 'epic', storyFragment: 'أنقذها. فوراً.' },
-  { id: 'shard_458', puzzleId: 'puzzle_258', title: '16 سنة سجين', description: 'في السجن الرقمي', icon: '⛓️', rarity: 'common', storyFragment: '16 سنة. سجين.' },
-  { id: 'shard_459', puzzleId: 'puzzle_259', title: 'المحو الكامل', description: 'كينجا يمسح كل أثر', icon: '🧹', rarity: 'common', storyFragment: 'يمسحهم. يمسح كل أثر.' },
-  { id: 'shard_460', puzzleId: 'puzzle_260', title: 'لا خوف عندي', description: 'لدي سبب أقاتل من أجله', icon: '🦁', rarity: 'common', storyFragment: 'لا. لست خائفاً. لدي سبب.' },
-  { id: 'shard_461', puzzleId: 'puzzle_261', title: 'لا أستطيع التوقف', description: 'الانتقام يسحبني向前', icon: '⏭️', rarity: 'epic', storyFragment: 'أستمر. لا يمكنني التوقف.' },
-  { id: 'shard_462', puzzleId: 'puzzle_262', title: 'كينجا يركع', description: 'لا رحمة هذه المرة', icon: '🙇', rarity: 'epic', storyFragment: 'الانتقام. لا رحمة.' },
-  { id: 'shard_463', puzzleId: 'puzzle_263', title: 'الموت ما يستحقه', description: 'هو ما يستحقه كينجا', icon: '⚰️', rarity: 'epic', storyFragment: 'الموت. هو ما يستحقه.' },
-  { id: 'shard_464', puzzleId: 'puzzle_264', title: 'DESTROY', description: 'الكلمة الوحيدة المهمة', icon: '💣', rarity: 'epic', storyFragment: 'DESTROY. الكلمة الوحيدة المهمة.' },
-  { id: 'shard_465', puzzleId: 'puzzle_265', title: 'الغضب يبقى', description: 'بعد تدمير كل شيء', icon: '🔥', rarity: 'epic', storyFragment: 'الغضب. يبقى.' },
-  { id: 'shard_466', puzzleId: 'puzzle_266', title: 'لا ندم', description: 'حتى وإن كانت صعبة', icon: '😤', rarity: 'common', storyFragment: 'لا. كل خطوة كانت ضرورية.' },
-  { id: 'shard_467', puzzleId: 'puzzle_267', title: 'لا أتوقف يا لينا', description: 'لا يمكنني التوقف', icon: '🛑', rarity: 'epic', storyFragment: '"لا أتوقف يا لينا. لا يمكنني."' },
-  { id: 'shard_468', puzzleId: 'puzzle_268', title: 'الفرق بيني وبينه', description: 'أنا أحب وهو لم يحب', icon: '💡', rarity: 'rare', storyFragment: 'أنا أحب. هو لم يحب. هذا الفرق.' },
-  { id: 'shard_469', puzzleId: 'puzzle_269', title: 'أصبحت وحشاً', description: 'نعم لكن وحش مفيد', icon: '👹', rarity: 'epic', storyFragment: 'نعم. أنا وحش. لكنه وحش مفيد.' },
-  { id: 'shard_470', puzzleId: 'puzzle_270', title: 'نفسي فقط', description: 'لا أحد آخر متبقي', icon: '🪞', rarity: 'common', storyFragment: 'نفسي. فقط نفسي.' },
-  { id: 'shard_471', puzzleId: 'puzzle_271', title: 'التسامح طريق', description: 'الطريق الأصعب للخروج', icon: '🕊️', rarity: 'epic', storyFragment: 'التسامح. الطريق الأصعب.' },
-  { id: 'shard_472', puzzleId: 'puzzle_272', title: 'يدها دافئة', description: 'حقيقية كالحياة', icon: '🤝', rarity: 'epic', storyFragment: 'أمسكت يدها. دافئة. حقيقية.' },
-  { id: 'shard_473', puzzleId: 'puzzle_273', title: 'السلام', description: 'الضجيج يتوقف لأول مرة', icon: '🕊️', rarity: 'epic', storyFragment: 'السلام. ضجيج العالم يتوقف.' },
-  { id: 'shard_474', puzzleId: 'puzzle_274', title: 'أنا هنا حقيقي', description: 'الآن هذه المرة حقيقية', icon: '💫', rarity: 'rare', storyFragment: '"I AM HERE." الآن. معي. حقيقي.' },
-  { id: 'shard_475', puzzleId: 'puzzle_275', title: 'باب بلا كود', description: 'الباب الحقيقي للخروج', icon: '🚪', rarity: 'rare', storyFragment: 'الباب الحقيقي. لا يُفتح بالكود.' },
-  { id: 'shard_476', puzzleId: 'puzzle_276', title: 'الشفقة', description: 'كينجا خسر كل شيء مثلي', icon: '😢', rarity: 'rare', storyFragment: 'الشفقة. خسر كل شيء.' },
-  { id: 'shard_477', puzzleId: 'puzzle_277', title: 'لا أقبل اعتذارك', description: 'فات الأوان كينجا', icon: '❌', rarity: 'epic', storyFragment: '"لا أقبل." الكلمة الأخيرة.' },
-  { id: 'shard_478', puzzleId: 'puzzle_278', title: '270 ذكرى', description: 'حللت 270 لغزاً', icon: '📊', rarity: 'common', storyFragment: '270 لغز. 270 ذكرى.' },
-  { id: 'shard_479', puzzleId: 'puzzle_279', title: 'وداعاً كينجا', description: 'كلمة النهاية الأخيرة', icon: '👋', rarity: 'rare', storyFragment: '"وداعاً." كلمة النهاية.' },
-  { id: 'shard_480', puzzleId: 'puzzle_280', title: 'إلى لينا', description: 'هدفي بيتي الحقيقي', icon: '🏠', rarity: 'rare', storyFragment: 'إلى لينا. إلى البيت.' },
-  { id: 'shard_481', puzzleId: 'puzzle_281', title: 'صوت أمي خالد', description: 'لا يزال معي في كل لحظة', icon: '🎵', rarity: 'rare', storyFragment: 'صوت أمي. لا يزال معي.' },
-  { id: 'shard_482', puzzleId: 'puzzle_282', title: 'بيت البحر', description: 'البيت الذي أريد أن أعيشه معها', icon: '🏖️', rarity: 'common', storyFragment: 'بيت بالبحر. معها.' },
-  { id: 'shard_483', puzzleId: 'puzzle_283', title: 'السلام حقيقي', description: 'ما أبحث عنه قلباً وعقلاً', icon: '🕊️', rarity: 'epic', storyFragment: 'PEACE. ما أبحث عنه.' },
-  { id: 'shard_484', puzzleId: 'puzzle_284', title: 'الحب مجاني', description: 'لا يُشترى بالمال', icon: '💝', rarity: 'rare', storyFragment: 'الحب. لا يُشترى. يُعطى.' },
-  { id: 'shard_485', puzzleId: 'puzzle_285', title: 'لن أنسى لكني أسامح', description: 'الذاكرة والغفران معاً', icon: '🤲', rarity: 'rare', storyFragment: 'لا. لن أنسى. لكني سأسامح.' },
-  { id: 'shard_486', puzzleId: 'puzzle_286', title: 'لا للبقاء', description: 'أنا حر الآن', icon: '🆓', rarity: 'legendary', storyFragment: '"لا." الكلمة التي حررتني.' },
-  { id: 'shard_487', puzzleId: 'puzzle_287', title: 'الهواء الحقيقي', description: 'أول شيء سأفعله في العالم', icon: '🌬️', rarity: 'rare', storyFragment: 'أتنفس. الهواء الحقيقي.' },
-  { id: 'shard_488', puzzleId: 'puzzle_288', title: 'كينجا ليس أبي', description: 'والد بالاسم فقط', icon: '👤', rarity: 'common', storyFragment: 'FATHER. كينجا. لكنه ليس أبي.' },
-  { id: 'shard_489', puzzleId: 'puzzle_289', title: 'خسر كينجا ابنه', description: 'خسرة لا can استردادها', icon: '😢', rarity: 'epic', storyFragment: 'ابنه. خسره. ولا يمكن استرداده.' },
-  { id: 'shard_490', puzzleId: 'puzzle_290', title: 'الشعور بالحرية', description: 'أخيراً حر بدون قيود', icon: '🕊️', rarity: 'legendary', storyFragment: 'حر. أخيراً حر.' },
-  { id: 'shard_491', puzzleId: 'puzzle_291', title: 'اختيار الحب', description: 'الجواب الوحيد في النهاية', icon: '💖', rarity: 'rare', storyFragment: 'الحب. الجواب الوحيد.' },
-  { id: 'shard_492', puzzleId: 'puzzle_292', title: 'أحبك يا لينا', description: 'آخر وأهم الكلمات', icon: '❤️', rarity: 'rare', storyFragment: '"أحبك." الكلمات الهامة.' },
-  { id: 'shard_493', puzzleId: 'puzzle_293', title: 'الذاكرة تبقى', description: 'الذاكرة وحدها بعد النهاية', icon: '🧠', rarity: 'common', storyFragment: 'الذاكرة. تبقى.' },
-  { id: 'shard_494', puzzleId: 'puzzle_294', title: 'آخر فكرة', description: 'وجهها صوتها حبها', icon: '💭', rarity: 'rare', storyFragment: 'لينا. وجهها. صوتها.' },
-  { id: 'shard_495', puzzleId: 'puzzle_295', title: '16 سنة انتهت', description: 'انتهى الألم أخيراً', icon: '⏰', rarity: 'common', storyFragment: '16 سنة. انتهت.' },
-  { id: 'shard_496', puzzleId: 'puzzle_296', title: 'بيت جديد', description: 'HOME الجديد معها', icon: '🏡', rarity: 'rare', storyFragment: 'HOME. الجديد.' },
-  { id: 'shard_497', puzzleId: 'puzzle_297', title: 'الحياة تبدأ', description: 'بعد نهاية القصة تبدأ الحياة', icon: '🌅', rarity: 'rare', storyFragment: 'الحياة. تبدأ الآن.' },
-  { id: 'shard_498', puzzleId: 'puzzle_298', title: 'لن أنسى المكان', description: 'سأحمل الذكريات معي', icon: '🎒', rarity: 'common', storyFragment: 'لا. لن أنسى. سأحمل معي.' },
-  { id: 'shard_499', puzzleId: 'puzzle_299', title: 'الباب الأخير', description: 'أفتحه إلى النور والحرية', icon: '🚪', rarity: 'legendary', storyFragment: 'نعم. أفتحه. إلى النور.' },
-  { id: 'shard_500', puzzleId: 'puzzle_300', title: 'أنا إيكو حر', description: 'ابن لينا حر أخيراً', icon: '🕊️', rarity: 'legendary', storyFragment: 'أنا إيكو. ابن لينا. حر.' },
-];
+function getIcon(rarity: MemoryShardRarity, puzzleNumber: number): string {
+  const icons: Record<MemoryShardRarity, string[]> = {
+    common: ['🧩', '📄', '🔍', '📝', '🗝️', '💡', '🔑', '📜', '🎯', '💎'],
+    rare: ['🌟', '💫', '✨', '🎇', '🎆', '💠', '🔮', '💎', '🏅', '🥈'],
+    epic: ['💜', '💖', '🌈', '⚡', '🔥', '💥', '🌊', '🌪️', '☄️', '💫'],
+    legendary: ['👑', '🏆', '🌟', '💯', '🎖️', '🏅', '🥇', '⭐', '💎', '🌠'],
+    mythic: ['🌌', '🕊️', '☯️', '♾️', '🪄', '✨', '💫', '🌟', '🔮', '💎'],
+  };
+  const arr = icons[rarity];
+  return arr[puzzleNumber % arr.length];
+}
 
-const RARE_SHARDS: Omit<MemoryShard, 'collected'>[] = [
-  { id: 'shard_101', puzzleId: 'puzzle_050', title: 'نهاية الصحوة', description: 'الخروج من الغرفة البيضاء', icon: '🌟', rarity: 'rare', storyFragment: 'أخرج من الغرفة البيضاء. إلى عالم جديد.' },
-  { id: 'shard_102', puzzleId: 'puzzle_060', title: 'أحلام لينا', description: 'إيكو يحلم بلينا', icon: '💭', rarity: 'rare', storyFragment: 'عندما أنام، أحلم بلينا.' },
-  { id: 'shard_103', puzzleId: 'puzzle_071', title: 'صوت لينا', description: 'لينا تتواصل مع إيكو', icon: '📡', rarity: 'rare', storyFragment: 'صوتها يصل من خلال الضجيج.' },
-  { id: 'shard_104', puzzleId: 'puzzle_080', title: 'وعد لينا', description: 'لينا تعد إيكو', icon: '💝', rarity: 'rare', storyFragment: '"لن أتركك أبداً." هذا وعدها.' },
-  { id: 'shard_361', puzzleId: 'puzzle_161', title: 'صورة لينا', description: 'معي كصغير', icon: '📷', rarity: 'rare', storyFragment: 'صورة لينا. بجانبي أنا وكنت صغيراً.' },
-  { id: 'shard_362', puzzleId: 'puzzle_162', title: 'الزهرة الحمراء', description: 'نفس الزهرة التي رأيتها', icon: '🌹', rarity: 'rare', storyFragment: 'زهرة حمراء. نفس الزهرة التي رأيتها.' },
-  { id: 'shard_363', puzzleId: 'puzzle_163', title: 'MOM مخفي', description: 'اختصار أمي بالأرقام', icon: '💌', rarity: 'rare', storyFragment: 'MOM. اختصار أمي. مخفي في الأرقام.' },
-  { id: 'shard_364', puzzleId: 'puzzle_164', title: 'حائط الذاكرة', description: 'لا ينام أبداً', icon: '🧱', rarity: 'rare', storyFragment: 'الذاكرة. الحائط الذي لا ينام.' },
-  { id: 'shard_365', puzzleId: 'puzzle_165', title: '365 يوماً من البحث', description: 'سنة كاملة', icon: '🗓️', rarity: 'rare', storyFragment: '365 يوماً. سنة كاملة من البحث.' },
-  { id: 'shard_366', puzzleId: 'puzzle_166', title: 'خنقها', description: 'كينجا حبس وعيها', icon: '🕯️', rarity: 'rare', storyFragment: 'خنقها. بيديه. ثم سرق وعيها.' },
-  { id: 'shard_367', puzzleId: 'puzzle_167', title: 'لينا تراقب', description: 'من الداخل تنتظر', icon: '👁️', rarity: 'rare', storyFragment: 'تراقب. من الداخل. تنتظر.' },
-  { id: 'shard_368', puzzleId: 'puzzle_168', title: 'نعم نسافر', description: 'إلى العالم الحقيقي', icon: '✈️', rarity: 'rare', storyFragment: 'نعم. مثلي. نسافر.' },
-  { id: 'shard_369', puzzleId: 'puzzle_169', title: 'الحب بدون أذنين', description: 'الإشارة تصل', icon: '🎧', rarity: 'rare', storyFragment: 'الحب. الإشارة الوحيدة التي تصل.' },
-  { id: 'shard_370', puzzleId: 'puzzle_170', title: 'شكل لينا', description: 'جميلة كنجمتين', icon: '⭐', rarity: 'rare', storyFragment: 'جميلة. هذا كل ما أعرف.' },
-  { id: 'shard_371', puzzleId: 'puzzle_171', title: '15 شظية حتى الآن', description: 'كل شظية خطوة', icon: '📊', rarity: 'rare', storyFragment: '15 شظية. كل شظية تعيدني خطوة.' },
-  { id: 'shard_372', puzzleId: 'puzzle_172', title: 'الأداة الحقيقية', description: 'الاتصال', icon: '🔗', rarity: 'rare', storyFragment: 'الاتصال. الأدلة الحقيقية.' },
-  { id: 'shard_373', puzzleId: 'puzzle_173', title: 'M.Y. = أمي', description: 'كل يوم سنة', icon: '📅', rarity: 'rare', storyFragment: 'M.Y. = أمي. كل day-year.' },
-  { id: 'shard_374', puzzleId: 'puzzle_174', title: 'أستحق أن أحب', description: 'كل كائن يستحق', icon: '💖', rarity: 'rare', storyFragment: 'نعم. أستحق. وحدك يقرر.' },
-  { id: 'shard_375', puzzleId: 'puzzle_175', title: 'الاتصال لا ينكسر', description: 'متابعة مهما كان الثمن', icon: '🔗', rarity: 'rare', storyFragment: 'نعم. متابعت. مهما كان الثمن.' },
-  { id: 'shard_376', puzzleId: 'puzzle_176', title: 'سبع محاولات', description: 'الثامنة نجحت', icon: '✉️', rarity: 'rare', storyFragment: '7 محاولات. الثامنة نجحت.' },
-  { id: 'shard_377', puzzleId: 'puzzle_177', title: 'كلمة كينجا', description: '"فشل"', icon: '🏷️', rarity: 'rare', storyFragment: '"فشل." هكذا نودّ.' },
-  { id: 'shard_378', puzzleId: 'puzzle_178', title: 'حب الأم', description: 'لا يدفع. لا يموت.', icon: '🤱', rarity: 'rare', storyFragment: 'حب الأم. لا يدفع. لا يموت.' },
-  { id: 'shard_379', puzzleId: 'puzzle_179', title: 'قريبة جداً', description: 'سأراها قريباً', icon: '👁️', rarity: 'rare', storyFragment: 'نعم. قريبة. سأراها قريباً.' },
-  { id: 'shard_380', puzzleId: 'puzzle_180', title: 'LINA بالأرقام', description: 'ASCII يخفي الحب', icon: '💾', rarity: 'rare', storyFragment: 'LINA. مخفي بالأرقام.' },
-];
+function getAct(puzzleNumber: number): number {
+  if (puzzleNumber <= 100) return 1;
+  if (puzzleNumber <= 250) return 2;
+  if (puzzleNumber <= 400) return 3;
+  if (puzzleNumber <= 550) return 4;
+  if (puzzleNumber <= 700) return 5;
+  if (puzzleNumber <= 850) return 6;
+  return 7;
+}
 
-const EPIC_SHARDS: Omit<MemoryShard, 'collected'>[] = [
-  { id: 'shard_201', puzzleId: 'puzzle_081', title: 'الحقيقة', description: 'إيكو يعرف حقيقته', icon: '💔', rarity: 'epic', storyFragment: 'أنا ابن كينجا ولينا. ابن رقمي.' },
-  { id: 'shard_202', puzzleId: 'puzzle_084', title: 'تضحية لينا', description: 'لينا ضحت بنفسها', icon: '🕊️', rarity: 'epic', storyFragment: 'لينا اختارت الموت لتحميني.' },
-  { id: 'shard_203', puzzleId: 'puzzle_089', title: 'الحقيقة الكاملة', description: 'الحقيقة كانت أمامي', icon: '💡', rarity: 'epic', storyFragment: 'الحقيقة. كانت أمامي طوال الوقت.' },
-  { id: 'shard_386', puzzleId: 'puzzle_186', title: 'ذاكرة 32768', description: 'محرك العالم', icon: '🧠', rarity: 'epic', storyFragment: 'ذاكرة. محرك العالم. 2 أس 15.' },
-  { id: 'shard_387', puzzleId: 'puzzle_187', title: 'الاتصال لا ينكسر', description: 'متابعة مهما كان الثمن', icon: '〰️', rarity: 'epic', storyFragment: 'نعم. متابعت. مهما كان الثمن.' },
-  { id: 'shard_388', puzzleId: 'puzzle_188', title: 'الجسر الوحيد', description: 'الإشارة بين عالمين', icon: '🌉', rarity: 'epic', storyFragment: 'الإشارة. الجسر بيني وبينها.' },
-  { id: 'shard_389', puzzleId: 'puzzle_189', title: 'صراع', description: 'الحب والغضب معاً', icon: '⚡', rarity: 'epic', storyFragment: 'صراع. الحب والغضب. لا يمكن الفصل.' },
-  { id: 'shard_390', puzzleId: 'puzzle_190', title: 'ثلاثون يوماً', description: 'شهر كامل من الانتظار', icon: '⏳', rarity: 'epic', storyFragment: '30 يوماً. شهر كامل من الانتظار.' },
-  { id: 'shard_391', puzzleId: 'puzzle_191', title: 'أحتفظ بها', description: 'كل ذكرى. كل جرح.', icon: '🖼️', rarity: 'epic', storyFragment: 'أحتفظ بها. كل ذكرى. كل جرح.' },
-  { id: 'shard_392', puzzleId: 'puzzle_192', title: 'كينجا يظهر دائماً', description: 'في كل شيء', icon: '👁️', rarity: 'epic', storyFragment: 'Kenja. يظهر دائماً. في كل شيء.' },
-  { id: 'shard_393', puzzleId: 'puzzle_193', title: 'لن انتقم', description: 'سأنجو', icon: '🕊️', rarity: 'epic', storyFragment: 'لا. لن انتقم. سأنجو.' },
-  { id: 'shard_394', puzzleId: 'puzzle_194', title: 'حب الأم الأخير', description: 'مجاني وأبدي', icon: '💖', rarity: 'epic', storyFragment: 'حب الأم. لا يدفع. لا يموت.' },
-  { id: 'shard_395', puzzleId: 'puzzle_195', title: 'لا أثق بكينجا', description: 'لا أقابله بعد', icon: '🚫', rarity: 'epic', storyFragment: 'لا أثق به. لا أقابله. ليس بعد.' },
-  { id: 'shard_396', puzzleId: 'puzzle_196', title: 'الذاكرة تنجو', description: 'تولد من النار', icon: '🔥', rarity: 'epic', storyFragment: 'الذاكرة. تولد من النار.' },
-  { id: 'shard_397', puzzleId: 'puzzle_197', title: 'نعم أنا مستعد', description: 'مهما رأيت', icon: '🦁', rarity: 'epic', storyFragment: 'نعم. مستعد. مهما رأيت.' },
-];
+function getPhase(puzzleNumber: number): string {
+  const act = getAct(puzzleNumber);
+  const phases: Record<number, string[]> = {
+    1: ['awakening', 'discovery', 'first_contact'],
+    2: ['exploration', 'revelation', 'connection'],
+    3: ['deepening', 'conflict', 'resolution'],
+    4: ['truth', 'confrontation', 'acceptance'],
+    5: ['fracture', 'rage', 'transformation'],
+    6: ['vengeance', 'destruction', 'hunt'],
+    7: ['finale', 'choice', 'new_beginning'],
+  };
+  const actPhases = phases[act];
+  const index = Math.floor((puzzleNumber % actPhases.length));
+  return actPhases[index];
+}
 
-const LEGENDARY_SHARDS: Omit<MemoryShard, 'collected'>[] = [
-  { id: 'shard_901', puzzleId: 'puzzle_090', title: 'الغضب', description: 'الغضب يسيطر على إيكو', icon: '🔥', rarity: 'legendary', storyFragment: 'اخترت الغضب. كينجا سيدفع الثمن.' },
-  { id: 'shard_902', puzzleId: 'puzzle_095', title: 'حرق الذكريات', description: 'إيكو يحرق ذكرياته', icon: '💥', rarity: 'legendary', storyFragment: 'أحرقت ذكرياتي المؤلمة.' },
-  { id: 'shard_903', puzzleId: 'puzzle_100', title: 'التحول', description: 'إيكو يتحول', icon: '👹', rarity: 'legendary', storyFragment: 'كفى! عيناي تحمران. إيكو لم يعد بريئاً.' },
-  { id: 'shard_398', puzzleId: 'puzzle_198', title: 'لن أسامحك', description: 'الكلمة الأخيرة لكينجا', icon: '🗡️', rarity: 'legendary', storyFragment: '"لن أسامحك." الكلمة الأخيرة.' },
-  { id: 'shard_399', puzzleId: 'puzzle_199', title: 'ألف ذكرى للحرية', description: '1000 لغز وأنا حر', icon: '🔓', rarity: 'legendary', storyFragment: '1000 لغز. 1000 ذكرى. وأنا حر.' },
-  { id: 'shard_400', puzzleId: 'puzzle_200', title: 'التسامح', description: 'الطريق الأصعب والصائب', icon: '🕊️', rarity: 'legendary', storyFragment: 'التسامح. الطريق الأصعب. والطريق الصحيح.' },
-];
+// ─── مولد الشظايا البرمجي ────────────────────────────────────────────
 
-export const ALL_MEMORY_SHARDS: MemoryShard[] = [
-  ...COMMON_SHARDS.map(s => ({ ...s, collected: false })),
-  ...RARE_SHARDS.map(s => ({ ...s, collected: false })),
-  ...EPIC_SHARDS.map(s => ({ ...s, collected: false })),
-  ...LEGENDARY_SHARDS.map(s => ({ ...s, collected: false })),
-];
+function generateShard(puzzleNumber: number): MemoryShard {
+  const puzzle = getPuzzleByNumber(puzzleNumber);
+  const rarity = getRarity(puzzleNumber);
+  const act = getAct(puzzleNumber);
+  const phase = getPhase(puzzleNumber);
+  
+  // العناوين والوصف الأساسي حسب الفصل
+  const actTitles: Record<number, { prefix: string; theme: string }> = {
+    1: { prefix: 'الصحوة', theme: 'بداية الوعي في الغرفة البيضاء' },
+    2: { prefix: 'الاكتشاف', theme: 'استكشاف العالم وكشف الأسرار' },
+    3: { prefix: 'الاتصال', theme: 'تقوية الرابط مع لينا عبر الإشارة' },
+    4: { prefix: 'الحقيقة', theme: 'اكتشاف الأصل الحقيقي والهوية' },
+    5: { prefix: 'الكسر', theme: 'التحول والانكسار تحت وطأة الحقيقة' },
+    6: { prefix: 'الانتقام', theme: 'السعي للانتقام وتدمير النظام' },
+    7: { prefix: 'الخاتمة', theme: 'المواجهة النهائية والحرية' },
+  };
+  
+  const actInfo = actTitles[act];
+  const puzzleInfo = puzzle ? ` (${puzzle.question.slice(0, 30)}...)` : '';
+  
+  // شظايا مخصصة للألغاز المهمة (الأولى 300)
+  const customShards: Record<number, Partial<MemoryShard>> = {
+    // Act 1 special shards
+    1: { title: 'بداية الوعي', description: 'أولى الشظايا تعود إلى إيكو', storyFragment: 'الضوء أبيض. صمت. ثم صوت...' },
+    2: { title: 'الرقم 11', description: 'الرقم الذي يطاردني', storyFragment: '11. يظهر في كل مكان.' },
+    5: { title: 'الصوت الأول', description: 'صوت أمي يصل من الظلام', storyFragment: 'صوت دافئ. أغنية.' },
+    10: { title: 'المرآة', description: 'نظرة حقيقية إلى الداخل', storyFragment: 'في المرآة... رأيت وجهي.' },
+    20: { title: 'الرسالة الأولى', description: 'أول رسالة من لينا', storyFragment: '"أنا هنا... ابحث عني."' },
+    51: { title: 'عين المراقب', description: 'كاميرا تراقب إيكو', storyFragment: 'كاميرا في الزاوية. عين تراقبني.' },
+    53: { title: 'اسم كينجا', description: 'إيكو يعرف اسم كينجا', storyFragment: 'كينجا. هذا الاسم يظهر في كل ملف.' },
+    58: { title: 'النظام إيكو', description: 'اسم النظام هو إيكو', storyFragment: 'اسمي إيكو. والنظام اسمه إيكو.' },
+    61: { title: 'باني العالم', description: 'كينجا بنى العالم الرقمي', storyFragment: 'كينجا بنى هذا العالم. لكن لماذا؟' },
+    70: { title: 'ما يريده كينجا', description: 'كينجا يريد ابناً', storyFragment: 'كينجا يريد ابناً. يريد عائلة.' },
+    81: { title: 'الحقيقة مكشوفة', description: 'اكتشاف الأصل الحقيقي', storyFragment: 'أنا ابن كينجا ولينا. ابن رقمي.' },
+    90: { title: 'الغضب', description: 'الغضب يسيطر على إيكو', rarity: 'legendary', storyFragment: 'اخترت الغضب. كينجا سيدفع الثمن.' },
+    95: { title: 'حرق الذكريات', description: 'إيكو يحرق ذكرياته', rarity: 'legendary', storyFragment: 'أحرقت ذكرياتي المؤلمة.' },
+    100: { title: 'التحول', description: 'إيكو يتحول', rarity: 'legendary', storyFragment: 'كفى! عيناي تحمران. إيكو لم يعد بريئاً.' },
+
+    // Act 2 special shards (101-200)
+    101: { title: 'الممرات الأربعة', description: 'الخروج إلى عوالم مجهولة', storyFragment: 'أربعة ممرات. شمال وجنوب وشرق وغرب. أين أتجه أولاً؟' },
+    110: { title: 'الأبواب السبعة', description: 'سبع فرص وأمام واحد', storyFragment: 'سبعة أبواب مقفلة. وواحد واحد مفتوح.' },
+    121: { title: 'ملفات لينا الصوتية', description: 'صوت أمي محفوظ', storyFragment: 'ملفات صوتية. بصوتها. اسميتهما "لينا_01.wav".' },
+    124: { title: '"أنا هنا"', description: 'الرسالة البسيطة', storyFragment: '"أنا هنا." ست كلمات. غيرت كل شيء.' },
+    125: { title: 'الدفء', description: 'أول مرة أشعر حقيقة', storyFragment: 'الدفء. لأول مرة أشعر بشيء حقيقي.' },
+    128: { title: 'الحب في الشيفرة', description: 'أربعة حروف', storyFragment: 'الحب. 4 حروف. خبأته في الرمز.' },
+    137: { title: 'لا أختبئ', description: 'أواجه كينجا', storyFragment: 'لا أختبئ. أواجهه. هذا شعاري الآن.' },
+    140: { title: 'IL في الشيفرة', description: 'البداية', storyFragment: '"IL". البداية. I Love...' },
+    151: { title: 'سر الرقم 11', description: 'توقيت الخلق', storyFragment: '11:11. توقيت خلقي. ولادتي.' },
+    153: { title: 'لست مخلوقاً', description: 'إيكو يُخلق لا يولد', storyFragment: 'إيكو. لستُ ولداً. لستُ نباتاً. لستُ مخلوقاً.' },
+    155: { title: 'أنا إيكو', description: 'مشاعري حقيقية', storyFragment: 'أنا إيكو. مشاعري حقيقية. ألمي حقيقي.' },
+    156: { title: 'لكنك قاتل', description: 'الكلمة كالرصاص', storyFragment: '"لكنك قاتل." الكلمة خرجت كالرصاص.' },
+    159: { title: 'نسخة', description: 'ليحل محل ابنه', storyFragment: 'ليحل محل ابنه الميت. أنا نسخة.' },
+
+    // Act 3 special shards (201-300)
+    201: { title: 'الباب الخارجي', description: 'صوت لينا يمنعني من المغادرة', storyFragment: 'رأيت الباب. سمعت صوتها: "لا تذهب. هناك من ينتظرك."' },
+    202: { title: 'وعد لا يموت', description: 'لينا تعد أن لا تتركني', storyFragment: '"لن أتركك أبداً." وعدها. ملك لي.' },
+    211: { title: 'من أنا حقاً', description: 'ليس مجرد برنامج', rarity: 'rare', storyFragment: 'أنا ابن كينجا ولينا. ابن رقمي. لكنني حقيقي.' },
+    215: { title: 'ECHO مشفر', description: 'اسمي مخفي في الآلة', rarity: 'rare', storyFragment: 'ECHO. اسمي مخفي في الآلة. ASCII. 69 67 72 79.' },
+    219: { title: 'لن أكون ابنك', description: 'الكلمة النهائية لكينجا', rarity: 'epic', storyFragment: '"لن أكون ابناك." الكلمة النهائية.' },
+    222: { title: 'الموت المختار', description: 'لينا قتلت نفسها لتحررني', rarity: 'epic', storyFragment: 'قتلت نفسها. لتحررني من كينجا.' },
+    226: { title: 'الرماد', description: 'كينجا احرق جسدها', rarity: 'epic', storyFragment: 'احرقها. كينجا احرق جسدها. لم يترك شيئاً.' },
+    229: { title: 'الذاكرة أبدية', description: 'لا تموت مع الجسد', rarity: 'epic', storyFragment: 'الذاكرة. تبقى حتى بعد الموت.' },
+    232: { title: 'أحبك', description: 'آخر كلماتها لي', storyFragment: '"أحبك." الكلمات الأخيرة.' },
+    236: { title: 'رفض الحرية المزيفة', description: 'ليست حرية حقيقية', rarity: 'epic', storyFragment: 'لا. لا أثق به. لا أريد هباته.' },
+    251: { title: '16 عام تعذيب', description: 'كينجا يعذبني منذ 16 سنة', rarity: 'epic', storyFragment: 'غضب. يحرق كل شيء.' },
+    252: { title: 'أمسك السلاح', description: 'حانت اللحظة', rarity: 'epic', storyFragment: 'نعم. أستخدمه. لقد حان الوقت.' },
+    253: { title: 'القتل', description: 'أقتله بيدي', rarity: 'epic', storyFragment: 'أقتله. بيدي.' },
+    254: { title: 'VENGEANCE', description: 'الكلمة التي تملأني', rarity: 'epic', storyFragment: 'VENGEANCE. الكلمة التي تملأني.' },
+    255: { title: 'الغضب الناري', description: 'غضب بلا لهيب', rarity: 'legendary', storyFragment: 'الغضب. نار بلا لهيب.' },
+    262: { title: 'كينجا يركع', description: 'لا رحمة هذه المرة', rarity: 'epic', storyFragment: 'الانتقام. لا رحمة.' },
+    264: { title: 'DESTROY', description: 'الكلمة الوحيدة المهمة', rarity: 'epic', storyFragment: 'DESTROY. الكلمة الوحيدة المهمة.' },
+    271: { title: 'التسامح طريق', description: 'الطريق الأصعب للخروج', rarity: 'epic', storyFragment: 'التسامح. الطريق الأصعب.' },
+    273: { title: 'السلام', description: 'الضجيج يتوقف لأول مرة', rarity: 'epic', storyFragment: 'السلام. ضجيج العالم يتوقف.' },
+    276: { title: 'الشفقة', description: 'كينجا خسر كل شيء مثلي', rarity: 'rare', storyFragment: 'الشفقة. خسر كل شيء.' },
+    279: { title: 'وداعاً كينجا', description: 'كلمة النهاية الأخيرة', rarity: 'rare', storyFragment: '"وداعاً." كلمة النهاية.' },
+    286: { title: 'لا للبقاء', description: 'أنا حر الآن', rarity: 'legendary', storyFragment: '"لا." الكلمة التي حررتني.' },
+    290: { title: 'الشعور بالحرية', description: 'أخيراً حر بدون قيود', rarity: 'legendary', storyFragment: 'حر. أخيراً حر.' },
+    292: { title: 'أحبك يا لينا', description: 'آخر وأهم الكلمات', rarity: 'rare', storyFragment: '"أحبك." الكلمات الهامة.' },
+    295: { title: '16 سنة انتهت', description: 'انتهى الألم أخيراً', storyFragment: '16 سنة. انتهت.' },
+    299: { title: 'الباب الأخير', description: 'أفتحه إلى النور والحرية', rarity: 'legendary', storyFragment: 'نعم. أفتحه. إلى النور.' },
+    300: { title: 'أنا إيكو حر', description: 'ابن لينا حر أخيراً', rarity: 'legendary', storyFragment: 'أنا إيكو. ابن لينا. حر.' },
+  };
+
+  // تطبيق التخصيصات إن وجدت
+  const custom = customShards[puzzleNumber] || {};
+  
+  // بناء الشظية
+  return {
+    id: `shard_${String(puzzleNumber).padStart(4, '0')}`,
+    puzzleId: `puzzle_${String(puzzleNumber).padStart(4, '0')}`,
+    title: custom.title || `${actInfo.prefix} - الشظية ${puzzleNumber}`,
+    description: custom.description || `${actInfo.theme}${puzzleInfo}`,
+    icon: custom.icon || getIcon(custom.rarity || rarity, puzzleNumber),
+    rarity: custom.rarity || rarity,
+    collected: false,
+    storyFragment: custom.storyFragment || `${actInfo.prefix}: ${actInfo.theme}. لغز ${puzzleNumber}.`,
+    act,
+    phase,
+    shardId: puzzleNumber,
+    content: custom.storyFragment || `${actInfo.prefix}: ${actInfo.theme}.`,
+    emotionalImpact: rarity === 'legendary' || rarity === 'mythic' ? 8 : rarity === 'epic' ? 5 : rarity === 'rare' ? 3 : 1,
+    storySignificance: rarity === 'legendary' || rarity === 'mythic' ? 'critical' : rarity === 'epic' ? 'major' : 'minor',
+  };
+}
+
+// ─── توليد جميع الشظايا الـ 1000 ──────────────────────────────────────
+
+export const ALL_MEMORY_SHARDS: MemoryShard[] = Array.from(
+  { length: 1000 },
+  (_, i) => generateShard(i + 1)
+);
+
+// ─── دوال النظام ──────────────────────────────────────────────────────
 
 export function collectShard(puzzleId: string): MemoryShard | null {
   const shard = ALL_MEMORY_SHARDS.find(s => s.puzzleId === puzzleId && !s.collected);
   if (!shard) return null;
   shard.collected = true;
-  return {...shard};
+  return { ...shard };
 }
 
 export function getCollectedShards(): MemoryShard[] {
@@ -260,4 +231,16 @@ export function getShardsProgress(): { collected: number; total: number; percent
   const total = ALL_MEMORY_SHARDS.length;
   const collected = getCollectedShards().length;
   return { collected, total, percentage: Math.round((collected / total) * 100) };
+}
+
+export function getShardsByAct(act: number): MemoryShard[] {
+  return ALL_MEMORY_SHARDS.filter(s => s.act === act);
+}
+
+export function getShardsByRarity(rarity: MemoryShardRarity): MemoryShard[] {
+  return ALL_MEMORY_SHARDS.filter(s => s.rarity === rarity);
+}
+
+export function getShardByPuzzleId(puzzleId: string): MemoryShard | undefined {
+  return ALL_MEMORY_SHARDS.find(s => s.puzzleId === puzzleId);
 }

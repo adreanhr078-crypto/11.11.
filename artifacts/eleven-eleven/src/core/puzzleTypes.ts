@@ -29,15 +29,18 @@ export type StoryPhase =
   | 'finale';       // الفصل 7: الخاتمة
 
 // ─── حالة تحول Echo ───────────────────────────────────────────────────
-export type EchoTransformationStage = 
-  | 'innocent'      // بريء - البداية
-  | 'curious'       // فضولي - يبدأ بالاستكشاف
-  | 'attached'      // متعلق - يثق بالمستخدم
-  | 'betrayed'      // مخدوع - يكتشف الحقيقة
-  | 'fractured'     // منكسر - نقطة التحول
-  | 'vengeful'      // ثائر - يتحول للشر
-  | 'redeemed'      // متسامح - يعود للخير
-  | 'ascended';     // متسامي - يصل للحقيقة الكاملة
+export type EchoTransformationStage =
+  | 'innocent'
+  | 'curious'
+  | 'questioning'
+  | 'hopeful'
+  | 'attached'
+  | 'betrayed'
+  | 'truth_aware'
+  | 'fractured'
+  | 'vengeful'
+  | 'redeemed'
+  | 'ascended';
 
 // ─── تأثيرات اللغز ────────────────────────────────────────────────────
 export interface PuzzleEffects {

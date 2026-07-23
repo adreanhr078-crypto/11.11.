@@ -1,7 +1,7 @@
 /**
  * puzzleLoader.ts — المصدر الوحيد المعتمد للألغاز اليدوية
- * يدعم 400 لغز مصممة يدوياً من batch_01.ts + batch_02.ts + batch_03.ts + batch_04.ts
- * تم إلغاء نظام المولدات الآلية هنا
+ * القالب قابل للتوسع حتى 1000 لغز (10 دفعات × 100).
+ * كل دفعة جديدة تُضاف هنا ثم تُحدّث puzzleConstants.ts لاحقاً.
  */
 
 import { BATCH_1 } from './batch_01';
@@ -9,9 +9,29 @@ import { BATCH_2 } from './batch_02';
 import { BATCH_3 } from './batch_03';
 import { BATCH_4 } from './batch_04';
 
-export const ALL_MANUAL_PUZZLES = [...BATCH_1, ...BATCH_2, ...BATCH_3, ...BATCH_4] as const;
+// عند إضافة دفعات جديدة (batch_05 - batch_10)، أزل التعليق وأضف الاستيراد:
+// import { BATCH_5 } from './batch_05';
+// import { BATCH_6 } from './batch_06';
+// import { BATCH_7 } from './batch_07';
+// import { BATCH_8 } from './batch_08';
+// import { BATCH_9 } from './batch_09';
+// import { BATCH_10 } from './batch_10';
+
+export const ALL_MANUAL_PUZZLES = [
+  ...BATCH_1,
+  ...BATCH_2,
+  ...BATCH_3,
+  ...BATCH_4,
+  // ...BATCH_5,
+  // ...BATCH_6,
+  // ...BATCH_7,
+  // ...BATCH_8,
+  // ...BATCH_9,
+  // ...BATCH_10,
+] as const;
+
 export const TOTAL_PUZZLES = ALL_MANUAL_PUZZLES.length;
-export const BATCH_SIZE = 50;
+export const BATCH_SIZE = 100;
 export const TOTAL_BATCHES = Math.ceil(TOTAL_PUZZLES / BATCH_SIZE);
 
 // ─── استرجاع دفعة ────────────────────────────────────────────────
