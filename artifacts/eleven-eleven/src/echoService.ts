@@ -6,7 +6,7 @@
  */
 
 import { generateLocalResponse } from "./localAiChat";
-import { auth } from "./lib/firebase/config";
+// Firebase auth removed - will be re-added when needed
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare const import_meta_env: any;
@@ -27,18 +27,7 @@ export interface EchoStreamOptions {
   temperature?: number;
 }
 
-async function getAuthHeader(): Promise<Record<string, string>> {
-  try {
-    const user = auth.currentUser;
-    if (user) {
-      const token = await user.getIdToken();
-      return { Authorization: `Bearer ${token}` };
-    }
-  } catch {
-    // ignore auth errors — fall back to unauthenticated request
-  }
-  return {};
-}
+// Auth disabled — no Firebase config available
 
 export function streamEcho(
   messages: EchoMessage[],
@@ -74,12 +63,10 @@ export function streamEcho(
     let usedLocalFallback = false;
 
     try {
-      const authHeaders = await getAuthHeader();
       const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...authHeaders,
         },
         body: JSON.stringify({
           messages,

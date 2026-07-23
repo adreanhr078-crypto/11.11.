@@ -22,7 +22,8 @@ import { useGameStore } from "./stores/gameStore";
 interface EchoResponse {
   text: string;
   // في وضع الليل الهادئ: فقط chime (للذكريات الدافئة) أو none
-  action?: "chime" | "none";
+  // glitch: لتأثيرات الخلل في النظام
+  action?: "chime" | "none" | "glitch";
 }
 
 interface EchoMemory {

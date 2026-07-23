@@ -132,20 +132,7 @@ export function saveToLocal(data: SaveData): void {
 
 // ─── SERVER SYNC ─────────────────────────────────────────────────────────────
 
-import { auth } from "./lib/firebase/config";
-
-async function getAuthHeader(): Promise<Record<string, string>> {
-  try {
-    const user = auth.currentUser;
-    if (user) {
-      const token = await user.getIdToken();
-      return { Authorization: `Bearer ${token}` };
-    }
-  } catch {
-    // ignore auth errors
-  }
-  return {};
-}
+// Firebase auth removed - no config available
 
 /**
  * Push solved puzzles and achievements to the server.
@@ -154,12 +141,10 @@ async function getAuthHeader(): Promise<Record<string, string>> {
 export async function syncToServer(data: SaveData): Promise<void> {
   if (!data.uid || data.uid.length < 4) return;
   try {
-    const authHeaders = await getAuthHeader();
     await fetch("/api/arg/sync", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...authHeaders,
       },
       body: JSON.stringify({
         solvedPuzzles: data.solvedPuzzles,
@@ -176,15 +161,10 @@ export async function syncToServer(data: SaveData): Promise<void> {
  */
 export async function pullFromServer(uid: string, local: SaveData): Promise<SaveData> {
   try {
-    const authHeaders = await getAuthHeader();
     const [argRes, profileRes] = await Promise.all([
-      fetch(`/api/arg`, {
-        headers: { ...authHeaders },
-      }),
-      fetch(`/api/user/profile`, {
-        headers: { ...authHeaders },
-      }),
-    ];
+      fetch(`/api/arg`),
+      fetch(`/api/user/profile`),
+    ]);
 
     let serverSolved: string[] = [];
     let serverAchievements: string[] = [];

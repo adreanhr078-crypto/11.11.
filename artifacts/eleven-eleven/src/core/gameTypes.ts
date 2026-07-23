@@ -1,6 +1,6 @@
 /**
  * gameTypes.ts — shared type definitions used by gameStore and core modules
- * Updated v4.0: Now includes new puzzle system, Echo transformation, and story arcs
+ * Updated v5.0: Added currency system, daily missions, and shop system
  */
 
 import type { MemoryShard } from './memoryShardsTypes';
@@ -14,6 +14,27 @@ export type FlowerStage = 'seed' | 'sprout' | 'bloom' | 'flourish' | 'completed'
 export type Ending = 'sorrow' | 'truth' | 'dark' | 'mystery';
 export type EchoMood = 'خائف' | 'متردد' | 'واثق' | 'متذكر' | 'مشوش' | 'مذعور' | 'هادئ' | 'متفائل';
 export type WishStatus = 'active' | 'completed' | 'failed';
+export type MissionType = 'story' | 'quick' | 'cipher' | 'reflection' | 'challenge';
+
+// ─── Daily Mission Types ────────────────────────────────────────────
+export interface DailyMission {
+  id: string;
+  type: MissionType;
+  title: { ar: string; en: string };
+  description: { ar: string; en: string };
+  puzzleId: string;
+  reward: { coins: number; crystals: number; shardId?: string };
+  expiresAt: number;
+  completed: boolean;
+}
+
+export interface CoinShopPrices {
+  hintPrice: number;
+  skipPrice: number;
+  rerollPrice: number;
+  extraHintPrice: number;
+  rareShardPrice: number;
+}
 
 // ─── State Interfaces ────────────────────────────────────────────────
 export interface EchoState {
@@ -22,6 +43,13 @@ export interface EchoState {
   mood: EchoMood; personalityTraits: string[];
   lastDialogue: string; dialogueHistory: string[];
   level: number; xp: number; xpMax: number;
+  
+  // Currency system
+  coins: number;
+  crystals: number;
+  usedHints: string[];        // puzzle IDs where hints were used
+  skippedPuzzles: string[];   // puzzle IDs that were skipped
+  rerolledPuzzles: string[];  // puzzle IDs that were rerolled
   
   // New: Echo transformation system
   transformationStage: EchoTransformationStage;
@@ -47,6 +75,7 @@ export interface PuzzleNode {
   phase?: StoryPhase;
   hints?: string[];
   puzzleType?: string;
+  coins?: number;             // Coins rewarded for solving
 }
 
 export interface EntityState {
@@ -111,6 +140,12 @@ export interface GameState {
   achievedEnding: string | null;
   lastEndingViewed: string | null;
   allMemoryShards: MemoryShard[];
+  
+  // Daily missions
+  dailyMissions: DailyMission[];
+  lastMissionRefresh: number;
+  shopPrices: CoinShopPrices;
+  
   actions: {
     chat: () => { dialogue: string; effects: Partial<EchoState>; };
     solve: (puzzleId: string, answer: string) => { success: boolean; message: string; achievement?: Achievement; };
@@ -129,5 +164,11 @@ export interface GameState {
     setLevel: (level: number) => void;
     // New action for transformation
     updateTransformation?: (type: 'rage' | 'forgiveness', amount: number) => void;
+    // New currency actions
+    buyHint: (puzzleId: string) => { success: boolean; message: string; hint?: string };
+    skipPuzzle: (puzzleId: string) => { success: boolean; message: string };
+    rerollPuzzle: (puzzleId: string) => { success: boolean; message: string; newPuzzleId?: string };
+    completeDailyMission: (missionId: string) => { success: boolean; message: string; reward?: { coins: number; crystals: number; shardId?: string } };
+    refreshDailyMissions: () => void;
   };
 }

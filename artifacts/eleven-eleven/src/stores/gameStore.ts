@@ -1,6 +1,6 @@
 /** 
- * gameStore.ts — محرك الحالة المركزي لـ 11.11 (v4.0)
- * نظام جديد كلياً: 7 فصول قصصية، 1000 لغز فريد، نظام تحول Echo
+ * gameStore.ts — محرك الحالة المركزي لـ 11.11 (v5.0)
+ * شامل: 1000 لغز، عملات، مهام يومية، مساعدات، نظام تحول Echo
  */
 
 import { create } from 'zustand';
@@ -20,12 +20,14 @@ import {
 import type {
   TimePhase, EntityId, PuzzleStatus, FlowerStage, Ending, EchoMood, WishStatus,
   EchoState, TimeState, PuzzleNode, EntityState, FlowerState, WishNode,
-  MemoryState, TimelineEvent, Achievement, EndingState, GameState
+  MemoryState, TimelineEvent, Achievement, EndingState, GameState,
+  DailyMission, CoinShopPrices, MissionType
 } from '../core/gameTypes';
 import { determineEnding, applyTransformation, calculateTransformationEffects } from '../core/echoTransformationSystem';
 import { getEchoDialogueByStage } from '../core/echoTransformationSystem';
-import { isAnswerCorrect } from '../core/puzzles/puzzleLoader';
+import { isAnswerCorrect, getAllPuzzles } from '../core/puzzles/puzzleLoader';
 import { collectShard } from '../core/memoryShardsSystem';
+import { getDailyMissions, shouldRefreshMissions } from '../core/dailyMissions';
 import type { MemoryShard } from '../core/memoryShardsTypes';
 
 // ─── TYPES ────────────────────────────────────────────────────────────
@@ -33,9 +35,18 @@ export type { TimePhase, EntityId, PuzzleStatus, FlowerStage, Ending, EchoMood, 
 export type { EchoState, TimeState, PuzzleNode, EntityState, FlowerState, WishNode, MemoryState, TimelineEvent, Achievement, EndingState, GameState };
 export type { MemoryShard } from '../core/memoryShardsTypes';
 
+// ─── SHOP PRICES ──────────────────────────────────────────────────────
+const DEFAULT_SHOP_PRICES: CoinShopPrices = {
+  hintPrice: 50,         // 50 عملة للتلميح القوي
+  skipPrice: 100,        // 100 عملة لتخطي لغز
+  rerollPrice: 150,      // 150 عملة لتغيير لغز
+  extraHintPrice: 30,    // 30 عملة لتلميح إضافي
+  rareShardPrice: 200,   // 200 عملة + 1 كريستال لشظية نادرة
+};
+
 // ─── STORE ────────────────────────────────────────────────────────────
 const _initialState = buildInitialState();
-const SAFE_STORAGE_NAME = '11-11-game-store-v4';
+const SAFE_STORAGE_NAME = '11-11-game-store-v5';
 const FULL_SAVE_KEY = 'eleven_full_save';
 
 // Populate initial puzzles
@@ -46,6 +57,7 @@ export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
       ..._initialState,
+      shopPrices: DEFAULT_SHOP_PRICES,
 
       // ─── ACTIONS ──────────────────────────────────────────────────────
       actions: {
@@ -65,7 +77,8 @@ export const useGameStore = create<GameState>()(
             lastDialogue: dialogue, 
             dialogueHistory: [...state.echo.dialogueHistory.slice(-50), dialogue], 
             personalityTraits: updateTraits({ ...state.echo, ...effects }), 
-            xp: state.echo.xp + 10 
+            xp: state.echo.xp + 10,
+            coins: state.echo.coins + 5 // مكافأة يومية بسيطة
           };
           const newTriggers = { ...state.narrativeTriggers, first_chat: true };
           const newAchievements = checkAllAchievements(
@@ -111,14 +124,28 @@ export const useGameStore = create<GameState>()(
             }
           }
           
+          // XP GAIN
           const xpGain = Math.max(1, Math.floor(25 * (1 + puzzle.difficulty / 10)) * (newEcho.xpMultiplier || 1));
           newEcho.xp += xpGain;
+          let leveledUp = false;
           if (newEcho.xp >= newEcho.xpMax) {
             newEcho.level += 1;
             newEcho.xp -= newEcho.xpMax;
             newEcho.xpMax = Math.floor(newEcho.xpMax * 1.2);
             newEcho.xpMultiplier = (newEcho.xpMultiplier || 1) + 0.05;
+            // Level up bonus coins
+            newEcho.coins += 100 * newEcho.level;
+            leveledUp = true;
           }
+          
+          // COINS GAIN
+          const puzzleCoins = (puzzle as any).coins || Math.floor(5 * (1 + puzzle.difficulty / 3));
+          newEcho.coins += puzzleCoins;
+          // Small crystal chance
+          if (puzzle.difficulty >= 7 && Math.random() < 0.2) {
+            newEcho.crystals += 1;
+          }
+          
           newEcho.mood = updateEchoMood(newEcho); 
           newEcho.personalityTraits = updateTraits(newEcho);
 
@@ -244,9 +271,141 @@ export const useGameStore = create<GameState>()(
 
           return { 
             success: true, 
-            message: `✓ صحيح! ${puzzle.storyReveal}`, 
+            message: `✓ صحيح! ${puzzle.storyReveal}${leveledUp ? ' [🎉 مستوى جديد!]' : ''}`, 
             achievement: newAchievements.find(a => a.unlocked && !state.achievements.find(oa => oa.id === a.id)?.unlocked) 
           };
+        },
+
+        // 💰 BUY HINT
+        buyHint: (puzzleId: string) => {
+          const state = get();
+          const puzzle = state.puzzles.find(p => p.id === puzzleId);
+          if (!puzzle) return { success: false, message: 'اللغز غير موجود' };
+          if (puzzle.status === 'solved') return { success: false, message: 'تم حل هذا اللغز بالفعل' };
+
+          const price = state.shopPrices.hintPrice;
+          if (state.echo.coins < price) return { success: false, message: `❌ لا تملك عملات كافية! تحتاج ${price} 🪙` };
+
+          const hint = (puzzle as any).hints?.[2] || puzzle.hint || 'التفكير خارج الصندوق قد يساعدك';
+          const newEcho = { 
+            ...state.echo, 
+            coins: state.echo.coins - price,
+            usedHints: [...state.echo.usedHints, puzzleId]
+          };
+
+          set({ echo: newEcho });
+          return { success: true, message: `💡 التلميح: ${hint}`, hint };
+        },
+
+        // ⏭️ SKIP PUZZLE
+        skipPuzzle: (puzzleId: string) => {
+          const state = get();
+          const puzzle = state.puzzles.find(p => p.id === puzzleId);
+          if (!puzzle) return { success: false, message: 'اللغز غير موجود' };
+          if (puzzle.status === 'solved') return { success: false, message: 'تم حل هذا اللغز بالفعل' };
+
+          const price = state.shopPrices.skipPrice;
+          if (state.echo.coins < price) return { success: false, message: `❌ لا تملك عملات كافية! تحتاج ${price} 🪙` };
+
+          const newPuzzles = state.puzzles.map(p => {
+            if (p.id === puzzleId) return { ...p, status: 'solved' as PuzzleStatus };
+            if (p.dependencies.includes(puzzleId) && p.status === 'locked') return { ...p, status: 'active' as PuzzleStatus };
+            return p;
+          });
+
+          const newEcho = { 
+            ...state.echo, 
+            coins: state.echo.coins - price,
+            skippedPuzzles: [...state.echo.skippedPuzzles, puzzleId]
+          };
+
+          set({
+            echo: newEcho,
+            puzzles: newPuzzles,
+            solvedPuzzles: state.solvedPuzzles + 1,
+          });
+
+          return { success: true, message: '⏭️ تم تخطي اللغز!' };
+        },
+
+        // 🔄 REROLL PUZZLE
+        rerollPuzzle: (puzzleId: string) => {
+          const state = get();
+          const puzzle = state.puzzles.find(p => p.id === puzzleId);
+          if (!puzzle) return { success: false, message: 'اللغز غير موجود' };
+
+          const price = state.shopPrices.rerollPrice;
+          if (state.echo.coins < price) return { success: false, message: `❌ لا تملك عملات كافية! تحتاج ${price} 🪙` };
+
+          // Find an unsolved puzzle with lower difficulty
+          const unsolved = state.puzzles.filter(p => 
+            p.status !== 'solved' && p.id !== puzzleId && p.difficulty <= Math.max(1, puzzle.difficulty - 2)
+          );
+          
+          if (unsolved.length === 0) return { success: false, message: 'لا يوجد ألغاز أسهل متاحة' };
+
+          const newPuzzle = unsolved[Math.floor(Math.random() * unsolved.length)];
+          const newPuzzles = state.puzzles.map(p => {
+            if (p.id === puzzleId) return { ...p, status: 'failed' as PuzzleStatus };
+            return p;
+          });
+
+          const newEcho = { 
+            ...state.echo, 
+            coins: state.echo.coins - price,
+            rerolledPuzzles: [...state.echo.rerolledPuzzles, puzzleId]
+          };
+
+          set({ echo: newEcho, puzzles: newPuzzles });
+          return { success: true, message: `🔄 تم تغيير اللغز! جرب لغز ${newPuzzle.id}`, newPuzzleId: newPuzzle.id };
+        },
+
+        // 📅 DAILY MISSIONS
+        completeDailyMission: (missionId: string) => {
+          const state = get();
+          const mission = state.dailyMissions.find(m => m.id === missionId);
+          if (!mission) return { success: false, message: 'المهمة غير موجودة' };
+          if (mission.completed) return { success: false, message: 'المهمة مكتملة بالفعل' };
+
+          const newMissions = state.dailyMissions.map(m => 
+            m.id === missionId ? { ...m, completed: true } : m
+          );
+
+          const newEcho = { 
+            ...state.echo, 
+            coins: state.echo.coins + mission.reward.coins,
+            crystals: state.echo.crystals + mission.reward.crystals,
+          };
+
+          // Collect rare shard if reward has one
+          if (mission.reward.shardId) {
+            collectShard(mission.reward.shardId);
+          }
+
+          set({ dailyMissions: newMissions, echo: newEcho });
+
+          return { 
+            success: true, 
+            message: `✓ أكملت المهمة: ${mission.title.ar}`,
+            reward: mission.reward
+          };
+        },
+
+        refreshDailyMissions: () => {
+          const state = get();
+          const now = Date.now();
+          
+          if (!shouldRefreshMissions(state.lastMissionRefresh)) {
+            return;
+          }
+
+          const solvedPuzzleIds = state.puzzles.filter(p => p.status === 'solved').map(p => p.id);
+          const newMissions = getDailyMissions(solvedPuzzleIds);
+          
+          set({
+            dailyMissions: newMissions,
+            lastMissionRefresh: now,
+          });
         },
 
         // ⏰ TIME
@@ -270,22 +429,15 @@ export const useGameStore = create<GameState>()(
           const newWorld = { ...state.world };
           const newEcho = { ...state.echo };
           
-          // ═══════════════════════════════════════════════════════════════
-          // وضع الليل: لا glitches، لا تخريب، لا عوائق
-          // فقط إيكو خائف ومتوتر يتذكر ذكرياته
-          // ═══════════════════════════════════════════════════════════════
           if (isNight) {
-            // لا glitches أو تشويش أو تخريب
-            newWorld.glitchLevel = Math.max(0, newWorld.glitchLevel - 0.2); // يقل التشويش
-            newEcho.corruption = Math.max(0, newEcho.corruption - 0.1); // الفساد لا يزيد
-            // إيكو خائف ومتوتر في الليل
-            newEcho.fear = Math.min(100, newEcho.fear + 0.4); // الخوف يزيد قليلاً
-            newEcho.hope = Math.max(0, newEcho.hope - 0.05); // الأمل يقل قليلاً
-            newEcho.loneliness = Math.min(100, newEcho.loneliness + 0.1); // الوحدة تزيد قليلاً
-            newEcho.awareness = Math.min(100, newEcho.awareness + 0.3); // الوعي يزيد (يتذكر أشياء)
-            newWorld.stability = Math.max(0, newWorld.stability - 0.1); // استقرار أقل قليلاً
+            newWorld.glitchLevel = Math.max(0, newWorld.glitchLevel - 0.2);
+            newEcho.corruption = Math.max(0, newEcho.corruption - 0.1);
+            newEcho.fear = Math.min(100, newEcho.fear + 0.4);
+            newEcho.hope = Math.max(0, newEcho.hope - 0.05);
+            newEcho.loneliness = Math.min(100, newEcho.loneliness + 0.1);
+            newEcho.awareness = Math.min(100, newEcho.awareness + 0.3);
+            newWorld.stability = Math.max(0, newWorld.stability - 0.1);
           } else {
-            // الوضع النهاري: عادي، يهدأ إيكو
             newWorld.glitchLevel = Math.max(0, newWorld.glitchLevel - 0.3);
             newEcho.fear = Math.max(0, newEcho.fear - 0.2);
             newEcho.hope = Math.min(100, newEcho.hope + 0.3);
@@ -297,8 +449,17 @@ export const useGameStore = create<GameState>()(
           const newTriggers = { ...state.narrativeTriggers };
           if (phaseIndex >= 1 && !state.narrativeTriggers.first_night) newTriggers.first_night = true;
 
+          // Check if we should refresh missions (new day)
+          const newDayCycle = h === 0 && state.time.hour === 23 ? state.time.dayCycle + 1 : state.time.dayCycle;
+          if (newDayCycle > state.time.dayCycle) {
+            // New day! Refresh missions
+            const solvedPuzzleIds = state.puzzles.filter(p => p.status === 'solved').map(p => p.id);
+            const newMissions = getDailyMissions(solvedPuzzleIds);
+            set({ dailyMissions: newMissions, lastMissionRefresh: Date.now() });
+          }
+
           set({
-            time: { ...state.time, hour: h, minute: m, phase, phaseIndex, isNight, dayCycle: h === 0 && state.time.hour === 23 ? state.time.dayCycle + 1 : state.time.dayCycle },
+            time: { ...state.time, hour: h, minute: m, phase, phaseIndex, isNight, dayCycle: newDayCycle },
             world: newWorld, 
             echo: { ...newEcho, mood: updateEchoMood(newEcho), personalityTraits: updateTraits(newEcho) },
             narrativeTriggers: newTriggers,
@@ -429,12 +590,14 @@ export const useGameStore = create<GameState>()(
         world: state.world, time: state.time,
         entities: state.entities, currentEntity: state.currentEntity,
         allMemoryShards: state.allMemoryShards,
+        dailyMissions: state.dailyMissions,
+        lastMissionRefresh: state.lastMissionRefresh,
       }),
     }
   )
 );
 
-// Keep existing definition without duplicate interface
+// ─── EXPANDED ENDING SYSTEM ──────────────────────────────────────────
 export interface ExpandedEnding {
   id: string;
   name: string;
@@ -452,7 +615,7 @@ export const ExpandedEndingSystem = {
       id: 'echo_ending',
       name: 'نهاية الإيكو',
       nameAr: 'نهاية الإيكو',
-      description: 'Echo ي finds peace',
+      description: 'Echo finds peace',
       story: 'Echo finds peace and remembers his true identity.',
       storyAr: 'يجد إيكو السلام ويتذكر هويته الحقيقية.',
       requirements: ['trust > 70', 'memoryStability > 70'],

@@ -835,7 +835,7 @@ export const BATCH_3: PuzzleTemplate[] = [
     type: 'reflective',
     question: 'هل تشعر بالندم بعد كل ما فعلته؟',
     answers: ['لا', 'no', 'la'],
-    hints: ['كان ضرورياً', 'لا」， 'الجواب: لا'],
+    hints: ['كان ضرورياً', 'لا', 'الجواب: لا'],
     storyReveal: 'لا. كل خطوة كانت ضرورية.',
     shardId: 'shard_466',
     achievementId: undefined,

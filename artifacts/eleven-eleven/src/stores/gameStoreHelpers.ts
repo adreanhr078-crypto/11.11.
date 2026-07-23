@@ -38,6 +38,12 @@ export function buildInitialState(): GameState {
       mood: 'خائف', personalityTraits: ['خائف', 'متردد'],
       lastDialogue: '', dialogueHistory: [],
       level: 1, xp: 0, xpMax: 100, xpMultiplier: 1,
+      // Currency system
+      coins: 100,                    // يبدأ بـ 100 عملة كهدية ترحيب
+      crystals: 0,
+      usedHints: [],
+      skippedPuzzles: [],
+      rerolledPuzzles: [],
       // New transformation fields
       transformationStage: initialTransformation.currentStage,
       ragePoints: initialTransformation.ragePoints,
@@ -75,6 +81,9 @@ export function buildInitialState(): GameState {
       mystery: { unlocked: false, progress: 0 },
     },
     narrativeTriggers: {},
+    dailyMissions: [],
+    lastMissionRefresh: 0,
+    shopPrices: { hintPrice: 50, skipPrice: 100, rerollPrice: 150, extraHintPrice: 30, rareShardPrice: 200 },
     actions: {} as GameState['actions'],
   };
 }
@@ -152,24 +161,27 @@ export function generateAllAchievements(): Achievement[] {
 
 // ─── PUZZLE GENERATOR (MANUAL ONLY) ──────────────────────────────
 export function generateAllPuzzles(): PuzzleNode[] {
-  return getAllPuzzles().map((manual) => ({
-    id: manual.id,
-    entity: 'echo' as EntityId,
-    title: manual.id,
-    question: manual.question,
-    answers: manual.answers,
-    hint: manual.hints[0] || '',
-    status: 'locked' as PuzzleStatus,
-    difficulty: manual.difficulty,
-    storyReveal: manual.storyReveal,
-    memoryUnlock: manual.shardId ? `memory_${manual.shardId}` : null,
-    dependencies: [],
-    effects: manual.effects,
-    act: manual.act,
-    phase: manual.phase as any,
-    hints: manual.hints,
-    puzzleType: manual.type,
-  }));
+  return getAllPuzzles().map((manual, idx) => {
+    const puzzleNumber = idx + 1;
+    return {
+      id: manual.id,
+      entity: 'echo' as EntityId,
+      title: manual.id,
+      question: manual.question,
+      answers: manual.answers,
+      hint: manual.hints[0] || '',
+      status: puzzleNumber === 1 ? 'active' : 'locked',
+      difficulty: manual.difficulty,
+      storyReveal: manual.storyReveal,
+      memoryUnlock: manual.shardId ? `memory_${manual.shardId}` : null,
+      dependencies: puzzleNumber > 1 ? [`puzzle_${puzzleNumber - 1}`] : [],
+      effects: manual.effects,
+      act: manual.act,
+      phase: manual.phase as any,
+      hints: manual.hints,
+      puzzleType: manual.type,
+    };
+  });
 }
 
 export function ensurePuzzleGenerated(state: GameState, puzzleNumber: number): PuzzleNode {

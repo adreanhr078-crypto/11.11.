@@ -1159,7 +1159,7 @@ export const BATCH_2: PuzzleTemplate[] = [
     type: 'cipher',
     question: 'فك الشيفرة: 99 101 110 106 97 = ?',
     answers: ['كينجا', 'Kenja', 'kenja'],
-    hints: ['ASCII', ['نعم'], 'الجواب: كينجا'],
+    hints: ['ASCII', 'نعم', 'الجواب: كينجا'],
     storyReveal: 'Kenja. يظهر دائماً. في كل شيء.',
     shardId: 'shard_392',
     achievementId: undefined,

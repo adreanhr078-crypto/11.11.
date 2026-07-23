@@ -12,16 +12,18 @@ export const AchievementToast: React.FC = () => {
   const prevUnlockedRef = React.useRef<Set<string>>(new Set());
 
   useEffect(() => {
+    let timer: NodeJS.Timeout | null = null;
     const newlyUnlocked = achievements.filter(a => a.unlocked && a.unlockedAt && !prevUnlockedRef.current.has(a.id));
     if (newlyUnlocked.length > 0) {
       const latest = newlyUnlocked[newlyUnlocked.length - 1];
       setToast({ visible: true, achievement: latest });
-      const timer = setTimeout(() => setToast({ visible: false, achievement: null }), 3000);
-      return () => clearTimeout(timer);
+      timer = setTimeout(() => setToast({ visible: false, achievement: null }), 3000);
     }
 
     const currentUnlocked = new Set(achievements.filter(a => a.unlocked).map(a => a.id));
     prevUnlockedRef.current = currentUnlocked;
+
+    return () => { if (timer) clearTimeout(timer); };
   }, [achievements]);
 
   if (!toast.visible || !toast.achievement) return null;
