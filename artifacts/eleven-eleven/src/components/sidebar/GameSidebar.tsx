@@ -6,7 +6,7 @@
 import React from 'react';
 import { useGameStore } from '../../stores/gameStore';
 import Icon from '../ui/Icon';
-import { ShopPanel } from '../Shop/ShopPanel';
+import { ShopOverlay } from '../Shop/ShopOverlay';
 import { motion } from 'framer-motion';
 
 export type SectionId = 'dashboard' | 'echo-mind' | 'day' | 'memories' | 'puzzles' | 'wishes' | 'flowers' | 'achievements' | 'night' | 'overview' | 'shop';
@@ -208,7 +208,7 @@ export const GameSidebar: React.FC<Props> = ({ activeSection, onNavigate }) => {
         </button>
       </div>
 
-      <ShopPanel isOpen={shopOpen} onClose={() => setShopOpen(false)} />
+      <ShopOverlay isOpen={shopOpen} onClose={() => setShopOpen(false)} />
     </aside>
   );
 };

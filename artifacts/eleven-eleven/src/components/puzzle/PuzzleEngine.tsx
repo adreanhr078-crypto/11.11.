@@ -1,79 +1,124 @@
 /**
- * PuzzleEngine.tsx — نظام الألغاز (219 لغزاً)
- * يعرض اللغز النشط الحالي، التأثيرات، وشجرة التبعيات
+ * PuzzleEngine.tsx — نظام الألغاز
+ * يعرض اللغز النشط الحالي، التأثيرات، وأزرار مساعدات المتجر
  */
 
 import React, { useState, useEffect } from 'react';
-import { useGameStore, type EntityId } from '../../stores/gameStore';
+import { useGameStore, type ChapterId } from '../../stores/gameStore';
 import { motion, AnimatePresence } from 'framer-motion';
+import Icon from '../ui/Icon';
 
-export const PuzzleEngine: React.FC<{ entity?: EntityId }> = ({ entity }) => {
-  const { puzzles, solvedPuzzles, totalPuzzles, entities, time, world, actions } = useGameStore();
+type ShopActionFeedback = { type: 'success' | 'error' | 'info'; msg: string };
+
+export const PuzzleEngine: React.FC<{ chapter?: ChapterId }> = ({ chapter }) => {
+  const {
+    puzzles, solvedPuzzles, totalPuzzles, chapters, time, world, actions, echo, shopPrices,
+  } = useGameStore();
+
   const [answer, setAnswer] = useState('');
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'info'; msg: string } | null>(null);
+  const [feedback, setFeedback] = useState<ShopActionFeedback | null>(null);
   const [showHint, setShowHint] = useState(false);
-  const [activeTab, setActiveTab] = useState<EntityId>(entity || 'echo');
+  const [activeTab, setActiveTab] = useState<ChapterId>(chapter || 'chapter_1');
 
-  // الحصول على اللغز النشط للكيان المختار
   const activePuzzle = puzzles
-    .filter(p => p.entity === activeTab && p.status === 'active')
+    .filter(p => p.chapterId === activeTab && p.status === 'active')
     .sort((a, b) => a.difficulty - b.difficulty)[0];
 
-  // إحصائيات الكيان
-  const currentEntity = entities[activeTab];
-  const solvedInEntity = puzzles.filter(p => p.entity === activeTab && p.status === 'solved').length;
+  const solvedInChapter = puzzles.filter(p => p.chapterId === activeTab && (p.status === 'solved' || p.status === 'skipped')).length;
 
-  // ألوان الكيانات
-  const entityColors: Record<EntityId, string> = {
-    echo: '#c8785a',
-    watcher: '#FF9800',
-    signal: '#5A8AAA',
-    architect: '#AA8B40',
+  const chapterColors: Record<ChapterId, string> = {
+    chapter_1: '#c8785a',
+    chapter_2: '#FF9800',
+    chapter_3: '#5A8AAA',
+    chapter_4: '#AA8B40',
+    chapter_5: '#888',
+  };
+
+  const flash = (msg: string, type: ShopActionFeedback['type'] = 'info') => {
+    setFeedback({ type, msg });
+    setTimeout(() => setFeedback(null), 2500);
   };
 
   const handleSubmit = () => {
     if (!activePuzzle) return;
     setShowHint(false);
     const result = actions.solve(activePuzzle.id, answer);
-    
     if (result.success) {
-      setFeedback({ type: 'success', msg: result.message });
+      flash(result.message, 'success');
       setAnswer('');
-      setTimeout(() => setFeedback(null), 3000);
     } else {
-      setFeedback({ type: 'error', msg: result.message });
-      setTimeout(() => setFeedback(null), 2000);
+      flash(result.message, 'error');
     }
   };
 
-  // تأثير التشويش على النص
+  const handleBuyHint = () => {
+    if (!activePuzzle) return flash('لا يوجد لغز نشط', 'error');
+    const price = shopPrices.hintPrice;
+    if (echo.coins < price) return flash(`❌ تحتاج ${price} 🪙`, 'error');
+    const res = actions.buyHint(activePuzzle.id);
+    if (res.success) {
+      flash(res.message || '💡 تم شراء التلميح', 'success');
+      setShowHint(true);
+    } else {
+      flash(res.message, 'error');
+    }
+  };
+
+  const handleSkip = () => {
+    if (!activePuzzle) return flash('لا يوجد لغز نشط', 'error');
+    const price = shopPrices.skipPrice;
+    if (echo.coins < price) return flash(`❌ تحتاج ${price} 🪙 للتخطي`, 'error');
+    const res = actions.skipPuzzle(activePuzzle.id);
+    if (res.success) {
+      flash(res.message, 'success');
+      setShowHint(false);
+    } else {
+      flash(res.message, 'error');
+    }
+  };
+
+  const handleReroll = () => {
+    if (!activePuzzle) return flash('لا يوجد لغز نشط', 'error');
+    const price = shopPrices.rerollPrice;
+    if (echo.coins < price) return flash(`❌ تحتاج ${price} 🪙 للتبديل`, 'error');
+    const res = actions.rerollPuzzle(activePuzzle.id);
+    if (res.success) {
+      flash(res.message || '🔄 تم تبديل اللغز', 'success');
+      setShowHint(false);
+    } else {
+      flash(res.message, 'error');
+    }
+  };
+
   const glitchText = (text: string): React.ReactNode => {
     if (world.glitchLevel < 40) return text;
-    return text.split('').map((c, i) => 
-      Math.random() > 0.9 ? <span key={i} style={{ opacity: 0.3, textDecoration: 'line-through' }}>{c}</span> : c
+    return text.split('').map((c, i) =>
+      Math.random() > 0.9
+        ? <span key={i} style={{ opacity: 0.3, textDecoration: 'line-through' }}>{c}</span>
+        : c,
     );
   };
 
+  const hasActive = !!activePuzzle;
+
   return (
     <div className="puzzle-engine-system">
-      {/* شريط تبويب الكيانات */}
-      <div className="entity-tabs">
-        {(Object.entries(entities) as [EntityId, typeof entities.echo][]).map(([id, ent]) => (
+      <div className="chapter-tabs">
+        {Object.entries(chapters).map(([id, ch]) => (
           <button
             key={id}
-            className={`entity-tab ${activeTab === id ? 'active' : ''} ${ent.unlocked ? '' : 'locked'}`}
-            onClick={() => ent.unlocked && setActiveTab(id)}
-            style={activeTab === id ? { borderColor: entityColors[id], color: entityColors[id] } : {}}
+            className={`chapter-tab ${activeTab === id ? 'active' : ''} ${ch.unlocked ? '' : 'locked'}`}
+            onClick={() => ch.unlocked && setActiveTab(id as ChapterId)}
+            style={activeTab === id ? { borderColor: chapterColors[id as ChapterId], color: chapterColors[id as ChapterId] } : {}}
           >
-            <span className="entity-glyph">{ent.glyph}</span>
-            <span className="entity-name">{ent.name}</span>
-            <span className="entity-count">{solvedInEntity}/{ent.totalPuzzles}</span>
-            {!ent.unlocked && <span className="entity-lock">🔒</span>}
+            <span className="chapter-glyph">{ch.glyph}</span>
+            <span className="chapter-name">{ch.title}</span>
+            <span className="chapter-count">{solvedInChapter}/{ch.totalPuzzles}</span>
+            {!ch.unlocked && <span className="chapter-lock">🔒</span>}
           </button>
         ))}
       </div>
 
-      {/* اللغز النشط */}
       <div className="puzzle-active-area">
         {activePuzzle ? (
           <motion.div
@@ -83,11 +128,11 @@ export const PuzzleEngine: React.FC<{ entity?: EntityId }> = ({ entity }) => {
             className="puzzle-active-card"
           >
             <div className="puzzle-meta">
-              <span className="puzzle-difficulty" style={{ color: entityColors[activeTab] }}>
+              <span className="puzzle-difficulty" style={{ color: chapterColors[activeTab] }}>
                 {'⬤'.repeat(activePuzzle.difficulty)}{'○'.repeat(4 - activePuzzle.difficulty)}
               </span>
-              <span className="puzzle-entity-badge" style={{ background: entityColors[activeTab] + '22', color: entityColors[activeTab] }}>
-                {entities[activeTab].name}
+              <span className="puzzle-chapter-badge" style={{ background: chapterColors[activeTab] + '22', color: chapterColors[activeTab] }}>
+                {chapters[activeTab]?.title || activeTab}
               </span>
             </div>
 
@@ -109,7 +154,7 @@ export const PuzzleEngine: React.FC<{ entity?: EntityId }> = ({ entity }) => {
                   whileTap={{ scale: 0.98 }}
                   className="puzzle-submit-btn"
                   onClick={handleSubmit}
-                  style={{ background: entityColors[activeTab] + '22', borderColor: entityColors[activeTab] + '44' }}
+                  style={{ background: chapterColors[activeTab] + '22', borderColor: chapterColors[activeTab] + '44' }}
                 >
                   ↵ حل
                 </motion.button>
@@ -119,8 +164,41 @@ export const PuzzleEngine: React.FC<{ entity?: EntityId }> = ({ entity }) => {
               </div>
             </div>
 
+            <div className="puzzle-shop-actions">
+              <button
+                className="shop-action-btn"
+                onClick={handleBuyHint}
+                disabled={!hasActive || echo.coins < shopPrices.hintPrice}
+                title={`التلميح القوي — ${shopPrices.hintPrice} 🪙`}
+              >
+                <Icon name="coin" className="h-4 w-4 text-amber-500" />
+                <span>💡 تلميح قوي</span>
+                <span className="shop-action-price">{shopPrices.hintPrice} 🪙</span>
+              </button>
+              <button
+                className="shop-action-btn"
+                onClick={handleSkip}
+                disabled={!hasActive || echo.coins < shopPrices.skipPrice}
+                title={`تخطي اللغز — ${shopPrices.skipPrice} 🪙`}
+              >
+                <Icon name="coin" className="h-4 w-4 text-amber-500" />
+                <span>⏭ تخطي</span>
+                <span className="shop-action-price">{shopPrices.skipPrice} 🪙</span>
+              </button>
+              <button
+                className="shop-action-btn"
+                onClick={handleReroll}
+                disabled={!hasActive || echo.coins < shopPrices.rerollPrice}
+                title={`تبديل اللغز — ${shopPrices.rerollPrice} 🪙`}
+              >
+                <Icon name="coin" className="h-4 w-4 text-amber-500" />
+                <span>🔄 تبديل</span>
+                <span className="shop-action-price">{shopPrices.rerollPrice} 🪙</span>
+              </button>
+            </div>
+
             <AnimatePresence>
-              {showHint && (
+              {showHint && hasActive && (
                 <motion.p
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
@@ -148,15 +226,14 @@ export const PuzzleEngine: React.FC<{ entity?: EntityId }> = ({ entity }) => {
         ) : (
           <div className="puzzle-empty-state">
             <p>
-              {solvedInEntity >= entities[activeTab].totalPuzzles
+              {solvedInChapter >= (chapters[activeTab]?.totalPuzzles || 0)
                 ? '✅ جميع الألغاز محلولة!'
-                : '🔒 افتح الألغاز السابقة أولاً'}
+                : '🔒 افتح الفصل السابق أولاً'}
             </p>
           </div>
         )}
       </div>
 
-      {/* شريط التقدم */}
       <div className="puzzle-progress-bar">
         <div className="progress-header">
           <span>التقدم</span>

@@ -18,8 +18,8 @@ import {
   checkEndingProgress,
 } from './gameStoreHelpers';
 import type {
-  TimePhase, EntityId, PuzzleStatus, FlowerStage, Ending, EchoMood, WishStatus,
-  EchoState, TimeState, PuzzleNode, EntityState, FlowerState, WishNode,
+  TimePhase, ChapterId, PuzzleStatus, FlowerStage, Ending, EchoMood, WishStatus,
+  EchoState, TimeState, PuzzleNode, ChapterState, FlowerState, WishNode,
   MemoryState, TimelineEvent, Achievement, EndingState, GameState,
   DailyMission, CoinShopPrices, MissionType
 } from '../core/gameTypes';
@@ -32,8 +32,8 @@ import type { MemoryShard } from '../core/memoryShardsTypes';
 import { TOTAL_MEMORY_SHARDS } from '../constants/puzzleConstants';
 
 // ─── TYPES ────────────────────────────────────────────────────────────
-export type { TimePhase, EntityId, PuzzleStatus, FlowerStage, Ending, EchoMood, WishStatus };
-export type { EchoState, TimeState, PuzzleNode, EntityState, FlowerState, WishNode, MemoryState, TimelineEvent, Achievement, EndingState, GameState };
+export type { TimePhase, ChapterId, PuzzleStatus, FlowerStage, Ending, EchoMood, WishStatus };
+export type { EchoState, TimeState, PuzzleNode, ChapterState, FlowerState, WishNode, MemoryState, TimelineEvent, Achievement, EndingState, GameState };
 export type { MemoryShard } from '../core/memoryShardsTypes';
 
 // ─── SHOP PRICES ──────────────────────────────────────────────────────
@@ -100,7 +100,7 @@ export const useGameStore = create<GameState>()(
           const state = get();
           const puzzle = state.puzzles.find(p => p.id === puzzleId);
           if (!puzzle) return { success: false, message: 'اللغز غير موجود' };
-          if (puzzle.status === 'solved') return { success: false, message: 'تم سابقاً' };
+          if (puzzle.status === 'solved' || puzzle.status === 'skipped') return { success: false, message: 'تم سابقاً' };
           
           const isCorrect = isAnswerCorrect(puzzle as any, answer);
           if (!isCorrect) return { success: false, message: '✕ خطأ، حاول مرة أخرى' };
@@ -179,11 +179,11 @@ export const useGameStore = create<GameState>()(
           const flowerGrowth = Math.min(100, state.flower.growth + (ef.flower || 0.45));
           const flowerStage = updateFlowerStage(flowerGrowth, state.flower.decay);
 
-          const entity = state.entities[puzzle.entity || 'echo'];
-          const newEntity = { 
-            ...entity, 
-            puzzlesSolved: entity.puzzlesSolved + 1, 
-            completed: (entity.puzzlesSolved + 1) >= entity.totalPuzzles 
+          const chapter = state.chapters[puzzle.chapterId || 'chapter_1'];
+          const newChapter = {
+            ...chapter,
+            puzzlesSolved: chapter.puzzlesSolved + 1,
+            completed: (chapter.puzzlesSolved + 1) >= chapter.totalPuzzles,
           };
 
           const newPuzzles = state.puzzles.map(p => {
@@ -192,27 +192,28 @@ export const useGameStore = create<GameState>()(
             return p;
           });
 
-          const entityOrder: EntityId[] = ['echo', 'watcher', 'signal', 'architect'];
-          const cIdx = entityOrder.indexOf(state.currentEntity);
-          let nextEntity = state.currentEntity;
+          const chapterOrder: ChapterId[] = ['chapter_1', 'chapter_2', 'chapter_3', 'chapter_4', 'chapter_5'];
+          const cIdx = chapterOrder.indexOf(state.currentChapter);
+          let nextChapter = state.currentChapter;
           const newTriggers = { ...state.narrativeTriggers };
 
-          if (newEntity.completed && cIdx < 3) {
-            nextEntity = entityOrder[cIdx + 1];
+          if (newChapter.completed && cIdx < 4) {
+            nextChapter = chapterOrder[cIdx + 1];
             newPuzzles.forEach(p => {
-              if (p.entity === nextEntity && p.status === 'locked') {
-                const depsMet = p.dependencies.every(d => newPuzzles.find(dp => dp.id === d)?.status === 'solved');
+              if ((p.chapterId || 'chapter_1') === nextChapter && p.status === 'locked') {
+                 const depsMet = p.dependencies.every(d => (newPuzzles.find(dp => dp.id === d)?.status === 'solved' || newPuzzles.find(dp => dp.id === d)?.status === 'skipped'));
                 if (depsMet || p.dependencies.length === 0) p.status = 'active';
               }
             });
-            newTriggers[`entity_${puzzle.entity}_complete`] = true;
+            newTriggers[`chapter_${puzzle.chapterId}_complete`] = true;
           }
 
-          // Entity complete triggers
-          if (puzzle.entity === 'echo' && newEntity.completed) newTriggers.entity_echo_complete = true;
-          if (puzzle.entity === 'watcher' && newEntity.completed) newTriggers.entity_watcher_complete = true;
-          if (puzzle.entity === 'signal' && newEntity.completed) newTriggers.entity_signal_complete = true;
-          if (puzzle.entity === 'architect' && newEntity.completed) newTriggers.entity_architect_complete = true;
+          // Chapter complete triggers
+          if (puzzle.chapterId === 'chapter_1' && newChapter.completed) newTriggers.chapter_1_complete = true;
+          if (puzzle.chapterId === 'chapter_2' && newChapter.completed) newTriggers.chapter_2_complete = true;
+          if (puzzle.chapterId === 'chapter_3' && newChapter.completed) newTriggers.chapter_3_complete = true;
+          if (puzzle.chapterId === 'chapter_4' && newChapter.completed) newTriggers.chapter_4_complete = true;
+          if (puzzle.chapterId === 'chapter_5' && newChapter.completed) newTriggers.chapter_5_complete = true;
 
           // Update wishes progress
           const newWishes = state.wishes.map(w => ({
@@ -250,8 +251,8 @@ export const useGameStore = create<GameState>()(
             puzzles: newPuzzles, 
             solvedPuzzles: state.solvedPuzzles + 1,
             flower: { ...state.flower, growth: flowerGrowth, stage: flowerStage, hiddenUnlocked },
-            entities: { ...state.entities, [puzzle.entity || 'echo']: newEntity },
-            currentEntity: nextEntity, 
+            chapters: { ...state.chapters, [puzzle.chapterId || 'chapter_1']: newChapter },
+            currentChapter: nextChapter, 
             wishes: newWishes,
             world: { 
               stability: Math.max(0, 100 - newEcho.corruption - state.world.glitchLevel), 
@@ -303,19 +304,19 @@ export const useGameStore = create<GameState>()(
           const state = get();
           const puzzle = state.puzzles.find(p => p.id === puzzleId);
           if (!puzzle) return { success: false, message: 'اللغز غير موجود' };
-          if (puzzle.status === 'solved') return { success: false, message: 'تم حل هذا اللغز بالفعل' };
+          if (puzzle.status === 'solved' || puzzle.status === 'skipped') return { success: false, message: 'تم تخطي هذا اللغز بالفعل' };
 
           const price = state.shopPrices.skipPrice;
           if (state.echo.coins < price) return { success: false, message: `❌ لا تملك عملات كافية! تحتاج ${price} 🪙` };
 
           const newPuzzles = state.puzzles.map(p => {
-            if (p.id === puzzleId) return { ...p, status: 'solved' as PuzzleStatus };
+            if (p.id === puzzleId) return { ...p, status: 'skipped' as PuzzleStatus };
             if (p.dependencies.includes(puzzleId) && p.status === 'locked') return { ...p, status: 'active' as PuzzleStatus };
             return p;
           });
 
-          const newEcho = { 
-            ...state.echo, 
+          const newEcho = {
+            ...state.echo,
             coins: state.echo.coins - price,
             skippedPuzzles: [...state.echo.skippedPuzzles, puzzleId]
           };
@@ -323,7 +324,6 @@ export const useGameStore = create<GameState>()(
           set({
             echo: newEcho,
             puzzles: newPuzzles,
-            solvedPuzzles: state.solvedPuzzles + 1,
           });
 
           return { success: true, message: '⏭️ تم تخطي اللغز!' };
@@ -589,10 +589,11 @@ export const useGameStore = create<GameState>()(
         endings: state.endings, wishes: state.wishes,
         narrativeTriggers: state.narrativeTriggers,
         world: state.world, time: state.time,
-        entities: state.entities, currentEntity: state.currentEntity,
+        chapters: state.chapters, currentChapter: state.currentChapter,
         allMemoryShards: state.allMemoryShards,
         dailyMissions: state.dailyMissions,
         lastMissionRefresh: state.lastMissionRefresh,
+        puzzles: state.puzzles,
       }),
     }
   )

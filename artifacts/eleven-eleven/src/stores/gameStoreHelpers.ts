@@ -4,8 +4,8 @@
  */
 
 import type {
-  GameState, EchoState, TimeState, PuzzleNode, EntityId, FlowerStage,
-  EchoMood, WishStatus, Achievement, EndingState, TimelineEvent, PuzzleStatus
+  GameState, EchoState, TimeState, PuzzleNode, ChapterId, FlowerStage,
+  EchoMood, WishStatus, Achievement, EndingState, TimelineEvent, PuzzleStatus, ChapterState
 } from '../core/gameTypes';
 import type { MemoryShard } from '../core/memoryShardsTypes';
 import { getCollectedShards, ALL_MEMORY_SHARDS } from '../core/memoryShardsSystem';
@@ -17,7 +17,7 @@ import {
 import {
   getPuzzleByNumber,
   getAllPuzzles,
-} from '../core/puzzles/puzzleLoader';
+} from '../core/puzzles/puzzleBank';
 import {
   createInitialTransformationState,
   determineStage,
@@ -27,6 +27,7 @@ import {
   calculateTransformationEffects,
   applyTransformation
 } from '../core/echoTransformationSystem';
+import { CHAPTER_DATASETS, CHAPTER_ORDER } from '../core/chapterSystem';
 import { STORY_ARCS } from '../core/storyActs';
 
 // ─── INITIAL STATE ─────────────────────────────────────────────────────
@@ -55,20 +56,31 @@ export function buildInitialState(): GameState {
     flower: { stage: 'seed', growth: 0, decay: 0, hiddenUnlocked: false, maxStage: 5 },
     memory: { fragmentsCollected: 0, totalFragments: TOTAL_MEMORY_SHARDS, corruptedFragments: 0, timelineEvents: [], logsUnlocked: [] },
     allMemoryShards: [],
-    puzzles: [], // Will be populated by generateAllPuzzles
+    puzzles: [], // Will be populated by chapter datasets
     totalPuzzles: TOTAL_PUZZLES, solvedPuzzles: 0,
     finalChoice: null,
     unlockedEndings: [],
     seenEndings: [],
     achievedEnding: null,
     lastEndingViewed: null,
-    entities: {
-      echo: { id: 'echo', name: 'الصدى', glyph: '◈', unlocked: true, completed: false, puzzlesSolved: 0, totalPuzzles: 150, dialogueProgress: 0, loreUnlocked: [], emotionalState: 0 },
-      watcher: { id: 'watcher', name: 'المراقب', glyph: '◉', unlocked: false, completed: false, puzzlesSolved: 0, totalPuzzles: 150, dialogueProgress: 0, loreUnlocked: [], emotionalState: 0 },
-      signal: { id: 'signal', name: 'الإشارة', glyph: '≋', unlocked: false, completed: false, puzzlesSolved: 0, totalPuzzles: 150, dialogueProgress: 0, loreUnlocked: [], emotionalState: 0 },
-      architect: { id: 'architect', name: 'المهندس', glyph: '▲', unlocked: false, completed: false, puzzlesSolved: 0, totalPuzzles: 100, dialogueProgress: 0, loreUnlocked: [], emotionalState: 0 },
-    },
-    currentEntity: 'echo',
+    chapters: Object.fromEntries(
+      CHAPTER_ORDER.map(id => [
+        id,
+        {
+          id,
+          title: CHAPTER_DATASETS[id].title,
+          description: CHAPTER_DATASETS[id].description,
+          glyph: CHAPTER_DATASETS[id].glyph,
+          color: CHAPTER_DATASETS[id].color,
+          unlocked: id === 'chapter_1',
+          completed: false,
+          puzzlesSolved: 0,
+          totalPuzzles: CHAPTER_DATASETS[id].puzzles.length,
+          progress: 0,
+        } as ChapterState,
+      ])
+    ) as Record<ChapterId, ChapterState>,
+    currentChapter: 'chapter_1',
     wishes: [
       { id: 'w1', text: 'أتمنى أن أتذكر من أنا', progress: 0, status: 'active', createdAt: '2025-05-01', storyImpact: 25 },
       { id: 'w2', text: 'أتمنى أن أسامح نفسي', progress: 0, status: 'active', createdAt: '2025-05-01', storyImpact: 30 },
@@ -165,9 +177,11 @@ export function generateAllAchievements(): Achievement[] {
 export function generateAllPuzzles(): PuzzleNode[] {
   return getAllPuzzles().map((manual, idx) => {
     const puzzleNumber = idx + 1;
+    const previousPuzzleId = idx > 0 ? getAllPuzzles()[idx - 1].id : null;
+    const chapterId = getChapterForPuzzleNumber(puzzleNumber);
     return {
       id: manual.id,
-      entity: 'echo' as EntityId,
+      chapterId,
       title: manual.id,
       question: manual.question,
       answers: manual.answers,
@@ -176,7 +190,7 @@ export function generateAllPuzzles(): PuzzleNode[] {
       difficulty: manual.difficulty,
       storyReveal: manual.storyReveal,
       memoryUnlock: manual.shardId ? `memory_${manual.shardId}` : null,
-      dependencies: puzzleNumber > 1 ? [`puzzle_${puzzleNumber - 1}`] : [],
+      dependencies: previousPuzzleId ? [previousPuzzleId] : [],
       effects: manual.effects,
       act: manual.act,
       phase: manual.phase as any,
@@ -195,10 +209,12 @@ export function ensurePuzzleGenerated(state: GameState, puzzleNumber: number): P
   if (!manual) {
     throw new Error(`No manual puzzle found for puzzle #${puzzleNumber}. Add it to batch_01.ts`);
   }
+  const previousPuzzleId = puzzleNumber > 1 ? getPuzzleByNumber(puzzleNumber - 1)?.id : null;
+  const chapterId = getChapterForPuzzleNumber(puzzleNumber);
 
   const newNode: PuzzleNode = {
     id: manual.id,
-    entity: 'echo' as EntityId,
+    chapterId,
     title: manual.id,
     question: manual.question,
     answers: manual.answers,
@@ -209,7 +225,7 @@ export function ensurePuzzleGenerated(state: GameState, puzzleNumber: number): P
     difficulty: manual.difficulty,
     storyReveal: manual.storyReveal,
     memoryUnlock: manual.shardId ? `memory_${manual.shardId}` : null,
-    dependencies: puzzleNumber > 1 ? [`puzzle_${puzzleNumber - 1}`] : [],
+    dependencies: previousPuzzleId ? [previousPuzzleId] : [],
     effects: manual.effects,
     act: manual.act,
     phase: manual.phase as any,
@@ -218,6 +234,16 @@ export function ensurePuzzleGenerated(state: GameState, puzzleNumber: number): P
   };
 
   return newNode;
+}
+
+function getChapterForPuzzleNumber(puzzleNumber: number): ChapterId {
+  // Distribute puzzles across chapters based on puzzle number
+  // This is a simple distribution - can be made more sophisticated later
+  if (puzzleNumber <= 400) return 'chapter_1';
+  if (puzzleNumber <= 800) return 'chapter_2';
+  if (puzzleNumber <= 1200) return 'chapter_3';
+  if (puzzleNumber <= 1600) return 'chapter_4';
+  return 'chapter_5';
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────

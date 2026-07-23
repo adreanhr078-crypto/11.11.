@@ -5,11 +5,12 @@
 
 import type { MemoryShard } from './memoryShardsTypes';
 import type { EchoTransformationStage, StoryPhase, PuzzleEffects } from './puzzleTypes';
+import type { ChapterId, ChapterState } from './chapterSystem';
+export { type ChapterId, type ChapterState } from './chapterSystem';
 
 // ─── Basic Types ─────────────────────────────────────────────────────
 export type TimePhase = 'morning' | 'day' | 'evening' | '11:00' | '11:05' | '11:11';
-export type EntityId = 'echo' | 'watcher' | 'signal' | 'architect';
-export type PuzzleStatus = 'locked' | 'active' | 'solved' | 'failed';
+export type PuzzleStatus = 'locked' | 'active' | 'solved' | 'failed' | 'skipped';
 export type FlowerStage = 'seed' | 'sprout' | 'bloom' | 'flourish' | 'completed' | 'corrupted';
 export type Ending = 'sorrow' | 'truth' | 'dark' | 'mystery';
 export type EchoMood = 'خائف' | 'متردد' | 'واثق' | 'متذكر' | 'مشوش' | 'مذعور' | 'هادئ' | 'متفائل';
@@ -64,7 +65,7 @@ export interface TimeState {
 }
 
 export interface PuzzleNode {
-  id: string; entity: EntityId; title: string;
+  id: string; chapterId: ChapterId; title: string;
   question: string; answers: string[]; hint: string;
   status: PuzzleStatus; difficulty: number;
   storyReveal: string; memoryUnlock: string | null;
@@ -75,15 +76,8 @@ export interface PuzzleNode {
   phase?: StoryPhase;
   hints?: string[];
   puzzleType?: string;
+  puzzleCategory?: ChapterId; // Category for this puzzle
   coins?: number;             // Coins rewarded for solving
-}
-
-export interface EntityState {
-  id: EntityId; name: string; glyph: string;
-  unlocked: boolean; completed: boolean;
-  puzzlesSolved: number; totalPuzzles: number;
-  dialogueProgress: number; loreUnlocked: string[];
-  emotionalState: number;
 }
 
 export interface FlowerState {
@@ -127,7 +121,7 @@ export interface GameState {
   echo: EchoState; time: TimeState; flower: FlowerState;
   memory: MemoryState; puzzles: PuzzleNode[];
   totalPuzzles: number; solvedPuzzles: number;
-  entities: Record<EntityId, EntityState>; currentEntity: EntityId;
+  chapters: Record<ChapterId, ChapterState>; currentChapter: ChapterId;
   wishes: WishNode[];
   player: { curiosity: number; interactions: number; choices: string[]; };
   world: { stability: number; glitchLevel: number; corruptionLevel: number; anomalyCount: number; };
