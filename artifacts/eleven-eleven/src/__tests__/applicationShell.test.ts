@@ -13,7 +13,10 @@ import {
   PRIMARY_GAME_SCREENS,
 } from '../app/shell/screenRegistry';
 import { useGameStore } from '../stores/gameStore';
-import { ECHO_PRESENTATION_ASSETS } from '../ui/presentation/visualAssets';
+import {
+  ECHO_PRESENTATION_ASSETS,
+  ENVIRONMENT_PRESENTATION_ASSETS,
+} from '../ui/presentation/visualAssets';
 
 describe('Application Shell', () => {
   it('registers each screen once and keeps the priority flow available', () => {
@@ -79,5 +82,18 @@ describe('Application Shell', () => {
       true,
     );
     assert.equal(ECHO_PRESENTATION_ASSETS.fallbackLabel, 'Echo');
+  });
+
+  it('keeps cinematic environments outside narrative content data', () => {
+    for (const asset of Object.values(ENVIRONMENT_PRESENTATION_ASSETS)) {
+      assert.equal(
+        existsSync(resolve(
+          process.cwd(),
+          'public',
+          asset.replace(/^\//, ''),
+        )),
+        true,
+      );
+    }
   });
 });

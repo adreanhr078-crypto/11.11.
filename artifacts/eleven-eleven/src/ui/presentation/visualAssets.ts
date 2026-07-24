@@ -12,3 +12,13 @@ export const ECHO_PRESENTATION_ASSETS: EchoPresentationAssetSet = {
   fallbackLabel: 'Echo',
 };
 
+export interface EnvironmentPresentationAssetSet {
+  mainMenuWorld: string;
+  memoryLaboratory: string;
+}
+
+export const ENVIRONMENT_PRESENTATION_ASSETS:
+EnvironmentPresentationAssetSet = {
+  mainMenuWorld: '/assets/environments/main-menu-world-v1.png',
+  memoryLaboratory: '/assets/environments/memory-lab-v1.png',
+};

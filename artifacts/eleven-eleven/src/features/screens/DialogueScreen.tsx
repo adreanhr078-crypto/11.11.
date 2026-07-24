@@ -4,22 +4,25 @@ import {
   ChoiceCard,
   GameButton,
   GameTabs,
-  GlassPanel,
   HudPanel,
 } from '../../ui/design-system';
 import { createDialogueScreenReadModel } from '../../application/ui/gameUiReadModels';
 import { EchoChat } from '../../components/echo/EchoChat';
-import { EchoPresence } from '../../ui/presentation';
+import {
+  EchoPresence,
+  ENVIRONMENT_PRESENTATION_ASSETS,
+} from '../../ui/presentation';
 
 type DialogueTab = 'graph' | 'echo-channel';
 
 export default function DialogueScreen() {
   const state = useGameStore();
   const [tab, setTab] = useState<DialogueTab>('graph');
+  const [previewChoice, setPreviewChoice] = useState(0);
   const model = useMemo(() => createDialogueScreenReadModel(state), [state]);
 
   return (
-    <div className="shell-screen shell-dialogue-screen">
+    <div className="shell-screen shell-dialogue-screen shell-dialogue-screen--decision">
       <header className="shell-screen-heading">
         <span className="shell-screen-code">05</span>
         <span>
@@ -48,100 +51,116 @@ export default function DialogueScreen() {
           <EchoChat />
         </HudPanel>
       ) : (
-        <div className="shell-dialogue-screen__layout">
-          <section className="shell-dialogue-screen__portrait">
+        <div className="core5-decision-screen">
+          <div
+            className="core5-decision-screen__world"
+            style={{
+              backgroundImage: `url("${ENVIRONMENT_PRESENTATION_ASSETS.memoryLaboratory}")`,
+            }}
+            aria-hidden="true"
+          >
+            <span className="core5-decision-screen__distortion" />
             <EchoPresence
-              className="shell-dialogue-screen__echo-presence"
-              variant="dialogue"
+              className="core5-decision-screen__echo"
+              variant="hero"
               eager
             />
-            <strong>Echo</strong>
-            <small>
-              TRUST {state.echo.personality.trust}% · FEAR{' '}
-              {state.echo.personality.fear}%
-            </small>
+          </div>
+
+          <section className="core5-decision-screen__prompt">
+            <small>{model.definition?.id ?? 'DIALOGUE_GRAPH_SLOT_00'}</small>
+            <strong>{model.node?.speakerId ?? 'Echo'}</strong>
+            {model.node ? (
+              <blockquote>{model.node.text.ar}</blockquote>
+            ) : (
+              <blockquote>
+                بانتظار بيانات الحوار من الرسم البياني السردي.
+              </blockquote>
+            )}
+            <span>DECISION LEDGER // CONNECTED</span>
           </section>
 
-          <HudPanel
-            className="shell-dialogue-screen__graph"
-            tone="danger"
-            eyebrow={model.definition?.id ?? 'DIALOGUE GRAPH'}
-            title={model.node?.speakerId ?? 'قناة السرد'}
-          >
-            {model.node ? (
-              <>
-                <blockquote>{model.node.text.ar}</blockquote>
-                <div className="shell-dialogue-screen__choices">
-                  {model.node.choices.map((choice, index) => (
-                    <ChoiceCard
-                      key={choice.id}
-                      index={index + 1}
-                      title={choice.text.ar}
-                      tone={index === 0 ? 'danger' : 'memory'}
-                      consequence="سيُحفظ هذا القرار في السجل."
-                      onClick={() => (
-                        state.actions.chooseDialogueOption(choice.id)
-                      )}
-                    />
-                  ))}
-                </div>
-              </>
-            ) : model.availableDefinitions.length > 0 ? (
-              <div className="shell-dialogue-library">
-                <p>اختر محادثة متاحة لبدء الرسم البياني.</p>
-                {model.availableDefinitions.map((dialogue) => (
-                  <GameButton
-                    key={dialogue.id}
-                    variant="secondary"
-                    onClick={() => state.actions.startDialogueGraph(dialogue.id)}
-                  >
-                    {dialogue.id}
-                  </GameButton>
-                ))}
+          <aside className="core5-decision-screen__impact">
+            <header>
+              <small>EMOTIONAL FEEDBACK</small>
+              <strong>تأثير القرار</strong>
+            </header>
+            <div className="core5-decision-screen__impact-orbit" aria-hidden="true">
+              <span /><span /><i />
+            </div>
+            <dl>
+              <div>
+                <dt>TRUST</dt>
+                <dd>{state.echo.personality.trust}%</dd>
               </div>
-            ) : (
-              <div className="shell-editor-empty shell-editor-empty--embedded">
-                <span className="shell-editor-empty__glyph">⌁</span>
-                <p>
-                  محرك الحوار وسجل القرارات متصلان. أضف الرسوم الحوارية في
-                  <code> data/dialogues/index.json </code>
-                  دون تعديل TypeScript.
-                </p>
-                <div
-                  className="shell-choice-placeholders"
-                  aria-label="أماكن اختيارات الحوار المستقبلية"
-                >
-                  {Array.from({ length: 3 }, (_, index) => (
-                    <span key={index}>
-                      <i>{String(index + 1).padStart(2, '0')}</i>
-                      <b />
-                      <small>LOCKED</small>
-                    </span>
-                  ))}
-                </div>
+              <div>
+                <dt>FEAR</dt>
+                <dd>{state.echo.personality.fear}%</dd>
               </div>
-            )}
-          </HudPanel>
+              <div>
+                <dt>CORRUPTION</dt>
+                <dd>{state.echo.personality.corruption}%</dd>
+              </div>
+            </dl>
+            <p>
+              {model.decisions.length > 0
+                ? `${model.decisions.length} قرارات محفوظة في السجل`
+                : 'السجل بانتظار أول قرار مؤلف.'}
+            </p>
+          </aside>
 
-          <GlassPanel
-            className="shell-dialogue-screen__ledger"
-            tone="neutral"
-            title="القرارات المستمرة"
-          >
-            {model.decisions.length > 0 ? (
-              <ol className="shell-ledger-list">
-                {model.decisions.map((decision) => (
-                  <li key={decision.id}>
-                    <span>{decision.source}</span>
-                    <strong>{decision.id}</strong>
-                    <small>{decision.choiceId}</small>
-                  </li>
-                ))}
-              </ol>
+          <section className="core5-decision-screen__choices">
+            {model.node ? (
+              model.node.choices.map((choice, index) => (
+                <ChoiceCard
+                  key={choice.id}
+                  index={index + 1}
+                  title={choice.text.ar}
+                  tone={index === 0 ? 'danger' : 'memory'}
+                  consequence="سيُحفظ هذا القرار في Decision Ledger."
+                  onClick={() => state.actions.chooseDialogueOption(choice.id)}
+                />
+              ))
             ) : (
-              <p className="shell-muted-copy">السجل بانتظار أول اختيار.</p>
+              Array.from({ length: 3 }, (_, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  data-active={previewChoice === index}
+                  data-tone={index === 0 ? 'danger' : index === 1 ? 'memory' : 'neutral'}
+                  onClick={() => setPreviewChoice(index)}
+                >
+                  <span>{String(index + 1).padStart(2, '0')}</span>
+                  <i>{index === 0 ? '◇' : index === 1 ? '◉' : '⬡'}</i>
+                  <strong>CHOICE_SLOT_{String(index + 1).padStart(2, '0')}</strong>
+                  <small>بانتظار نص الخيار</small>
+                </button>
+              ))
             )}
-          </GlassPanel>
+          </section>
+
+          <footer className="core5-decision-screen__feedback">
+            <span>
+              <i />
+              EMOTION CHANNEL {String(previewChoice + 1).padStart(2, '0')}
+            </span>
+            <p>المعاينة البصرية لا تسجل قرارًا دون محتوى حواري مؤلف.</p>
+            <code>data/dialogues/index.json</code>
+          </footer>
+
+          {model.availableDefinitions.length > 0 && !model.node && (
+            <div className="core5-decision-screen__available">
+              {model.availableDefinitions.map((dialogue) => (
+                <GameButton
+                  key={dialogue.id}
+                  variant="secondary"
+                  onClick={() => state.actions.startDialogueGraph(dialogue.id)}
+                >
+                  {dialogue.id}
+                </GameButton>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

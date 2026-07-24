@@ -8,7 +8,10 @@ import {
 } from '../../ui/design-system';
 import { createDashboardReadModel } from '../../application/ui/gameUiReadModels';
 import { useShellStore } from '../../app/shell/shellStore';
-import { EchoPresence } from '../../ui/presentation';
+import {
+  EchoPresence,
+  ENVIRONMENT_PRESENTATION_ASSETS,
+} from '../../ui/presentation';
 
 export default function MainMenuScreen() {
   const state = useGameStore();
@@ -23,11 +26,27 @@ export default function MainMenuScreen() {
       safeContent
       aria-label="القائمة الرئيسية"
     >
+      <div
+        className="shell-main-menu__world"
+        style={{
+          backgroundImage: `url("${ENVIRONMENT_PRESENTATION_ASSETS.mainMenuWorld}")`,
+        }}
+        aria-hidden="true"
+      >
+        <span className="shell-main-menu__world-drift" />
+        <span className="shell-main-menu__world-light" />
+        <span className="shell-main-menu__world-foreground" />
+      </div>
       <div className="shell-main-menu__atmosphere" aria-hidden="true">
         <span className="shell-main-menu__orbit shell-main-menu__orbit--one" />
         <span className="shell-main-menu__orbit shell-main-menu__orbit--two" />
         <span className="shell-memory-flower">
           <i /><i /><i /><i /><i /><i />
+        </span>
+        <span className="shell-main-menu__embers">
+          {Array.from({ length: 16 }, (_, index) => (
+            <i key={index} />
+          ))}
         </span>
       </div>
       <EchoPresence
@@ -37,8 +56,11 @@ export default function MainMenuScreen() {
       />
 
       <header className="shell-main-menu__utility">
-        <span className="shell-screen-code">01</span>
-        <time dateTime="11:11">11:11</time>
+        <span className="shell-main-menu__scene-title">
+          <span className="shell-screen-code">01</span>
+          <strong>المشهد السينمائي</strong>
+        </span>
+        <span className="shell-main-menu__episode">PROJECT 11:11</span>
         <span className="shell-main-menu__signal">SYSTEM // STABLE</span>
       </header>
 
@@ -53,50 +75,55 @@ export default function MainMenuScreen() {
         </blockquote>
       </section>
 
-      <GlassPanel
-        className="shell-main-menu__actions"
-        tone="danger"
-        eyebrow="الرحلة محفوظة محلياً"
-        title={model.hasJourneyProgress ? 'استعادة الاتصال' : 'بدء الاتصال'}
-      >
-        <GameButton
-          size="lg"
-          fullWidth
-          trailingIcon="←"
-          onClick={() => navigate('dashboard')}
+      <div className="shell-main-menu__action-anchor">
+        <GlassPanel
+          className="shell-main-menu__actions"
+          tone="danger"
+          eyebrow="ECHO // SIGNAL CHANNEL"
+          title={model.hasJourneyProgress ? 'استعادة الاتصال' : 'القناة بانتظارك'}
         >
-          {model.hasJourneyProgress ? 'متابعة الرحلة' : 'ابدأ الرحلة'}
-        </GameButton>
-        <div className="shell-main-menu__secondary-actions">
           <GameButton
-            variant="secondary"
-            onClick={() => setConfirmNewGame(true)}
+            size="lg"
+            fullWidth
+            trailingIcon="←"
+            onClick={() => navigate('dashboard')}
           >
-            لعبة جديدة
+            {model.hasJourneyProgress ? 'متابعة الرحلة' : 'ابدأ الرحلة'}
           </GameButton>
-          <GameButton
-            variant="ghost"
-            onClick={() => navigate('memories')}
-          >
-            الذكريات
-          </GameButton>
-          <GameButton
-            variant="ghost"
-            onClick={() => navigate('settings')}
-          >
-            الإعدادات
-          </GameButton>
-        </div>
-        <div className="shell-main-menu__checkpoint">
-          <span>الفصل الحالي</span>
-          <strong>{model.chapter.title}</strong>
-          <small>{model.puzzleProgress.progress}% من الرحلة</small>
-        </div>
-      </GlassPanel>
+          <div className="shell-main-menu__secondary-actions">
+            <GameButton
+              variant="secondary"
+              onClick={() => setConfirmNewGame(true)}
+            >
+              لعبة جديدة
+            </GameButton>
+            <GameButton
+              variant="ghost"
+              onClick={() => navigate('memories')}
+            >
+              الذكريات
+            </GameButton>
+            <GameButton
+              variant="ghost"
+              onClick={() => navigate('settings')}
+            >
+              الإعدادات
+            </GameButton>
+          </div>
+          <div className="shell-main-menu__checkpoint">
+            <span>الفصل الحالي</span>
+            <strong>{model.chapter.title}</strong>
+            <small>{model.puzzleProgress.progress}% من الرحلة</small>
+          </div>
+        </GlassPanel>
+      </div>
 
       <footer className="shell-main-menu__footer">
         <span>11:11 // MOBILE CINEMATIC RUNTIME</span>
-        <span>日本語 VO · العربية SUB</span>
+        <span className="shell-main-menu__audio-signal">
+          <i /><i /><i /><i /><i /><i /><i /><i />
+          日本語 VO · العربية SUB
+        </span>
       </footer>
 
       <GameModal

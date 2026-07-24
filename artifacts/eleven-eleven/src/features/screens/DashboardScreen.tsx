@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { useGameStore } from '../../stores/gameStore';
 import {
   GameButton,
-  GameCard,
   GameProgress,
   GlassPanel,
   HudPanel,
@@ -26,27 +25,98 @@ const PERSONALITY_STATS: Array<{
   { key: 'corruption', label: 'الفساد', tone: 'rare' },
 ];
 
+const SYSTEM_CHANNELS = [
+  { id: 'dashboard' as const, code: '◉', label: 'الرئيسية' },
+  { id: 'memories' as const, code: '✦', label: 'الذكريات' },
+  { id: 'puzzles' as const, code: '⬡', label: 'إعادة البناء' },
+  { id: 'dialogue' as const, code: '⌁', label: 'التواصل' },
+  { id: 'cinematic' as const, code: '▷', label: 'المشاهد' },
+  { id: 'settings' as const, code: '⚙', label: 'الإعدادات' },
+];
+
 export default function DashboardScreen() {
   const state = useGameStore();
   const navigate = useShellStore((shell) => shell.navigate);
   const model = useMemo(() => createDashboardReadModel(state), [state]);
 
   return (
-    <div className="shell-screen shell-dashboard">
-      <section className="shell-dashboard__portrait" aria-label="حالة Echo">
+    <div className="shell-screen shell-dashboard shell-dashboard--echo-system">
+      <aside className="shell-dashboard__side-menu" aria-label="قنوات النظام">
+        <header>
+          <span>11:11</span>
+          <strong>النظام الرئيسي</strong>
+          <small>SYSTEM CHANNELS</small>
+        </header>
+        <nav>
+          {SYSTEM_CHANNELS.map((channel) => (
+            <button
+              key={channel.id}
+              type="button"
+              data-active={channel.id === 'dashboard'}
+              onClick={() => navigate(channel.id)}
+            >
+              <i>{channel.code}</i>
+              <span>{channel.label}</span>
+            </button>
+          ))}
+        </nav>
+        <div className="shell-dashboard__side-signal">
+          <i />
+          <span>
+            <small>CONNECTION</small>
+            <strong>STABLE</strong>
+          </span>
+        </div>
+      </aside>
+
+      <section className="shell-dashboard__echo-core" aria-label="حالة Echo">
+        <div className="shell-dashboard__core-header">
+          <span>
+            <small>ECHO MIND</small>
+            <strong>A-17 // ONLINE</strong>
+          </span>
+          <span className="shell-live-indicator">LIVE SIGNAL</span>
+        </div>
         <EchoPresence
           className="shell-dashboard__echo-presence"
           variant="profile"
           eager
         />
+        <div className="shell-dashboard__core-reticle" aria-hidden="true">
+          <span /><span /><i />
+        </div>
         <div className="shell-dashboard__identity">
           <small>ECHO MIND // A-17</small>
           <h1>Echo</h1>
-          <p>الحالة النفسية متصلة بنظام العرض العاطفي.</p>
+          <p>البصمة العاطفية متصلة بطبقة العرض السينمائي.</p>
           <div className="shell-dashboard__status-row">
             <span data-tone="memory">● متصل</span>
             <span>المستوى {state.echo.level}</span>
             <span>الاستقرار {state.echo.memoryStability}%</span>
+          </div>
+        </div>
+
+        <div className="shell-dashboard__memory-timeline">
+          <header>
+            <span>
+              <small>MEMORY TIMELINE</small>
+              <strong>الذكريات المتصلة</strong>
+            </span>
+            <span>{model.memory.unlocked}/{model.memory.totalDefinitions || '—'}</span>
+          </header>
+          <div>
+            {Array.from({ length: 5 }, (_, index) => (
+              <button
+                key={index}
+                type="button"
+                data-locked
+                onClick={() => navigate('memories')}
+                aria-label={`خانة ذاكرة ${index + 1}`}
+              >
+                <i>{String(index + 1).padStart(2, '0')}</i>
+                <span>MEM-—</span>
+              </button>
+            ))}
           </div>
         </div>
       </section>
@@ -54,9 +124,9 @@ export default function DashboardScreen() {
       <HudPanel
         className="shell-dashboard__personality"
         tone="memory"
-        eyebrow="Emotion Visual System"
-        title="بصمة Echo النفسية"
-        actions={<span className="shell-live-indicator">LIVE</span>}
+        eyebrow="EMOTION VISUAL SYSTEM"
+        title="الحالة النفسية"
+        actions={<span className="shell-live-indicator">SYNC</span>}
       >
         <div className="shell-dashboard__stat-grid">
           {PERSONALITY_STATS.map((stat) => (
@@ -72,125 +142,60 @@ export default function DashboardScreen() {
       </HudPanel>
 
       <GlassPanel
+        className="shell-dashboard__trajectory"
+        tone="danger"
+        eyebrow="TRANSFORMATION VECTOR"
+        title="نقطة التحول"
+      >
+        <div className="shell-dashboard__axis">
+          <span>
+            <small>ANGER</small>
+            <strong>{model.personality.anger}</strong>
+          </span>
+          <i><b /></i>
+          <span>
+            <small>TRUST</small>
+            <strong>{model.personality.trust}</strong>
+          </span>
+        </div>
+        <GameProgress value={model.personality.corruption} tone="danger" />
+      </GlassPanel>
+
+      <HudPanel
         className="shell-dashboard__journey"
         tone="danger"
         eyebrow={model.chapter.id}
         title={model.chapter.title}
       >
-        <p>{model.chapter.description}</p>
-        <GameProgress
-          value={model.puzzleProgress.progress}
-          label="تقدم الرحلة"
-          tone="danger"
-        />
+        <div className="shell-dashboard__journey-copy">
+          <p>{model.chapter.description}</p>
+          <GameProgress
+            value={model.puzzleProgress.progress}
+            label="تقدم الفصل"
+            tone="danger"
+          />
+        </div>
         <div className="shell-dashboard__chapter-meta">
           <span>
             <strong>{model.puzzleProgress.resolved}</strong>
-            ألغاز محسومة
+            عقد محسومة
           </span>
           <span>
             <strong>{model.memory.fragments || model.memory.legacyCollected}</strong>
-            شظايا مستعادة
+            شظايا
           </span>
           <span>
             <strong>{model.decisions.length}</strong>
-            قرارات مؤثرة
+            قرارات
           </span>
-        </div>
-        <div className="shell-resource-row">
-          <span><i data-tone="gold" />{model.resources.coins} عملة</span>
-          <span><i data-tone="rare" />{model.resources.crystals} بلورة</span>
-          <span><i data-tone="memory" />{model.resources.shards} شظية</span>
         </div>
         <GameButton
           variant="secondary"
           fullWidth
           onClick={() => navigate('puzzles')}
         >
-          متابعة إعادة البناء
+          متابعة الرحلة
         </GameButton>
-      </GlassPanel>
-
-      <section className="shell-dashboard__cards">
-        <GameCard
-          tone="memory"
-          overline="MEMORY NETWORK"
-          title="الذكريات"
-          description="تعريفات بيانات قابلة للتوسع مع حالات فتح مستقلة."
-          footer={(
-            <GameButton
-              variant="memory"
-              size="sm"
-              onClick={() => navigate('memories')}
-            >
-              فتح الشبكة
-            </GameButton>
-          )}
-        >
-          <GameProgress
-            value={model.memory.progress}
-            showValue
-            tone="memory"
-          />
-        </GameCard>
-        <GameCard
-          tone="rare"
-          overline="ANIME EPISODE RUNTIME"
-          title="المشهد السينمائي"
-          description={
-            model.cinematic.authoredEpisodes > 0
-              ? `${model.cinematic.authoredEpisodes} حلقات متاحة`
-              : 'المشغل جاهز لبيانات الحلقات والأصول.'
-          }
-          footer={(
-            <GameButton
-              variant="rare"
-              size="sm"
-              onClick={() => navigate('cinematic')}
-            >
-              فتح المشغل
-            </GameButton>
-          )}
-        />
-        <GameCard
-          tone="danger"
-          overline="DECISION LEDGER"
-          title="الحوار والقرارات"
-          description="كل اختيار مهم يُسجل ويؤثر في المشاهد والنهايات."
-          footer={(
-            <GameButton
-              variant="secondary"
-              size="sm"
-              onClick={() => navigate('dialogue')}
-            >
-              تواصل مع Echo
-            </GameButton>
-          )}
-        />
-      </section>
-
-      <HudPanel
-        className="shell-dashboard__ledger"
-        tone="danger"
-        eyebrow="آخر التأثيرات"
-        title="سجل القرارات"
-      >
-        {model.decisions.length > 0 ? (
-          <ol className="shell-ledger-list">
-            {model.decisions.map((decision) => (
-              <li key={decision.id}>
-                <span>{decision.source}</span>
-                <strong>{decision.id}</strong>
-                <small>{decision.choiceId}</small>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <div className="shell-empty-inline">
-            <span aria-hidden="true">◇</span>
-            <p>لم تُسجل قرارات مصيرية بعد.</p>
-          </div>
-        )}
       </HudPanel>
     </div>
   );

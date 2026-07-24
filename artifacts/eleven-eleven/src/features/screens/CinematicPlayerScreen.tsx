@@ -3,10 +3,8 @@ import { useGameStore } from '../../stores/gameStore';
 import {
   ChoiceCard,
   GameButton,
-  GameCard,
   GameProgress,
   GlassPanel,
-  HudPanel,
 } from '../../ui/design-system';
 import {
   getCinematicPlaybackReadModel,
@@ -18,7 +16,10 @@ import {
   CINEMATIC_ASSET_DEFINITIONS,
   CINEMATIC_EPISODE_DEFINITIONS,
 } from '../../infrastructure/content/cinematicContentRegistry';
-import { EchoPresence } from '../../ui/presentation';
+import {
+  EchoPresence,
+  ENVIRONMENT_PRESENTATION_ASSETS,
+} from '../../ui/presentation';
 
 function assetSource(assetId: string | undefined): string | undefined {
   if (!assetId) return undefined;
@@ -31,6 +32,7 @@ function assetSource(assetId: string | undefined): string | undefined {
 export default function CinematicPlayerScreen() {
   const state = useGameStore();
   const [clock, setClock] = useState(() => Date.now());
+  const [previewPlaying, setPreviewPlaying] = useState(false);
   const playback = useMemo(
     () => getCinematicPlaybackReadModel(state, clock),
     [clock, state],
@@ -76,71 +78,132 @@ export default function CinematicPlayerScreen() {
 
   if (!playback || !frame) {
     return (
-      <div className="shell-screen shell-cinematic-library">
-        <header className="shell-screen-heading">
+      <div
+        className="core5-cinematic-preview"
+        data-preview-playing={previewPlaying}
+      >
+        <div
+          className="core5-cinematic-preview__world"
+          style={{
+            backgroundImage: `url("${ENVIRONMENT_PRESENTATION_ASSETS.memoryLaboratory}")`,
+          }}
+          aria-hidden="true"
+        >
+          <span className="core5-cinematic-preview__camera-layer" />
+          <span className="core5-cinematic-preview__light-layer" />
+          <EchoPresence
+            className="core5-cinematic-preview__echo"
+            variant="hero"
+            eager
+          />
+        </div>
+
+        <header className="core5-cinematic-preview__hud">
           <span className="shell-screen-code">02</span>
           <span>
             <small>ANIME EPISODE RUNTIME</small>
-            <h1>المشاهد السينمائية</h1>
+            <strong>المشهد السينمائي</strong>
           </span>
+          <div>
+            <span>日本語 VO</span>
+            <span>العربية SUB</span>
+            <GameButton
+              variant="ghost"
+              size="sm"
+              onClick={() => setPreviewPlaying((playing) => !playing)}
+            >
+              {previewPlaying ? 'إيقاف' : 'معاينة'}
+            </GameButton>
+          </div>
         </header>
 
-        <HudPanel
-          className="shell-cinematic-library__stage"
-          tone="rare"
-          eyebrow="日本語 VO // العربية SUB"
-          title="مشغل الحلقات"
-        >
-          <EchoPresence
-            className="shell-cinematic-library__echo"
-            variant="mini"
-            eager
-          />
-          <div className="shell-cinematic-core" aria-hidden="true">
-            <span /><span /><span />
-            <i>11:11</i>
-          </div>
-          <p>
-            يدعم الكاميرا، تعابير الشخصيات، الخلفيات، الصوت الياباني،
-            الترجمة العربية، الاسترجاعات والاختيارات المتفرعة.
-          </p>
-        </HudPanel>
-
-        <section className="shell-content-grid">
-          {CINEMATIC_EPISODE_DEFINITIONS.map((episode) => (
-            <GameCard
-              key={episode.id}
-              tone="rare"
-              overline={`EPISODE ${String(episode.episodeNumber).padStart(2, '0')}`}
-              title={episode.title.ar}
-              description={episode.description.ar}
-              footer={(
-                <GameButton
-                  variant="rare"
-                  size="sm"
-                  onClick={() => state.actions.startCinematicEpisode(episode.id)}
-                >
-                  تشغيل الحلقة
-                </GameButton>
-              )}
-            />
+        <aside className="core5-cinematic-preview__channels">
+          <header>
+            <small>SCENE CHANNELS</small>
+            <strong>المسارات</strong>
+          </header>
+          {[
+            ['CAM', 'الكاميرا'],
+            ['VO', 'الصوت الياباني'],
+            ['SUB', 'الترجمة العربية'],
+            ['BGM', 'الموسيقى'],
+          ].map(([code, label]) => (
+            <button key={code} type="button">
+              <i>{code}</i>
+              <span>{label}</span>
+            </button>
           ))}
+        </aside>
+
+        <aside className="core5-cinematic-preview__telemetry">
+          <header>
+            <small>SCENE TELEMETRY</small>
+            <strong>بيانات المشهد</strong>
+          </header>
+          <dl>
+            <div><dt>SCENE</dt><dd>SCENE_SLOT_00</dd></div>
+            <div><dt>CAMERA</dt><dd>CAMERA_IDLE</dd></div>
+            <div><dt>EXPRESSION</dt><dd>EXPR_PENDING</dd></div>
+            <div><dt>VOICE</dt><dd>VOICE_JP_PENDING</dd></div>
+          </dl>
+          <div className="core5-cinematic-preview__audio">
+            {Array.from({ length: 18 }, (_, index) => (
+              <i key={index} />
+            ))}
+          </div>
+        </aside>
+
+        <GlassPanel
+          className="core5-cinematic-preview__subtitle"
+          tone="danger"
+          eyebrow="ECHO // VOICE PLACEHOLDER"
+        >
+          <p>بانتظار بيانات الحوار والترجمة العربية للمشهد.</p>
+          <small>字幕 // AR-SA · 音声 // JA-JP</small>
+        </GlassPanel>
+
+        <div className="core5-cinematic-preview__timeline">
+          <GameButton
+            variant={previewPlaying ? 'danger' : 'secondary'}
+            size="sm"
+            onClick={() => setPreviewPlaying((playing) => !playing)}
+            aria-label={previewPlaying ? 'إيقاف المعاينة' : 'تشغيل المعاينة'}
+          >
+            {previewPlaying ? 'Ⅱ' : '▶'}
+          </GameButton>
+          <span className="core5-cinematic-preview__track">
+            <i />
+          </span>
+          <time>00:00 / --:--</time>
+        </div>
+
+        <section className="core5-cinematic-preview__episodes" aria-label="الحلقات">
+          {CINEMATIC_EPISODE_DEFINITIONS.length > 0 ? (
+            CINEMATIC_EPISODE_DEFINITIONS.slice(0, 4).map((episode) => (
+              <button
+                key={episode.id}
+                type="button"
+                onClick={() => state.actions.startCinematicEpisode(episode.id)}
+              >
+                <span>EP {String(episode.episodeNumber).padStart(2, '0')}</span>
+                <strong>{episode.title.ar}</strong>
+              </button>
+            ))
+          ) : (
+            Array.from({ length: 4 }, (_, index) => (
+              <button key={index} type="button" disabled>
+                <span>EP —</span>
+                <strong>EPISODE_SLOT_{String(index + 1).padStart(2, '0')}</strong>
+              </button>
+            ))
+          )}
         </section>
 
-        {CINEMATIC_EPISODE_DEFINITIONS.length === 0 && (
-          <GlassPanel
-            className="shell-editor-empty"
-            tone="neutral"
-            title="لا توجد حلقات منشورة"
-          >
-            <span className="shell-editor-empty__glyph">◇</span>
-            <p>
-              النظام جاهز. أضف الحلقات والمشاهد إلى
-              <code> data/cinematics/index.json </code>
-              بدون تعديل TypeScript.
-            </p>
-          </GlassPanel>
-        )}
+        <p className="core5-cinematic-preview__editor-note">
+          <span>EDITOR READY</span>
+          أضف الحلقات إلى
+          <code> data/cinematics/index.json </code>
+        </p>
       </div>
     );
   }
@@ -151,7 +214,7 @@ export default function CinematicPlayerScreen() {
 
   return (
     <div
-      className="shell-cinematic-player"
+      className="shell-cinematic-player core5-cinematic-player"
       data-effects={frame.effects.map((effect) => effect.effect).join(' ')}
     >
       <div
@@ -159,12 +222,21 @@ export default function CinematicPlayerScreen() {
         style={{
           transform: `scale(${frame.camera.zoom}) rotate(${frame.camera.rotation}deg)`,
           transformOrigin: `${frame.camera.focus.x * 100}% ${frame.camera.focus.y * 100}%`,
-          backgroundImage: background
-            ? `url("${assetSource(background.assetId)}")`
-            : undefined,
+          backgroundImage: `url("${
+            background
+              ? assetSource(background.assetId)
+              : ENVIRONMENT_PRESENTATION_ASSETS.memoryLaboratory
+          }")`,
         }}
       >
         {!background && <span className="shell-cinematic-player__placeholder" />}
+        {frame.characters.length === 0 && (
+          <EchoPresence
+            className="core5-cinematic-player__echo"
+            variant="hero"
+            eager
+          />
+        )}
         {frame.characters.map((character) => (
           <div
             key={character.characterId}
