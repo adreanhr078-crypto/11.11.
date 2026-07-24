@@ -3,12 +3,17 @@ import type { GameTone } from './types';
 import { cx } from './utils';
 import { GameProgress } from './metrics';
 import { GameButton } from './controls';
+import {
+  GameIcon,
+  type GameIconId,
+} from '../icons';
 
 export interface GameNotification {
   id: string;
   title: ReactNode;
   message?: ReactNode;
   icon?: ReactNode;
+  iconId?: GameIconId;
   tone?: GameTone;
   timestamp?: ReactNode;
   actionLabel?: ReactNode;
@@ -41,9 +46,11 @@ export function NotificationStack({
           className="gds-notification"
           data-tone={notification.tone ?? 'neutral'}
         >
-          {notification.icon && (
+          {(notification.iconId || notification.icon) && (
             <span className="gds-notification__icon" aria-hidden="true">
-              {notification.icon}
+              {notification.iconId
+                ? <GameIcon id={notification.iconId} />
+                : notification.icon}
             </span>
           )}
           <span className="gds-notification__copy">
@@ -67,7 +74,7 @@ export function NotificationStack({
               onClick={() => onDismiss(notification.id)}
               aria-label={dismissLabel}
             >
-              ×
+              <GameIcon id="utility-close" />
             </button>
           )}
         </article>
@@ -126,4 +133,3 @@ export function GameLoadingScreen({
     </section>
   );
 }
-

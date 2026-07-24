@@ -1,188 +1,239 @@
-import { lazy, type LazyExoticComponent, type ComponentType } from 'react';
-import type { GameScreenId } from './shellStore';
+import {
+  lazy,
+  type ComponentType,
+  type LazyExoticComponent,
+} from 'react';
+import type { GameTone } from '../../ui/design-system/types';
+import type { GameIconId } from '../../ui/icons';
+import type { NavigationCategoryId } from './navigationTypes';
 
-export interface GameScreenDefinition {
-  id: GameScreenId;
+export type ScreenNavigationPlacement =
+  | 'landing'
+  | 'secondary'
+  | 'hidden';
+
+interface GameScreenDefinitionSeed {
+  id: string;
   label: string;
   shortLabel: string;
+  description: string;
   code: string;
-  tone: 'danger' | 'memory' | 'rare' | 'progression' | 'neutral';
-  primary: boolean;
+  tone: GameTone;
+  iconId: GameIconId;
+  categoryId: NavigationCategoryId;
+  navigation: ScreenNavigationPlacement;
   component: LazyExoticComponent<ComponentType>;
 }
 
-const MainMenuScreen = lazy(() => import(
-  '../../features/screens/MainMenuScreen'
-));
-const DashboardScreen = lazy(() => import(
-  '../../features/screens/DashboardScreen'
-));
-const CinematicPlayerScreen = lazy(() => import(
-  '../../features/screens/CinematicPlayerScreen'
-));
-const MemoryScreen = lazy(() => import(
-  '../../features/screens/MemoryScreen'
-));
-const PuzzleScreen = lazy(() => import(
-  '../../features/screens/PuzzleScreen'
-));
-const DialogueScreen = lazy(() => import(
-  '../../features/screens/DialogueScreen'
-));
-const SettingsScreen = lazy(() => import(
-  '../../features/screens/SettingsScreen'
-));
-const DaySection = lazy(() => import(
-  '../../components/sections/DaySection'
-));
-const WishesSection = lazy(() => import(
-  '../../components/sections/WishesSection'
-));
-const FlowerSystem = lazy(() => import(
-  '../../components/flower/FlowerSystem'
-));
-const AchievementsSection = lazy(() => import(
-  '../../components/sections/AchievementsSection'
-));
-const NightTransformation = lazy(() => import(
-  '../../components/sections/NightTransformation'
-));
-const OverviewSection = lazy(() => import(
-  '../../components/sections/OverviewSection'
-));
-
-export const GAME_SCREEN_REGISTRY: Record<
-  GameScreenId,
-  GameScreenDefinition
-> = {
-  'main-menu': {
+export const GAME_SCREEN_DEFINITIONS = [
+  {
     id: 'main-menu',
     label: 'القائمة الرئيسية',
     shortLabel: 'الرئيسية',
+    description: 'بدء الرحلة أو استكمال الاتصال بنظام 11:11.',
     code: '00',
     tone: 'danger',
-    primary: false,
-    component: MainMenuScreen,
+    iconId: 'screen-main-menu',
+    categoryId: 'story',
+    navigation: 'hidden',
+    component: lazy(() => import(
+      '../../features/screens/MainMenuScreen'
+    )),
   },
-  dashboard: {
+  {
     id: 'dashboard',
     label: 'نظام Echo',
     shortLabel: 'Echo',
+    description: 'الحالة الحالية ومسار الرحلة والذاكرة.',
     code: '01',
     tone: 'danger',
-    primary: true,
-    component: DashboardScreen,
+    iconId: 'screen-dashboard',
+    categoryId: 'story',
+    navigation: 'landing',
+    component: lazy(() => import(
+      '../../features/screens/DashboardScreen'
+    )),
   },
-  cinematic: {
+  {
     id: 'cinematic',
     label: 'المشهد السينمائي',
-    shortLabel: 'المشهد',
+    shortLabel: 'المشاهد',
+    description: 'تشغيل الحلقات والمشاهد المستعادة.',
     code: '02',
     tone: 'rare',
-    primary: true,
-    component: CinematicPlayerScreen,
+    iconId: 'screen-cinematic',
+    categoryId: 'story',
+    navigation: 'secondary',
+    component: lazy(() => import(
+      '../../features/screens/CinematicPlayerScreen'
+    )),
   },
-  memories: {
+  {
     id: 'memories',
     label: 'شبكة الذاكرة',
     shortLabel: 'الذكريات',
+    description: 'عرض الذكريات المستعادة وشظاياها.',
     code: '03',
     tone: 'memory',
-    primary: true,
-    component: MemoryScreen,
+    iconId: 'screen-memory',
+    categoryId: 'memory',
+    navigation: 'landing',
+    component: lazy(() => import(
+      '../../features/screens/MemoryScreen'
+    )),
   },
-  puzzles: {
+  {
     id: 'puzzles',
     label: 'إعادة بناء الذاكرة',
     shortLabel: 'الألغاز',
+    description: 'حل الألغاز لإعادة بناء الأحداث المفقودة.',
     code: '04',
-    tone: 'progression',
-    primary: true,
-    component: PuzzleScreen,
+    tone: 'memory',
+    iconId: 'screen-puzzles',
+    categoryId: 'investigation',
+    navigation: 'landing',
+    component: lazy(() => import(
+      '../../features/screens/PuzzleScreen'
+    )),
   },
-  dialogue: {
+  {
     id: 'dialogue',
     label: 'التواصل مع Echo',
     shortLabel: 'الحوار',
+    description: 'الحوارات والخيارات والقرارات المسجلة.',
     code: '05',
     tone: 'memory',
-    primary: true,
-    component: DialogueScreen,
+    iconId: 'screen-dialogue',
+    categoryId: 'story',
+    navigation: 'secondary',
+    component: lazy(() => import(
+      '../../features/screens/DialogueScreen'
+    )),
   },
-  day: {
+  {
     id: 'day',
     label: 'المسار النهاري',
     shortLabel: 'النهار',
+    description: 'حالة الرحلة خارج طور 11:11.',
     code: '06',
     tone: 'progression',
-    primary: false,
-    component: DaySection,
+    iconId: 'screen-day',
+    categoryId: 'story',
+    navigation: 'secondary',
+    component: lazy(() => import(
+      '../../components/sections/DaySection'
+    )),
   },
-  wishes: {
+  {
     id: 'wishes',
     label: 'الأمنيات',
     shortLabel: 'الأمنيات',
+    description: 'الروابط الشخصية التي تؤثر في الرحلة.',
     code: '07',
     tone: 'rare',
-    primary: false,
-    component: WishesSection,
+    iconId: 'screen-wishes',
+    categoryId: 'story',
+    navigation: 'secondary',
+    component: lazy(() => import(
+      '../../components/sections/WishesSection'
+    )),
   },
-  flowers: {
+  {
     id: 'flowers',
-    label: 'زهور الذاكرة',
-    shortLabel: 'الزهور',
+    label: 'زهرة الذاكرة',
+    shortLabel: 'الزهرة',
+    description: 'قراءة نمو الذاكرة واستقرارها.',
     code: '08',
     tone: 'rare',
-    primary: false,
-    component: FlowerSystem,
+    iconId: 'screen-flowers',
+    categoryId: 'memory',
+    navigation: 'secondary',
+    component: lazy(() => import(
+      '../../components/flower/FlowerSystem'
+    )),
   },
-  achievements: {
+  {
     id: 'achievements',
     label: 'الإنجازات',
     shortLabel: 'الإنجازات',
+    description: 'الإنجازات المكتشفة وحالة تقدمها.',
     code: '09',
     tone: 'progression',
-    primary: false,
-    component: AchievementsSection,
+    iconId: 'screen-achievements',
+    categoryId: 'progress',
+    navigation: 'landing',
+    component: lazy(() => import(
+      '../../components/sections/AchievementsSection'
+    )),
   },
-  night: {
+  {
     id: 'night',
-    label: 'التحول الليلي',
-    shortLabel: 'الليل',
+    label: 'تطور Echo',
+    shortLabel: 'Echo',
+    description: 'تحولات Echo وتأثير حالته النفسية.',
     code: '10',
     tone: 'danger',
-    primary: false,
-    component: NightTransformation,
+    iconId: 'screen-night',
+    categoryId: 'characters',
+    navigation: 'landing',
+    component: lazy(() => import(
+      '../../components/sections/NightTransformation'
+    )),
   },
-  overview: {
+  {
     id: 'overview',
     label: 'سجل النظام',
     shortLabel: 'السجل',
+    description: 'الأحداث والقرارات التي اكتشفها اللاعب.',
     code: '11',
     tone: 'neutral',
-    primary: false,
-    component: OverviewSection,
+    iconId: 'screen-overview',
+    categoryId: 'investigation',
+    navigation: 'secondary',
+    component: lazy(() => import(
+      '../../components/sections/OverviewSection'
+    )),
   },
-  settings: {
+  {
     id: 'settings',
     label: 'الإعدادات',
     shortLabel: 'الإعدادات',
+    description: 'تخصيص اللعبة والصوت والجودة وإمكانية الوصول.',
     code: '12',
     tone: 'neutral',
-    primary: false,
-    component: SettingsScreen,
+    iconId: 'screen-settings',
+    categoryId: 'settings',
+    navigation: 'landing',
+    component: lazy(() => import(
+      '../../features/screens/SettingsScreen'
+    )),
   },
-};
+] as const satisfies readonly GameScreenDefinitionSeed[];
 
-export const PRIMARY_GAME_SCREENS = Object.values(
-  GAME_SCREEN_REGISTRY,
-).filter((screen) => screen.primary);
+export type GameScreenId =
+  typeof GAME_SCREEN_DEFINITIONS[number]['id'];
 
-export const SECONDARY_GAME_SCREENS = Object.values(
-  GAME_SCREEN_REGISTRY,
-).filter((screen) => (
-  !screen.primary
-  && screen.id !== 'main-menu'
-  && screen.id !== 'settings'
-));
+export type GameScreenDefinition =
+  typeof GAME_SCREEN_DEFINITIONS[number];
 
+export const GAME_SCREEN_REGISTRY = Object.freeze(
+  Object.fromEntries(
+    GAME_SCREEN_DEFINITIONS.map((definition) => [
+      definition.id,
+      definition,
+    ]),
+  ) as Record<GameScreenId, GameScreenDefinition>,
+);
+
+export const GAME_SCREEN_IDS = Object.freeze(
+  GAME_SCREEN_DEFINITIONS.map(({ id }) => id),
+);
+
+export function getScreensForCategory(
+  categoryId: NavigationCategoryId,
+): GameScreenDefinition[] {
+  return GAME_SCREEN_DEFINITIONS.filter((screen) => (
+    screen.categoryId === categoryId
+    && screen.navigation !== 'hidden'
+  ));
+}

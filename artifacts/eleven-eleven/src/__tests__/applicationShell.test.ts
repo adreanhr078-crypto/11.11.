@@ -9,10 +9,17 @@ import {
   createPuzzleScreenReadModel,
 } from '../application/ui/gameUiReadModels';
 import {
+  GAME_SCREEN_DEFINITIONS,
   GAME_SCREEN_REGISTRY,
-  PRIMARY_GAME_SCREENS,
 } from '../app/shell/screenRegistry';
+import {
+  getCategoryScreens,
+  NAVIGATION_CATEGORIES,
+} from '../app/shell/navigationRegistry';
 import { useGameStore } from '../stores/gameStore';
+import {
+  GAME_ICON_REGISTRY,
+} from '../ui/icons';
 import {
   ECHO_PRESENTATION_ASSETS,
   ENVIRONMENT_PRESENTATION_ASSETS,
@@ -25,9 +32,58 @@ describe('Application Shell', () => {
       new Set(screens.map((screen) => screen.id)).size,
       screens.length,
     );
+    assert.equal(screens.length, GAME_SCREEN_DEFINITIONS.length);
+  });
+
+  it('uses exactly six named navigation categories', () => {
     assert.deepEqual(
-      PRIMARY_GAME_SCREENS.map((screen) => screen.id),
-      ['dashboard', 'cinematic', 'memories', 'puzzles', 'dialogue'],
+      NAVIGATION_CATEGORIES.map(({ id }) => id),
+      [
+        'story',
+        'memory',
+        'investigation',
+        'characters',
+        'progress',
+        'settings',
+      ],
+    );
+
+    const navigableScreens = NAVIGATION_CATEGORIES.flatMap((category) => (
+      getCategoryScreens(category.id).map(({ id }) => id)
+    ));
+    assert.equal(
+      new Set(navigableScreens).size,
+      navigableScreens.length,
+    );
+    assert.equal(
+      navigableScreens.includes('main-menu'),
+      false,
+    );
+  });
+
+  it('maps every screen icon to a system, action, and label', () => {
+    for (const screen of GAME_SCREEN_DEFINITIONS) {
+      const icon = GAME_ICON_REGISTRY[screen.iconId];
+      assert.ok(icon, `Missing icon ${screen.iconId}`);
+      assert.ok(icon.systemId);
+      assert.ok(icon.actionId);
+      assert.ok(icon.label.ar);
+      assert.ok(icon.description.ar);
+      assert.ok(icon.tooltip.ar);
+      assert.equal(
+        (icon.screenIds as readonly string[]).includes(screen.id),
+        true,
+        `${screen.iconId} is not linked to ${screen.id}`,
+      );
+    }
+
+    const categoryActions = NAVIGATION_CATEGORIES.map((category) => (
+      GAME_ICON_REGISTRY[category.iconId].actionId
+    ));
+    assert.equal(
+      new Set(categoryActions).size,
+      categoryActions.length,
+      'Primary navigation actions must be unique',
     );
   });
 

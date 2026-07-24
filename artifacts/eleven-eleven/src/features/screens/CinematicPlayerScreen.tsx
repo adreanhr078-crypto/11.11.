@@ -20,6 +20,7 @@ import {
   EchoPresence,
   ENVIRONMENT_PRESENTATION_ASSETS,
 } from '../../ui/presentation';
+import { GameIcon } from '../../ui/icons';
 
 function assetSource(assetId: string | undefined): string | undefined {
   if (!assetId) return undefined;
@@ -169,7 +170,9 @@ export default function CinematicPlayerScreen() {
             onClick={() => setPreviewPlaying((playing) => !playing)}
             aria-label={previewPlaying ? 'إيقاف المعاينة' : 'تشغيل المعاينة'}
           >
-            {previewPlaying ? 'Ⅱ' : '▶'}
+            <GameIcon
+              id={previewPlaying ? 'utility-pause' : 'utility-resume'}
+            />
           </GameButton>
           <span className="core5-cinematic-preview__track">
             <i />
@@ -329,7 +332,7 @@ export default function CinematicPlayerScreen() {
         <GameButton
           className="shell-cinematic-player__continue"
           size="lg"
-          trailingIcon="←"
+          trailingIcon={<GameIcon id="utility-back" />}
           onClick={() => state.actions.completeCinematicScene()}
         >
           متابعة

@@ -7,4 +7,4 @@ export * from './metrics';
 export * from './navigation';
 export * from './overlays';
 export * from './feedback';
-
+export * from '../icons';

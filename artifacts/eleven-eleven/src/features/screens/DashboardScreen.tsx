@@ -7,6 +7,10 @@ import {
   HudPanel,
   StatMeter,
 } from '../../ui/design-system';
+import {
+  GameIcon,
+  GameIconLabel,
+} from '../../ui/icons';
 import { createDashboardReadModel } from '../../application/ui/gameUiReadModels';
 import { useShellStore } from '../../app/shell/shellStore';
 import type { GameTone } from '../../ui/design-system';
@@ -25,46 +29,63 @@ const PERSONALITY_STATS: Array<{
   { key: 'corruption', label: 'الفساد', tone: 'rare' },
 ];
 
-const SYSTEM_CHANNELS = [
-  { id: 'dashboard' as const, code: '◉', label: 'الرئيسية' },
-  { id: 'memories' as const, code: '✦', label: 'الذكريات' },
-  { id: 'puzzles' as const, code: '⬡', label: 'إعادة البناء' },
-  { id: 'dialogue' as const, code: '⌁', label: 'التواصل' },
-  { id: 'cinematic' as const, code: '▷', label: 'المشاهد' },
-  { id: 'settings' as const, code: '⚙', label: 'الإعدادات' },
-];
-
 export default function DashboardScreen() {
   const state = useGameStore();
   const navigate = useShellStore((shell) => shell.navigate);
   const model = useMemo(() => createDashboardReadModel(state), [state]);
+  const systemStability = Math.round(state.world.stability);
+  const signalLabel = systemStability >= 70
+    ? 'مستقر'
+    : systemStability >= 40
+      ? 'متذبذب'
+      : 'حرج';
+  const latestDecision = model.decisions[0];
 
   return (
     <div className="shell-screen shell-dashboard shell-dashboard--echo-system">
-      <aside className="shell-dashboard__side-menu" aria-label="قنوات النظام">
+      <aside
+        className="shell-dashboard__side-menu shell-dashboard__context"
+        aria-label="ملخص الرحلة"
+      >
         <header>
           <span>11:11</span>
-          <strong>النظام الرئيسي</strong>
-          <small>SYSTEM CHANNELS</small>
+          <strong>ملخص الرحلة</strong>
+          <small>CONTEXT // LIVE STATE</small>
         </header>
-        <nav>
-          {SYSTEM_CHANNELS.map((channel) => (
-            <button
-              key={channel.id}
-              type="button"
-              data-active={channel.id === 'dashboard'}
-              onClick={() => navigate(channel.id)}
-            >
-              <i>{channel.code}</i>
-              <span>{channel.label}</span>
-            </button>
-          ))}
-        </nav>
+        <div className="shell-dashboard__context-list">
+          <article>
+            <GameIcon id="status-route" />
+            <span>
+              <strong>{model.chapter.title}</strong>
+              <small>{model.puzzleProgress.progress}% من الفصل</small>
+            </span>
+          </article>
+          <article>
+            <GameIcon id="screen-memory" />
+            <span>
+              <strong>{model.memory.fragments} شظايا مستعادة</strong>
+              <small>{model.memory.unlocked} ذكريات مكتشفة</small>
+            </span>
+          </article>
+          <article>
+            <GameIcon id="screen-dialogue" />
+            <span>
+              <strong>
+                {latestDecision ? 'آخر قرار مسجل' : 'لا قرارات بعد'}
+              </strong>
+              <small>
+                {latestDecision
+                  ? `${latestDecision.id} // ${latestDecision.choiceId}`
+                  : 'يظهر السجل بعد أول اختيار مؤثر'}
+              </small>
+            </span>
+          </article>
+        </div>
         <div className="shell-dashboard__side-signal">
           <i />
           <span>
-            <small>CONNECTION</small>
-            <strong>STABLE</strong>
+            <small>استقرار النظام</small>
+            <strong>{signalLabel} // {systemStability}%</strong>
           </span>
         </div>
       </aside>
@@ -104,18 +125,15 @@ export default function DashboardScreen() {
             </span>
             <span>{model.memory.unlocked}/{model.memory.totalDefinitions || '—'}</span>
           </header>
-          <div>
+          <div aria-label="خانات الذاكرة غير المؤلفة بعد">
             {Array.from({ length: 5 }, (_, index) => (
-              <button
+              <article
                 key={index}
-                type="button"
                 data-locked
-                onClick={() => navigate('memories')}
-                aria-label={`خانة ذاكرة ${index + 1}`}
               >
                 <i>{String(index + 1).padStart(2, '0')}</i>
                 <span>MEM-—</span>
-              </button>
+              </article>
             ))}
           </div>
         </div>
@@ -194,7 +212,12 @@ export default function DashboardScreen() {
           fullWidth
           onClick={() => navigate('puzzles')}
         >
-          متابعة الرحلة
+          <GameIconLabel
+            iconId="screen-puzzles"
+            label="متابعة الرحلة"
+            description="الانتقال إلى إعادة بناء الحدث التالي"
+            compact
+          />
         </GameButton>
       </HudPanel>
     </div>

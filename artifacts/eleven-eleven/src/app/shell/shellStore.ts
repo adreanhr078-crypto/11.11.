@@ -4,55 +4,31 @@ import type {
   MotionTier,
   QualityTier,
 } from '../../ui/design-system';
+import {
+  GAME_SCREEN_IDS,
+  type GameScreenId,
+} from './screenRegistry';
+import type { NavigationCategoryId } from './navigationTypes';
 
-export type GameScreenId =
-  | 'main-menu'
-  | 'dashboard'
-  | 'cinematic'
-  | 'memories'
-  | 'puzzles'
-  | 'dialogue'
-  | 'day'
-  | 'wishes'
-  | 'flowers'
-  | 'achievements'
-  | 'night'
-  | 'overview'
-  | 'settings';
+export type { GameScreenId } from './screenRegistry';
 
 interface ShellState {
   currentScreen: GameScreenId;
   previousScreen: GameScreenId | null;
-  navigationOpen: boolean;
+  navigationCategory: NavigationCategoryId | null;
   pauseOpen: boolean;
   navigate: (screen: GameScreenId) => void;
   goBack: () => void;
-  openNavigation: () => void;
+  openNavigation: (category: NavigationCategoryId) => void;
   closeNavigation: () => void;
   openPause: () => void;
   closePause: () => void;
 }
 
-const SCREEN_IDS: readonly GameScreenId[] = [
-  'main-menu',
-  'dashboard',
-  'cinematic',
-  'memories',
-  'puzzles',
-  'dialogue',
-  'day',
-  'wishes',
-  'flowers',
-  'achievements',
-  'night',
-  'overview',
-  'settings',
-];
-
 function screenFromLocation(): GameScreenId {
   if (typeof window === 'undefined') return 'main-menu';
   const candidate = window.location.hash.replace(/^#\/?/, '');
-  return SCREEN_IDS.includes(candidate as GameScreenId)
+  return GAME_SCREEN_IDS.includes(candidate as GameScreenId)
     ? candidate as GameScreenId
     : 'main-menu';
 }
@@ -65,19 +41,19 @@ function writeScreenLocation(screen: GameScreenId): void {
 export const useShellStore = create<ShellState>((set, get) => ({
   currentScreen: screenFromLocation(),
   previousScreen: null,
-  navigationOpen: false,
+  navigationCategory: null,
   pauseOpen: false,
   navigate(screen) {
     const current = get().currentScreen;
     writeScreenLocation(screen);
     if (screen === current) {
-      set({ navigationOpen: false, pauseOpen: false });
+      set({ navigationCategory: null, pauseOpen: false });
       return;
     }
     set({
       currentScreen: screen,
       previousScreen: current,
-      navigationOpen: false,
+      navigationCategory: null,
       pauseOpen: false,
     });
   },
@@ -87,12 +63,12 @@ export const useShellStore = create<ShellState>((set, get) => ({
     set({
       currentScreen: previousScreen ?? 'dashboard',
       previousScreen: null,
-      navigationOpen: false,
+      navigationCategory: null,
       pauseOpen: false,
     });
   },
-  openNavigation: () => set({ navigationOpen: true }),
-  closeNavigation: () => set({ navigationOpen: false }),
+  openNavigation: (category) => set({ navigationCategory: category }),
+  closeNavigation: () => set({ navigationCategory: null }),
   openPause: () => set({ pauseOpen: true }),
   closePause: () => set({ pauseOpen: false }),
 }));

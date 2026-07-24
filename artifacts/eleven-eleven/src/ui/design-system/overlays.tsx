@@ -9,6 +9,7 @@ import { createPortal } from 'react-dom';
 import type { GameTone } from './types';
 import { cx } from './utils';
 import { GameButton } from './controls';
+import { GameIcon } from '../icons';
 
 const FOCUSABLE_SELECTOR = [
   'button:not([disabled])',
@@ -137,7 +138,7 @@ export function GameModal({
             onClick={onClose}
             aria-label={closeLabel}
           >
-            ×
+            <GameIcon id="utility-close" />
           </GameButton>
         </header>
         {description && (
@@ -204,7 +205,7 @@ export function GameDrawer({
             onClick={onClose}
             aria-label={closeLabel}
           >
-            ×
+            <GameIcon id="utility-close" />
           </GameButton>
         </header>
         <div className="gds-drawer__body">{children}</div>
@@ -213,4 +214,3 @@ export function GameDrawer({
     document.body,
   );
 }
-

@@ -4,7 +4,7 @@
   display: block;
   width: 100%;
   height: 100dvh;
-  min-height: 28rem;
+  min-height: 0;
   overflow: hidden;
   color: var(--gds-text-primary);
   background:
@@ -83,10 +83,17 @@
 
 .application-shell__screen-title {
   gap: var(--gds-space-3);
+  padding: 0;
+  border: 0;
+  color: inherit;
+  text-align: start;
+  background: transparent;
+  cursor: pointer;
 }
 
 .application-shell__screen-title > i,
 .shell-screen-code {
+  position: relative;
   display: inline-grid;
   place-items: center;
   min-width: 2rem;
@@ -97,6 +104,44 @@
   font: 700 var(--gds-type-xs) var(--gds-font-mono);
   background: rgb(255 255 255 / 4%);
   box-shadow: inset 0 0 1rem rgb(255 255 255 / 3%);
+}
+
+.application-shell__screen-title > i > .game-icon {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.application-shell__screen-title > i > small {
+  position: absolute;
+  inset: auto 0.14rem 0.06rem auto;
+  color: var(--gds-text-muted);
+  font: 600 0.42rem var(--gds-font-mono);
+  letter-spacing: 0;
+}
+
+.application-shell__screen-title:hover > i,
+.application-shell__screen-title:focus-visible > i {
+  border-color: var(--gds-red-400);
+  box-shadow: var(--gds-glow-red);
+}
+
+.application-shell__screen-title:focus-visible {
+  outline: 2px solid var(--gds-cyan-400);
+  outline-offset: 0.25rem;
+}
+
+.application-shell__screen-title:disabled {
+  cursor: default;
+}
+
+.application-shell__screen-title:disabled:hover > i,
+.application-shell__screen-title:disabled:focus-visible > i {
+  border-color: rgb(255 255 255 / 10%);
+  box-shadow: inset 0 0 1rem rgb(255 255 255 / 3%);
+}
+
+.application-shell__screen-title:disabled:focus-visible {
+  outline: 0;
 }
 
 .application-shell__screen-title > span {
@@ -133,7 +178,38 @@
 }
 
 .application-shell__currency {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gds-space-1);
+  min-height: var(--gds-touch-target);
+  padding-inline: var(--gds-space-2);
+  border: 1px solid rgb(169 76 255 / 18%);
+  border-radius: var(--gds-radius-sm);
   color: var(--gds-purple-400);
+  background: rgb(169 76 255 / 5%);
+}
+
+.application-shell__currency span {
+  color: var(--gds-text-muted);
+  font-family: var(--gds-font-body);
+  font-size: var(--gds-type-2xs);
+}
+
+.application-shell__currency strong {
+  color: var(--gds-purple-400);
+}
+
+.application-shell__utility time {
+  display: grid;
+  justify-items: end;
+  min-width: 4rem;
+  color: var(--gds-text-secondary);
+}
+
+.application-shell__utility time small {
+  color: var(--gds-text-muted);
+  font-size: 0.48rem;
+  letter-spacing: 0.14em;
 }
 
 .application-shell__stage {
@@ -170,6 +246,9 @@
 }
 
 .application-shell__navigation button {
+  --shell-nav-tone: var(--gds-text-secondary);
+  --shell-nav-soft: rgb(181 191 206 / 8%);
+  --shell-nav-line: rgb(181 191 206 / 28%);
   position: relative;
   display: flex;
   align-items: center;
@@ -189,15 +268,45 @@
     background var(--gds-duration-fast);
 }
 
-.application-shell__navigation button i {
-  font: 600 var(--gds-type-2xs) var(--gds-font-mono);
+.application-shell__navigation button[data-tone="danger"] {
+  --shell-nav-tone: var(--gds-red-400);
+  --shell-nav-soft: rgb(255 70 85 / 12%);
+  --shell-nav-line: rgb(255 70 85 / 42%);
+}
+
+.application-shell__navigation button[data-tone="memory"] {
+  --shell-nav-tone: var(--gds-cyan-400);
+  --shell-nav-soft: rgb(36 201 235 / 10%);
+  --shell-nav-line: rgb(36 201 235 / 38%);
+}
+
+.application-shell__navigation button[data-tone="rare"] {
+  --shell-nav-tone: var(--gds-purple-400);
+  --shell-nav-soft: rgb(169 76 255 / 10%);
+  --shell-nav-line: rgb(169 76 255 / 38%);
+}
+
+.application-shell__navigation button[data-tone="progression"] {
+  --shell-nav-tone: var(--gds-gold-400);
+  --shell-nav-soft: rgb(232 170 66 / 10%);
+  --shell-nav-line: rgb(232 170 66 / 38%);
+}
+
+.application-shell__navigation .game-icon {
+  flex: 0 0 auto;
+  color: var(--shell-nav-tone);
+  font-size: 1.05rem;
 }
 
 .application-shell__navigation button[data-active="true"] {
-  border-color: rgb(255 70 85 / 48%);
+  border-color: var(--shell-nav-line);
   color: var(--gds-text-primary);
-  background: linear-gradient(180deg, rgb(255 70 85 / 16%), rgb(255 70 85 / 4%));
-  box-shadow: var(--gds-glow-red);
+  background: linear-gradient(180deg, var(--shell-nav-soft), transparent);
+  box-shadow: 0 0 1.4rem color-mix(
+    in srgb,
+    var(--shell-nav-tone) 16%,
+    transparent
+  );
 }
 
 .application-shell__navigation button[data-active="true"]::after {
@@ -205,14 +314,54 @@
   inset: auto 18% -1px;
   height: 2px;
   content: "";
-  background: var(--gds-red-500);
-  box-shadow: var(--gds-glow-red);
+  background: var(--shell-nav-tone);
+  box-shadow: 0 0 1rem var(--shell-nav-tone);
 }
 
 .application-shell__drawer-list,
 .application-shell__pause-actions {
   display: grid;
   gap: var(--gds-space-2);
+}
+
+.application-shell__drawer-intro {
+  margin-block-end: var(--gds-space-4);
+  padding-block-end: var(--gds-space-4);
+  border-block-end: 1px solid var(--gds-line-subtle);
+}
+
+.application-shell__drawer-list .gds-button {
+  justify-content: flex-start;
+  min-height: calc(var(--gds-touch-target) * 1.28);
+  text-align: start;
+}
+
+.application-shell__drawer-item-copy,
+.application-shell__pause-copy {
+  display: grid;
+  justify-items: start;
+  gap: var(--gds-space-1);
+  min-width: 0;
+}
+
+.application-shell__drawer-item-copy strong,
+.application-shell__pause-copy strong {
+  color: var(--gds-text-primary);
+  font-size: var(--gds-type-sm);
+}
+
+.application-shell__drawer-item-copy small,
+.application-shell__pause-copy small {
+  overflow: hidden;
+  color: var(--gds-text-muted);
+  font-size: var(--gds-type-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.application-shell__pause-actions .gds-button {
+  justify-content: flex-start;
+  text-align: start;
 }
 
 .shell-screen {
@@ -1472,11 +1621,17 @@
   }
 
   .application-shell__navigation button {
-    min-width: var(--gds-touch-target);
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: var(--gds-space-1);
   }
 
   .application-shell__navigation button span {
-    display: none;
+    display: block;
+    overflow: hidden;
+    font-size: var(--gds-type-2xs);
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .shell-main-menu .gds-cinematic-frame__content {

@@ -6,6 +6,7 @@ import {
   GameModal,
   GlassPanel,
 } from '../../ui/design-system';
+import { GameIcon } from '../../ui/icons';
 import { createDashboardReadModel } from '../../application/ui/gameUiReadModels';
 import { useShellStore } from '../../app/shell/shellStore';
 import {
@@ -85,7 +86,7 @@ export default function MainMenuScreen() {
           <GameButton
             size="lg"
             fullWidth
-            trailingIcon="←"
+            leadingIcon={<GameIcon id="screen-dashboard" />}
             onClick={() => navigate('dashboard')}
           >
             {model.hasJourneyProgress ? 'متابعة الرحلة' : 'ابدأ الرحلة'}
@@ -99,12 +100,14 @@ export default function MainMenuScreen() {
             </GameButton>
             <GameButton
               variant="ghost"
+              leadingIcon={<GameIcon id="screen-memory" />}
               onClick={() => navigate('memories')}
             >
               الذكريات
             </GameButton>
             <GameButton
               variant="ghost"
+              leadingIcon={<GameIcon id="screen-settings" />}
               onClick={() => navigate('settings')}
             >
               الإعدادات

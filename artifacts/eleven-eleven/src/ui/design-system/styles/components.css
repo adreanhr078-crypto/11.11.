@@ -16,6 +16,48 @@
   --gds-tone-glow: none;
 }
 
+/* Icon architecture */
+.game-icon {
+  display: block;
+  flex: 0 0 auto;
+  color: currentColor;
+}
+
+.game-icon-label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--gds-space-3);
+  min-width: 0;
+  text-align: start;
+}
+
+.game-icon-label[data-compact="true"] {
+  gap: var(--gds-space-2);
+}
+
+.game-icon-label__glyph {
+  color: var(--gds-tone, currentColor);
+  font-size: 1.2rem;
+}
+
+.game-icon-label__copy {
+  display: grid;
+  gap: var(--gds-space-1);
+  min-width: 0;
+}
+
+.game-icon-label__copy strong {
+  color: var(--gds-text-primary);
+  font-size: var(--gds-type-sm);
+}
+
+.game-icon-label__copy small {
+  color: var(--gds-text-muted);
+  font-size: var(--gds-type-2xs);
+  line-height: 1.5;
+}
+
 :where(
   .gds-button,
   .gds-panel,
@@ -1098,4 +1140,3 @@
     box-shadow: none;
   }
 }
-

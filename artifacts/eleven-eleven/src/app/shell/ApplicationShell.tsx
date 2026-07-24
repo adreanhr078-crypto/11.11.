@@ -7,8 +7,13 @@ import {
   GameModal,
   GameProgress,
   GameSafeArea,
+  GameTooltip,
   GameViewport,
 } from '../../ui/design-system';
+import {
+  GameIcon,
+  GameIconLabel,
+} from '../../ui/icons';
 import { toggleLanguage } from '../../core/echoMultilingualSystem';
 import { createDashboardReadModel } from '../../application/ui/gameUiReadModels';
 import {
@@ -17,9 +22,13 @@ import {
 } from '../../ui/presentation';
 import {
   GAME_SCREEN_REGISTRY,
-  PRIMARY_GAME_SCREENS,
-  SECONDARY_GAME_SCREENS,
 } from './screenRegistry';
+import {
+  getCategoryScreens,
+  getNavigationCategoryForScreen,
+  NAVIGATION_CATEGORIES,
+  NAVIGATION_CATEGORY_REGISTRY,
+} from './navigationRegistry';
 import {
   useShellStore,
   useUiPreferencesStore,
@@ -31,6 +40,15 @@ export function ApplicationShell() {
   const state = useGameStore();
   const model = useMemo(() => createDashboardReadModel(state), [state]);
   const definition = GAME_SCREEN_REGISTRY[shell.currentScreen];
+  const currentCategory = getNavigationCategoryForScreen(
+    shell.currentScreen,
+  );
+  const openCategory = shell.navigationCategory
+    ? NAVIGATION_CATEGORY_REGISTRY[shell.navigationCategory]
+    : currentCategory;
+  const categoryScreens = getCategoryScreens(openCategory.id);
+  const currentCategoryScreens = getCategoryScreens(currentCategory.id);
+  const currentCategoryHasMenu = currentCategoryScreens.length > 1;
   const Screen = definition.component;
   const isMainMenu = shell.currentScreen === 'main-menu';
 
@@ -49,13 +67,27 @@ export function ApplicationShell() {
       <GameSafeArea className="application-shell__safe">
         {!isMainMenu && (
           <header className="application-shell__topbar">
-            <span className="application-shell__screen-title">
-              <i>{definition.code}</i>
+            <button
+              type="button"
+              className="application-shell__screen-title"
+              onClick={() => {
+                if (currentCategoryHasMenu) {
+                  shell.openNavigation(currentCategory.id);
+                }
+              }}
+              disabled={!currentCategoryHasMenu}
+              aria-label={`فتح قائمة ${currentCategory.label}`}
+              title={currentCategory.description}
+            >
+              <i data-tone={definition.tone}>
+                <GameIcon id={definition.iconId} />
+                <small>{definition.code}</small>
+              </i>
               <span>
-                <small>11:11 // ECHO SYSTEM</small>
+                <small>{currentCategory.label} // 11:11</small>
                 <strong>{definition.label}</strong>
               </span>
-            </span>
+            </button>
             <div className="application-shell__chapter">
               <span>{model.chapter.title}</span>
               <GameProgress
@@ -66,29 +98,39 @@ export function ApplicationShell() {
               <small>{model.puzzleProgress.progress}%</small>
             </div>
             <div className="application-shell__utility">
-              <span className="application-shell__currency">
-                ◈ {model.resources.crystals}
+              <span
+                className="application-shell__currency"
+                aria-label={`بلورات Echo: ${model.resources.crystals}`}
+              >
+                <GameIcon id="resource-crystal" />
+                <span>بلورات</span>
+                <strong>{model.resources.crystals}</strong>
               </span>
-              <time>
+              <time aria-label="وقت النظام">
+                <small>TIME</small>
                 {String(state.time.hour).padStart(2, '0')}:
                 {String(state.time.minute).padStart(2, '0')}
               </time>
-              <GameButton
-                variant="ghost"
-                size="icon"
-                onClick={() => toggleLanguage()}
-                aria-label="تبديل اللغة"
-              >
-                {document.documentElement.lang === 'ar' ? 'EN' : 'ع'}
-              </GameButton>
-              <GameButton
-                variant="ghost"
-                size="icon"
-                onClick={shell.openPause}
-                aria-label="قائمة الإيقاف"
-              >
-                ⚙
-              </GameButton>
+              <GameTooltip label="تبديل لغة الواجهة">
+                <GameButton
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => toggleLanguage()}
+                  aria-label="تبديل لغة الواجهة"
+                >
+                  <GameIcon id="utility-language" />
+                </GameButton>
+              </GameTooltip>
+              <GameTooltip label="قائمة الإيقاف">
+                <GameButton
+                  variant="ghost"
+                  size="icon"
+                  onClick={shell.openPause}
+                  aria-label="قائمة الإيقاف"
+                >
+                  <GameIcon id="utility-pause" />
+                </GameButton>
+              </GameTooltip>
             </div>
           </header>
         )}
@@ -117,48 +159,65 @@ export function ApplicationShell() {
             className="application-shell__navigation"
             aria-label="التنقل الرئيسي"
           >
-            {PRIMARY_GAME_SCREENS.map((screen) => (
+            {NAVIGATION_CATEGORIES.map((category) => (
               <button
-                key={screen.id}
+                key={category.id}
                 type="button"
-                data-active={shell.currentScreen === screen.id}
-                data-tone={screen.tone}
-                onClick={() => shell.navigate(screen.id)}
+                data-active={currentCategory.id === category.id}
+                data-tone={category.tone}
+                onClick={() => {
+                  const screens = getCategoryScreens(category.id);
+                  if (
+                    currentCategory.id === category.id
+                    && screens.length > 1
+                  ) {
+                    shell.openNavigation(category.id);
+                    return;
+                  }
+                  shell.navigate(category.landingScreenId);
+                }}
+                aria-label={`${category.label}: ${category.description}`}
+                title={category.description}
               >
-                <i>{screen.code}</i>
-                <span>{screen.shortLabel}</span>
+                <GameIcon id={category.iconId} />
+                <span>{category.shortLabel}</span>
               </button>
             ))}
-            <button
-              type="button"
-              data-active={false}
-              data-tone="neutral"
-              onClick={shell.openNavigation}
-            >
-              <i>•••</i>
-              <span>المزيد</span>
-            </button>
           </nav>
         )}
       </GameSafeArea>
 
       <GameDrawer
-        open={shell.navigationOpen}
+        open={shell.navigationCategory !== null}
         onClose={shell.closeNavigation}
-        title="أنظمة 11:11"
+        title={openCategory.label}
         side="end"
-        tone="danger"
+        tone={openCategory.tone}
       >
+        <div className="application-shell__drawer-intro">
+          <GameIconLabel
+            iconId={openCategory.iconId}
+            label={openCategory.label}
+            description={openCategory.description}
+          />
+        </div>
         <div className="application-shell__drawer-list">
-          {SECONDARY_GAME_SCREENS.map((screen) => (
+          {categoryScreens.map((screen) => (
             <GameButton
               key={screen.id}
-              variant="ghost"
+              variant={
+                shell.currentScreen === screen.id
+                  ? 'secondary'
+                  : 'ghost'
+              }
               fullWidth
-              leadingIcon={screen.code}
+              leadingIcon={<GameIcon id={screen.iconId} />}
               onClick={() => shell.navigate(screen.id)}
             >
-              {screen.label}
+              <span className="application-shell__drawer-item-copy">
+                <strong>{screen.label}</strong>
+                <small>{screen.description}</small>
+              </span>
             </GameButton>
           ))}
         </div>
@@ -175,30 +234,46 @@ export function ApplicationShell() {
           <GameButton
             size="lg"
             fullWidth
+            leadingIcon={<GameIcon id="utility-resume" />}
             onClick={shell.closePause}
           >
-            استمرار اللعبة
+            <span className="application-shell__pause-copy">
+              <strong>استمرار اللعبة</strong>
+              <small>العودة مباشرة إلى التجربة</small>
+            </span>
           </GameButton>
           <GameButton
             variant="secondary"
             fullWidth
+            leadingIcon={<GameIcon id="screen-settings" />}
             onClick={() => shell.navigate('settings')}
           >
-            الإعدادات
+            <span className="application-shell__pause-copy">
+              <strong>الإعدادات</strong>
+              <small>الصوت والجودة وإمكانية الوصول</small>
+            </span>
           </GameButton>
           <GameButton
             variant="ghost"
             fullWidth
+            leadingIcon={<GameIcon id="screen-overview" />}
             onClick={() => shell.navigate('overview')}
           >
-            سجل النظام
+            <span className="application-shell__pause-copy">
+              <strong>سجل النظام</strong>
+              <small>الأحداث والقرارات المكتشفة</small>
+            </span>
           </GameButton>
           <GameButton
             variant="ghost"
             fullWidth
+            leadingIcon={<GameIcon id="screen-main-menu" />}
             onClick={() => shell.navigate('main-menu')}
           >
-            العودة إلى القائمة الرئيسية
+            <span className="application-shell__pause-copy">
+              <strong>القائمة الرئيسية</strong>
+              <small>العودة إلى نقطة بدء الرحلة</small>
+            </span>
           </GameButton>
         </div>
       </GameModal>
