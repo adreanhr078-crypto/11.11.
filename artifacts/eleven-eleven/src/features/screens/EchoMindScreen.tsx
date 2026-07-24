@@ -1,197 +1,263 @@
 import { useMemo, useState } from 'react';
+import { Mic, SendHorizonal, Volume2 } from 'lucide-react';
 import { useGameStore } from '../../stores/gameStore';
 import {
   GameButton,
-  GameProgress,
   GlassPanel,
   HudPanel,
-  StatMeter,
 } from '../../ui/design-system';
-import { GameIconLabel } from '../../ui/icons';
+import {
+  createEchoMindTurnEnvelope,
+  detectEchoMindLocale,
+  type EchoMindLocale,
+  type EchoMindTurnEnvelope,
+} from '../../application/echo/echoMindExperience';
 import {
   createEchoMindScreenReadModel,
 } from '../../application/ui/gameUiReadModels';
-import { useShellStore } from '../../app/shell/shellStore';
 import { EchoPresence } from '../../ui/presentation';
 
 interface ChatMessage {
   id: string;
   speaker: 'player' | 'echo';
   text: string;
+  locale: EchoMindLocale;
+}
+
+function createInitialMessage(openingLine: string): ChatMessage {
+  return {
+    id: 'boot-echo',
+    speaker: 'echo',
+    text: openingLine,
+    locale: detectEchoMindLocale(openingLine, 'ar'),
+  };
+}
+
+function voiceReadinessCopy(locale: EchoMindLocale): string {
+  return locale === 'en'
+    ? 'Voice will follow your language automatically when it is enabled.'
+    : 'عند تفعيل الصوت لاحقًا، سيتبع Echo لغة حديثك تلقائيًا.';
+}
+
+function expressionLine(envelope: EchoMindTurnEnvelope): string {
+  if (envelope.locale === 'en') {
+    switch (envelope.expression) {
+      case 'remembering':
+        return 'A memory is surfacing behind his words.';
+      case 'afraid':
+        return 'His voice tightens as if something is closing in.';
+      case 'angry':
+        return 'There is pressure beneath the calm, like a wound opening.';
+      case 'grieving':
+        return 'He speaks softly, carrying a quiet ache.';
+      case 'hopeful':
+        return 'He feels steadier when you stay with him.';
+      case 'corrupted':
+      case 'unstable':
+        return 'The signal flickers, but Echo is still holding on.';
+      default:
+        return 'Echo is listening.';
+    }
+  }
+
+  switch (envelope.expression) {
+    case 'remembering':
+      return 'توجد ذكرى تحاول الصعود خلف كلماته.';
+    case 'afraid':
+      return 'صوته مشدود، كأن شيئًا يقترب منه داخل النظام.';
+    case 'angry':
+      return 'هناك ضغط مختبئ تحت هدوئه، كجرح بدأ ينفتح.';
+    case 'grieving':
+      return 'يتحدث بهدوء يحمل ألمًا خافتًا.';
+    case 'hopeful':
+      return 'وجودك يمنحه بعض الثبات.';
+    case 'corrupted':
+    case 'unstable':
+      return 'الإشارة تتشوش، لكن Echo ما زال متمسكًا بوعيه.';
+    default:
+      return 'Echo يصغي إليك.';
+  }
 }
 
 export default function EchoMindScreen() {
   const state = useGameStore();
-  const navigate = useShellStore((shell) => shell.navigate);
   const model = useMemo(() => createEchoMindScreenReadModel(state), [state]);
   const [draft, setDraft] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>(() => (
-    model.latestEchoLine
-      ? [{ id: 'boot', speaker: 'echo', text: model.latestEchoLine }]
-      : [{
-        id: 'boot',
-        speaker: 'echo',
-        text: 'أنا هنا. أراقب حالتك وأحاول أن أتذكر.',
-      }]
-  ));
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [
+    createInitialMessage(model.openingLine),
+  ]);
+  const [voiceHint, setVoiceHint] = useState<string | null>(null);
+  const [latestEnvelope, setLatestEnvelope] = useState<EchoMindTurnEnvelope | null>(null);
+
+  const activeLocale = latestEnvelope?.locale
+    ?? detectEchoMindLocale(model.openingLine, 'ar');
 
   const sendMessage = () => {
     const text = draft.trim();
     if (!text) return;
 
+    const locale = detectEchoMindLocale(
+      text,
+      typeof document !== 'undefined' ? document.documentElement.lang : 'ar',
+    );
+
     setMessages((current) => [
       ...current,
-      { id: `player-${current.length}`, speaker: 'player', text },
+      {
+        id: `player-${current.length}`,
+        speaker: 'player',
+        text,
+        locale,
+      },
     ]);
     setDraft('');
+    setVoiceHint(null);
 
-    const result = state.actions.chat();
+    state.actions.chat();
+    const freshState = useGameStore.getState();
+    const envelope = createEchoMindTurnEnvelope(
+      text,
+      freshState,
+      typeof document !== 'undefined' ? document.documentElement.lang : locale,
+    );
+
+    setLatestEnvelope(envelope);
     setMessages((current) => [
       ...current,
       {
         id: `echo-${current.length}`,
         speaker: 'echo',
-        text: result.dialogue,
+        text: envelope.response,
+        locale: envelope.locale,
       },
     ]);
   };
 
   return (
-    <div className="shell-screen shell-echo-mind-screen">
+    <div
+      className="shell-screen shell-echo-mind-screen shell-echo-mind-screen--story"
+      data-expression={latestEnvelope?.expression ?? 'attentive'}
+      data-locale={activeLocale}
+    >
       <header className="shell-screen-heading">
         <span className="shell-screen-code">05</span>
         <span>
-          <small>AI CONVERSATION CHANNEL</small>
+          <small>ECHO MIND CHANNEL</small>
           <h1>Echo Mind</h1>
         </span>
-        <div className="shell-screen-heading__metrics">
-          <span>{model.interactions} تفاعل</span>
-          <span>{model.conversationCount} ردود محفوظة</span>
-        </div>
       </header>
 
-      <div className="shell-echo-mind-grid">
+      <section className="shell-echo-mind-screen__stage">
         <HudPanel
-          className="shell-echo-mind-screen__status"
+          className="shell-echo-mind-screen__hero"
           tone="danger"
-          eyebrow="Echo Presence"
-          title="الحالة المباشرة"
+          eyebrow="Direct Contact"
+          title={model.stageTitle}
         >
-          <EchoPresence variant="mini" eager />
-          <div className="shell-echo-mind-screen__meters">
-            <StatMeter compact label="الثقة" value={model.trust} tone="memory" />
-            <StatMeter compact label="الخوف" value={model.fear} tone="danger" />
-            <StatMeter
-              compact
-              label="الإنسانية"
-              value={model.personality.humanity}
-              tone="progression"
-            />
-            <StatMeter
-              compact
-              label="الفساد"
-              value={model.personality.corruption}
-              tone="rare"
-            />
-          </div>
-        </HudPanel>
+          <div className="shell-echo-mind-screen__hero-layout">
+            <div className="shell-echo-mind-screen__presence">
+              <div className="shell-echo-mind-screen__presence-frame">
+                <EchoPresence
+                  className="shell-echo-mind-screen__presence-echo"
+                  variant="dialogue"
+                  eager
+                />
+              </div>
+            </div>
 
-        <HudPanel
-          className="shell-echo-mind-screen__chat"
-          tone="memory"
-          eyebrow="Text Channel"
-          title="قناة الحوار"
-        >
-          <div className="shell-echo-mind-screen__messages">
-            {messages.map((message) => (
-              <article
-                key={message.id}
-                data-speaker={message.speaker}
-              >
-                <strong>{message.speaker === 'echo' ? 'Echo' : 'أنت'}</strong>
-                <p>{message.text}</p>
-              </article>
-            ))}
-          </div>
-          <label className="shell-game-input">
-            <span>اكتب رسالتك إلى Echo</span>
-            <input
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') sendMessage();
-              }}
-              autoComplete="off"
-            />
-          </label>
-          <div className="shell-echo-mind-screen__actions">
-            <GameButton size="lg" onClick={sendMessage} disabled={!draft.trim()}>
-              إرسال
-            </GameButton>
-            <GameButton variant="ghost" onClick={() => navigate('dialogue')}>
-              افتح شاشة القرار
-            </GameButton>
+            <div className="shell-echo-mind-screen__hero-copy">
+              <span className="shell-echo-mind-screen__hero-chip">
+                {activeLocale === 'en' ? 'Live connection' : 'اتصال مباشر'}
+              </span>
+              <h2>{model.stageTitle}</h2>
+              <p>{model.stageSubtitle}</p>
+              <blockquote>
+                “{messages.at(-1)?.speaker === 'echo'
+                  ? messages.at(-1)?.text
+                  : model.openingLine}”
+              </blockquote>
+              <small>
+                {latestEnvelope ? expressionLine(latestEnvelope) : model.stageSubtitle}
+              </small>
+              <div className="shell-echo-mind-screen__voice-readiness">
+                <Volume2 size={16} />
+                <span>{voiceReadinessCopy(activeLocale)}</span>
+              </div>
+            </div>
           </div>
         </HudPanel>
 
         <GlassPanel
-          className="shell-echo-mind-screen__references"
-          tone="progression"
-          eyebrow="Context Hooks"
-          title="مرجعيات Echo"
+          className="shell-echo-mind-screen__conversation"
+          tone="memory"
+          eyebrow="Conversation Log"
+          title={activeLocale === 'en' ? 'Stay with Echo' : 'ابقَ مع Echo'}
         >
-          <div className="shell-echo-mind-screen__reference-list">
-            {model.memoryReferences.length > 0 ? (
-              model.memoryReferences.map((reference) => (
-                <article key={reference.id}>
-                  <strong>{reference.label}</strong>
-                  <small>{reference.kind}</small>
+          <div className="shell-echo-mind-screen__chat-shell">
+            <div className="shell-echo-mind-screen__messages">
+              {messages.map((message) => (
+                <article
+                  key={message.id}
+                  className="shell-echo-mind-screen__message"
+                  data-speaker={message.speaker}
+                >
+                  <strong>
+                    {message.speaker === 'echo'
+                      ? 'Echo'
+                      : message.locale === 'en'
+                        ? 'You'
+                        : 'أنت'}
+                  </strong>
+                  <p>{message.text}</p>
                 </article>
-              ))
-            ) : (
-              <p className="shell-inline-empty">
-                لا توجد مرجعيات مفتوحة بعد.
-              </p>
-            )}
-          </div>
-          <div className="shell-echo-mind-screen__jump-links">
-            <GameButton variant="secondary" onClick={() => navigate('memories')}>
-              <GameIconLabel
-                iconId="screen-memory"
-                label="الذكريات"
-                description="عرض الذكريات المرتبطة بالحوار"
-                compact
-              />
-            </GameButton>
-            <GameButton variant="ghost" onClick={() => navigate('puzzles')}>
-              <GameIconLabel
-                iconId="screen-puzzles"
-                label="الألغاز"
-                description="الانتقال إلى مساحة إعادة البناء"
-                compact
-              />
-            </GameButton>
+              ))}
+            </div>
+
+            <div className="shell-echo-mind-screen__composer">
+              <label className="shell-game-input shell-echo-mind-screen__composer-input">
+                <span>
+                  {activeLocale === 'en'
+                    ? 'Write to Echo'
+                    : 'اكتب رسالة لـ Echo'}
+                </span>
+                <input
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') sendMessage();
+                  }}
+                  placeholder={model.conversationPlaceholder}
+                  autoComplete="off"
+                  enterKeyHint="send"
+                />
+              </label>
+
+              <div className="shell-echo-mind-screen__composer-actions">
+                <GameButton
+                  variant="ghost"
+                  leadingIcon={<Mic size={16} />}
+                  onClick={() => setVoiceHint(voiceReadinessCopy(activeLocale))}
+                >
+                  {activeLocale === 'en' ? 'Talk to Echo' : 'تحدث مع Echo'}
+                </GameButton>
+
+                <GameButton
+                  size="lg"
+                  trailingIcon={<SendHorizonal size={16} />}
+                  onClick={sendMessage}
+                  disabled={!draft.trim()}
+                >
+                  {activeLocale === 'en' ? 'Send' : 'إرسال'}
+                </GameButton>
+              </div>
+
+              {voiceHint && (
+                <p className="shell-echo-mind-screen__voice-note">{voiceHint}</p>
+              )}
+            </div>
           </div>
         </GlassPanel>
-      </div>
-
-      <section className="shell-echo-mind-screen__capabilities">
-        {model.capabilities.map((capability) => (
-          <GlassPanel
-            key={capability.id}
-            tone={capability.status === 'ready' ? 'memory' : 'neutral'}
-            title={capability.label}
-          >
-            <p>{capability.description}</p>
-            <GameProgress
-              value={capability.status === 'ready' ? 100 : 35}
-              label={capability.status === 'ready' ? 'مفعّل' : 'مخطط له'}
-              tone={capability.status === 'ready' ? 'memory' : 'neutral'}
-            />
-          </GlassPanel>
-        ))}
       </section>
     </div>
   );
 }
-

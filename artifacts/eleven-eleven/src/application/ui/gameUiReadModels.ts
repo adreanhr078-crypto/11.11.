@@ -239,156 +239,228 @@ export function createDialogueScreenReadModel(
   };
 }
 
-export interface EchoMindReference {
-  id: string;
-  label: string;
-  kind: 'memory' | 'fragment' | 'decision';
-}
-
-export interface EchoMindCapability {
-  id: string;
-  label: string;
-  description: string;
-  status: 'ready' | 'planned';
-}
-
 export interface EchoMindScreenReadModel {
-  latestEchoLine: string | null;
-  conversationCount: number;
-  interactions: number;
-  trust: number;
-  fear: number;
-  personality: GameState['echo']['personality'];
-  memoryReferences: EchoMindReference[];
-  activeFlags: string[];
-  capabilities: EchoMindCapability[];
+  openingLine: string;
+  stageTitle: string;
+  stageSubtitle: string;
+  conversationPlaceholder: string;
 }
 
 export function createEchoMindScreenReadModel(
   state: GameState,
 ): EchoMindScreenReadModel {
-  const memoryReferences: EchoMindReference[] = [
-    ...state.narrative.unlockedMemoryIds.slice(-3).reverse().map((id) => ({
-      id,
-      label: id,
-      kind: 'memory' as const,
-    })),
-    ...state.narrative.unlockedMemoryFragmentIds.slice(-2).reverse().map((id) => ({
-      id,
-      label: id,
-      kind: 'fragment' as const,
-    })),
-    ...state.narrative.decisionHistory.slice(-2).reverse().map((decision) => ({
-      id: decision.id,
-      label: `${decision.id} / ${decision.choiceId}`,
-      kind: 'decision' as const,
-    })),
-  ].slice(0, 6);
-
   return {
-    latestEchoLine: state.echo.lastDialogue || null,
-    conversationCount: state.echo.dialogueHistory.length,
-    interactions: state.player.interactions,
-    trust: state.echo.trust,
-    fear: state.echo.fear,
-    personality: state.echo.personality,
-    memoryReferences,
-    activeFlags: Object.entries(state.narrative.activeFlags)
-      .filter(([, active]) => active)
-      .map(([flag]) => flag)
-      .slice(0, 5),
-    capabilities: [
-      {
-        id: 'text-channel',
-        label: 'القناة النصية',
-        description: 'حوار مباشر مع Echo مرتبط بالحالة الحالية.',
-        status: 'ready',
-      },
-      {
-        id: 'voice-input',
-        label: 'الإدخال الصوتي',
-        description: 'بنية جاهزة للميكروفون وتحويل الكلام إلى نص.',
-        status: 'planned',
-      },
-      {
-        id: 'voice-output',
-        label: 'الصوت التفاعلي',
-        description: 'إخراج صوتي مستقبلي متأثر بحالة Echo.',
-        status: 'planned',
-      },
-      {
-        id: 'facial-reaction',
-        label: 'تعابير الوجه',
-        description: 'ردود وجهية مرتبطة بالمشاعر والفساد والذاكرة.',
-        status: 'planned',
-      },
-      {
-        id: 'memory-references',
-        label: 'مرجعيات الذاكرة',
-        description: 'استدعاء الذكريات والشظايا والقرارات داخل الحوار.',
-        status: 'ready',
-      },
-    ],
+    openingLine: state.echo.lastDialogue
+      || 'أشعر أن هناك شيئًا لا أستطيع تذكره...',
+    stageTitle: 'Echo',
+    stageSubtitle: state.echo.personality.corruption >= 55
+      ? 'صوته متشوش قليلًا، لكنه ما زال يحاول الوصول إليك.'
+      : 'وجوده هش، لكنه يستجيب لندائك داخل 11:11.',
+    conversationPlaceholder: 'اكتب رسالة لـ Echo',
   };
 }
 
-export interface CharacterProfileReadModel {
+function normalizeText(value: string): string {
+  return value
+    .replace(/^character_/, '')
+    .replace(/^scene_/, '')
+    .replace(/^memory_/, '')
+    .replace(/^fragment_/, '')
+    .replace(/[_-]+/g, ' ')
+    .trim();
+}
+
+function titleCase(value: string): string {
+  return value
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part[0]?.toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function discoverCharacter(
+  state: GameState,
+  aliases: readonly string[],
+): boolean {
+  const loweredAliases = aliases.map((alias) => alias.toLowerCase());
+
+  const unlockedMemoryHit = MEMORY_DEFINITIONS.some((memory) => (
+    state.narrative.unlockedMemoryIds.includes(memory.id)
+    && memory.relatedCharacterIds.some((characterId) => (
+      loweredAliases.some((alias) => characterId.toLowerCase().includes(alias))
+    ))
+  ));
+
+  if (unlockedMemoryHit) return true;
+
+  const signals = [
+    ...state.narrative.unlockedMemoryIds,
+    ...state.narrative.unlockedMemoryFragmentIds,
+    ...state.narrative.decisionHistory.flatMap((decision) => [
+      decision.id,
+      decision.choiceId,
+      decision.source,
+    ]),
+    ...Object.keys(state.narrative.activeFlags).filter(
+      (flag) => state.narrative.activeFlags[flag],
+    ),
+    ...state.cinematic.completedSceneIds,
+  ].map((value) => value.toLowerCase());
+
+  return signals.some((signal) => (
+    loweredAliases.some((alias) => signal.includes(alias))
+  ));
+}
+
+function getRelatedMemoryTitles(
+  state: GameState,
+  aliases: readonly string[],
+): string[] {
+  return MEMORY_DEFINITIONS
+    .filter((memory) => (
+      state.narrative.unlockedMemoryIds.includes(memory.id)
+      && memory.relatedCharacterIds.some((characterId) => (
+        aliases.some((alias) => characterId.toLowerCase().includes(alias))
+      ))
+    ))
+    .map((memory) => memory.title.ar);
+}
+
+function getRelatedSceneLabels(
+  state: GameState,
+  aliases: readonly string[],
+): string[] {
+  return state.cinematic.completedSceneIds
+    .filter((sceneId) => aliases.some((alias) => (
+      sceneId.toLowerCase().includes(alias)
+    )))
+    .map((sceneId) => `مشهد: ${titleCase(normalizeText(sceneId))}`);
+}
+
+function getRelatedFileLabels(
+  state: GameState,
+  aliases: readonly string[],
+): string[] {
+  const flags = Object.keys(state.narrative.activeFlags)
+    .filter((flag) => state.narrative.activeFlags[flag])
+    .filter((flag) => aliases.some((alias) => flag.toLowerCase().includes(alias)))
+    .map((flag) => `ملف: ${titleCase(normalizeText(flag))}`);
+  const decisions = state.narrative.decisionHistory
+    .filter((decision) => aliases.some((alias) => (
+      decision.id.toLowerCase().includes(alias)
+      || decision.choiceId.toLowerCase().includes(alias)
+    )))
+    .map((decision) => `قرار: ${titleCase(normalizeText(decision.id))}`);
+  return [...flags, ...decisions];
+}
+
+export interface CharacterArchiveEntryReadModel {
   id: string;
-  label: string;
+  name: string;
+  displayName: string;
+  codename: string;
   role: string;
+  relationship: string;
   unlocked: boolean;
-  signal: number;
-  signalLabel: string;
+  portraitMode: string;
+  summary: string;
+  relatedMemories: string[];
+  relatedScenes: string[];
+  discoveredFiles: string[];
 }
 
 export interface CharactersScreenReadModel {
-  profiles: CharacterProfileReadModel[];
+  entries: CharacterArchiveEntryReadModel[];
 }
 
 export function createCharactersScreenReadModel(
   state: GameState,
 ): CharactersScreenReadModel {
-  const memorySignal = percentage(
-    state.narrative.unlockedMemoryIds.length,
-    Math.max(1, MEMORY_DEFINITIONS.length),
-  );
-
   return {
-    profiles: [
+    entries: [
       {
         id: 'character_echo',
-        label: 'Echo',
-        role: 'الكيان المحوري',
+        name: 'Echo',
+        displayName: 'Echo',
+        codename: 'A-17',
+        role: 'الشخصية الرئيسية',
+        relationship: 'أنت تتحدث معه مباشرة داخل النظام.',
         unlocked: true,
-        signal: state.echo.memoryStability,
-        signalLabel: 'استقرار الذاكرة',
+        portraitMode: 'echo',
+        summary: 'كيان يبحث عن ذاكرته وهويته داخل 11:11.',
+        relatedMemories: getRelatedMemoryTitles(state, ['echo']),
+        relatedScenes: getRelatedSceneLabels(state, ['echo']),
+        discoveredFiles: getRelatedFileLabels(state, ['echo']),
+      },
+      {
+        id: 'character_kinja',
+        name: 'Kinja',
+        displayName: discoverCharacter(state, ['kinja', 'kenja', 'architect'])
+          ? 'Kinja'
+          : 'Unknown',
+        codename: 'ARCHITECT',
+        role: 'الأب',
+        relationship: 'صلة غامضة بذكريات Echo وبنية النظام.',
+        unlocked: discoverCharacter(state, ['kinja', 'kenja', 'architect']),
+        portraitMode: 'locked',
+        summary: 'ما زال ملفه محجوبًا حتى اكتشاف أدلة سردية مرتبطة به.',
+        relatedMemories: getRelatedMemoryTitles(
+          state,
+          ['kinja', 'kenja', 'architect'],
+        ),
+        relatedScenes: getRelatedSceneLabels(
+          state,
+          ['kinja', 'kenja', 'architect'],
+        ),
+        discoveredFiles: getRelatedFileLabels(
+          state,
+          ['kinja', 'kenja', 'architect'],
+        ),
+      },
+      {
+        id: 'character_lina',
+        name: 'Lina',
+        displayName: discoverCharacter(state, ['lina'])
+          ? 'Lina'
+          : 'Unknown',
+        codename: 'MOTHER',
+        role: 'الأم',
+        relationship: 'ذكرى بعيدة ترتبط بالحنان والاستقرار.',
+        unlocked: discoverCharacter(state, ['lina']),
+        portraitMode: 'locked',
+        summary: 'لن تظهر تفاصيلها قبل أن يكتشف اللاعب أثرها في الذاكرة.',
+        relatedMemories: getRelatedMemoryTitles(state, ['lina']),
+        relatedScenes: getRelatedSceneLabels(state, ['lina']),
+        discoveredFiles: getRelatedFileLabels(state, ['lina']),
       },
       {
         id: 'character_yuki',
-        label: 'Yuki',
-        role: 'مرجع عاطفي',
-        unlocked: (
-          state.narrative.unlockedMemoryIds.length > 0
-          || state.narrative.decisionHistory.length > 0
-        ),
-        signal: Math.max(memorySignal, state.echo.personality.humanity),
-        signalLabel: 'أثر الإنسانية',
+        name: 'Yuki',
+        displayName: discoverCharacter(state, ['yuki'])
+          ? 'Yuki'
+          : 'Unknown',
+        codename: 'FRIEND',
+        role: 'الصديق المقرب لـ Echo',
+        relationship: 'رابط إنساني أساسي في ماضي Echo.',
+        unlocked: discoverCharacter(state, ['yuki']),
+        portraitMode: 'locked',
+        summary: 'يبقى ملفه مغلقًا حتى تظهر الذكريات أو المشاهد المرتبطة به.',
+        relatedMemories: getRelatedMemoryTitles(state, ['yuki']),
+        relatedScenes: getRelatedSceneLabels(state, ['yuki']),
+        discoveredFiles: getRelatedFileLabels(state, ['yuki']),
       },
-      {
-        id: 'character_architect',
-        label: 'Architect',
-        role: 'مصدر الصراع',
-        unlocked: (
-          state.progression.completedPuzzleIds.length > 0
-          || state.narrative.decisionHistory.length > 0
-        ),
-        signal: Math.max(
-          state.echo.personality.fear,
-          state.echo.personality.corruption,
-        ),
-        signalLabel: 'ضغط النظام',
-      },
-    ],
+    ].map((entry) => ({
+      ...entry,
+      relatedMemories: entry.unlocked ? entry.relatedMemories : [],
+      relatedScenes: entry.unlocked ? entry.relatedScenes : [],
+      discoveredFiles: entry.unlocked ? entry.discoveredFiles : [],
+      summary: entry.unlocked ? entry.summary : 'الملف ما زال مقفلًا.',
+      relationship: entry.unlocked ? entry.relationship : 'غير معروف بعد.',
+      codename: entry.unlocked ? entry.codename : 'LOCKED',
+      displayName: entry.unlocked ? entry.displayName : 'Unknown',
+      role: entry.unlocked ? entry.role : 'مجهول',
+      portraitMode: entry.unlocked ? entry.portraitMode : 'locked',
+    })),
   };
 }
 
