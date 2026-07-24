@@ -7,6 +7,7 @@ import {
   HudPanel,
 } from '../../ui/design-system';
 import { createPuzzleScreenReadModel } from '../../application/ui/gameUiReadModels';
+import { EchoPresence } from '../../ui/presentation';
 
 interface Feedback {
   tone: 'success' | 'danger' | 'memory';
@@ -81,6 +82,11 @@ export default function PuzzleScreen() {
         title={puzzle?.title ?? 'لا يوجد لغز نشط'}
       >
         <div className="shell-puzzle-visual" aria-hidden="true">
+          <EchoPresence
+            className="shell-puzzle-visual__echo"
+            variant="mini"
+            eager
+          />
           <span className="shell-puzzle-visual__grid">
             {Array.from({ length: 16 }, (_, index) => (
               <i key={index} data-active={index < model.solvedInChapter % 16} />
@@ -169,4 +175,3 @@ export default function PuzzleScreen() {
     </div>
   );
 }
-

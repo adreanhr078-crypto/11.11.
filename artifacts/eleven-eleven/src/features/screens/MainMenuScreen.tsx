@@ -8,6 +8,7 @@ import {
 } from '../../ui/design-system';
 import { createDashboardReadModel } from '../../application/ui/gameUiReadModels';
 import { useShellStore } from '../../app/shell/shellStore';
+import { EchoPresence } from '../../ui/presentation';
 
 export default function MainMenuScreen() {
   const state = useGameStore();
@@ -29,6 +30,11 @@ export default function MainMenuScreen() {
           <i /><i /><i /><i /><i /><i />
         </span>
       </div>
+      <EchoPresence
+        className="shell-main-menu__echo"
+        variant="hero"
+        eager
+      />
 
       <header className="shell-main-menu__utility">
         <span className="shell-screen-code">01</span>
@@ -125,4 +131,3 @@ export default function MainMenuScreen() {
     </CinematicFrame>
   );
 }
-

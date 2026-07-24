@@ -6,6 +6,7 @@ import './styles/backgrounds.css';
 import './styles/EchoPortrait.css';
 import './styles/night-dashboard.css';
 import './app/shell/application-shell.css';
+import './ui/presentation/premium-presentation.css';
 import { ApplicationShell } from './app/shell/ApplicationShell';
 import { GameRuntimeBridge } from './app/shell/GameRuntimeBridge';
 

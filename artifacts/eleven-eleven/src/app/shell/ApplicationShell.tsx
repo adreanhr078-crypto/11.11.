@@ -12,6 +12,10 @@ import {
 import { toggleLanguage } from '../../core/echoMultilingualSystem';
 import { createDashboardReadModel } from '../../application/ui/gameUiReadModels';
 import {
+  PremiumAtmosphere,
+  ScreenTransition,
+} from '../../ui/presentation';
+import {
   GAME_SCREEN_REGISTRY,
   PRIMARY_GAME_SCREENS,
   SECONDARY_GAME_SCREENS,
@@ -41,6 +45,7 @@ export function ApplicationShell() {
       motion={preferences.motion}
       data-ui-system="cinematic-shell-v1"
     >
+      <PremiumAtmosphere />
       <GameSafeArea className="application-shell__safe">
         {!isMainMenu && (
           <header className="application-shell__topbar">
@@ -101,7 +106,9 @@ export function ApplicationShell() {
               />
             )}
           >
-            <Screen />
+            <ScreenTransition screenId={shell.currentScreen}>
+              <Screen />
+            </ScreenTransition>
           </Suspense>
         </main>
 
@@ -198,4 +205,3 @@ export function ApplicationShell() {
     </GameViewport>
   );
 }
-

@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
 import {
   createDashboardReadModel,
@@ -11,6 +13,7 @@ import {
   PRIMARY_GAME_SCREENS,
 } from '../app/shell/screenRegistry';
 import { useGameStore } from '../stores/gameStore';
+import { ECHO_PRESENTATION_ASSETS } from '../ui/presentation/visualAssets';
 
 describe('Application Shell', () => {
   it('registers each screen once and keeps the priority flow available', () => {
@@ -65,5 +68,16 @@ describe('Application Shell', () => {
       true,
     );
   });
-});
 
+  it('keeps Echo artwork as a replaceable presentation asset', () => {
+    assert.equal(
+      existsSync(resolve(
+        process.cwd(),
+        'public',
+        ECHO_PRESENTATION_ASSETS.portrait.replace(/^\//, ''),
+      )),
+      true,
+    );
+    assert.equal(ECHO_PRESENTATION_ASSETS.fallbackLabel, 'Echo');
+  });
+});

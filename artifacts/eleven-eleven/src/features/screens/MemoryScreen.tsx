@@ -80,19 +80,34 @@ export default function MemoryScreen() {
       )}
 
       {model.isAuthoredContentEmpty && (
-        <GlassPanel
-          className="shell-editor-empty"
-          tone="memory"
-          title="قناة البيانات جاهزة"
-        >
-          <span className="shell-editor-empty__glyph">◈</span>
-          <p>
-            لا توجد ذكريات قصصية نهائية الآن. يمكن للمحررين إضافة آلاف
-            الذكريات والشظايا عبر
-            <code> data/memories/index.json </code>
-            دون تعديل مكونات الواجهة.
-          </p>
-        </GlassPanel>
+        <>
+          <section
+            className="shell-memory-placeholder-grid"
+            aria-label="أماكن الذكريات المستقبلية"
+          >
+            {Array.from({ length: 6 }, (_, index) => (
+              <article key={index}>
+                <span className="shell-memory-placeholder-grid__core">◇</span>
+                <small>MEMORY SLOT {String(index + 1).padStart(2, '0')}</small>
+                <strong>بيانات مشفرة</strong>
+                <i aria-hidden="true" />
+              </article>
+            ))}
+          </section>
+          <GlassPanel
+            className="shell-editor-empty"
+            tone="memory"
+            title="قناة البيانات جاهزة"
+          >
+            <span className="shell-editor-empty__glyph">◈</span>
+            <p>
+              لا توجد ذكريات قصصية نهائية الآن. يمكن للمحررين إضافة آلاف
+              الذكريات والشظايا عبر
+              <code> data/memories/index.json </code>
+              دون تعديل مكونات الواجهة.
+            </p>
+          </GlassPanel>
+        </>
       )}
 
       <GlassPanel
@@ -119,4 +134,3 @@ export default function MemoryScreen() {
     </div>
   );
 }
-

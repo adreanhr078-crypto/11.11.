@@ -9,6 +9,7 @@ import {
 } from '../../ui/design-system';
 import { createDialogueScreenReadModel } from '../../application/ui/gameUiReadModels';
 import { EchoChat } from '../../components/echo/EchoChat';
+import { EchoPresence } from '../../ui/presentation';
 
 type DialogueTab = 'graph' | 'echo-channel';
 
@@ -49,13 +50,11 @@ export default function DialogueScreen() {
       ) : (
         <div className="shell-dialogue-screen__layout">
           <section className="shell-dialogue-screen__portrait">
-            <div className="shell-echo-portrait shell-echo-portrait--dialogue">
-              <span className="shell-echo-portrait__halo" />
-              <span className="shell-echo-portrait__silhouette">
-                <i className="shell-echo-portrait__eye shell-echo-portrait__eye--red" />
-                <i className="shell-echo-portrait__eye shell-echo-portrait__eye--cyan" />
-              </span>
-            </div>
+            <EchoPresence
+              className="shell-dialogue-screen__echo-presence"
+              variant="dialogue"
+              eager
+            />
             <strong>Echo</strong>
             <small>
               TRUST {state.echo.personality.trust}% · FEAR{' '}
@@ -108,6 +107,18 @@ export default function DialogueScreen() {
                   <code> data/dialogues/index.json </code>
                   دون تعديل TypeScript.
                 </p>
+                <div
+                  className="shell-choice-placeholders"
+                  aria-label="أماكن اختيارات الحوار المستقبلية"
+                >
+                  {Array.from({ length: 3 }, (_, index) => (
+                    <span key={index}>
+                      <i>{String(index + 1).padStart(2, '0')}</i>
+                      <b />
+                      <small>LOCKED</small>
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
           </HudPanel>
@@ -136,4 +147,3 @@ export default function DialogueScreen() {
     </div>
   );
 }
-

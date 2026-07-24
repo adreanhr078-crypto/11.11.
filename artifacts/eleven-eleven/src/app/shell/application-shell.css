@@ -151,6 +151,11 @@
   overflow: hidden;
 }
 
+.application-shell__stage[data-fullscreen="true"] .premium-screen-transition,
+.application-shell__stage[data-fullscreen="true"] .premium-screen-transition__content {
+  height: 100%;
+}
+
 .application-shell__navigation {
   z-index: var(--gds-z-hud);
   grid-row: 3;
@@ -278,6 +283,15 @@
     linear-gradient(115deg, rgb(1 2 4 / 15%), rgb(1 2 4 / 92%) 86%);
 }
 
+.shell-main-menu__echo {
+  position: absolute;
+  z-index: 0;
+  inset: 4% auto -8% 3%;
+  width: min(48vw, 46rem);
+  opacity: 0.9;
+  filter: drop-shadow(0 0 3rem rgb(255 70 85 / 10%));
+}
+
 .shell-main-menu__orbit,
 .shell-main-menu__orbit::before {
   position: absolute;
@@ -354,9 +368,11 @@
 
 .shell-main-menu__identity {
   z-index: 1;
-  align-self: center;
+  grid-column: 1;
+  grid-row: 2;
+  align-self: start;
   max-width: 42rem;
-  padding-inline: clamp(1rem, 7vw, 8rem);
+  padding: clamp(5rem, 18vh, 10rem) clamp(1rem, 4vw, 5rem) 0;
   text-align: center;
 }
 
@@ -398,8 +414,11 @@
 
 .shell-main-menu__actions {
   z-index: 1;
-  align-self: center;
+  grid-column: 1;
+  grid-row: 2;
+  align-self: end;
   width: min(100%, 32rem);
+  margin: 0 auto clamp(2rem, 7vh, 4rem);
 }
 
 .shell-main-menu__secondary-actions {
@@ -458,6 +477,11 @@
   background:
     radial-gradient(circle at 50% 40%, rgb(87 231 255 / 11%), transparent 38%),
     linear-gradient(180deg, rgb(9 15 24 / 88%), rgb(3 5 9 / 96%));
+}
+
+.shell-dashboard__echo-presence {
+  position: absolute;
+  inset: 0;
 }
 
 .shell-echo-portrait {
@@ -767,6 +791,12 @@
   height: 100%;
 }
 
+.shell-cinematic-library__echo {
+  position: absolute;
+  inset: var(--gds-space-4) auto auto var(--gds-space-4);
+  opacity: 0.72;
+}
+
 .shell-cinematic-library__stage p {
   max-width: 36rem;
   margin: 0;
@@ -993,6 +1023,62 @@
   gap: var(--gds-space-3);
 }
 
+.shell-memory-placeholder-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(7.5rem, 1fr));
+  gap: var(--gds-space-2);
+}
+
+.shell-memory-placeholder-grid article {
+  position: relative;
+  display: grid;
+  place-items: center;
+  gap: var(--gds-space-1);
+  min-height: clamp(7.5rem, 17vh, 10rem);
+  overflow: hidden;
+  border: 1px solid var(--gds-line-subtle);
+  border-radius: var(--gds-radius-sm);
+  color: var(--gds-text-muted);
+  text-align: center;
+  background:
+    radial-gradient(circle at 50% 35%, rgb(87 231 255 / 8%), transparent 38%),
+    rgb(4 8 13 / 86%);
+}
+
+.shell-memory-placeholder-grid article::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  opacity: 0.24;
+  background: repeating-linear-gradient(
+    135deg,
+    transparent 0 0.8rem,
+    rgb(255 255 255 / 3%) 0.8rem 0.85rem
+  );
+}
+
+.shell-memory-placeholder-grid__core {
+  color: var(--gds-cyan-400);
+  font-size: var(--gds-type-xl);
+  text-shadow: var(--gds-glow-cyan);
+}
+
+.shell-memory-placeholder-grid small {
+  font: 500 var(--gds-type-2xs) var(--gds-font-mono);
+}
+
+.shell-memory-placeholder-grid strong {
+  color: var(--gds-text-secondary);
+  font-size: var(--gds-type-xs);
+}
+
+.shell-memory-placeholder-grid i {
+  width: 70%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgb(87 231 255 / 36%), transparent);
+}
+
 .shell-memory-timeline {
   display: grid;
   gap: var(--gds-space-2);
@@ -1040,6 +1126,7 @@
 }
 
 .shell-puzzle-visual {
+  position: relative;
   display: grid;
   place-items: center;
   align-content: center;
@@ -1048,6 +1135,13 @@
   background:
     radial-gradient(circle, rgb(255 70 85 / 12%), transparent 60%),
     rgb(0 0 0 / 25%);
+}
+
+.shell-puzzle-visual__echo {
+  position: absolute;
+  inset: var(--gds-space-3) auto auto var(--gds-space-3);
+  width: clamp(3.5rem, 8vmin, 6rem) !important;
+  opacity: 0.78;
 }
 
 .shell-puzzle-visual__grid {
@@ -1171,6 +1265,11 @@
     rgb(3 6 10 / 80%);
 }
 
+.shell-dialogue-screen__echo-presence {
+  position: absolute;
+  inset: 0;
+}
+
 .shell-echo-portrait--dialogue {
   width: 96%;
   align-self: center;
@@ -1211,6 +1310,36 @@
 .shell-dialogue-library {
   display: grid;
   gap: var(--gds-space-3);
+}
+
+.shell-choice-placeholders {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(8rem, 1fr));
+  gap: var(--gds-space-2);
+  width: min(100%, 44rem);
+  margin: var(--gds-space-4) auto 0;
+}
+
+.shell-choice-placeholders > span {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--gds-space-2);
+  min-height: var(--gds-touch-target);
+  padding: var(--gds-space-2);
+  border: 1px solid var(--gds-line-subtle);
+  color: var(--gds-text-muted);
+  background: rgb(255 255 255 / 2%);
+}
+
+.shell-choice-placeholders i,
+.shell-choice-placeholders small {
+  font: 500 var(--gds-type-2xs) var(--gds-font-mono);
+}
+
+.shell-choice-placeholders b {
+  height: 1px;
+  background: linear-gradient(90deg, rgb(255 70 85 / 35%), transparent);
 }
 
 .shell-dialogue-screen__ledger {
@@ -1321,6 +1450,13 @@
     padding-inline: clamp(3rem, 12vw, 16rem);
   }
 
+  .shell-main-menu__echo {
+    right: auto;
+    left: -3%;
+    width: 52vw;
+    opacity: 0.78;
+  }
+
   .shell-screen {
     padding-inline: max(var(--gds-edge-buffer), calc((100vw - var(--gds-content-max)) / 2));
   }
@@ -1348,7 +1484,7 @@
   }
 
   .shell-main-menu__identity {
-    padding-inline: var(--gds-space-3);
+    padding: clamp(4.5rem, 16vh, 7rem) var(--gds-space-3) 0;
   }
 
   .shell-main-menu__identity h1 {
@@ -1378,6 +1514,10 @@
 
   .shell-dialogue-screen__layout {
     grid-template-columns: minmax(10rem, 0.45fr) 1fr;
+  }
+
+  .shell-memory-placeholder-grid {
+    grid-template-columns: repeat(3, minmax(7rem, 1fr));
   }
 }
 

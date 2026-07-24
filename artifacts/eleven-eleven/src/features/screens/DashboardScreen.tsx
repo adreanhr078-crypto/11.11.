@@ -11,6 +11,7 @@ import {
 import { createDashboardReadModel } from '../../application/ui/gameUiReadModels';
 import { useShellStore } from '../../app/shell/shellStore';
 import type { GameTone } from '../../ui/design-system';
+import { EchoPresence } from '../../ui/presentation';
 
 const PERSONALITY_STATS: Array<{
   key: 'humanity' | 'trust' | 'fear' | 'anger' | 'sadness' | 'corruption';
@@ -33,14 +34,11 @@ export default function DashboardScreen() {
   return (
     <div className="shell-screen shell-dashboard">
       <section className="shell-dashboard__portrait" aria-label="حالة Echo">
-        <div className="shell-echo-portrait" aria-hidden="true">
-          <span className="shell-echo-portrait__halo" />
-          <span className="shell-echo-portrait__silhouette">
-            <i className="shell-echo-portrait__eye shell-echo-portrait__eye--red" />
-            <i className="shell-echo-portrait__eye shell-echo-portrait__eye--cyan" />
-          </span>
-          <span className="shell-echo-portrait__scan" />
-        </div>
+        <EchoPresence
+          className="shell-dashboard__echo-presence"
+          variant="profile"
+          eager
+        />
         <div className="shell-dashboard__identity">
           <small>ECHO MIND // A-17</small>
           <h1>Echo</h1>

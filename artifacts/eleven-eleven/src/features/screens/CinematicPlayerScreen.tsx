@@ -18,6 +18,7 @@ import {
   CINEMATIC_ASSET_DEFINITIONS,
   CINEMATIC_EPISODE_DEFINITIONS,
 } from '../../infrastructure/content/cinematicContentRegistry';
+import { EchoPresence } from '../../ui/presentation';
 
 function assetSource(assetId: string | undefined): string | undefined {
   if (!assetId) return undefined;
@@ -90,6 +91,11 @@ export default function CinematicPlayerScreen() {
           eyebrow="日本語 VO // العربية SUB"
           title="مشغل الحلقات"
         >
+          <EchoPresence
+            className="shell-cinematic-library__echo"
+            variant="mini"
+            eager
+          />
           <div className="shell-cinematic-core" aria-hidden="true">
             <span /><span /><span />
             <i>11:11</i>

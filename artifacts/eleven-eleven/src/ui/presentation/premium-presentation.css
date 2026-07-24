@@ -1,0 +1,629 @@
+.premium-atmosphere {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.premium-atmosphere__nebula,
+.premium-atmosphere__grid,
+.premium-atmosphere__vignette,
+.premium-atmosphere__particles,
+.premium-atmosphere__streams {
+  position: absolute;
+  inset: 0;
+}
+
+.premium-atmosphere__nebula {
+  background:
+    radial-gradient(
+      ellipse at 18% 46%,
+      rgb(255 51 70 / calc(0.035 + var(--evs-intensity) * 0.08)),
+      transparent 31%
+    ),
+    radial-gradient(
+      ellipse at 78% 28%,
+      rgb(41 205 239 / calc(0.035 + var(--evs-intensity) * 0.075)),
+      transparent 28%
+    ),
+    radial-gradient(
+      ellipse at 56% 92%,
+      rgb(169 76 255 / calc(0.02 + var(--evs-intensity) * 0.05)),
+      transparent 35%
+    );
+  animation: premium-nebula-drift 18s ease-in-out infinite alternate;
+}
+
+.premium-atmosphere__grid {
+  opacity: 0.16;
+  background-image:
+    linear-gradient(rgb(114 148 180 / 6%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(114 148 180 / 6%) 1px, transparent 1px);
+  background-size: clamp(3rem, 7vw, 8rem) clamp(3rem, 7vw, 8rem);
+  mask-image: radial-gradient(circle at center, black, transparent 78%);
+  transform: perspective(35rem) rotateX(72deg) scale(1.5) translateY(36%);
+  transform-origin: center bottom;
+}
+
+.premium-atmosphere__vignette {
+  background:
+    linear-gradient(180deg, rgb(0 0 0 / 40%), transparent 18% 78%, rgb(0 0 0 / 54%)),
+    radial-gradient(ellipse at center, transparent 28%, rgb(0 0 0 / 64%) 112%);
+}
+
+.premium-atmosphere__particles i {
+  position: absolute;
+  left: var(--particle-x);
+  top: var(--particle-y);
+  width: clamp(1px, 0.16vmin, 3px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--evs-primary);
+  box-shadow:
+    0 0 0.45rem var(--evs-primary),
+    0 0 1rem rgb(var(--evs-primary-rgb) / 25%);
+  opacity: 0;
+  animation:
+    premium-particle-float var(--particle-duration) ease-in-out
+    var(--particle-delay) infinite;
+}
+
+.premium-atmosphere__particles i:nth-child(3n) {
+  border-radius: 0;
+  background: var(--gds-red-500);
+  box-shadow: var(--gds-glow-red);
+}
+
+.premium-atmosphere__streams i {
+  position: absolute;
+  left: var(--stream-x);
+  top: -35%;
+  width: 1px;
+  height: 24%;
+  opacity: 0.12;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgb(var(--evs-primary-rgb) / 55%),
+    transparent
+  );
+  animation: premium-data-stream 9s linear var(--stream-delay) infinite;
+}
+
+@keyframes premium-nebula-drift {
+  to { transform: scale(1.08) translate3d(1.5%, -1%, 0); }
+}
+
+@keyframes premium-particle-float {
+  0% { opacity: 0; transform: translate3d(0, 1rem, 0) scale(0.7); }
+  25%, 70% { opacity: calc(0.18 + var(--evs-particle-energy) * 0.55); }
+  100% { opacity: 0; transform: translate3d(0.8rem, -2.4rem, 0) scale(1.15); }
+}
+
+@keyframes premium-data-stream {
+  to { transform: translateY(640%); }
+}
+
+.premium-screen-transition,
+.premium-screen-transition__content {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+}
+
+.premium-screen-transition {
+  position: relative;
+  isolation: isolate;
+  animation: premium-scene-focus var(--gds-duration-slow) var(--gds-ease-enter) both;
+}
+
+.premium-screen-transition__shutter,
+.premium-screen-transition__scan {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+}
+
+.premium-screen-transition__shutter {
+  background:
+    linear-gradient(90deg, #020306 0 48%, transparent 50% 100%),
+    linear-gradient(-90deg, #020306 0 48%, transparent 50% 100%);
+  background-size: 200% 100%;
+  animation: premium-shutter-open 620ms var(--gds-ease-enter) both;
+}
+
+.premium-screen-transition__scan {
+  width: 28%;
+  opacity: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(var(--evs-primary-rgb) / 10%),
+    rgb(255 255 255 / 16%),
+    transparent
+  );
+  transform: skewX(-10deg);
+  animation: premium-transition-scan 720ms 80ms var(--gds-ease-standard) both;
+}
+
+@keyframes premium-scene-focus {
+  from {
+    filter: brightness(0.72) saturate(0.75);
+    transform: scale(1.008);
+  }
+}
+
+@keyframes premium-shutter-open {
+  0% { opacity: 1; background-position: 0 0, 100% 0; }
+  70% { opacity: 1; }
+  100% { opacity: 0; background-position: -96% 0, 196% 0; }
+}
+
+@keyframes premium-transition-scan {
+  0% { inset-inline-start: -30%; opacity: 0; }
+  25% { opacity: 0.55; }
+  100% { inset-inline-start: 110%; opacity: 0; }
+}
+
+/* Echo presentation */
+
+.echo-presence {
+  --echo-image-scale: 1;
+  position: relative;
+  isolation: isolate;
+  display: block;
+  margin: 0;
+  overflow: hidden;
+  color: var(--gds-text-primary);
+  background-image:
+    var(--echo-portrait),
+    radial-gradient(circle at 50% 42%, rgb(38 196 227 / 9%), transparent 45%),
+    linear-gradient(#03060a, #03060a);
+  background-position: center 72%, center, center;
+  background-size: cover, auto, auto;
+  background-repeat: no-repeat;
+}
+
+.echo-presence__field,
+.echo-presence__body,
+.echo-presence__grade,
+.echo-presence__scan,
+.echo-presence__fracture {
+  position: absolute;
+  inset: 0;
+}
+
+.echo-presence__field {
+  z-index: 0;
+}
+
+.echo-presence__ring {
+  position: absolute;
+  border: 1px solid rgb(var(--evs-primary-rgb) / 28%);
+  border-radius: 50%;
+  background:
+    repeating-conic-gradient(
+      from 10deg,
+      rgb(var(--evs-primary-rgb) / 24%) 0 0.7deg,
+      transparent 0.7deg 7deg
+    );
+  mask-image: radial-gradient(circle, transparent 64%, black 65% 68%, transparent 69%);
+}
+
+.echo-presence__ring--outer {
+  inset: 5%;
+  animation: echo-orbit 30s linear infinite;
+}
+
+.echo-presence__ring--inner {
+  inset: 15%;
+  border-color: rgb(255 70 85 / 26%);
+  animation: echo-orbit 21s linear infinite reverse;
+}
+
+.echo-presence__reticle {
+  position: absolute;
+  inset: 49% 8%;
+  border-block-start: 1px solid rgb(255 70 85 / 22%);
+}
+
+.echo-presence__reticle::after {
+  position: absolute;
+  inset: -0.35rem 50% auto auto;
+  width: 0.65rem;
+  aspect-ratio: 1;
+  border: 1px solid var(--gds-red-400);
+  border-radius: 50%;
+  content: "";
+  box-shadow: var(--gds-glow-red);
+}
+
+.echo-presence__signal {
+  position: absolute;
+  top: 26%;
+  width: 0.35rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
+.echo-presence__signal--red {
+  left: 9%;
+  background: var(--gds-red-400);
+  box-shadow: var(--gds-glow-red);
+}
+
+.echo-presence__signal--cyan {
+  right: 8%;
+  background: var(--gds-cyan-400);
+  box-shadow: var(--gds-glow-cyan);
+}
+
+.echo-presence__body {
+  z-index: 1;
+  overflow: hidden;
+  animation:
+    echo-enter 820ms var(--gds-ease-enter) both,
+    echo-breathe var(--echo-idle-speed) 820ms ease-in-out infinite;
+  transform-origin: 50% 72%;
+}
+
+.echo-presence__image,
+.echo-presence__glitch-layer {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 28%;
+  user-select: none;
+}
+
+.echo-presence__image {
+  filter:
+    brightness(calc(0.8 + var(--evs-grade-brightness) * 0.16))
+    contrast(calc(0.94 + var(--evs-grade-contrast) * 0.12))
+    saturate(calc(0.72 + var(--evs-grade-saturation) * 0.3));
+  transform: scale(var(--echo-image-scale));
+}
+
+.echo-presence__glitch-layer {
+  position: absolute;
+  inset: 0;
+  opacity: calc(
+    var(--echo-corruption) * 0.62
+    + var(--evs-glitch-intensity) * 0.22
+  );
+  filter:
+    hue-rotate(155deg)
+    saturate(1.8)
+    contrast(1.18);
+  clip-path: polygon(0 20%, 100% 16%, 100% 27%, 0 31%);
+  transform: translateX(var(--evs-glitch-displacement-px));
+  animation: echo-glitch-slice 3.8s steps(1, end) infinite;
+}
+
+.echo-presence__grade {
+  background:
+    linear-gradient(
+      90deg,
+      rgb(255 38 61 / calc(0.04 + var(--echo-fear) * 0.12)),
+      transparent 38% 62%,
+      rgb(42 215 244 / calc(0.035 + var(--echo-trust) * 0.15))
+    ),
+    linear-gradient(180deg, transparent 52%, rgb(0 0 0 / 62%));
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.echo-presence[data-emotion="anger"] .echo-presence__grade,
+.echo-presence[data-emotion="corruption"] .echo-presence__grade {
+  background:
+    radial-gradient(circle at 40% 43%, rgb(255 32 50 / 25%), transparent 16%),
+    linear-gradient(180deg, transparent 42%, rgb(0 0 0 / 72%));
+}
+
+.echo-presence[data-emotion="humanity"] .echo-presence__image,
+.echo-presence[data-emotion="trust"] .echo-presence__image {
+  filter: brightness(0.98) contrast(1.02) saturate(0.92);
+}
+
+.echo-presence[data-emotion="sadness"] .echo-presence__image {
+  filter: brightness(0.76) contrast(1.1) saturate(0.58) hue-rotate(6deg);
+}
+
+.echo-presence__scan {
+  opacity: calc(0.18 + var(--evs-glitch-scanlines) * 0.7);
+  background:
+    linear-gradient(180deg, transparent, rgb(79 225 255 / 15%), transparent 8%),
+    repeating-linear-gradient(
+      180deg,
+      transparent 0 3px,
+      rgb(255 255 255 / 3%) 4px
+    );
+  animation: echo-scan 5.8s linear infinite;
+}
+
+.echo-presence__fracture {
+  opacity: calc(var(--echo-corruption) * 0.75);
+  background:
+    linear-gradient(118deg, transparent 44%, rgb(255 70 85 / 55%) 44.3% 44.6%, transparent 45%),
+    linear-gradient(62deg, transparent 61%, rgb(87 231 255 / 45%) 61.3% 61.5%, transparent 62%);
+  filter: drop-shadow(0 0 0.5rem rgb(255 70 85 / 50%));
+}
+
+.echo-presence__telemetry {
+  position: absolute;
+  inset: auto var(--gds-space-3) var(--gds-space-3);
+  z-index: 4;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--gds-space-3);
+  padding: var(--gds-space-3);
+  border: 1px solid rgb(255 70 85 / 28%);
+  background: rgb(2 4 7 / 82%);
+  backdrop-filter: blur(0.7rem);
+}
+
+.echo-presence__telemetry > span {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.echo-presence__telemetry small {
+  color: var(--gds-text-muted);
+  font: 500 var(--gds-type-2xs) var(--gds-font-mono);
+}
+
+.echo-presence__telemetry strong {
+  font-size: var(--gds-type-lg);
+}
+
+.echo-presence__telemetry > span:last-child {
+  grid-template-columns: auto 1fr;
+  color: var(--gds-cyan-400);
+  font: 600 var(--gds-type-2xs) var(--gds-font-mono);
+}
+
+.echo-presence__telemetry i {
+  width: 0.42rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--gds-cyan-400);
+  box-shadow: var(--gds-glow-cyan);
+}
+
+.echo-presence[data-variant="hero"] {
+  aspect-ratio: 0.88;
+  border-radius: 45% 45% 6% 6%;
+  mask-image: linear-gradient(180deg, black 0 76%, transparent 100%);
+  background: transparent;
+}
+
+.echo-presence[data-variant="hero"] .echo-presence__image,
+.echo-presence[data-variant="hero"] .echo-presence__glitch-layer {
+  object-position: center 18%;
+}
+
+.echo-presence[data-variant="profile"] {
+  width: 100%;
+  height: 100%;
+  background: #020407;
+}
+
+.echo-presence[data-variant="profile"] .echo-presence__image,
+.echo-presence[data-variant="profile"] .echo-presence__glitch-layer {
+  object-position: center 72%;
+}
+
+.echo-presence[data-variant="dialogue"] {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+.echo-presence[data-variant="mini"] {
+  width: clamp(5rem, 10vmin, 8rem);
+  aspect-ratio: 1;
+  border: 1px solid rgb(87 231 255 / 24%);
+  border-radius: 50%;
+  box-shadow: var(--gds-glow-cyan);
+}
+
+.echo-presence[data-variant="mini"] .echo-presence__image,
+.echo-presence[data-variant="mini"] .echo-presence__glitch-layer {
+  object-position: center 24%;
+}
+
+@keyframes echo-enter {
+  from {
+    opacity: 0;
+    filter: blur(0.6rem);
+    transform: translateY(1.2rem) scale(1.035);
+  }
+}
+
+@keyframes echo-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.012) translateY(-0.18%); }
+}
+
+@keyframes echo-orbit {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes echo-scan {
+  from { transform: translateY(-105%); }
+  to { transform: translateY(105%); }
+}
+
+@keyframes echo-glitch-slice {
+  0%, 92%, 100% {
+    clip-path: polygon(0 20%, 100% 16%, 100% 27%, 0 31%);
+    transform: translateX(0);
+  }
+  93% {
+    clip-path: polygon(0 52%, 100% 48%, 100% 59%, 0 62%);
+    transform: translateX(calc(0.2rem + var(--evs-glitch-displacement-px)));
+  }
+  95% {
+    clip-path: polygon(0 72%, 100% 69%, 100% 78%, 0 82%);
+    transform: translateX(-0.14rem);
+  }
+}
+
+/* Premium HUD refinement layered over the reusable design system. */
+
+.application-shell .gds-panel,
+.application-shell .gds-card {
+  position: relative;
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 2.5%), transparent 36%),
+    linear-gradient(180deg, rgb(7 12 19 / 94%), rgb(3 6 10 / 91%));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 3%),
+    0 1.1rem 2.8rem rgb(0 0 0 / 28%);
+}
+
+.application-shell .gds-panel::after,
+.application-shell .gds-card::after {
+  position: absolute;
+  inset: 0;
+  border: 1px solid transparent;
+  border-image: linear-gradient(
+    135deg,
+    rgb(var(--evs-primary-rgb) / 26%),
+    transparent 28% 72%,
+    rgb(255 70 85 / 20%)
+  ) 1;
+  content: "";
+  pointer-events: none;
+}
+
+.application-shell .gds-panel__header {
+  background:
+    linear-gradient(90deg, rgb(var(--evs-primary-rgb) / 10%), transparent 60%);
+}
+
+.application-shell .gds-button {
+  overflow: hidden;
+}
+
+.application-shell .gds-button::after {
+  position: absolute;
+  inset: 0 auto 0 -45%;
+  width: 32%;
+  content: "";
+  opacity: 0;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 16%), transparent);
+  transform: skewX(-18deg);
+  transition: left var(--gds-duration-slow) var(--gds-ease-enter), opacity 120ms;
+}
+
+@media (hover: hover) {
+  .application-shell .gds-button:hover::after {
+    left: 115%;
+    opacity: 1;
+  }
+}
+
+.shell-screen-heading::after {
+  align-self: center;
+  flex: 1;
+  height: 1px;
+  margin-inline-start: var(--gds-space-3);
+  content: "";
+  opacity: 0.7;
+  background:
+    linear-gradient(90deg, rgb(var(--evs-primary-rgb) / 40%), transparent 74%);
+}
+
+.shell-screen-heading__metrics {
+  position: relative;
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .premium-atmosphere__nebula,
+  .premium-atmosphere__particles i,
+  .premium-atmosphere__streams i,
+  .premium-screen-transition,
+  .premium-screen-transition__shutter,
+  .premium-screen-transition__scan,
+  .echo-presence__body,
+  .echo-presence__ring,
+  .echo-presence__scan,
+  .echo-presence__glitch-layer {
+    animation: none !important;
+  }
+
+  .premium-screen-transition__shutter,
+  .premium-screen-transition__scan {
+    display: none;
+  }
+}
+
+[data-gds-motion="reduced"] .premium-atmosphere__nebula,
+[data-gds-motion="reduced"] .premium-atmosphere__particles i,
+[data-gds-motion="reduced"] .premium-atmosphere__streams i,
+[data-gds-motion="reduced"] .premium-screen-transition,
+[data-gds-motion="reduced"] .premium-screen-transition__shutter,
+[data-gds-motion="reduced"] .premium-screen-transition__scan,
+[data-gds-motion="reduced"] .echo-presence__body,
+[data-gds-motion="reduced"] .echo-presence__ring,
+[data-gds-motion="reduced"] .echo-presence__scan,
+[data-gds-motion="reduced"] .echo-presence__glitch-layer {
+  animation: none;
+}
+
+[data-gds-motion="reduced"] .premium-screen-transition__shutter,
+[data-gds-motion="reduced"] .premium-screen-transition__scan {
+  display: none;
+}
+
+[data-gds-quality="mobile"] .premium-atmosphere__streams,
+[data-gds-quality="mobile"] .premium-atmosphere__grid,
+[data-gds-quality="mobile"] .echo-presence__glitch-layer {
+  display: none;
+}
+
+[data-gds-quality="mobile"] .premium-atmosphere__particles i:nth-child(n + 10) {
+  display: none;
+}
+
+[data-gds-quality="mobile"] .echo-presence__image {
+  filter: brightness(0.9) contrast(1.04);
+}
+
+/* Screen placement has higher specificity than the reusable figure default. */
+.shell-main-menu .shell-main-menu__echo {
+  position: absolute;
+  z-index: 0;
+  inset: 4% auto -8% 3%;
+  width: min(48vw, 46rem);
+}
+
+.shell-dashboard__portrait .shell-dashboard__echo-presence,
+.shell-dialogue-screen__portrait .shell-dialogue-screen__echo-presence {
+  position: absolute;
+  inset: 0;
+}
+
+.shell-cinematic-library__stage .shell-cinematic-library__echo {
+  position: absolute;
+  inset: var(--gds-space-4) auto auto var(--gds-space-4);
+}
+
+.shell-puzzle-visual .shell-puzzle-visual__echo {
+  position: absolute;
+  inset: var(--gds-space-3) auto auto var(--gds-space-3);
+}
+
+@media (max-width: 56rem) and (orientation: landscape) {
+  .shell-main-menu .shell-main-menu__echo {
+    right: auto;
+    left: -3%;
+    width: 52vw;
+    opacity: 0.78;
+  }
+}
