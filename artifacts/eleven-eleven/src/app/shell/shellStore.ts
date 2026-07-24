@@ -25,11 +25,21 @@ interface ShellState {
   closePause: () => void;
 }
 
+const LEGACY_SCREEN_ALIASES: Record<string, GameScreenId> = {
+  day: 'dashboard',
+  wishes: 'dialogue',
+  flowers: 'memories',
+  night: 'characters',
+  achievements: 'progress',
+  overview: 'progress',
+};
+
 function screenFromLocation(): GameScreenId {
   if (typeof window === 'undefined') return 'main-menu';
   const candidate = window.location.hash.replace(/^#\/?/, '');
-  return GAME_SCREEN_IDS.includes(candidate as GameScreenId)
-    ? candidate as GameScreenId
+  const normalized = LEGACY_SCREEN_ALIASES[candidate] ?? candidate;
+  return GAME_SCREEN_IDS.includes(normalized as GameScreenId)
+    ? normalized as GameScreenId
     : 'main-menu';
 }
 

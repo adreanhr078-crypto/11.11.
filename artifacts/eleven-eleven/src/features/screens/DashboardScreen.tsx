@@ -33,12 +33,6 @@ export default function DashboardScreen() {
   const state = useGameStore();
   const navigate = useShellStore((shell) => shell.navigate);
   const model = useMemo(() => createDashboardReadModel(state), [state]);
-  const systemStability = Math.round(state.world.stability);
-  const signalLabel = systemStability >= 70
-    ? 'مستقر'
-    : systemStability >= 40
-      ? 'متذبذب'
-      : 'حرج';
   const latestDecision = model.decisions[0];
 
   return (
@@ -49,54 +43,49 @@ export default function DashboardScreen() {
       >
         <header>
           <span>11:11</span>
-          <strong>ملخص الرحلة</strong>
-          <small>CONTEXT // LIVE STATE</small>
+          <strong>الخطوة التالية</strong>
+          <small>رحلة واضحة بدون ازدحام</small>
         </header>
         <div className="shell-dashboard__context-list">
           <article>
             <GameIcon id="status-route" />
             <span>
               <strong>{model.chapter.title}</strong>
-              <small>{model.puzzleProgress.progress}% من الفصل</small>
+              <small>{model.chapter.description}</small>
             </span>
           </article>
           <article>
             <GameIcon id="screen-memory" />
             <span>
               <strong>{model.memory.fragments} شظايا مستعادة</strong>
-              <small>{model.memory.unlocked} ذكريات مكتشفة</small>
+              <small>{model.memory.unlocked} ذكريات مفتوحة</small>
             </span>
           </article>
           <article>
-            <GameIcon id="screen-dialogue" />
+            <GameIcon id="screen-progress" />
             <span>
               <strong>
-                {latestDecision ? 'آخر قرار مسجل' : 'لا قرارات بعد'}
+                {latestDecision ? 'آخر قرار محفوظ' : 'لا يوجد قرار محوري بعد'}
               </strong>
               <small>
                 {latestDecision
-                  ? `${latestDecision.id} // ${latestDecision.choiceId}`
-                  : 'يظهر السجل بعد أول اختيار مؤثر'}
+                  ? `${latestDecision.id} / ${latestDecision.choiceId}`
+                  : 'سيظهر هنا أول قرار مؤثر على رحلة Echo'}
               </small>
             </span>
           </article>
         </div>
-        <div className="shell-dashboard__side-signal">
-          <i />
-          <span>
-            <small>استقرار النظام</small>
-            <strong>{signalLabel} // {systemStability}%</strong>
-          </span>
-        </div>
       </aside>
 
       <section className="shell-dashboard__echo-core" aria-label="حالة Echo">
-        <div className="shell-dashboard__core-header">
+        <div className="shell-dashboard__core-header shell-dashboard__core-header--clean">
           <span>
-            <small>ECHO MIND</small>
-            <strong>A-17 // ONLINE</strong>
+            <small>ECHO CORE</small>
+            <strong>الحالة الحالية</strong>
           </span>
-          <span className="shell-live-indicator">LIVE SIGNAL</span>
+          <span className="shell-dashboard__core-badge">
+            الفصل {model.chapter.id}
+          </span>
         </div>
         <EchoPresence
           className="shell-dashboard__echo-presence"
@@ -107,34 +96,36 @@ export default function DashboardScreen() {
           <span /><span /><i />
         </div>
         <div className="shell-dashboard__identity">
-          <small>ECHO MIND // A-17</small>
-          <h1>Echo</h1>
-          <p>البصمة العاطفية متصلة بطبقة العرض السينمائي.</p>
+          <small>Echo</small>
+          <h1>داخل النظام</h1>
+          <p>
+            الشخصية، الذاكرة، والقرارات كلها متصلة بنفس طبقة السرد الحالية.
+          </p>
           <div className="shell-dashboard__status-row">
-            <span data-tone="memory">● متصل</span>
+            <span data-tone="memory">الاستقرار {state.echo.memoryStability}%</span>
             <span>المستوى {state.echo.level}</span>
-            <span>الاستقرار {state.echo.memoryStability}%</span>
+            <span>التفاعلات {state.player.interactions}</span>
           </div>
         </div>
 
         <div className="shell-dashboard__memory-timeline">
           <header>
             <span>
-              <small>MEMORY TIMELINE</small>
-              <strong>الذكريات المتصلة</strong>
+              <small>MEMORY LINE</small>
+              <strong>إشارات الذاكرة</strong>
             </span>
-            <span>{model.memory.unlocked}/{model.memory.totalDefinitions || '—'}</span>
+            <span>{model.memory.fragments}</span>
           </header>
-          <div aria-label="خانات الذاكرة غير المؤلفة بعد">
-            {Array.from({ length: 5 }, (_, index) => (
-              <article
-                key={index}
-                data-locked
-              >
-                <i>{String(index + 1).padStart(2, '0')}</i>
-                <span>MEM-—</span>
-              </article>
-            ))}
+          <div aria-label="إشارات الذكريات المتاحة">
+            {Array.from({ length: 5 }, (_, index) => {
+              const active = index < Math.min(5, model.memory.fragments);
+              return (
+                <article key={index} data-locked={!active}>
+                  <i>{String(index + 1).padStart(2, '0')}</i>
+                  <span>{active ? 'FRAGMENT LINKED' : 'FRAGMENT LOCKED'}</span>
+                </article>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -142,9 +133,8 @@ export default function DashboardScreen() {
       <HudPanel
         className="shell-dashboard__personality"
         tone="memory"
-        eyebrow="EMOTION VISUAL SYSTEM"
+        eyebrow="Emotion Visual System"
         title="الحالة النفسية"
-        actions={<span className="shell-live-indicator">SYNC</span>}
       >
         <div className="shell-dashboard__stat-grid">
           {PERSONALITY_STATS.map((stat) => (
@@ -162,21 +152,21 @@ export default function DashboardScreen() {
       <GlassPanel
         className="shell-dashboard__trajectory"
         tone="danger"
-        eyebrow="TRANSFORMATION VECTOR"
-        title="نقطة التحول"
+        eyebrow="Choice Pressure"
+        title="اتجاه الحالة"
       >
         <div className="shell-dashboard__axis">
           <span>
-            <small>ANGER</small>
-            <strong>{model.personality.anger}</strong>
+            <small>الثقة</small>
+            <strong>{model.personality.trust}</strong>
           </span>
           <i><b /></i>
           <span>
-            <small>TRUST</small>
-            <strong>{model.personality.trust}</strong>
+            <small>الفساد</small>
+            <strong>{model.personality.corruption}</strong>
           </span>
         </div>
-        <GameProgress value={model.personality.corruption} tone="danger" />
+        <GameProgress value={model.personality.humanity} tone="progression" />
       </GlassPanel>
 
       <HudPanel
@@ -196,7 +186,7 @@ export default function DashboardScreen() {
         <div className="shell-dashboard__chapter-meta">
           <span>
             <strong>{model.puzzleProgress.resolved}</strong>
-            عقد محسومة
+            ألغاز محسومة
           </span>
           <span>
             <strong>{model.memory.fragments || model.memory.legacyCollected}</strong>
@@ -204,21 +194,35 @@ export default function DashboardScreen() {
           </span>
           <span>
             <strong>{model.decisions.length}</strong>
-            قرارات
+            قرارات مرئية
           </span>
         </div>
-        <GameButton
-          variant="secondary"
-          fullWidth
-          onClick={() => navigate('puzzles')}
-        >
-          <GameIconLabel
-            iconId="screen-puzzles"
-            label="متابعة الرحلة"
-            description="الانتقال إلى إعادة بناء الحدث التالي"
-            compact
-          />
-        </GameButton>
+        <div className="shell-dashboard__primary-actions">
+          <GameButton
+            variant="secondary"
+            fullWidth
+            onClick={() => navigate('puzzles')}
+          >
+            <GameIconLabel
+              iconId="screen-puzzles"
+              label="ابدأ اللغز التالي"
+              description="فتح مساحة إعادة البناء الحالية"
+              compact
+            />
+          </GameButton>
+          <GameButton
+            variant="ghost"
+            fullWidth
+            onClick={() => navigate('echo-mind')}
+          >
+            <GameIconLabel
+              iconId="screen-echo-mind"
+              label="افتح Echo Mind"
+              description="التحدث مع Echo وربط الذكريات"
+              compact
+            />
+          </GameButton>
+        </div>
       </HudPanel>
     </div>
   );

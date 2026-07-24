@@ -177,6 +177,12 @@
   font: 600 var(--gds-type-xs) var(--gds-font-mono);
 }
 
+.application-shell__utility .gds-button {
+  min-height: 2.45rem;
+  padding-inline: 0.85rem;
+  white-space: nowrap;
+}
+
 .application-shell__currency {
   display: inline-flex;
   align-items: center;

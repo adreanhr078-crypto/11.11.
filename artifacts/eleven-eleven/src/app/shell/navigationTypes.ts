@@ -1,7 +1,8 @@
 export const NAVIGATION_CATEGORY_IDS = [
   'story',
   'memory',
-  'investigation',
+  'puzzles',
+  'echo-mind',
   'characters',
   'progress',
   'settings',

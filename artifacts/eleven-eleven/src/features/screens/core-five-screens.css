@@ -2177,3 +2177,181 @@
 [data-gds-motion="reduced"] .core5-decision-screen__impact-orbit span {
   animation: none;
 }
+
+.shell-dashboard__core-header--clean {
+  justify-content: space-between;
+}
+
+.shell-dashboard__core-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding-inline: 0.7rem;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 999px;
+  color: var(--gds-text-secondary);
+  font: 600 var(--gds-type-2xs) var(--gds-font-mono);
+}
+
+.shell-dashboard__primary-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.shell-echo-mind-screen,
+.shell-characters-screen,
+.shell-progress-screen {
+  display: grid;
+  gap: 1rem;
+}
+
+.shell-echo-mind-grid,
+.shell-progress-screen__grid {
+  display: grid;
+  grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr) minmax(16rem, 20rem);
+  gap: 1rem;
+}
+
+.shell-echo-mind-screen__status .gds-panel__body,
+.shell-echo-mind-screen__chat .gds-panel__body,
+.shell-progress-screen__summary .gds-panel__body,
+.shell-progress-screen__events .gds-panel__body {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.shell-echo-mind-screen__meters {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.shell-echo-mind-screen__messages {
+  display: grid;
+  gap: 0.55rem;
+  max-height: 20rem;
+  overflow: auto;
+}
+
+.shell-echo-mind-screen__messages article {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.75rem;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: var(--gds-radius-md);
+  background: rgb(255 255 255 / 3%);
+}
+
+.shell-echo-mind-screen__messages article[data-speaker="player"] {
+  border-color: rgb(72 220 247 / 18%);
+  background: rgb(72 220 247 / 5%);
+}
+
+.shell-echo-mind-screen__messages article strong {
+  color: var(--gds-text-secondary);
+  font: 600 var(--gds-type-2xs) var(--gds-font-mono);
+  letter-spacing: 0.12em;
+}
+
+.shell-echo-mind-screen__messages article p,
+.shell-echo-mind-screen__references p,
+.shell-progress-screen__stats p,
+.shell-characters-screen__hero-copy p {
+  margin: 0;
+}
+
+.shell-echo-mind-screen__actions,
+.shell-echo-mind-screen__jump-links,
+.shell-characters-screen__list,
+.shell-progress-screen__stats,
+.shell-progress-screen__event-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.shell-echo-mind-screen__actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.shell-echo-mind-screen__reference-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.shell-echo-mind-screen__reference-list article,
+.shell-progress-screen__event-list article {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.75rem;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: var(--gds-radius-md);
+  background: rgb(255 255 255 / 3%);
+}
+
+.shell-inline-empty {
+  color: var(--gds-text-muted);
+  font-size: var(--gds-type-xs);
+}
+
+.shell-echo-mind-screen__capabilities {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.shell-echo-mind-screen__capabilities .gds-panel__body {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.shell-characters-screen__grid {
+  display: grid;
+  grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.shell-characters-screen__hero .gds-panel__body {
+  display: grid;
+  gap: 1rem;
+}
+
+.shell-characters-screen__hero-copy {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.shell-characters-screen__profile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.7rem;
+}
+
+.shell-progress-screen__stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.shell-progress-screen__stats .gds-panel__body {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.shell-progress-screen__stats strong {
+  font-size: clamp(1.6rem, 3.8vmin, 2.3rem);
+}
+
+@media (max-width: 70rem) {
+  .shell-echo-mind-grid,
+  .shell-progress-screen__grid,
+  .shell-characters-screen__grid,
+  .shell-echo-mind-screen__capabilities {
+    grid-template-columns: 1fr;
+  }
+
+  .shell-dashboard__primary-actions,
+  .shell-echo-mind-screen__actions,
+  .shell-progress-screen__stats {
+    grid-template-columns: 1fr;
+  }
+}

@@ -44,7 +44,7 @@ export const GAME_SCREEN_DEFINITIONS = [
     id: 'dashboard',
     label: 'نظام Echo',
     shortLabel: 'Echo',
-    description: 'الحالة الحالية ومسار الرحلة والذاكرة.',
+    description: 'الحالة الحالية ومسار الرحلة والقرار التالي.',
     code: '01',
     tone: 'danger',
     iconId: 'screen-dashboard',
@@ -72,7 +72,7 @@ export const GAME_SCREEN_DEFINITIONS = [
     id: 'memories',
     label: 'شبكة الذاكرة',
     shortLabel: 'الذكريات',
-    description: 'عرض الذكريات المستعادة وشظاياها.',
+    description: 'عرض الذكريات المستعادة والشظايا المرتبطة بها.',
     code: '03',
     tone: 'memory',
     iconId: 'screen-memory',
@@ -90,18 +90,32 @@ export const GAME_SCREEN_DEFINITIONS = [
     code: '04',
     tone: 'memory',
     iconId: 'screen-puzzles',
-    categoryId: 'investigation',
+    categoryId: 'puzzles',
     navigation: 'landing',
     component: lazy(() => import(
       '../../features/screens/PuzzleScreen'
     )),
   },
   {
+    id: 'echo-mind',
+    label: 'Echo Mind',
+    shortLabel: 'Echo',
+    description: 'التحدث مع Echo وتتبع ردوده ومرجعياته النشطة.',
+    code: '05',
+    tone: 'danger',
+    iconId: 'screen-echo-mind',
+    categoryId: 'echo-mind',
+    navigation: 'landing',
+    component: lazy(() => import(
+      '../../features/screens/EchoMindScreen'
+    )),
+  },
+  {
     id: 'dialogue',
-    label: 'التواصل مع Echo',
+    label: 'الحوار والقرارات',
     shortLabel: 'الحوار',
     description: 'الحوارات والخيارات والقرارات المسجلة.',
-    code: '05',
+    code: '06',
     tone: 'memory',
     iconId: 'screen-dialogue',
     categoryId: 'story',
@@ -111,87 +125,31 @@ export const GAME_SCREEN_DEFINITIONS = [
     )),
   },
   {
-    id: 'day',
-    label: 'المسار النهاري',
-    shortLabel: 'النهار',
-    description: 'حالة الرحلة خارج طور 11:11.',
-    code: '06',
-    tone: 'progression',
-    iconId: 'screen-day',
-    categoryId: 'story',
-    navigation: 'secondary',
-    component: lazy(() => import(
-      '../../components/sections/DaySection'
-    )),
-  },
-  {
-    id: 'wishes',
-    label: 'الأمنيات',
-    shortLabel: 'الأمنيات',
-    description: 'الروابط الشخصية التي تؤثر في الرحلة.',
+    id: 'characters',
+    label: 'ملفات الشخصيات',
+    shortLabel: 'الشخصيات',
+    description: 'علاقات Echo والشخصيات المرتبطة بمسار القصة.',
     code: '07',
     tone: 'rare',
-    iconId: 'screen-wishes',
-    categoryId: 'story',
-    navigation: 'secondary',
-    component: lazy(() => import(
-      '../../components/sections/WishesSection'
-    )),
-  },
-  {
-    id: 'flowers',
-    label: 'زهرة الذاكرة',
-    shortLabel: 'الزهرة',
-    description: 'قراءة نمو الذاكرة واستقرارها.',
-    code: '08',
-    tone: 'rare',
-    iconId: 'screen-flowers',
-    categoryId: 'memory',
-    navigation: 'secondary',
-    component: lazy(() => import(
-      '../../components/flower/FlowerSystem'
-    )),
-  },
-  {
-    id: 'achievements',
-    label: 'الإنجازات',
-    shortLabel: 'الإنجازات',
-    description: 'الإنجازات المكتشفة وحالة تقدمها.',
-    code: '09',
-    tone: 'progression',
-    iconId: 'screen-achievements',
-    categoryId: 'progress',
-    navigation: 'landing',
-    component: lazy(() => import(
-      '../../components/sections/AchievementsSection'
-    )),
-  },
-  {
-    id: 'night',
-    label: 'تطور Echo',
-    shortLabel: 'Echo',
-    description: 'تحولات Echo وتأثير حالته النفسية.',
-    code: '10',
-    tone: 'danger',
-    iconId: 'screen-night',
+    iconId: 'screen-characters',
     categoryId: 'characters',
     navigation: 'landing',
     component: lazy(() => import(
-      '../../components/sections/NightTransformation'
+      '../../features/screens/CharactersScreen'
     )),
   },
   {
-    id: 'overview',
-    label: 'سجل النظام',
-    shortLabel: 'السجل',
-    description: 'الأحداث والقرارات التي اكتشفها اللاعب.',
-    code: '11',
-    tone: 'neutral',
-    iconId: 'screen-overview',
-    categoryId: 'investigation',
-    navigation: 'secondary',
+    id: 'progress',
+    label: 'تقدم الرحلة',
+    shortLabel: 'التقدم',
+    description: 'الإنجازات والقرارات والنهايات المؤهلة.',
+    code: '08',
+    tone: 'progression',
+    iconId: 'screen-progress',
+    categoryId: 'progress',
+    navigation: 'landing',
     component: lazy(() => import(
-      '../../components/sections/OverviewSection'
+      '../../features/screens/ProgressScreen'
     )),
   },
   {
@@ -199,11 +157,11 @@ export const GAME_SCREEN_DEFINITIONS = [
     label: 'الإعدادات',
     shortLabel: 'الإعدادات',
     description: 'تخصيص اللعبة والصوت والجودة وإمكانية الوصول.',
-    code: '12',
+    code: '09',
     tone: 'neutral',
     iconId: 'screen-settings',
     categoryId: 'settings',
-    navigation: 'landing',
+    navigation: 'hidden',
     component: lazy(() => import(
       '../../features/screens/SettingsScreen'
     )),

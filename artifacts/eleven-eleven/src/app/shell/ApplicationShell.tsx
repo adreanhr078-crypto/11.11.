@@ -14,7 +14,6 @@ import {
   GameIcon,
   GameIconLabel,
 } from '../../ui/icons';
-import { toggleLanguage } from '../../core/echoMultilingualSystem';
 import { createDashboardReadModel } from '../../application/ui/gameUiReadModels';
 import {
   PremiumAtmosphere,
@@ -26,8 +25,8 @@ import {
 import {
   getCategoryScreens,
   getNavigationCategoryForScreen,
-  NAVIGATION_CATEGORIES,
   NAVIGATION_CATEGORY_REGISTRY,
+  PRIMARY_NAVIGATION_CATEGORIES,
 } from './navigationRegistry';
 import {
   useShellStore,
@@ -55,13 +54,11 @@ export function ApplicationShell() {
   return (
     <GameViewport
       id="app"
-      className={`app-root application-shell ${
-        state.time.isNight ? 'night-active' : 'day-dashboard'
-      }`}
+      className="app-root application-shell echo-runtime"
       dir={document.documentElement.lang === 'ar' ? 'rtl' : 'ltr'}
       quality={preferences.quality}
       motion={preferences.motion}
-      data-ui-system="cinematic-shell-v1"
+      data-ui-system="cinematic-shell-v2"
     >
       <PremiumAtmosphere />
       <GameSafeArea className="application-shell__safe">
@@ -84,10 +81,11 @@ export function ApplicationShell() {
                 <small>{definition.code}</small>
               </i>
               <span>
-                <small>{currentCategory.label} // 11:11</small>
+                <small>{currentCategory.label}</small>
                 <strong>{definition.label}</strong>
               </span>
             </button>
+
             <div className="application-shell__chapter">
               <span>{model.chapter.title}</span>
               <GameProgress
@@ -97,38 +95,24 @@ export function ApplicationShell() {
               />
               <small>{model.puzzleProgress.progress}%</small>
             </div>
+
             <div className="application-shell__utility">
-              <span
-                className="application-shell__currency"
-                aria-label={`بلورات Echo: ${model.resources.crystals}`}
-              >
-                <GameIcon id="resource-crystal" />
-                <span>بلورات</span>
-                <strong>{model.resources.crystals}</strong>
-              </span>
-              <time aria-label="وقت النظام">
-                <small>TIME</small>
-                {String(state.time.hour).padStart(2, '0')}:
-                {String(state.time.minute).padStart(2, '0')}
-              </time>
-              <GameTooltip label="تبديل لغة الواجهة">
+              <GameTooltip label="الإعدادات">
                 <GameButton
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => toggleLanguage()}
-                  aria-label="تبديل لغة الواجهة"
+                  variant="secondary"
+                  leadingIcon={<GameIcon id="screen-settings" />}
+                  onClick={() => shell.navigate('settings')}
                 >
-                  <GameIcon id="utility-language" />
+                  الإعدادات
                 </GameButton>
               </GameTooltip>
               <GameTooltip label="قائمة الإيقاف">
                 <GameButton
                   variant="ghost"
-                  size="icon"
+                  leadingIcon={<GameIcon id="utility-pause" />}
                   onClick={shell.openPause}
-                  aria-label="قائمة الإيقاف"
                 >
-                  <GameIcon id="utility-pause" />
+                  إيقاف
                 </GameButton>
               </GameTooltip>
             </div>
@@ -159,7 +143,7 @@ export function ApplicationShell() {
             className="application-shell__navigation"
             aria-label="التنقل الرئيسي"
           >
-            {NAVIGATION_CATEGORIES.map((category) => (
+            {PRIMARY_NAVIGATION_CATEGORIES.map((category) => (
               <button
                 key={category.id}
                 type="button"
@@ -256,12 +240,12 @@ export function ApplicationShell() {
           <GameButton
             variant="ghost"
             fullWidth
-            leadingIcon={<GameIcon id="screen-overview" />}
-            onClick={() => shell.navigate('overview')}
+            leadingIcon={<GameIcon id="screen-progress" />}
+            onClick={() => shell.navigate('progress')}
           >
             <span className="application-shell__pause-copy">
-              <strong>سجل النظام</strong>
-              <small>الأحداث والقرارات المكتشفة</small>
+              <strong>التقدم</strong>
+              <small>مراجعة الإنجازات والذكريات والنهايات</small>
             </span>
           </GameButton>
           <GameButton

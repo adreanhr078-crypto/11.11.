@@ -19,6 +19,7 @@ export interface NavigationCategoryDefinition {
   iconId: GameIconId;
   tone: GameTone;
   landingScreenId: GameScreenId;
+  primary: boolean;
 }
 
 export const NAVIGATION_CATEGORIES = [
@@ -26,46 +27,61 @@ export const NAVIGATION_CATEGORIES = [
     id: 'story',
     label: 'القصة',
     shortLabel: 'القصة',
-    description: 'متابعة الفصل والمشاهد والحوارات.',
+    description: 'متابعة الفصل الحالي والمشاهد والحوارات الأساسية.',
     iconId: 'category-story',
     tone: 'danger',
     landingScreenId: 'dashboard',
+    primary: true,
   },
   {
     id: 'memory',
-    label: 'الذاكرة',
-    shortLabel: 'الذاكرة',
-    description: 'الذكريات المستعادة والشظايا المرتبطة بها.',
+    label: 'الذكريات',
+    shortLabel: 'الذكريات',
+    description: 'عرض الذكريات المستعادة والشظايا المرتبطة بها.',
     iconId: 'category-memory',
     tone: 'memory',
     landingScreenId: 'memories',
+    primary: true,
   },
   {
-    id: 'investigation',
-    label: 'التحقيق',
-    shortLabel: 'التحقيق',
-    description: 'الألغاز والأدلة وسجل النظام.',
-    iconId: 'category-investigation',
+    id: 'puzzles',
+    label: 'الألغاز',
+    shortLabel: 'الألغاز',
+    description: 'حل العقد وإعادة بناء الأحداث المفقودة.',
+    iconId: 'category-puzzles',
     tone: 'memory',
     landingScreenId: 'puzzles',
+    primary: true,
+  },
+  {
+    id: 'echo-mind',
+    label: 'Echo Mind',
+    shortLabel: 'Echo',
+    description: 'التحدث مع Echo ومراجعة حالته وردوده ومرجعياته.',
+    iconId: 'category-echo-mind',
+    tone: 'danger',
+    landingScreenId: 'echo-mind',
+    primary: true,
   },
   {
     id: 'characters',
     label: 'الشخصيات',
     shortLabel: 'الشخصيات',
-    description: 'ملفات الشخصيات والعلاقات وتطور Echo.',
+    description: 'ملفات الشخصيات والعلاقات وتأثيرها على الرحلة.',
     iconId: 'category-characters',
     tone: 'rare',
-    landingScreenId: 'night',
+    landingScreenId: 'characters',
+    primary: true,
   },
   {
     id: 'progress',
     label: 'التقدم',
     shortLabel: 'التقدم',
-    description: 'الإنجازات وحالة تقدم الرحلة.',
+    description: 'تقدم الرحلة والإنجازات والنهايات المؤهلة.',
     iconId: 'category-progress',
     tone: 'progression',
-    landingScreenId: 'achievements',
+    landingScreenId: 'progress',
+    primary: true,
   },
   {
     id: 'settings',
@@ -75,8 +91,13 @@ export const NAVIGATION_CATEGORIES = [
     iconId: 'category-settings',
     tone: 'neutral',
     landingScreenId: 'settings',
+    primary: false,
   },
 ] as const satisfies readonly NavigationCategoryDefinition[];
+
+export const PRIMARY_NAVIGATION_CATEGORIES = NAVIGATION_CATEGORIES.filter(
+  (category) => category.primary,
+);
 
 export const NAVIGATION_CATEGORY_REGISTRY = Object.freeze(
   Object.fromEntries(

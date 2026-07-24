@@ -15,6 +15,7 @@ import {
 import {
   getCategoryScreens,
   NAVIGATION_CATEGORIES,
+  PRIMARY_NAVIGATION_CATEGORIES,
 } from '../app/shell/navigationRegistry';
 import { useGameStore } from '../stores/gameStore';
 import {
@@ -35,20 +36,27 @@ describe('Application Shell', () => {
     assert.equal(screens.length, GAME_SCREEN_DEFINITIONS.length);
   });
 
-  it('uses exactly six named navigation categories', () => {
+  it('uses six primary navigation categories and keeps settings as utility only', () => {
     assert.deepEqual(
-      NAVIGATION_CATEGORIES.map(({ id }) => id),
+      PRIMARY_NAVIGATION_CATEGORIES.map(({ id }) => id),
       [
         'story',
         'memory',
-        'investigation',
+        'puzzles',
+        'echo-mind',
         'characters',
         'progress',
-        'settings',
       ],
     );
 
-    const navigableScreens = NAVIGATION_CATEGORIES.flatMap((category) => (
+    assert.equal(
+      NAVIGATION_CATEGORIES.some(
+        (category) => category.id === 'settings' && category.primary === false,
+      ),
+      true,
+    );
+
+    const navigableScreens = PRIMARY_NAVIGATION_CATEGORIES.flatMap((category) => (
       getCategoryScreens(category.id).map(({ id }) => id)
     ));
     assert.equal(

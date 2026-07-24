@@ -38,35 +38,32 @@ export default function MainMenuScreen() {
         <span className="shell-main-menu__world-light" />
         <span className="shell-main-menu__world-foreground" />
       </div>
+
       <div className="shell-main-menu__atmosphere" aria-hidden="true">
         <span className="shell-main-menu__orbit shell-main-menu__orbit--one" />
         <span className="shell-main-menu__orbit shell-main-menu__orbit--two" />
-        <span className="shell-memory-flower">
-          <i /><i /><i /><i /><i /><i />
-        </span>
         <span className="shell-main-menu__embers">
           {Array.from({ length: 16 }, (_, index) => (
             <i key={index} />
           ))}
         </span>
       </div>
+
       <EchoPresence
         className="shell-main-menu__echo"
         variant="hero"
         eager
       />
 
-      <header className="shell-main-menu__utility">
+      <header className="shell-main-menu__utility shell-main-menu__utility--minimal">
         <span className="shell-main-menu__scene-title">
           <span className="shell-screen-code">01</span>
           <strong>المشهد السينمائي</strong>
         </span>
-        <span className="shell-main-menu__episode">PROJECT 11:11</span>
-        <span className="shell-main-menu__signal">SYSTEM // STABLE</span>
       </header>
 
       <section className="shell-main-menu__identity">
-        <small>PROJECT // ECHO MIND</small>
+        <small>PROJECT</small>
         <h1>11:11</h1>
         <p>ECHOES OF THE FORGOTTEN</p>
         <span className="shell-main-menu__line" aria-hidden="true" />
@@ -80,8 +77,8 @@ export default function MainMenuScreen() {
         <GlassPanel
           className="shell-main-menu__actions"
           tone="danger"
-          eyebrow="ECHO // SIGNAL CHANNEL"
-          title={model.hasJourneyProgress ? 'استعادة الاتصال' : 'القناة بانتظارك'}
+          eyebrow="Echo Channel"
+          title={model.hasJourneyProgress ? 'استعادة الاتصال' : 'ابدأ الرحلة'}
         >
           <GameButton
             size="lg"
@@ -94,38 +91,36 @@ export default function MainMenuScreen() {
           <div className="shell-main-menu__secondary-actions">
             <GameButton
               variant="secondary"
-              onClick={() => setConfirmNewGame(true)}
-            >
-              لعبة جديدة
-            </GameButton>
-            <GameButton
-              variant="ghost"
-              leadingIcon={<GameIcon id="screen-memory" />}
               onClick={() => navigate('memories')}
             >
               الذكريات
             </GameButton>
             <GameButton
               variant="ghost"
-              leadingIcon={<GameIcon id="screen-settings" />}
-              onClick={() => navigate('settings')}
+              onClick={() => navigate('echo-mind')}
             >
-              الإعدادات
+              Echo Mind
+            </GameButton>
+            <GameButton
+              variant="ghost"
+              onClick={() => setConfirmNewGame(true)}
+            >
+              لعبة جديدة
             </GameButton>
           </div>
           <div className="shell-main-menu__checkpoint">
             <span>الفصل الحالي</span>
             <strong>{model.chapter.title}</strong>
-            <small>{model.puzzleProgress.progress}% من الرحلة</small>
+            <small>{model.puzzleProgress.progress}% من التقدم الحالي</small>
           </div>
         </GlassPanel>
       </div>
 
       <footer className="shell-main-menu__footer">
-        <span>11:11 // MOBILE CINEMATIC RUNTIME</span>
+        <span>Android Landscape Cinematic Interface</span>
         <span className="shell-main-menu__audio-signal">
           <i /><i /><i /><i /><i /><i /><i /><i />
-          日本語 VO · العربية SUB
+          Japanese VO Ready · Arabic Subtitles Ready
         </span>
       </footer>
 
@@ -154,8 +149,7 @@ export default function MainMenuScreen() {
         )}
       >
         <p className="shell-modal-note">
-          المحتوى القصصي يبقى منفصلاً في ملفات البيانات؛ هذا يعيد حالة اللاعب
-          فقط ولا يغيّر تعريفات المحتوى.
+          هذا يعيد حالة اللاعب فقط ويحافظ على بنية المحتوى والأنظمة كما هي.
         </p>
       </GameModal>
     </CinematicFrame>
