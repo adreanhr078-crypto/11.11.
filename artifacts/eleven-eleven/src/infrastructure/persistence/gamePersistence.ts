@@ -11,11 +11,14 @@ import {
   normalizeNarrativeState,
 } from '../../domain/narrative/narrativeState';
 import {
+  normalizeCinematicState,
+} from '../../domain/cinematics/cinematicState';
+import {
   CHAPTER_DEFINITIONS,
   CONTENT_MANIFEST,
 } from '../content/contentRegistry';
 
-export const GAME_SAVE_VERSION = 7;
+export const GAME_SAVE_VERSION = 8;
 
 // Keep the established key so Zustand can migrate existing local saves.
 export const GAME_STORAGE_NAME = '11-11-game-store-v5';
@@ -54,6 +57,7 @@ export function migrateGameState(
         }
       : undefined,
     narrative: normalizeNarrativeState(persisted.narrative),
+    cinematic: normalizeCinematicState(persisted.cinematic),
   };
 }
 
@@ -121,6 +125,7 @@ export function partializeGameState(state: GameState): PersistedState {
     echo: state.echo,
     progression: state.progression,
     narrative: state.narrative,
+    cinematic: state.cinematic,
     flower: state.flower,
     memory: state.memory,
     player: state.player,

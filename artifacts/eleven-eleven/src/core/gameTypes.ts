@@ -10,6 +10,13 @@ import type { EchoPersonality } from '../domain/echo/echoPersonality';
 import type { ProgressionState } from '../domain/progression/progression';
 import type { NarrativeState } from '../domain/narrative/narrativeState';
 import type { DialogueId } from '../domain/content/contracts';
+import type {
+  CinematicEpisodeId,
+} from '../domain/cinematics/contracts';
+import type {
+  CinematicPreferences,
+  CinematicState,
+} from '../domain/cinematics/cinematicState';
 export { type ChapterId, type ChapterState } from './chapterSystem';
 
 // ─── Basic Types ─────────────────────────────────────────────────────
@@ -170,6 +177,15 @@ export interface GameActions {
   startDialogueGraph: (dialogueId: DialogueId) => void;
   chooseDialogueOption: (choiceId: string) => void;
   evaluateNarrativeEndings: () => string[];
+  startCinematicEpisode: (episodeId: CinematicEpisodeId) => void;
+  completeCinematicScene: () => void;
+  chooseCinematicChoice: (choiceId: string) => void;
+  pauseCinematic: () => void;
+  resumeCinematic: () => void;
+  stopCinematic: () => void;
+  setCinematicPreferences: (
+    preferences: Partial<CinematicPreferences>,
+  ) => void;
 }
 
 export interface GameState {
@@ -180,6 +196,8 @@ export interface GameState {
   progression: ProgressionState;
   /** Canonical narrative gameplay state for memories, decisions, dialogue, and endings. */
   narrative: NarrativeState;
+  /** Persisted cinematic checkpoint; frame-by-frame playback stays in the player. */
+  cinematic: CinematicState;
   chapters: Record<ChapterId, ChapterState>; currentChapter: ChapterId;
   /** @deprecated Compatibility only; not a progression source of truth. */
   entities: Record<EntityId, LegacyEntityProgress>;

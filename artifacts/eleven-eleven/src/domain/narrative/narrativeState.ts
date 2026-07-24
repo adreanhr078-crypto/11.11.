@@ -9,7 +9,7 @@ import type {
 export interface DecisionRecord {
   id: string;
   choiceId: string;
-  source: 'dialogue' | 'puzzle' | 'system' | 'ending';
+  source: 'dialogue' | 'puzzle' | 'system' | 'ending' | 'cinematic';
   createdAt: number;
   metadata?: Record<string, string | number | boolean>;
 }
@@ -81,4 +81,3 @@ export function normalizeNarrativeState(
     endingEligibility: [...(state.endingEligibility ?? [])],
   };
 }
-

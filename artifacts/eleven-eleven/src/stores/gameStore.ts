@@ -20,6 +20,7 @@ import { createMissionActions } from '../application/game/createMissionActions';
 import { createPuzzleActions } from '../application/game/createPuzzleActions';
 import { createWorldActions } from '../application/game/createWorldActions';
 import { createNarrativeActions } from '../application/narrative/createNarrativeActions';
+import { createCinematicActions } from '../application/cinematics/createCinematicActions';
 import type {
   GameStateGetter,
   GameStateSetter,
@@ -93,6 +94,7 @@ export const useGameStore = create<GameState>()(
           ...createMissionActions(setState, getState),
           ...createWorldActions(setState, getState),
           ...createNarrativeActions(setState, getState),
+          ...createCinematicActions(setState, getState),
         },
       };
     },

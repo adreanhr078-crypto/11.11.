@@ -132,6 +132,8 @@ export interface ContentManifest {
     chapters: number;
     dialogues: number;
     endings: number;
+    cinematics: number;
+    assets: number;
   };
   collections: {
     chapters: string;
@@ -139,5 +141,7 @@ export interface ContentManifest {
     memories: string;
     dialogues: string;
     endings: string;
+    cinematics: string;
+    assets: string;
   };
 }

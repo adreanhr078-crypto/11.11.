@@ -6,6 +6,10 @@ import type {
   MemoryDefinition,
   PuzzleDefinition,
 } from '../../domain/content/contracts';
+import type {
+  CinematicAssetDefinition,
+  CinematicEpisodeDefinition,
+} from '../../domain/cinematics/contracts';
 
 export interface ContentPage<T> {
   items: T[];
@@ -35,4 +39,11 @@ export interface ContentRepository {
   getEndings(
     request?: ContentPageRequest,
   ): Promise<ContentPage<EndingDefinition>>;
+  getCinematicEpisodes(
+    chapterId: ChapterId,
+    request?: ContentPageRequest,
+  ): Promise<ContentPage<CinematicEpisodeDefinition>>;
+  getCinematicAssets(
+    assetIds: readonly string[],
+  ): Promise<readonly CinematicAssetDefinition[]>;
 }

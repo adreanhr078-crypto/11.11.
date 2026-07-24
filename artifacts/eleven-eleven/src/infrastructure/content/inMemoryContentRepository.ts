@@ -13,6 +13,10 @@ import {
   MEMORY_DEFINITIONS,
   PUZZLE_DEFINITIONS,
 } from './contentRegistry';
+import {
+  CINEMATIC_ASSET_DEFINITIONS,
+  CINEMATIC_EPISODE_DEFINITIONS,
+} from './cinematicContentRegistry';
 
 function page<T>(
   items: readonly T[],
@@ -58,18 +62,36 @@ export const inMemoryContentRepository: ContentRepository = {
   async getEndings(request) {
     return page(ENDING_DEFINITIONS, request);
   },
+
+  async getCinematicEpisodes(chapterId, request) {
+    return page(
+      CINEMATIC_EPISODE_DEFINITIONS.filter((item) => (
+        item.chapterId === chapterId
+      )),
+      request,
+    );
+  },
+
+  async getCinematicAssets(assetIds) {
+    const requested = new Set(assetIds);
+    return CINEMATIC_ASSET_DEFINITIONS.filter((asset) => (
+      requested.has(asset.id)
+    ));
+  },
 };
 
 export async function getChapterContentSummary(chapterId: ChapterId) {
-  const [puzzles, memories, dialogues] = await Promise.all([
+  const [puzzles, memories, dialogues, cinematics] = await Promise.all([
     inMemoryContentRepository.getPuzzles(chapterId, { limit: 1 }),
     inMemoryContentRepository.getMemories(chapterId, { limit: 1 }),
     inMemoryContentRepository.getDialogues(chapterId, { limit: 1 }),
+    inMemoryContentRepository.getCinematicEpisodes(chapterId, { limit: 1 }),
   ]);
   return {
     chapterId,
     puzzles: puzzles.total,
     memories: memories.total,
     dialogues: dialogues.total,
+    cinematics: cinematics.total,
   };
 }

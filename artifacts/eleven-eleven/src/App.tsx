@@ -1,170 +1,19 @@
-/**
- * App.tsx — نقطة الدخول الرئيسية مع الشريط الجانبي الكامل
- */
-
-import React, { Suspense, useEffect, useState } from 'react';
-import { useGameStore } from './stores/gameStore';
-import { GameSidebar, type SectionId } from './components/sidebar/GameSidebar';
-import { EchoChat } from './components/echo/EchoChat';
-import { PuzzleEngine } from './components/puzzle/PuzzleEngine';
-import { FlowerSystem } from './components/flower/FlowerSystem';
-import { MemorySystem } from './components/memory/MemorySystem';
+import './ui/design-system/styles/index.css';
 import './styles/eleven-theme.css';
 import './styles/dashboard.css';
 import './styles/day-mode.css';
 import './styles/backgrounds.css';
 import './styles/EchoPortrait.css';
 import './styles/night-dashboard.css';
-
-// الأقسام الأساسية
-import { DashboardHome } from './components/sections/DashboardHome';
-import { DaySection } from './components/sections/DaySection';
-import { WishesSection } from './components/sections/WishesSection';
-import { AchievementsSection } from './components/sections/AchievementsSection';
-import { NightTransformation } from './components/sections/NightTransformation';
-import { OverviewSection } from './components/sections/OverviewSection';
-import { EndingPanel } from './components/sections/EndingPanel';
-import { EndingResultScreen } from './components/sections/EndingResultScreen';
-import { FinalChoiceSystem } from './components/sections/FinalChoiceSystem';
-import { CinematicMode } from './components/effects/CinematicMode';
-import { AnimationSystem } from './components/effects/AnimationSystem';
-import { useAudioSystem } from './hooks/useAudioSystem';
-import { toggleLanguage } from './core/echoMultilingualSystem';
-import { AchievementToast } from './components/AchievementToast';
-import { ResetConfirmModal } from './components/sections/EndingPanel';
-
-const NarrativeDebugPanel = import.meta.env.DEV
-  ? React.lazy(() => import('./features/devtools/NarrativeDebugPanel'))
-  : null;
+import './app/shell/application-shell.css';
+import { ApplicationShell } from './app/shell/ApplicationShell';
+import { GameRuntimeBridge } from './app/shell/GameRuntimeBridge';
 
 export default function App() {
-  const actions = useGameStore(s => s.actions);
-  const time = useGameStore(s => s.time);
-  const solvedPuzzles = useGameStore(s => s.solvedPuzzles);
-  const totalPuzzles = useGameStore(s => s.totalPuzzles);
-  const progression = useGameStore(s => s.progression);
-  const finalChoice = useGameStore(s => s.finalChoice);
-  const achievedEnding = useGameStore(s => s.achievedEnding);
-  const [activeSection, setActiveSection] = useState<SectionId>('dashboard');
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [showCinematic, setShowCinematic] = useState(false);
-  const [showEndingResult, setShowEndingResult] = useState(false);
-  const direction = document.documentElement.lang === 'ar' ? 'rtl' : 'ltr';
-
-  // دورة الوقت
-  useEffect(() => {
-    actions.advanceTime();
-    const interval = setInterval(() => actions.advanceTime(), 30000);
-    return () => clearInterval(interval);
-  }, [actions]);
-
-  // مراقبة 11:11 للوضع السينمائي
-  useEffect(() => {
-    if (time.phaseIndex >= 3 && !showCinematic) {
-      setShowCinematic(true);
-      const timer = setTimeout(() => setShowCinematic(false), 8000);
-      return () => clearTimeout(timer);
-    }
-    return;
-  }, [time.phaseIndex, time.hour, time.minute]);
-
-  // Show ending result when achieved
-  useEffect(() => {
-    if (achievedEnding || finalChoice) {
-      setShowEndingResult(true);
-    }
-  }, [achievedEnding, finalChoice]);
-
-  // النظام الصوتي
-  useAudioSystem(time.phase, time.phaseIndex);
-
-  // محتوى الأقسام
-  const renderSection = () => {
-    switch (activeSection) {
-      case 'dashboard': return <DashboardHome />;
-      case 'echo-mind': return <EchoChat />;
-      case 'day': return <DaySection />;
-      case 'memories': return <MemorySystem />;
-      case 'puzzles': return <PuzzleEngine />;
-      case 'wishes': return <WishesSection />;
-      case 'flowers': return <FlowerSystem />;
-      case 'achievements': return <AchievementsSection />;
-      case 'night': return <NightTransformation />;
-      case 'overview': return <OverviewSection />;
-      default: return <DashboardHome />;
-    }
-  };
-
-  // شريط التقدم العام
-  const overallProgress = totalPuzzles > 0 ? Math.round((solvedPuzzles / totalPuzzles) * 100) : 0;
-
   return (
-    <div id="app" className={`app-root ${time.isNight ? 'night-active' : 'day-dashboard'}`} dir={direction}>
-      {showCinematic && <CinematicMode onEnd={() => setShowCinematic(false)} />}
-      <AnimationSystem />
-      {NarrativeDebugPanel && (
-        <Suspense fallback={null}>
-          <NarrativeDebugPanel />
-        </Suspense>
-      )}
-      <AchievementToast />
-      {showEndingResult && <EndingResultScreen />}
-      {
-        progression.completedPuzzleIds.length
-          + progression.skippedPuzzleIds.length >= totalPuzzles
-        && !finalChoice
-        && <FinalChoiceSystem />
-      }
-
-      <GameSidebar activeSection={activeSection} onNavigate={setActiveSection} />
-
-      <main className="main-content">
-        <header className="topbar">
-          <div className="topbar-right">
-            <h2 className="topbar-brand">
-              <span className="brand-11">11.11</span>
-              <span className="brand-time">
-                {time.isNight ? '🌙' : '☀️'} {time.phase}
-              </span>
-            </h2>
-          </div>
-          <div className="topbar-center">
-            <div className="progress-bar-mini">
-              <div className="progress-bar-fill" style={{ width: `${overallProgress}%` }} />
-            </div>
-            <span className="progress-text">{overallProgress}%</span>
-          </div>
-          <div className="topbar-left">
-            <button
-              onClick={() => toggleLanguage()}
-              className="lang-toggle-btn"
-            >
-              {document.documentElement.lang === 'ar' ? 'EN' : 'عر'}
-            </button>
-            <button
-              onClick={() => setShowResetConfirm(true)}
-              className="reset-btn-topbar"
-              title="إعادة تعيين التقدم"
-            >
-              ↺
-            </button>
-          </div>
-        </header>
-
-        {showResetConfirm && (
-          <ResetConfirmModal onClose={() => setShowResetConfirm(false)} />
-        )}
-
-        <div className="content-area">
-          {renderSection()}
-        </div>
-
-        <footer className="footer">
-          <p className="footer-meta">
-            11.11 — رحلة عاطفية تفاعلية
-          </p>
-        </footer>
-      </main>
-    </div>
+    <>
+      <ApplicationShell />
+      <GameRuntimeBridge />
+    </>
   );
 }

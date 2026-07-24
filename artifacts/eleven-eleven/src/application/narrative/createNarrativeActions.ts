@@ -1,7 +1,4 @@
-import type {
-  EchoState,
-  GameActions,
-} from '../../core/gameTypes';
+import type { GameActions } from '../../core/gameTypes';
 import type { DialogueId } from '../../domain/content/contracts';
 import type { EchoPersonality } from '../../domain/echo/echoPersonality';
 import {
@@ -21,6 +18,7 @@ import type {
   GameStateGetter,
   GameStateSetter,
 } from '../game/statePorts';
+import { syncEchoPersonality } from '../game/echoCompatibility';
 
 type NarrativeActions = Pick<
   GameActions,
@@ -31,19 +29,6 @@ type NarrativeActions = Pick<
   | 'chooseDialogueOption'
   | 'evaluateNarrativeEndings'
 >;
-
-function withPersonality(echo: EchoState, personality: EchoPersonality): EchoState {
-  return {
-    ...echo,
-    personality,
-    trust: personality.trust,
-    fear: personality.fear,
-    memoryStability: personality.memoriesRecovered,
-    corruption: personality.corruption,
-    hope: personality.humanity,
-    ragePoints: personality.anger,
-  };
-}
 
 function withEndingEligibility(
   narrative: NarrativeState,
@@ -111,7 +96,7 @@ export function createNarrativeActions(
       );
 
       set({
-        echo: withPersonality(state.echo, result.echo),
+        echo: syncEchoPersonality(state.echo, result.echo),
         narrative,
         memory: {
           ...state.memory,
@@ -171,7 +156,7 @@ export function createNarrativeActions(
         narrative: state.narrative,
       });
       set({
-        echo: withPersonality(state.echo, result.echo),
+        echo: syncEchoPersonality(state.echo, result.echo),
         narrative: withEndingEligibility(
           result.narrative,
           result.echo,
@@ -203,4 +188,3 @@ export function createNarrativeActions(
     },
   };
 }
-

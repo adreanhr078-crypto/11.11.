@@ -1,0 +1,1101 @@
+:where(
+  .gds-button,
+  .gds-panel,
+  .gds-card,
+  .gds-choice-card,
+  .gds-progress,
+  .gds-stat-meter,
+  .gds-tabs,
+  .gds-modal,
+  .gds-drawer,
+  .gds-notification
+) {
+  --gds-tone: var(--gds-text-secondary);
+  --gds-tone-soft: rgb(181 191 206 / 9%);
+  --gds-tone-line: rgb(181 191 206 / 24%);
+  --gds-tone-glow: none;
+}
+
+:where(
+  .gds-button,
+  .gds-panel,
+  .gds-card,
+  .gds-choice-card,
+  .gds-progress,
+  .gds-stat-meter,
+  .gds-tabs,
+  .gds-modal,
+  .gds-drawer,
+  .gds-notification
+)[data-tone="danger"],
+.gds-button[data-variant="danger"],
+.gds-button[data-variant="primary"] {
+  --gds-tone: var(--gds-red-400);
+  --gds-tone-soft: rgb(255 70 85 / 11%);
+  --gds-tone-line: rgb(255 70 85 / 38%);
+  --gds-tone-glow: var(--gds-glow-red);
+}
+
+:where(
+  .gds-button,
+  .gds-panel,
+  .gds-card,
+  .gds-choice-card,
+  .gds-progress,
+  .gds-stat-meter,
+  .gds-tabs,
+  .gds-modal,
+  .gds-drawer,
+  .gds-notification
+)[data-tone="memory"],
+.gds-button[data-variant="memory"] {
+  --gds-tone: var(--gds-cyan-400);
+  --gds-tone-soft: rgb(36 201 235 / 10%);
+  --gds-tone-line: rgb(36 201 235 / 35%);
+  --gds-tone-glow: var(--gds-glow-cyan);
+}
+
+:where(
+  .gds-button,
+  .gds-panel,
+  .gds-card,
+  .gds-choice-card,
+  .gds-progress,
+  .gds-stat-meter,
+  .gds-tabs,
+  .gds-modal,
+  .gds-drawer,
+  .gds-notification
+)[data-tone="rare"],
+.gds-button[data-variant="rare"] {
+  --gds-tone: var(--gds-purple-400);
+  --gds-tone-soft: rgb(169 76 255 / 10%);
+  --gds-tone-line: rgb(169 76 255 / 35%);
+  --gds-tone-glow: var(--gds-glow-purple);
+}
+
+:where(
+  .gds-button,
+  .gds-panel,
+  .gds-card,
+  .gds-choice-card,
+  .gds-progress,
+  .gds-stat-meter,
+  .gds-tabs,
+  .gds-modal,
+  .gds-drawer,
+  .gds-notification
+)[data-tone="progression"],
+.gds-button[data-variant="progression"] {
+  --gds-tone: var(--gds-gold-400);
+  --gds-tone-soft: rgb(232 170 66 / 10%);
+  --gds-tone-line: rgb(232 170 66 / 35%);
+  --gds-tone-glow: var(--gds-glow-gold);
+}
+
+:where(
+  .gds-button,
+  .gds-panel,
+  .gds-card,
+  .gds-choice-card,
+  .gds-progress,
+  .gds-stat-meter,
+  .gds-tabs,
+  .gds-modal,
+  .gds-drawer,
+  .gds-notification
+)[data-tone="success"] {
+  --gds-tone: var(--gds-success-400);
+  --gds-tone-soft: rgb(101 230 181 / 10%);
+  --gds-tone-line: rgb(101 230 181 / 34%);
+  --gds-tone-glow: 0 0 1.5rem rgb(101 230 181 / 14%);
+}
+
+/* Buttons */
+.gds-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gds-space-2);
+  min-block-size: var(--gds-touch-target);
+  min-inline-size: var(--gds-touch-target);
+  padding-inline: var(--gds-space-5);
+  overflow: hidden;
+  border: var(--gds-border-hairline) solid var(--gds-tone-line);
+  border-radius: var(--gds-radius-sm);
+  color: var(--gds-text-primary);
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 5%), transparent 52%),
+    var(--gds-tone-soft);
+  box-shadow: inset 0 0 0.8rem rgb(255 255 255 / 2%);
+  font-size: var(--gds-type-sm);
+  font-weight: 650;
+  letter-spacing: 0.015em;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    transform var(--gds-duration-fast) var(--gds-ease-standard),
+    border-color var(--gds-duration-fast) var(--gds-ease-standard),
+    background-color var(--gds-duration-fast) var(--gds-ease-standard),
+    box-shadow var(--gds-duration-fast) var(--gds-ease-standard);
+}
+
+.gds-button::before {
+  content: "";
+  position: absolute;
+  inset-block: 14%;
+  inset-inline-start: 0;
+  inline-size: 2px;
+  background: var(--gds-tone);
+  box-shadow: var(--gds-tone-glow);
+}
+
+.gds-button:enabled:hover {
+  border-color: var(--gds-tone);
+  box-shadow: var(--gds-tone-glow);
+  transform: translateY(-1px);
+}
+
+.gds-button:enabled:active {
+  transform: translateY(0) scale(0.985);
+}
+
+.gds-button:disabled {
+  color: var(--gds-text-disabled);
+  cursor: not-allowed;
+  filter: saturate(0.35);
+  opacity: 0.62;
+}
+
+.gds-button[data-variant="secondary"] {
+  --gds-tone: var(--gds-text-secondary);
+  --gds-tone-line: var(--gds-line-default);
+  --gds-tone-soft: rgb(181 191 206 / 5%);
+}
+
+.gds-button[data-variant="ghost"] {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.gds-button[data-variant="ghost"]::before {
+  display: none;
+}
+
+.gds-button[data-size="sm"] {
+  min-block-size: calc(var(--gds-touch-target) * 0.86);
+  padding-inline: var(--gds-space-3);
+  font-size: var(--gds-type-xs);
+}
+
+.gds-button[data-size="lg"] {
+  min-block-size: calc(var(--gds-touch-target) * 1.14);
+  padding-inline: var(--gds-space-8);
+  font-size: var(--gds-type-md);
+}
+
+.gds-button[data-size="icon"] {
+  inline-size: var(--gds-touch-target);
+  padding: 0;
+}
+
+.gds-button--full {
+  inline-size: 100%;
+}
+
+.gds-button__icon {
+  display: grid;
+  place-items: center;
+  inline-size: 1.15em;
+  block-size: 1.15em;
+  color: var(--gds-tone);
+}
+
+.gds-button__spinner {
+  inline-size: 1rem;
+  aspect-ratio: 1;
+  border: 2px solid rgb(255 255 255 / 18%);
+  border-block-start-color: var(--gds-tone);
+  border-radius: 50%;
+  animation: gds-spinner 700ms linear infinite;
+}
+
+@keyframes gds-spinner {
+  to { transform: rotate(1turn); }
+}
+
+/* Panels and cards */
+.gds-panel {
+  position: relative;
+  min-inline-size: 0;
+  overflow: hidden;
+  border: var(--gds-border-hairline) solid var(--gds-line-subtle);
+  color: var(--gds-text-primary);
+  box-shadow: var(--gds-shadow-panel);
+}
+
+.gds-panel--hud {
+  background:
+    linear-gradient(120deg, var(--gds-tone-soft), transparent 38%),
+    var(--gds-surface);
+  clip-path: polygon(
+    0 var(--gds-space-3),
+    var(--gds-space-3) 0,
+    100% 0,
+    100% calc(100% - var(--gds-space-3)),
+    calc(100% - var(--gds-space-3)) 100%,
+    0 100%
+  );
+}
+
+.gds-panel--glass {
+  border-radius: var(--gds-radius-md);
+  background:
+    linear-gradient(145deg, rgb(255 255 255 / 5%), transparent 42%),
+    rgb(8 12 19 / 64%);
+  -webkit-backdrop-filter: blur(var(--gds-panel-blur));
+  backdrop-filter: blur(var(--gds-panel-blur));
+}
+
+.gds-panel[data-interactive="true"] {
+  transition:
+    border-color var(--gds-duration-normal) var(--gds-ease-standard),
+    transform var(--gds-duration-normal) var(--gds-ease-standard);
+}
+
+.gds-panel[data-interactive="true"]:hover {
+  border-color: var(--gds-tone-line);
+  transform: translateY(-2px);
+}
+
+.gds-panel__corner {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  inline-size: var(--gds-space-8);
+  block-size: 1px;
+  background: var(--gds-tone);
+  box-shadow: var(--gds-tone-glow);
+}
+
+.gds-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gds-space-3);
+  min-block-size: var(--gds-touch-target);
+  padding: var(--gds-space-3) var(--gds-space-4);
+  border-block-end: var(--gds-border-hairline) solid var(--gds-line-subtle);
+  background: linear-gradient(90deg, var(--gds-tone-soft), transparent 54%);
+}
+
+.gds-panel__heading {
+  display: grid;
+  gap: var(--gds-space-1);
+  min-inline-size: 0;
+}
+
+.gds-panel__heading small,
+.gds-card__overline,
+.gds-modal__header small {
+  color: var(--gds-tone);
+  font-family: var(--gds-font-mono);
+  font-size: var(--gds-type-2xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.gds-panel__heading strong {
+  font-size: var(--gds-type-md);
+  line-height: 1.25;
+}
+
+.gds-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--gds-space-2);
+}
+
+.gds-panel__body {
+  padding: var(--gds-space-4);
+}
+
+.gds-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  overflow: hidden;
+  border: var(--gds-border-hairline) solid var(--gds-line-subtle);
+  border-radius: var(--gds-radius-md);
+  background:
+    linear-gradient(150deg, var(--gds-tone-soft), transparent 44%),
+    var(--gds-surface-raised);
+  box-shadow: 0 0.6rem 1.8rem rgb(0 0 0 / 28%);
+  transition:
+    border-color var(--gds-duration-fast) var(--gds-ease-standard),
+    transform var(--gds-duration-fast) var(--gds-ease-standard);
+}
+
+.gds-card[data-selected="true"] {
+  border-color: var(--gds-tone);
+  box-shadow: var(--gds-tone-glow);
+}
+
+.gds-card[data-locked="true"] {
+  filter: saturate(0.2);
+}
+
+.gds-card__media {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--gds-void-900);
+}
+
+.gds-card__media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(transparent 50%, rgb(3 5 9 / 86%));
+  pointer-events: none;
+}
+
+.gds-card__media > :where(img, video, picture) {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+
+.gds-card__content {
+  display: grid;
+  gap: var(--gds-space-2);
+  padding: var(--gds-space-4);
+}
+
+.gds-card__title {
+  font-size: var(--gds-type-md);
+}
+
+.gds-card__description {
+  margin: 0;
+  color: var(--gds-text-secondary);
+  font-size: var(--gds-type-xs);
+  line-height: 1.7;
+}
+
+.gds-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gds-space-3);
+  padding: var(--gds-space-3) var(--gds-space-4);
+  border-block-start: var(--gds-border-hairline) solid var(--gds-line-subtle);
+}
+
+.gds-card__lock {
+  position: absolute;
+  inset-block-start: var(--gds-space-3);
+  inset-inline-end: var(--gds-space-3);
+  display: grid;
+  place-items: center;
+  inline-size: var(--gds-touch-target);
+  aspect-ratio: 1;
+  border: 1px solid var(--gds-line-default);
+  border-radius: 50%;
+  color: var(--gds-text-muted);
+  background: rgb(2 3 6 / 72%);
+}
+
+/* Choice cards */
+.gds-choice-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--gds-space-4);
+  min-block-size: calc(var(--gds-touch-target) * 1.5);
+  inline-size: 100%;
+  padding: var(--gds-space-4);
+  overflow: hidden;
+  border: var(--gds-border-hairline) solid var(--gds-line-default);
+  border-radius: var(--gds-radius-md);
+  color: var(--gds-text-primary);
+  text-align: start;
+  background:
+    linear-gradient(115deg, var(--gds-tone-soft), transparent 48%),
+    rgb(8 12 19 / 86%);
+  cursor: pointer;
+  transition:
+    border-color var(--gds-duration-fast) var(--gds-ease-standard),
+    transform var(--gds-duration-fast) var(--gds-ease-standard),
+    box-shadow var(--gds-duration-fast) var(--gds-ease-standard);
+}
+
+.gds-choice-card:enabled:hover,
+.gds-choice-card[data-selected="true"] {
+  border-color: var(--gds-tone);
+  box-shadow: var(--gds-tone-glow);
+  transform: translateY(-2px);
+}
+
+.gds-choice-card:enabled:active {
+  transform: translateY(0) scale(0.99);
+}
+
+.gds-choice-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.gds-choice-card__marker {
+  display: grid;
+  place-items: center;
+  inline-size: var(--gds-touch-target);
+  aspect-ratio: 1;
+  border: 1px solid var(--gds-tone-line);
+  border-radius: 50%;
+  color: var(--gds-tone);
+  font-family: var(--gds-font-mono);
+}
+
+.gds-choice-card__copy {
+  display: grid;
+  gap: var(--gds-space-1);
+  min-inline-size: 0;
+}
+
+.gds-choice-card__copy strong {
+  color: var(--gds-text-primary);
+  font-size: var(--gds-type-md);
+}
+
+.gds-choice-card__copy > span {
+  color: var(--gds-text-secondary);
+  font-size: var(--gds-type-xs);
+  line-height: 1.6;
+}
+
+.gds-choice-card__consequence {
+  color: var(--gds-tone);
+  font-size: var(--gds-type-2xs);
+}
+
+.gds-choice-card__edge {
+  position: absolute;
+  inset-block: 18%;
+  inset-inline-end: 0;
+  inline-size: 2px;
+  background: var(--gds-tone);
+  opacity: 0.52;
+}
+
+/* Metrics */
+.gds-progress {
+  display: grid;
+  gap: var(--gds-space-2);
+  min-inline-size: 0;
+}
+
+.gds-progress__meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--gds-space-3);
+  color: var(--gds-text-secondary);
+  font-size: var(--gds-type-xs);
+}
+
+.gds-progress__meta strong {
+  color: var(--gds-tone);
+  font-family: var(--gds-font-mono);
+  font-size: var(--gds-type-xs);
+}
+
+.gds-progress__track {
+  position: relative;
+  display: block;
+  block-size: 0.34rem;
+  overflow: hidden;
+  border: 1px solid var(--gds-line-subtle);
+  border-radius: var(--gds-radius-pill);
+  background: rgb(0 0 0 / 42%);
+}
+
+.gds-progress[data-size="sm"] .gds-progress__track {
+  block-size: 0.22rem;
+}
+
+.gds-progress[data-size="lg"] .gds-progress__track {
+  block-size: 0.55rem;
+}
+
+.gds-progress__fill {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inline-size: var(--gds-progress-value);
+  overflow: hidden;
+  border-radius: inherit;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--gds-tone) 58%, #111), var(--gds-tone));
+  box-shadow: 0 0 0.9rem color-mix(in srgb, var(--gds-tone) 42%, transparent);
+  transition: inline-size var(--gds-duration-slow) var(--gds-ease-enter);
+}
+
+.gds-progress__flare {
+  position: absolute;
+  inset-block: -100%;
+  inline-size: 28%;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 45%), transparent);
+  animation: gds-progress-shimmer 2.8s var(--gds-ease-standard) infinite;
+}
+
+.gds-stat-meter {
+  display: grid;
+  grid-template-columns: minmax(5rem, 0.8fr) minmax(7rem, 2fr) auto;
+  align-items: center;
+  gap: var(--gds-space-3);
+  min-inline-size: 0;
+}
+
+.gds-stat-meter__label {
+  display: flex;
+  align-items: center;
+  gap: var(--gds-space-2);
+  min-inline-size: 0;
+  color: var(--gds-text-secondary);
+  font-size: var(--gds-type-xs);
+}
+
+.gds-stat-meter__value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--gds-space-1);
+  min-inline-size: 3.5rem;
+  color: var(--gds-tone);
+  font-family: var(--gds-font-mono);
+  font-size: var(--gds-type-xs);
+  text-align: end;
+}
+
+.gds-stat-meter__value small[data-direction="up"] {
+  color: var(--gds-success-400);
+}
+
+.gds-stat-meter__value small[data-direction="down"] {
+  color: var(--gds-red-400);
+}
+
+/* Tabs */
+.gds-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  max-inline-size: 100%;
+  padding: 2px;
+  overflow-x: auto;
+  border: 1px solid var(--gds-line-subtle);
+  border-radius: var(--gds-radius-md);
+  background: rgb(3 5 9 / 58%);
+  scrollbar-width: none;
+}
+
+.gds-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.gds-tabs__trigger {
+  position: relative;
+  display: inline-flex;
+  flex: 1 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gds-space-2);
+  min-block-size: var(--gds-touch-target);
+  padding-inline: var(--gds-space-4);
+  border: 0;
+  border-radius: calc(var(--gds-radius-md) - 2px);
+  color: var(--gds-text-muted);
+  background: transparent;
+  font-size: var(--gds-type-xs);
+  cursor: pointer;
+}
+
+.gds-tabs__trigger::after {
+  content: "";
+  position: absolute;
+  inset-inline: 25%;
+  inset-block-end: 0;
+  block-size: 2px;
+  background: var(--gds-tone);
+  box-shadow: var(--gds-tone-glow);
+  transform: scaleX(0);
+  transition: transform var(--gds-duration-normal) var(--gds-ease-enter);
+}
+
+.gds-tabs__trigger[aria-selected="true"] {
+  color: var(--gds-text-primary);
+  background: var(--gds-tone-soft);
+}
+
+.gds-tabs__trigger[aria-selected="true"]::after {
+  transform: scaleX(1);
+}
+
+.gds-tabs__trigger:disabled {
+  color: var(--gds-text-disabled);
+  cursor: not-allowed;
+}
+
+.gds-tabs__icon {
+  display: grid;
+  color: var(--gds-tone);
+}
+
+.gds-tabs__trigger small {
+  min-inline-size: 1.35rem;
+  padding: 0.08rem 0.32rem;
+  border-radius: var(--gds-radius-pill);
+  background: var(--gds-tone-soft);
+  color: var(--gds-tone);
+  font-family: var(--gds-font-mono);
+}
+
+.gds-tab-panel {
+  animation: gds-fade-enter var(--gds-duration-normal) var(--gds-ease-enter) both;
+}
+
+/* Cinematic frame */
+.gds-cinematic-frame {
+  position: relative;
+  min-block-size: 100%;
+  overflow: hidden;
+  background: var(--gds-void-950);
+}
+
+.gds-cinematic-frame__media {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  object-position: var(--gds-frame-focal-point);
+  user-select: none;
+}
+
+.gds-cinematic-frame__wash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.gds-cinematic-frame[data-overlay="soft"] .gds-cinematic-frame__wash {
+  background:
+    linear-gradient(90deg, rgb(2 3 6 / 74%), transparent 52%),
+    linear-gradient(0deg, rgb(2 3 6 / 68%), transparent 42%);
+}
+
+[dir="rtl"] .gds-cinematic-frame[data-overlay="soft"] .gds-cinematic-frame__wash {
+  background:
+    linear-gradient(-90deg, rgb(2 3 6 / 74%), transparent 52%),
+    linear-gradient(0deg, rgb(2 3 6 / 68%), transparent 42%);
+}
+
+.gds-cinematic-frame[data-overlay="strong"] .gds-cinematic-frame__wash {
+  background:
+    radial-gradient(circle at center, transparent, rgb(2 3 6 / 62%)),
+    rgb(2 3 6 / 42%);
+}
+
+.gds-cinematic-frame__content {
+  position: relative;
+  z-index: 1;
+  min-block-size: inherit;
+}
+
+.gds-cinematic-frame__hud {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Overlays */
+.gds-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--gds-z-modal);
+  display: grid;
+  place-items: center;
+  padding:
+    calc(var(--gds-safe-top) + var(--gds-edge-buffer))
+    calc(var(--gds-safe-right) + var(--gds-edge-buffer))
+    calc(var(--gds-safe-bottom) + var(--gds-edge-buffer))
+    calc(var(--gds-safe-left) + var(--gds-edge-buffer));
+  background: rgb(1 2 4 / 76%);
+  -webkit-backdrop-filter: blur(0.5rem);
+  backdrop-filter: blur(0.5rem);
+  animation: gds-fade-enter var(--gds-duration-normal) var(--gds-ease-enter) both;
+}
+
+.gds-modal,
+.gds-drawer {
+  --gds-tone: var(--gds-text-secondary);
+  --gds-tone-soft: rgb(181 191 206 / 9%);
+  --gds-tone-line: rgb(181 191 206 / 24%);
+  --gds-tone-glow: none;
+  color: var(--gds-text-primary);
+  font-family: var(--gds-font-body);
+  background:
+    linear-gradient(140deg, var(--gds-tone-soft), transparent 42%),
+    var(--gds-surface-raised);
+  box-shadow: var(--gds-shadow-float);
+}
+
+.gds-modal {
+  inline-size: min(100%, 48rem);
+  max-block-size: min(88dvh, 48rem);
+  overflow: auto;
+  border: 1px solid var(--gds-line-default);
+  border-radius: var(--gds-radius-lg);
+}
+
+.gds-modal__header,
+.gds-drawer__header {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gds-space-4);
+  min-block-size: var(--gds-touch-target);
+  padding: var(--gds-space-3) var(--gds-space-4);
+  border-block-end: 1px solid var(--gds-line-subtle);
+  background: rgb(9 13 21 / 94%);
+  -webkit-backdrop-filter: blur(var(--gds-panel-blur));
+  backdrop-filter: blur(var(--gds-panel-blur));
+}
+
+.gds-modal__header > span {
+  display: grid;
+  gap: var(--gds-space-1);
+}
+
+.gds-modal__header strong,
+.gds-drawer__header strong {
+  font-size: var(--gds-type-lg);
+}
+
+.gds-modal__description {
+  margin: 0;
+  padding: var(--gds-space-4) var(--gds-space-4) 0;
+  color: var(--gds-text-secondary);
+  font-size: var(--gds-type-sm);
+  line-height: 1.7;
+}
+
+.gds-modal__body,
+.gds-drawer__body {
+  padding: var(--gds-space-4);
+}
+
+.gds-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--gds-space-3);
+  padding: var(--gds-space-3) var(--gds-space-4);
+  border-block-start: 1px solid var(--gds-line-subtle);
+}
+
+.gds-drawer {
+  position: absolute;
+  inset-block: 0;
+  inline-size: min(88vw, 28rem);
+  overflow: auto;
+  border-inline-start: 1px solid var(--gds-line-default);
+}
+
+.gds-drawer[data-side="end"] {
+  inset-inline-end: 0;
+}
+
+.gds-drawer[data-side="start"] {
+  inset-inline-start: 0;
+  border-inline-start: 0;
+  border-inline-end: 1px solid var(--gds-line-default);
+}
+
+.gds-drawer[data-side="bottom"] {
+  inset-block-start: auto;
+  inset-inline: 0;
+  inline-size: 100%;
+  max-block-size: min(72dvh, 34rem);
+  border-block-start: 1px solid var(--gds-line-default);
+  border-inline: 0;
+  border-radius: var(--gds-radius-lg) var(--gds-radius-lg) 0 0;
+}
+
+.gds-modal :where(button, [role="button"], a, input, select, textarea):focus-visible,
+.gds-drawer :where(button, [role="button"], a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--gds-cyan-400);
+  outline-offset: 3px;
+}
+
+/* Notifications */
+.gds-notification-stack {
+  position: fixed;
+  inset-block-start: calc(var(--gds-safe-top) + var(--gds-edge-buffer));
+  inset-inline-end: calc(var(--gds-safe-right) + var(--gds-edge-buffer));
+  z-index: var(--gds-z-notification);
+  display: grid;
+  gap: var(--gds-space-2);
+  inline-size: min(
+    calc(100vw - var(--gds-safe-left) - var(--gds-safe-right) - 2 * var(--gds-edge-buffer)),
+    27rem
+  );
+  pointer-events: none;
+}
+
+.gds-notification {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--gds-space-3);
+  min-block-size: var(--gds-touch-target);
+  padding: var(--gds-space-3);
+  overflow: hidden;
+  border: 1px solid var(--gds-tone-line);
+  border-radius: var(--gds-radius-md);
+  background:
+    linear-gradient(110deg, var(--gds-tone-soft), transparent 54%),
+    rgb(7 11 18 / 94%);
+  box-shadow: var(--gds-shadow-float);
+  pointer-events: auto;
+  animation: gds-fade-enter var(--gds-duration-slow) var(--gds-ease-enter) both;
+}
+
+.gds-notification__icon {
+  display: grid;
+  place-items: center;
+  inline-size: var(--gds-touch-target);
+  aspect-ratio: 1;
+  border: 1px solid var(--gds-tone-line);
+  border-radius: var(--gds-radius-sm);
+  color: var(--gds-tone);
+  background: var(--gds-tone-soft);
+}
+
+.gds-notification__copy {
+  display: grid;
+  gap: var(--gds-space-1);
+  min-inline-size: 0;
+}
+
+.gds-notification__copy strong {
+  font-size: var(--gds-type-sm);
+}
+
+.gds-notification__copy > span {
+  overflow: hidden;
+  color: var(--gds-text-secondary);
+  font-size: var(--gds-type-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gds-notification__copy small {
+  color: var(--gds-text-muted);
+  font-family: var(--gds-font-mono);
+  font-size: var(--gds-type-2xs);
+}
+
+.gds-notification__dismiss {
+  align-self: start;
+  border: 0;
+  color: var(--gds-text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+/* Loading */
+.gds-loading {
+  position: relative;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: var(--gds-space-5);
+  min-block-size: 20rem;
+  padding: var(--gds-space-8);
+  overflow: hidden;
+  color: var(--gds-text-primary);
+  background:
+    radial-gradient(circle at center, rgb(255 70 85 / 12%), transparent 26%),
+    radial-gradient(circle at center, rgb(36 201 235 / 7%), transparent 52%),
+    var(--gds-void-950);
+}
+
+.gds-loading--fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: var(--gds-z-modal);
+  min-block-size: 100vh;
+  min-block-size: 100dvh;
+}
+
+.gds-loading__core {
+  position: relative;
+  display: grid;
+  place-items: center;
+  inline-size: clamp(4.5rem, 12vmin, 8rem);
+  aspect-ratio: 1;
+}
+
+.gds-loading__core::before,
+.gds-loading__core::after,
+.gds-loading__core span {
+  content: "";
+  position: absolute;
+  border: 1px solid rgb(255 70 85 / 34%);
+  transform: rotate(45deg);
+}
+
+.gds-loading__core::before {
+  inset: 6%;
+  box-shadow: var(--gds-glow-red);
+  animation: gds-glow-pulse 2s ease-in-out infinite;
+}
+
+.gds-loading__core::after {
+  inset: 24%;
+  border-color: var(--gds-red-400);
+  background: rgb(255 70 85 / 12%);
+}
+
+.gds-loading__core span:nth-child(1) {
+  inline-size: 1px;
+  block-size: 100%;
+  border: 0;
+  background: linear-gradient(transparent, var(--gds-red-400), transparent);
+}
+
+.gds-loading__core span:nth-child(2) {
+  inline-size: 100%;
+  block-size: 1px;
+  border: 0;
+  background: linear-gradient(90deg, transparent, var(--gds-cyan-400), transparent);
+}
+
+.gds-loading__copy {
+  display: grid;
+  justify-items: center;
+  gap: var(--gds-space-2);
+  text-align: center;
+}
+
+.gds-loading__copy strong {
+  color: var(--gds-text-primary);
+  font-family: var(--gds-font-display);
+  font-size: var(--gds-type-2xl);
+  letter-spacing: 0.18em;
+}
+
+.gds-loading__copy span {
+  color: var(--gds-red-400);
+  font-size: var(--gds-type-sm);
+}
+
+.gds-loading__progress,
+.gds-loading__indeterminate {
+  inline-size: min(68vw, 28rem);
+}
+
+.gds-loading__indeterminate {
+  position: relative;
+  block-size: 2px;
+  overflow: hidden;
+  background: var(--gds-line-subtle);
+}
+
+.gds-loading__indeterminate::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inline-size: 32%;
+  background: var(--gds-red-400);
+  box-shadow: var(--gds-glow-red);
+  animation: gds-progress-shimmer 1.8s linear infinite;
+}
+
+/* Tooltip */
+.gds-tooltip {
+  position: relative;
+  display: inline-flex;
+}
+
+.gds-tooltip__content {
+  position: absolute;
+  inset-block-end: calc(100% + var(--gds-space-2));
+  inset-inline-start: 50%;
+  z-index: var(--gds-z-notification);
+  inline-size: max-content;
+  max-inline-size: min(18rem, 70vw);
+  padding: var(--gds-space-2) var(--gds-space-3);
+  border: 1px solid var(--gds-line-default);
+  border-radius: var(--gds-radius-sm);
+  color: var(--gds-text-secondary);
+  background: rgb(5 8 13 / 96%);
+  box-shadow: var(--gds-shadow-panel);
+  font-size: var(--gds-type-xs);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-50%) translateY(0.25rem);
+  transition:
+    opacity var(--gds-duration-fast) var(--gds-ease-standard),
+    transform var(--gds-duration-fast) var(--gds-ease-standard);
+}
+
+.gds-tooltip:hover .gds-tooltip__content,
+.gds-tooltip:focus-within .gds-tooltip__content {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+@container (max-width: 42rem) {
+  .gds-stat-meter {
+    grid-template-columns: minmax(4.5rem, 0.8fr) minmax(5rem, 1.5fr) auto;
+  }
+}
+
+@media (max-height: 32rem) and (orientation: landscape) {
+  .gds-modal {
+    max-block-size: calc(100dvh - var(--gds-safe-top) - var(--gds-safe-bottom) - 2 * var(--gds-edge-buffer));
+  }
+
+  .gds-loading {
+    grid-template-columns: auto minmax(12rem, 1fr);
+    grid-template-rows: auto auto;
+  }
+
+  .gds-loading__core {
+    grid-row: 1 / 3;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .gds-tooltip__content {
+    display: none;
+  }
+
+  .gds-button:enabled:hover,
+  .gds-choice-card:enabled:hover,
+  .gds-panel[data-interactive="true"]:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
+

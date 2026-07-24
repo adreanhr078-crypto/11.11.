@@ -23,7 +23,7 @@ import type {
   SceneId,
 } from '../../domain/content/contracts';
 
-const localizedTextSchema = z.object({
+export const localizedTextSchema = z.object({
   ar: z.string(),
   en: z.string(),
 });
@@ -39,6 +39,8 @@ const manifestSchema = z.object({
     chapters: z.number().int().positive(),
     dialogues: z.number().int().positive(),
     endings: z.number().int().positive(),
+    cinematics: z.number().int().positive(),
+    assets: z.number().int().positive(),
   }),
   collections: z.object({
     chapters: z.string().min(1),
@@ -46,6 +48,8 @@ const manifestSchema = z.object({
     memories: z.string().min(1),
     dialogues: z.string().min(1),
     endings: z.string().min(1),
+    cinematics: z.string().min(1),
+    assets: z.string().min(1),
   }),
 });
 
@@ -64,7 +68,7 @@ const chapterSchema = z.object({
   ]),
 });
 
-const conditionSchema: z.ZodTypeAny = z.lazy(() => z.discriminatedUnion('kind', [
+export const conditionSchema: z.ZodTypeAny = z.lazy(() => z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('all'), conditions: z.array(conditionSchema) }),
   z.object({ kind: z.literal('any'), conditions: z.array(conditionSchema) }),
   z.object({ kind: z.literal('not'), condition: conditionSchema }),
@@ -134,7 +138,7 @@ const conditionSchema: z.ZodTypeAny = z.lazy(() => z.discriminatedUnion('kind', 
   }),
 ]));
 
-const effectSchema = z.discriminatedUnion('kind', [
+export const effectSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('adjustStat'),
     stat: z.enum([
@@ -274,7 +278,7 @@ function contentIndexSchema(itemSchema: z.ZodTypeAny) {
   });
 }
 
-function visitConditionReferences(
+export function visitConditionReferences(
   condition: ContentCondition,
   visit: (reference: { kind: string; id: string }) => void,
 ): void {
@@ -312,7 +316,7 @@ function visitConditionReferences(
   }
 }
 
-function visitEffectReferences(
+export function visitEffectReferences(
   effect: ContentEffect,
   visit: (reference: { kind: string; id: string }) => void,
 ): void {

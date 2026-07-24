@@ -3,6 +3,7 @@ import {
   applyEchoPersonalityEffects,
   clampStat,
 } from '../../domain/echo/echoPersonality';
+import type { EchoPersonality } from '../../domain/echo/echoPersonality';
 import type { EchoStat } from '../../domain/content/contracts';
 
 export type LegacyEchoEffects = Partial<Pick<
@@ -63,4 +64,20 @@ export function setLegacyEchoValue(
   return applyLegacyEchoEffects(echo, {
     [key]: clampStat(value) - currentValue,
   });
+}
+
+export function syncEchoPersonality(
+  echo: EchoState,
+  personality: EchoPersonality,
+): EchoState {
+  return {
+    ...echo,
+    personality,
+    trust: personality.trust,
+    fear: personality.fear,
+    memoryStability: personality.memoriesRecovered,
+    corruption: personality.corruption,
+    hope: personality.humanity,
+    ragePoints: personality.anger,
+  };
 }

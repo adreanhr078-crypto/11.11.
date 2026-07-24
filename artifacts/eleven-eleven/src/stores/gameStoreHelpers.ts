@@ -28,6 +28,7 @@ import {
   getChapterForPuzzleNumber as findChapterForPuzzleNumber,
 } from '../domain/progression/progression';
 import { createInitialNarrativeState } from '../domain/narrative/narrativeState';
+import { createInitialCinematicState } from '../domain/cinematics/cinematicState';
 import {
   CHAPTER_DEFINITIONS,
   CONTENT_COUNTS,
@@ -72,6 +73,7 @@ export function buildInitialState(): GameState {
       CHAPTER_DEFINITIONS,
     ),
     narrative: createInitialNarrativeState(),
+    cinematic: createInitialCinematicState(),
     finalChoice: null,
     unlockedEndings: [],
     seenEndings: [],

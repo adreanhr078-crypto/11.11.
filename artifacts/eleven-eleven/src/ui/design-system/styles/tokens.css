@@ -1,0 +1,162 @@
+:root {
+  color-scheme: dark;
+
+  /* Foundations */
+  --gds-void-1000: #020306;
+  --gds-void-950: #05070c;
+  --gds-void-900: #080c14;
+  --gds-navy-850: #0b111c;
+  --gds-navy-800: #101927;
+  --gds-surface: rgb(9 13 21 / 88%);
+  --gds-surface-raised: rgb(14 20 31 / 92%);
+  --gds-surface-soft: rgb(17 24 37 / 66%);
+
+  /* Semantic accents */
+  --gds-red-500: #ff4655;
+  --gds-red-400: #ff6470;
+  --gds-red-900: #38080e;
+  --gds-cyan-400: #57e7ff;
+  --gds-cyan-500: #24c9eb;
+  --gds-cyan-900: #07303b;
+  --gds-purple-400: #c26cff;
+  --gds-purple-500: #a94cff;
+  --gds-purple-900: #2b0b42;
+  --gds-gold-400: #ffc969;
+  --gds-gold-500: #e8aa42;
+  --gds-gold-900: #3c2707;
+  --gds-success-400: #65e6b5;
+  --gds-warning-400: #ffaf52;
+
+  /* Text and lines */
+  --gds-text-primary: #f5f7fb;
+  --gds-text-secondary: #b5bfce;
+  --gds-text-muted: #778397;
+  --gds-text-disabled: #4d5665;
+  --gds-line-subtle: rgb(154 178 207 / 12%);
+  --gds-line-default: rgb(161 185 215 / 22%);
+  --gds-line-strong: rgb(194 212 235 / 34%);
+
+  /* Typography */
+  --gds-font-body: "Noto Sans Arabic", "Cairo", "Segoe UI", sans-serif;
+  --gds-font-display: "Rajdhani", "Noto Sans Arabic", "Cairo", sans-serif;
+  --gds-font-mono: "IBM Plex Mono", "Cascadia Mono", monospace;
+  --gds-type-2xs: clamp(0.625rem, 0.54rem + 0.18vmin, 0.72rem);
+  --gds-type-xs: clamp(0.72rem, 0.65rem + 0.2vmin, 0.82rem);
+  --gds-type-sm: clamp(0.82rem, 0.74rem + 0.24vmin, 0.96rem);
+  --gds-type-md: clamp(0.95rem, 0.84rem + 0.32vmin, 1.12rem);
+  --gds-type-lg: clamp(1.1rem, 0.92rem + 0.54vmin, 1.42rem);
+  --gds-type-xl: clamp(1.35rem, 1rem + 0.95vmin, 1.9rem);
+  --gds-type-2xl: clamp(1.7rem, 1.12rem + 1.55vmin, 2.65rem);
+
+  /* Scalable spacing for landscape game layouts */
+  --gds-space-1: clamp(0.2rem, 0.32vmin, 0.35rem);
+  --gds-space-2: clamp(0.35rem, 0.55vmin, 0.58rem);
+  --gds-space-3: clamp(0.52rem, 0.8vmin, 0.82rem);
+  --gds-space-4: clamp(0.72rem, 1.05vmin, 1.1rem);
+  --gds-space-5: clamp(0.95rem, 1.4vmin, 1.45rem);
+  --gds-space-6: clamp(1.2rem, 1.8vmin, 1.9rem);
+  --gds-space-8: clamp(1.6rem, 2.4vmin, 2.65rem);
+  --gds-space-10: clamp(2rem, 3.2vmin, 3.5rem);
+
+  /* Shape */
+  --gds-radius-xs: 0.28rem;
+  --gds-radius-sm: 0.48rem;
+  --gds-radius-md: 0.72rem;
+  --gds-radius-lg: 1rem;
+  --gds-radius-pill: 999px;
+  --gds-border-hairline: max(1px, 0.06rem);
+
+  /* Depth and glow */
+  --gds-shadow-panel: 0 1.1rem 3rem rgb(0 0 0 / 48%);
+  --gds-shadow-float: 0 1.6rem 4.8rem rgb(0 0 0 / 62%);
+  --gds-glow-red: 0 0 0.8rem rgb(255 70 85 / 34%), 0 0 2.2rem rgb(255 70 85 / 13%);
+  --gds-glow-cyan: 0 0 0.8rem rgb(36 201 235 / 30%), 0 0 2.2rem rgb(36 201 235 / 12%);
+  --gds-glow-purple: 0 0 0.8rem rgb(169 76 255 / 30%), 0 0 2.2rem rgb(169 76 255 / 12%);
+  --gds-glow-gold: 0 0 0.8rem rgb(232 170 66 / 28%), 0 0 2.2rem rgb(232 170 66 / 10%);
+  --gds-panel-blur: 1rem;
+
+  /* Motion */
+  --gds-duration-instant: 90ms;
+  --gds-duration-fast: 160ms;
+  --gds-duration-normal: 260ms;
+  --gds-duration-slow: 520ms;
+  --gds-duration-cinematic: 900ms;
+  --gds-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --gds-ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --gds-ease-exit: cubic-bezier(0.7, 0, 0.84, 0);
+
+  /* Android/touch layout */
+  --gds-touch-target: 2.75rem;
+  --gds-edge-buffer: clamp(0.65rem, 1.75vmin, 1.5rem);
+  --gds-safe-top: env(safe-area-inset-top, 0px);
+  --gds-safe-right: env(safe-area-inset-right, 0px);
+  --gds-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --gds-safe-left: env(safe-area-inset-left, 0px);
+  --gds-content-max: 120rem;
+
+  /* Emotion Visual System fallbacks; the runtime bridge updates these. */
+  --evs-primary: #9fb3c8;
+  --evs-secondary: #60758d;
+  --evs-ambient: #08101b;
+  --evs-primary-rgb: 159 179 200;
+  --evs-secondary-rgb: 96 117 141;
+  --evs-ambient-rgb: 8 16 27;
+  --evs-intensity: 0;
+  --evs-transition-ms: 900ms;
+  --evs-atmosphere-darkness: 0.72;
+  --evs-atmosphere-warmth: -0.15;
+  --evs-atmosphere-haze: 0.2;
+  --evs-particle-energy: 0.18;
+  --evs-pulse: 0.12;
+  --evs-grade-brightness: 0.92;
+  --evs-grade-contrast: 1.08;
+  --evs-grade-saturation: 0.82;
+  --evs-grade-vignette: 0.46;
+  --evs-grade-bloom: 0.16;
+  --evs-glitch-intensity: 0.03;
+  --evs-glitch-frequency: 0.03;
+  --evs-glitch-chromatic-px: 0.15px;
+  --evs-glitch-displacement-px: 0.2px;
+  --evs-glitch-scanlines: 0.06;
+  --evs-glitch-noise: 0.04;
+  --evs-camera-drift: 0.08;
+  --evs-camera-shake: 0.01;
+  --evs-focus-breathing: 0.08;
+  --evs-transition-distortion: 0.03;
+  --evs-memory-bloom: 0.08;
+  --evs-frame-pulse: 0.04;
+
+  /* Layers */
+  --gds-z-base: 0;
+  --gds-z-hud: 20;
+  --gds-z-drawer: 60;
+  --gds-z-modal: 80;
+  --gds-z-notification: 100;
+  --gds-z-orientation: 120;
+}
+
+[data-gds-quality="mobile"] {
+  --gds-panel-blur: 0.55rem;
+  --gds-shadow-panel: 0 0.8rem 2rem rgb(0 0 0 / 42%);
+  --gds-shadow-float: 0 1rem 3rem rgb(0 0 0 / 52%);
+}
+
+[data-gds-motion="reduced"] {
+  --gds-duration-fast: 1ms;
+  --gds-duration-normal: 1ms;
+  --gds-duration-slow: 1ms;
+  --gds-duration-cinematic: 1ms;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  :root {
+    --gds-touch-target: 3rem;
+    --gds-edge-buffer: clamp(0.75rem, 2vmin, 1.65rem);
+  }
+}
+
+@media (min-aspect-ratio: 19 / 9) {
+  :root {
+    --gds-edge-buffer: clamp(1rem, 2.25vmin, 2.4rem);
+  }
+}
