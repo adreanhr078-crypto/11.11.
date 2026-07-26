@@ -182,10 +182,7 @@ export const CHAPTER_01_MANHWA_PAGES = z.array(manhwaMemoryPageSchema).parse([
       t('بيب…', 'Beep…'),
       t('عندما تتذكر كل شيء، ستتمنى لو بقيت ميتًا.', 'When you remember everything, you will wish you had stayed dead.'),
     ],
-    requiredShardIds: Array.from(
-      { length: 10 },
-      (_, index) => `page01_shard_${String(index + 1).padStart(2, '0')}`,
-    ),
+    requiredShardIds: [],
     restoredStatus: 'restored',
     echoMindDelta: {
       emotions: {
@@ -1099,13 +1096,15 @@ export function validateChapter01Campaign(): void {
         `${page.id} must require the immediately preceding PDF page`,
       );
     }
-    if (
-      page.requiredShardIds.length !== expectedShards.length
-      || page.requiredShardIds.some(
-        (id, index) => id !== expectedShards[index],
-      )
-    ) {
-      throw new Error(`${page.id} must use its exact ten shard slot IDs`);
+    if (page.pageNumber !== 1) {
+      if (
+        page.requiredShardIds.length !== expectedShards.length
+        || page.requiredShardIds.some(
+          (id, index) => id !== expectedShards[index],
+        )
+      ) {
+        throw new Error(`${page.id} must use its exact ten shard slot IDs`);
+      }
     }
     if (page.requiredShardIds.some((id) => {
       const shard = shardDefinitions.get(id);

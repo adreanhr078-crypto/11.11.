@@ -159,7 +159,7 @@ export function getCampaignPageShardProgress(
     collected: collectedForPage.length,
     total,
     remaining: Math.max(0, total - collectedForPage.length),
-    complete: total > 0 && collectedForPage.length === total,
+    complete: total === 0 || collectedForPage.length === total,
     collectedShardIds: collectedForPage,
   };
 }
@@ -175,8 +175,9 @@ function getCampaignPageStatusInternal(
 
   // A PDF page is catalogued before its future puzzles exist. It must remain
   // truly locked (rather than "collecting") until at least one real shard
-  // reward for that page is registered.
-  if (!page.requiredShardIds.some((id) => registeredShardIds.has(id))) {
+  // reward for that page is registered. Pages with no shard requirements
+  // (e.g., a free first page) are instantly complete.
+  if (page.requiredShardIds.length > 0 && !page.requiredShardIds.some((id) => registeredShardIds.has(id))) {
     return 'locked';
   }
 

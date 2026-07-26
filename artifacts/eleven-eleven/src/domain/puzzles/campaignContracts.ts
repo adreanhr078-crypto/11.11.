@@ -184,7 +184,14 @@ export const manhwaMemoryPageSchema = z.object({
   transcript: z.array(localizedTextSchema),
   requiredShardIds: z.array(
     z.string().regex(/^page\d{2}_shard_\d{2}$/),
-  ).length(10),
+  ).superRefine((arr, ctx) => {
+    if (arr.length !== 0 && arr.length !== 10) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Array must contain exactly 10 element(s)',
+      });
+    }
+  }),
   prerequisitePageId: z.string().optional(),
   restoredStatus: z.enum(['restored', 'questioned']),
   echoMindDelta: echoMindDeltaSchema,
