@@ -1,4 +1,52 @@
 {
   "schemaVersion": 1,
-  "items": []
+  "items": [
+    {
+      "id": "memory_opening_room_handprint",
+      "chapterId": "chapter_1",
+      "title": {
+        "ar": "أثر على الزجاج",
+        "en": "A mark on the glass"
+      },
+      "description": {
+        "ar": "شظية مبكرة لا تكشف صاحب الأثر، لكنها تؤكد أن Echo لم يكن وحده.",
+        "en": "An early fragment that conceals who left the mark, but confirms Echo was not alone."
+      },
+      "fragments": [
+        {
+          "id": "fragment_opening_room_not_alone",
+          "title": {
+            "ar": "لم أكن وحدي",
+            "en": "I was not alone"
+          },
+          "text": {
+            "ar": "لا أتذكر الوجه… فقط أنني لم أكن وحدي.",
+            "en": "I do not remember the face… only that I was not alone."
+          },
+          "unlockCondition": {
+            "kind": "flagIs",
+            "flag": "opening_room_memory_recovered",
+            "value": true
+          },
+          "emotionalImpact": {
+            "trust": 1,
+            "memoriesRecovered": 1
+          },
+          "order": 0
+        }
+      ],
+      "emotionalImpact": {
+        "fear": -1
+      },
+      "relatedCharacterIds": [
+        "echo"
+      ],
+      "unlockCondition": {
+        "kind": "flagIs",
+        "flag": "opening_room_memory_recovered",
+        "value": true
+      },
+      "nextStoryEventId": "opening_room_exit"
+    }
+  ]
 }

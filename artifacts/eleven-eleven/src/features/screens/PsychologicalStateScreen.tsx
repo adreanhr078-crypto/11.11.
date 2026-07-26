@@ -1,7 +1,13 @@
 import { useMemo } from 'react';
 import { BrainCircuit } from 'lucide-react';
 import { useGameStore } from '../../stores/gameStore';
-import { GlassPanel, StatMeter } from '../../ui/design-system';
+import {
+  GameButton,
+  GlassPanel,
+  StatMeter,
+} from '../../ui/design-system';
+import { GameIcon } from '../../ui/icons';
+import { useShellStore } from '../../app/shell/shellStore';
 import {
   createPsychologicalStateReadModel,
 } from '../../application/ui/psychologicalStateReadModel';
@@ -19,6 +25,7 @@ import './psychological-state-screen.css';
 
 export default function PsychologicalStateScreen() {
   const state = useGameStore();
+  const navigate = useShellStore((shell) => shell.navigate);
   const visualProfile = useEmotionVisualProfile();
   const model = useMemo(
     () => createPsychologicalStateReadModel(
@@ -31,6 +38,26 @@ export default function PsychologicalStateScreen() {
     () => createEchoPresentationReadModel(state),
     [state],
   );
+  const openingRoomEntered = Boolean(
+    state.narrative.activeFlags.opening_room_entered,
+  );
+
+  const enterOpeningRoom = () => {
+    const current = useGameStore.getState();
+    if (!current.narrative.activeFlags.opening_room_session_started) {
+      current.actions.setNarrativeFlag(
+        'opening_room_session_started',
+        true,
+      );
+      current.actions.recordNarrativeDecision(
+        'opening-room-session',
+        'entered',
+        'system',
+      );
+    }
+    current.actions.setNarrativeFlag('opening_room_entered', true);
+    navigate('play');
+  };
 
   return (
     <div className="psychological-state" dir="rtl">
@@ -97,6 +124,20 @@ export default function PsychologicalStateScreen() {
               <small>{channel.level}</small>
             </article>
           ))}
+        </div>
+
+        <div className="psychological-state__start-game">
+          <GameButton
+            size="lg"
+            fullWidth
+            leadingIcon={<GameIcon id="screen-gameplay" />}
+            onClick={enterOpeningRoom}
+          >
+            {openingRoomEntered ? 'استكمال اللعبة' : 'ابدأ اللعبة'}
+          </GameButton>
+          <small>
+            الغرفة الافتتاحية · منظور الشخص الثالث · يتم الحفظ تلقائيًا
+          </small>
         </div>
       </GlassPanel>
     </div>

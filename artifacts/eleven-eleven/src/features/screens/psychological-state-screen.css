@@ -193,6 +193,19 @@
   white-space: nowrap;
 }
 
+.psychological-state__start-game {
+  display: grid;
+  gap: 0.45rem;
+  padding-block-start: 0.35rem;
+}
+
+.psychological-state__start-game > small {
+  color: var(--gds-text-muted);
+  font: 500 var(--gds-type-2xs) var(--gds-font-mono);
+  line-height: 1.5;
+  text-align: center;
+}
+
 @keyframes psychological-camera {
   from { transform: scale(1.035) translate3d(-0.25%, 0, 0); }
   to { transform: scale(1.07) translate3d(0.4%, -0.3%, 0); }

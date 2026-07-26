@@ -55,6 +55,20 @@ export const GAME_SCREEN_DEFINITIONS = [
     )),
   },
   {
+    id: 'play',
+    label: 'الغرفة الافتتاحية',
+    shortLabel: 'اللعب',
+    description: 'الدخول إلى أول مساحة ثلاثية الأبعاد داخل نظام 11:11.',
+    code: 'PLAY',
+    tone: 'memory',
+    iconId: 'screen-gameplay',
+    categoryId: 'story',
+    navigation: 'hidden',
+    component: lazy(() => import(
+      '../../features/screens/GameplayScreen'
+    )),
+  },
+  {
     id: 'dashboard',
     label: 'نظام Echo',
     shortLabel: 'Echo',

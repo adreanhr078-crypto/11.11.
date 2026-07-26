@@ -29,6 +29,7 @@ describe('Phase 1 foundation', () => {
     assert.doesNotThrow(validateContentRegistry);
     assert.equal(CONTENT_COUNTS.chapters, 7);
     assert.equal(CONTENT_COUNTS.puzzles, 0);
+    assert.equal(CONTENT_COUNTS.memories, 1);
     assert.ok(CONTENT_MANIFEST.capacity.puzzles >= 2000);
     assert.ok(CONTENT_MANIFEST.capacity.memories >= 2000);
   });
@@ -88,6 +89,7 @@ describe('Phase 1 foundation', () => {
     assert.equal(state.currentChapter, 'chapter_1');
     assert.equal(state.totalPuzzles, 1000);
     assert.equal(state.puzzles.length, 0);
+    assert.equal(state.memory.totalFragments, 1);
     assert.equal(state.echo.personality.trust, state.echo.trust);
     assert.equal(typeof state.actions.solve, 'function');
   });

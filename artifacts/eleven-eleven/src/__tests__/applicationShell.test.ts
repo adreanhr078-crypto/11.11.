@@ -19,6 +19,7 @@ import {
   GAME_SCREEN_DEFINITIONS,
   GAME_SCREEN_REGISTRY,
 } from '../app/shell/screenRegistry';
+import { useShellStore } from '../app/shell/shellStore';
 import {
   getCategoryScreens,
   NAVIGATION_CATEGORIES,
@@ -189,14 +190,18 @@ describe('Application Shell', () => {
     );
   });
 
-  it('keeps empty authored content as a valid editor-ready state', () => {
+  it('keeps the opening memory authored while other registries stay editor-ready', () => {
     const state = useGameStore.getState();
     const memories = createMemoryScreenReadModel(state);
     const dialogue = createDialogueScreenReadModel(state);
 
-    assert.equal(memories.isAuthoredContentEmpty, true);
-    assert.deepEqual(memories.items, []);
-    assert.equal(memories.totalFragmentCount, 0);
+    assert.equal(memories.isAuthoredContentEmpty, false);
+    assert.equal(memories.items.length, 1);
+    assert.equal(
+      memories.items[0]?.definition.id,
+      'memory_opening_room_handprint',
+    );
+    assert.equal(memories.totalFragmentCount, 1);
     assert.deepEqual(dialogue.availableDefinitions, []);
     assert.equal(dialogue.node, null);
     assert.equal(dialogue.hasAuthoredContent, false);
@@ -246,5 +251,27 @@ describe('Application Shell', () => {
         true,
       );
     }
+  });
+
+  it('navigates from Story to play and returns without reloading the shell', () => {
+    useShellStore.setState({
+      currentScreen: 'psychological-state',
+      previousScreen: null,
+      navigationCategory: null,
+      pauseOpen: false,
+    });
+
+    useShellStore.getState().navigate('play');
+    assert.equal(useShellStore.getState().currentScreen, 'play');
+    assert.equal(
+      useShellStore.getState().previousScreen,
+      'psychological-state',
+    );
+
+    useShellStore.getState().goBack();
+    assert.equal(
+      useShellStore.getState().currentScreen,
+      'psychological-state',
+    );
   });
 });

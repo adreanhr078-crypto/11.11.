@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "archiveDate": "2026-07-26",
+  "language": "ar",
+  "visibility": "internal",
+  "runtimeIncluded": false,
+  "canonStatus": "source-material-pending-reconciliation",
+  "spoilerLevel": "full",
+  "documents": [
+    {
+      "title": "11.11 — السقوط الطويل لـEcho",
+      "archiveFile": "story-bible--the-long-fall-of-echo.ar.md",
+      "sourcePath": "C:\\Users\\yasmo\\.codex\\attachments\\c7893b84-2863-42a8-8239-2dfea6c2b9a0\\pasted-text.txt",
+      "sha256": "81449E92133612722B1490B1B125326AD537B9B06678F26B5562041A624F4799",
+      "visibility": "internal",
+      "runtimeIncluded": false,
+      "canonStatus": "source-material-pending-reconciliation",
+      "spoilerLevel": "full"
+    },
+    {
+      "title": "الفصل الثاني — المراقب الذي لا يرمش",
+      "archiveFile": "chapter-02--the-watcher-who-never-blinks.ar.md",
+      "sourcePath": "C:\\Users\\yasmo\\.codex\\attachments\\9ad8f3f5-da3f-4c87-b825-dd2e9dd9917c\\pasted-text.txt",
+      "sha256": "E49FBA2CE64B5FB8D72352F8EC75EB6F43A7542D02F78ED6BD6890C599A85F2E",
+      "visibility": "internal",
+      "runtimeIncluded": false,
+      "canonStatus": "source-material-pending-reconciliation",
+      "spoilerLevel": "full"
+    }
+  ]
+}

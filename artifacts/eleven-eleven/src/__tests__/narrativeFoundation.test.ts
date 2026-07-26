@@ -157,5 +157,27 @@ describe('Phase 2 narrative foundation', () => {
     assert.deepEqual(migrated.narrative?.decisionHistory, []);
     assert.deepEqual(migrated.narrative?.activeFlags, {});
   });
-});
 
+  it('restores opening-room checkpoints from the canonical save flags', () => {
+    const migrated = migrateGameState({
+      narrative: {
+        activeFlags: {
+          opening_room_entered: true,
+          opening_clock_inspected: true,
+          opening_photo_inspected: true,
+          opening_room_memory_recovered: true,
+          opening_door_unlocked: true,
+        },
+      },
+    }, 7);
+
+    assert.equal(
+      migrated.narrative?.activeFlags.opening_room_entered,
+      true,
+    );
+    assert.equal(
+      migrated.narrative?.activeFlags.opening_door_unlocked,
+      true,
+    );
+  });
+});

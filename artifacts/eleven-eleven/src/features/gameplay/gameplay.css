@@ -1,0 +1,442 @@
+.gameplay-screen {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  overflow: hidden;
+  color: #e8fbff;
+  background:
+    radial-gradient(circle at 50% 44%, rgb(17 82 96 / 28%), transparent 38%),
+    #010407;
+}
+
+.gameplay-screen::before,
+.gameplay-screen::after {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  content: "";
+}
+
+.gameplay-screen::before {
+  opacity: 0.18;
+  background:
+    repeating-linear-gradient(
+      180deg,
+      transparent 0 3px,
+      rgb(76 229 255 / 7%) 4px,
+      transparent 5px
+    );
+  mix-blend-mode: screen;
+}
+
+.gameplay-screen::after {
+  opacity: 0.32;
+  background:
+    linear-gradient(90deg, rgb(0 0 0 / 76%), transparent 13% 87%, rgb(0 0 0 / 78%)),
+    linear-gradient(180deg, rgb(0 0 0 / 58%), transparent 22% 73%, rgb(0 0 0 / 78%));
+  box-shadow: inset 0 0 9rem rgb(0 0 0 / 82%);
+  animation: gameplay-glitch-breathe 7s steps(2, end) infinite;
+}
+
+.gameplay-canvas {
+  position: absolute !important;
+  inset: 0;
+  z-index: 1;
+  width: 100% !important;
+  height: 100% !important;
+  touch-action: none;
+  cursor: grab;
+}
+
+.gameplay-canvas.is-camera-dragging {
+  cursor: grabbing;
+}
+
+.gameplay-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: grid;
+  place-content: center;
+  gap: 0.75rem;
+  color: rgb(194 244 255 / 72%);
+  font: 600 0.72rem var(--gds-font-mono);
+  letter-spacing: 0.18em;
+  text-align: center;
+  background: #010306;
+}
+
+.gameplay-loading i {
+  width: 8rem;
+  height: 1px;
+  overflow: hidden;
+  background: rgb(87 231 255 / 16%);
+}
+
+.gameplay-loading i::after {
+  display: block;
+  width: 40%;
+  height: 100%;
+  background: #57e7ff;
+  box-shadow: 0 0 1rem #57e7ff;
+  content: "";
+  animation: gameplay-loading-scan 1.25s ease-in-out infinite;
+}
+
+.gameplay-hud {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.gameplay-hud__status {
+  position: absolute;
+  inset: clamp(0.8rem, 2.5vw, 1.5rem) auto auto clamp(0.8rem, 2.5vw, 1.5rem);
+  display: grid;
+  gap: 0.28rem;
+  width: min(24rem, 42vw);
+  padding: 0.75rem 0.9rem;
+  border-inline-start: 2px solid #57e7ff;
+  background: linear-gradient(90deg, rgb(2 9 14 / 84%), rgb(2 9 14 / 18%));
+  text-align: start;
+  text-shadow: 0 1px 0 #000;
+}
+
+.gameplay-hud__status small,
+.gameplay-hud__status span {
+  color: rgb(172 224 234 / 68%);
+  font: 550 var(--gds-type-2xs) var(--gds-font-mono);
+  letter-spacing: 0.1em;
+}
+
+.gameplay-hud__status strong {
+  font-size: clamp(0.84rem, 1.5vw, 1rem);
+}
+
+.gameplay-hud__pause {
+  position: absolute;
+  inset: clamp(0.8rem, 2.5vw, 1.5rem) clamp(0.8rem, 2.5vw, 1.5rem) auto auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.55rem;
+  padding: 0 0.9rem;
+  border: 1px solid rgb(87 231 255 / 24%);
+  color: #dffaff;
+  font: 600 var(--gds-type-xs) var(--gds-font-mono);
+  background: rgb(2 9 14 / 68%);
+  backdrop-filter: blur(0.65rem);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.gameplay-hud__pause:hover,
+.gameplay-hud__pause:focus-visible {
+  border-color: #57e7ff;
+  outline: none;
+  box-shadow: 0 0 1.2rem rgb(87 231 255 / 15%);
+}
+
+.gameplay-interaction-prompt {
+  position: absolute;
+  inset: auto 50% clamp(1.4rem, 4vh, 2.7rem) auto;
+  transform: translateX(50%);
+  pointer-events: auto;
+  animation: gameplay-prompt-in 220ms ease-out both;
+}
+
+.gameplay-interaction-prompt button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 9rem;
+  min-height: 2.9rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid rgb(87 231 255 / 42%);
+  color: #effdff;
+  background: rgb(1 7 11 / 84%);
+  box-shadow:
+    0 0 2rem rgb(42 206 230 / 12%),
+    inset 0 0 1rem rgb(87 231 255 / 5%);
+  backdrop-filter: blur(0.75rem);
+  cursor: pointer;
+}
+
+.gameplay-interaction-prompt kbd {
+  display: grid;
+  place-content: center;
+  width: 1.8rem;
+  aspect-ratio: 1;
+  border: 1px solid #57e7ff;
+  color: #57e7ff;
+  font: 700 0.82rem var(--gds-font-mono);
+  background: rgb(87 231 255 / 7%);
+  box-shadow: 0 0 0.7rem rgb(87 231 255 / 18%);
+}
+
+.gameplay-interaction-prompt span {
+  font-size: 0.82rem;
+}
+
+.gameplay-controls-guide,
+.gameplay-narrative {
+  position: absolute;
+  z-index: 30;
+  display: grid;
+  gap: 0.85rem;
+  width: min(28rem, calc(100% - 2rem));
+  padding: clamp(1.1rem, 3vw, 1.6rem);
+  border: 1px solid rgb(87 231 255 / 28%);
+  background:
+    linear-gradient(135deg, rgb(87 231 255 / 7%), transparent 38%),
+    rgb(1 6 10 / 94%);
+  box-shadow:
+    0 2rem 5rem rgb(0 0 0 / 62%),
+    inset 0 0 2rem rgb(87 231 255 / 4%);
+  backdrop-filter: blur(1rem);
+  pointer-events: auto;
+}
+
+.gameplay-controls-guide {
+  inset: auto auto clamp(1rem, 4vh, 2rem) clamp(1rem, 3vw, 2rem);
+}
+
+.gameplay-controls-guide small,
+.gameplay-narrative > small {
+  color: #57e7ff;
+  font: 600 var(--gds-type-2xs) var(--gds-font-mono);
+  letter-spacing: 0.16em;
+}
+
+.gameplay-controls-guide h2,
+.gameplay-controls-guide p,
+.gameplay-narrative h2,
+.gameplay-narrative p,
+.gameplay-narrative blockquote {
+  margin: 0;
+}
+
+.gameplay-controls-guide h2,
+.gameplay-narrative h2 {
+  font-size: clamp(1.2rem, 3vw, 1.65rem);
+}
+
+.gameplay-controls-guide p,
+.gameplay-narrative p {
+  color: rgb(220 242 247 / 78%);
+  font-size: 0.85rem;
+  line-height: 1.85;
+}
+
+.gameplay-narrative-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at center, rgb(11 60 70 / 14%), transparent 42%),
+    rgb(0 2 4 / 62%);
+  backdrop-filter: blur(0.35rem);
+  pointer-events: auto;
+}
+
+.gameplay-narrative {
+  position: relative;
+}
+
+.gameplay-narrative blockquote {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.85rem 1rem;
+  border-inline-start: 2px solid #57e7ff;
+  color: #e7fcff;
+  font-size: 1rem;
+  line-height: 1.9;
+  background: rgb(87 231 255 / 5%);
+}
+
+.gameplay-narrative blockquote span {
+  color: #57e7ff;
+  font: 600 var(--gds-type-2xs) var(--gds-font-mono);
+  letter-spacing: 0.1em;
+}
+
+.gameplay-touch-controls {
+  display: none;
+}
+
+.gameplay-echo-prototype-label {
+  width: max-content;
+  padding: 0.22rem 0.42rem;
+  border: 1px solid rgb(87 231 255 / 30%);
+  color: rgb(181 244 255 / 68%);
+  font: 600 0.42rem var(--gds-font-mono);
+  letter-spacing: 0.12em;
+  background: rgb(1 7 11 / 75%);
+  pointer-events: none;
+}
+
+.gameplay-fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  color: #effdff;
+  text-align: center;
+  background: #010407;
+}
+
+.gameplay-fallback small {
+  color: #57e7ff;
+  font: 600 var(--gds-type-xs) var(--gds-font-mono);
+}
+
+.gameplay-fallback h1,
+.gameplay-fallback p {
+  margin: 0;
+}
+
+.gameplay-fallback p {
+  max-width: 34rem;
+  color: rgb(220 242 247 / 72%);
+  line-height: 1.8;
+}
+
+@keyframes gameplay-loading-scan {
+  from { transform: translateX(-130%); }
+  to { transform: translateX(350%); }
+}
+
+@keyframes gameplay-prompt-in {
+  from { opacity: 0; transform: translate(50%, 0.5rem); }
+  to { opacity: 1; transform: translate(50%, 0); }
+}
+
+@keyframes gameplay-glitch-breathe {
+  0%, 91%, 100% { transform: translateX(0); opacity: 0.32; }
+  92% { transform: translateX(1px); opacity: 0.38; }
+  94% { transform: translateX(-1px); opacity: 0.26; }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .gameplay-touch-controls {
+    position: absolute;
+    inset: auto 0.8rem 0.8rem;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    pointer-events: none;
+  }
+
+  .gameplay-touch-controls__dpad {
+    display: grid;
+    grid-template-columns: repeat(3, 3.25rem);
+    grid-template-rows: repeat(3, 3.25rem);
+    gap: 0.18rem;
+    direction: ltr;
+  }
+
+  .gameplay-touch-controls button {
+    display: grid;
+    place-content: center;
+    border: 1px solid rgb(87 231 255 / 28%);
+    border-radius: 50%;
+    color: rgb(226 251 255 / 86%);
+    background: rgb(1 8 12 / 67%);
+    box-shadow: inset 0 0 1rem rgb(87 231 255 / 5%);
+    backdrop-filter: blur(0.55rem);
+    pointer-events: auto;
+    touch-action: none;
+    user-select: none;
+  }
+
+  .gameplay-touch-controls button:active {
+    color: #041014;
+    background: rgb(87 231 255 / 78%);
+  }
+
+  .gameplay-touch-controls button[data-direction="forward"] {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .gameplay-touch-controls button[data-direction="left"] {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .gameplay-touch-controls button[data-direction="right"] {
+    grid-column: 3;
+    grid-row: 2;
+  }
+
+  .gameplay-touch-controls button[data-direction="backward"] {
+    grid-column: 2;
+    grid-row: 3;
+  }
+
+  .gameplay-touch-controls .gameplay-touch-controls__interact {
+    width: 4.6rem;
+    min-height: 4.6rem;
+    border-color: rgb(255 90 105 / 38%);
+    color: #fff1f2;
+    background: rgb(70 9 18 / 58%);
+  }
+
+  .gameplay-touch-controls__interact:disabled {
+    opacity: 0.35;
+  }
+
+  .gameplay-interaction-prompt {
+    bottom: 6.3rem;
+  }
+
+  .gameplay-interaction-prompt kbd {
+    display: none;
+  }
+
+  .gameplay-controls-guide {
+    inset: auto 50% 0.8rem auto;
+    transform: translateX(50%);
+  }
+}
+
+@media (max-height: 34rem) and (orientation: landscape) {
+  .gameplay-hud__status {
+    width: min(20rem, 39vw);
+    padding-block: 0.5rem;
+  }
+
+  .gameplay-controls-guide {
+    width: min(24rem, 44vw);
+    max-height: calc(100% - 1.6rem);
+    overflow: auto;
+  }
+
+  .gameplay-controls-guide p {
+    font-size: 0.72rem;
+    line-height: 1.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gameplay-screen::after,
+  .gameplay-loading i::after,
+  .gameplay-interaction-prompt {
+    animation: none !important;
+  }
+}
+
+[data-gds-motion="reduced"] .gameplay-screen::after,
+[data-gds-motion="reduced"] .gameplay-loading i::after,
+[data-gds-motion="reduced"] .gameplay-interaction-prompt {
+  animation: none;
+}

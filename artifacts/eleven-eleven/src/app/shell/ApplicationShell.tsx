@@ -50,6 +50,10 @@ export function ApplicationShell() {
   const currentCategoryHasMenu = currentCategoryScreens.length > 1;
   const Screen = definition.component;
   const isMainMenu = shell.currentScreen === 'main-menu';
+  const isGameplay = shell.currentScreen === 'play';
+  const isImmersive = isMainMenu
+    || isGameplay
+    || shell.currentScreen === 'cinematic';
 
   return (
     <GameViewport
@@ -62,7 +66,7 @@ export function ApplicationShell() {
     >
       <PremiumAtmosphere />
       <GameSafeArea className="application-shell__safe">
-        {!isMainMenu && (
+        {!isMainMenu && !isGameplay && (
           <header className="application-shell__topbar">
             <button
               type="button"
@@ -121,7 +125,8 @@ export function ApplicationShell() {
 
         <main
           className="application-shell__stage"
-          data-fullscreen={isMainMenu || shell.currentScreen === 'cinematic'}
+          data-fullscreen={isImmersive}
+          data-gameplay={isGameplay}
         >
           <Suspense
             fallback={(
@@ -138,7 +143,7 @@ export function ApplicationShell() {
           </Suspense>
         </main>
 
-        {!isMainMenu && (
+        {!isMainMenu && !isGameplay && (
           <nav
             className="application-shell__navigation"
             aria-label="التنقل الرئيسي"
@@ -210,7 +215,9 @@ export function ApplicationShell() {
       <GameModal
         open={shell.pauseOpen}
         onClose={shell.closePause}
-        eyebrow="GAME STATE // AUTO-SAVED"
+        eyebrow={isGameplay
+          ? 'OPENING ROOM // AUTO-SAVED'
+          : 'GAME STATE // AUTO-SAVED'}
         title="قائمة الإيقاف"
         tone="danger"
       >
@@ -226,6 +233,19 @@ export function ApplicationShell() {
               <small>العودة مباشرة إلى التجربة</small>
             </span>
           </GameButton>
+          {isGameplay && (
+            <GameButton
+              variant="secondary"
+              fullWidth
+              leadingIcon={<GameIcon id="category-story" />}
+              onClick={shell.goBack}
+            >
+              <span className="application-shell__pause-copy">
+                <strong>العودة إلى واجهة القصة</strong>
+                <small>حفظ تقدم الغرفة ومغادرة المشهد</small>
+              </span>
+            </GameButton>
+          )}
           <GameButton
             variant="secondary"
             fullWidth
@@ -237,7 +257,7 @@ export function ApplicationShell() {
               <small>الصوت والجودة وإمكانية الوصول</small>
             </span>
           </GameButton>
-          <GameButton
+          {!isGameplay && <GameButton
             variant="ghost"
             fullWidth
             leadingIcon={<GameIcon id="screen-progress" />}
@@ -246,8 +266,9 @@ export function ApplicationShell() {
             <span className="application-shell__pause-copy">
               <strong>التقدم</strong>
               <small>مراجعة الإنجازات والذكريات والنهايات</small>
-            </span>
-          </GameButton>
+              </span>
+            </GameButton>
+          }
           <GameButton
             variant="ghost"
             fullWidth
@@ -255,8 +276,12 @@ export function ApplicationShell() {
             onClick={() => shell.navigate('main-menu')}
           >
             <span className="application-shell__pause-copy">
-              <strong>القائمة الرئيسية</strong>
-              <small>العودة إلى نقطة بدء الرحلة</small>
+              <strong>{isGameplay
+                ? 'العودة إلى القائمة الرئيسية'
+                : 'القائمة الرئيسية'}</strong>
+              <small>{isGameplay
+                ? 'سيبقى تقدم الغرفة محفوظًا'
+                : 'العودة إلى نقطة بدء الرحلة'}</small>
             </span>
           </GameButton>
         </div>

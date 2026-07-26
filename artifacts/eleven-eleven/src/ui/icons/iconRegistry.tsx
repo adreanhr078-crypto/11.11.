@@ -168,6 +168,20 @@ export const GAME_ICON_REGISTRY = {
     tone: 'danger',
     glyph: Home,
   },
+  'screen-gameplay': {
+    id: 'screen-gameplay',
+    systemId: 'story',
+    screenIds: ['play'],
+    actionId: 'gameplay.enter-opening-room',
+    label: { ar: 'ابدأ اللعبة', en: 'Start game' },
+    description: {
+      ar: 'الدخول إلى الغرفة الافتتاحية والتحكم بـEcho',
+      en: 'Enter the opening room and control Echo',
+    },
+    tooltip: { ar: 'ابدأ اللعبة', en: 'Start game' },
+    tone: 'memory',
+    glyph: Play,
+  },
   'screen-dashboard': {
     id: 'screen-dashboard',
     systemId: 'story',
