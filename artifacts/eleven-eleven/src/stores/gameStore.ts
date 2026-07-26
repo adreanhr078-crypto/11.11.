@@ -13,12 +13,14 @@ import type {
 } from '../core/gameTypes';
 import {
   buildInitialState,
-  generateAllPuzzles,
 } from './gameStoreHelpers';
 import { createEchoActions } from '../application/game/createEchoActions';
 import { createMissionActions } from '../application/game/createMissionActions';
 import { createPuzzleActions } from '../application/game/createPuzzleActions';
 import { createWorldActions } from '../application/game/createWorldActions';
+import {
+  createPlayerResourceActions,
+} from '../application/game/createPlayerResourceActions';
 import { createNarrativeActions } from '../application/narrative/createNarrativeActions';
 import { createCinematicActions } from '../application/cinematics/createCinematicActions';
 import type {
@@ -76,7 +78,6 @@ const DEFAULT_SHOP_PRICES: CoinShopPrices = {
 function createInitialGameState(): GameState {
   registerAuthoredPuzzleContent();
   const state = buildInitialState();
-  state.puzzles = generateAllPuzzles();
   state.shopPrices = DEFAULT_SHOP_PRICES;
   return state;
 }
@@ -93,6 +94,7 @@ export const useGameStore = create<GameState>()(
           ...createPuzzleActions(setState, getState),
           ...createMissionActions(setState, getState),
           ...createWorldActions(setState, getState),
+          ...createPlayerResourceActions(setState, getState),
           ...createNarrativeActions(setState, getState),
           ...createCinematicActions(setState, getState),
         },

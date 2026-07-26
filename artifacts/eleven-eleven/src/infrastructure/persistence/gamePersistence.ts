@@ -18,7 +18,7 @@ import {
   CONTENT_MANIFEST,
 } from '../content/contentRegistry';
 
-export const GAME_SAVE_VERSION = 8;
+export const GAME_SAVE_VERSION = 9;
 
 // Keep the established key so Zustand can migrate existing local saves.
 export const GAME_STORAGE_NAME = '11-11-game-store-v5';
@@ -31,6 +31,22 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+function normalizeCurrency(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(0, Math.floor(value))
+    : 0;
+}
+
+function normalizeMemoryFragments(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(
+    value
+      .filter((item): item is string => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter(Boolean),
+  )];
+}
+
 export function migrateGameState(
   persistedState: unknown,
   _version: number,
@@ -41,6 +57,10 @@ export function migrateGameState(
 
   return {
     ...persisted,
+    currency: normalizeCurrency(persisted.currency),
+    collectedMemoryFragments: normalizeMemoryFragments(
+      persisted.collectedMemoryFragments,
+    ),
     progression: persisted.progression ?? migrateLegacyProgression(
       CONTENT_MANIFEST.contentVersion,
       CHAPTER_DEFINITIONS,
@@ -122,6 +142,8 @@ export function mergeGameState(
 
 export function partializeGameState(state: GameState): PersistedState {
   return {
+    currency: state.currency,
+    collectedMemoryFragments: state.collectedMemoryFragments,
     echo: state.echo,
     progression: state.progression,
     narrative: state.narrative,

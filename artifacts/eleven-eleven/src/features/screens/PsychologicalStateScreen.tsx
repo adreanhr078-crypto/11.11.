@@ -43,20 +43,7 @@ export default function PsychologicalStateScreen() {
   );
 
   const enterOpeningRoom = () => {
-    const current = useGameStore.getState();
-    if (!current.narrative.activeFlags.opening_room_session_started) {
-      current.actions.setNarrativeFlag(
-        'opening_room_session_started',
-        true,
-      );
-      current.actions.recordNarrativeDecision(
-        'opening-room-session',
-        'entered',
-        'system',
-      );
-    }
-    current.actions.setNarrativeFlag('opening_room_entered', true);
-    navigate('play');
+    navigate('puzzles');
   };
 
   return (
@@ -136,7 +123,7 @@ export default function PsychologicalStateScreen() {
             {openingRoomEntered ? 'استكمال اللعبة' : 'ابدأ اللعبة'}
           </GameButton>
           <small>
-            الغرفة الافتتاحية · منظور الشخص الثالث · يتم الحفظ تلقائيًا
+            منظور الشخص الثالث قريبًا
           </small>
         </div>
       </GlassPanel>

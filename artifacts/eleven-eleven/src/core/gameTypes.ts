@@ -139,6 +139,12 @@ export interface EndingState {
 }
 
 export interface GameActions {
+  addCurrency: (amount: number) => void;
+  spendCurrency: (amount: number) => boolean;
+  setCurrency: (amount: number) => void;
+  collectMemoryFragment: (fragmentId: string) => boolean;
+  hasMemoryFragment: (fragmentId: string) => boolean;
+  resetMemoryFragments: () => void;
   chat: () => { dialogue: string; effects: Partial<EchoState>; };
   solve: (puzzleId: string, answer: string) => { success: boolean; message: string; achievement?: Achievement; };
   advanceTime: () => void;
@@ -189,6 +195,10 @@ export interface GameActions {
 }
 
 export interface GameState {
+  /** Player currency used by the new UI-driven content layer. */
+  currency: number;
+  /** Canonical IDs collected by the player; the UI count derives from this list. */
+  collectedMemoryFragments: string[];
   echo: EchoState; time: TimeState; flower: FlowerState;
   memory: MemoryState; puzzles: PuzzleNode[];
   totalPuzzles: number; solvedPuzzles: number;

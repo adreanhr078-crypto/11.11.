@@ -8,7 +8,10 @@ import {
 } from 'react';
 import { Canvas } from '@react-three/fiber';
 import type { Group } from 'three';
-import type { QualityTier } from '../../../ui/design-system';
+import type {
+  MotionTier,
+  QualityTier,
+} from '../../../ui/design-system';
 import { OPENING_ROOM_CONFIG } from '../data/openingRoom.config';
 import {
   OPENING_ROOM_INTERACTIONS,
@@ -18,11 +21,19 @@ import { useOpeningRoomProgress } from '../hooks/useOpeningRoomProgress';
 import { usePlayerControls } from '../hooks/usePlayerControls';
 import { EchoPlayer } from './EchoPlayer';
 import { GameplayHUD } from './GameplayHUD';
+import { InteractionCamera } from './InteractionCamera';
 import {
   NarrativeOverlay,
   type NarrativeOverlayContent,
 } from './NarrativeOverlay';
-import { OpeningRoom } from './OpeningRoom';
+import {
+  OpeningRoom,
+  type OpeningRoomVisualEvent,
+} from './OpeningRoom';
+import {
+  OpeningCinematic,
+  OpeningCinematicOverlay,
+} from './OpeningCinematic';
 import {
   ThirdPersonCamera,
   type ThirdPersonCameraConfig,
@@ -31,6 +42,7 @@ import {
 interface GameWorldProps {
   paused: boolean;
   quality: QualityTier;
+  motion: MotionTier;
   onPause: () => void;
 }
 
@@ -102,6 +114,7 @@ function narrationForExecution(
 export function GameWorld({
   paused,
   quality,
+  motion,
   onPause,
 }: GameWorldProps) {
   const playerRef = useRef<Group | null>(null);
@@ -113,27 +126,51 @@ export function GameWorld({
   const [narrative, setNarrative] = useState<
     NarrativeOverlayContent | null
   >(null);
+  const [activeInteractionId, setActiveInteractionId] = useState<
+    string | null
+  >(null);
+  const [visualEvent, setVisualEvent] = useState<
+    OpeningRoomVisualEvent | null
+  >(null);
+  const interactionNonceRef = useRef(0);
+  const narrativeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const {
     flags,
     puzzle,
     enterRoom,
     executeInteraction,
     markControlsSeen,
+    markCinematicSeen,
     controlsSeen,
+    cinematicSeen,
   } = useOpeningRoomProgress();
+  const [cinematicActive, setCinematicActive] = useState(
+    () => !cinematicSeen,
+  );
   const { playCue } = useGameplayAudio();
-  const showTutorial = !controlsSeen;
+  const showTutorial = !controlsSeen && !cinematicActive;
 
   useEffect(() => {
     enterRoom();
     playCue('ambient', { loop: true, volume: 0.28 });
+    playCue('systemHum', { loop: true, volume: 0.18 });
   }, [enterRoom, playCue]);
+
+  useEffect(() => () => {
+    if (narrativeTimerRef.current) {
+      clearTimeout(narrativeTimerRef.current);
+    }
+  }, []);
 
   const handleInteract = useCallback(() => {
     if (
       paused
+      || cinematicActive
       || showTutorial
       || narrative
+      || activeInteractionId
       || !nearestInteractionId
     ) {
       return;
@@ -144,29 +181,56 @@ export function GameWorld({
     if (execution.interaction.id === 'opening-clock') {
       playCue('clock', { volume: 0.45 });
     } else if (execution.interaction.id === 'opening-door') {
-      playCue('door', { volume: 0.5 });
+      playCue(
+        execution.result.outcome === 'unlocked'
+          ? 'doorOpen'
+          : 'doorLocked',
+        { volume: 0.5 },
+      );
     }
     if (execution.memoryGranted) {
       playCue('memoryGlitch', { volume: 0.5 });
     }
 
-    setNarrative(narrationForExecution(
+    interactionNonceRef.current += 1;
+    setActiveInteractionId(execution.interaction.id);
+    setVisualEvent({
+      nonce: interactionNonceRef.current,
+      interactionId: execution.interaction.id,
+      outcome: execution.result.outcome,
+      memoryGranted: execution.memoryGranted,
+    });
+    const nextNarrative = narrationForExecution(
       execution.interaction.id,
       execution.result.outcome,
       execution.result.message,
       execution.memoryGranted,
-    ));
+    );
+    if (narrativeTimerRef.current) {
+      clearTimeout(narrativeTimerRef.current);
+    }
+    narrativeTimerRef.current = setTimeout(() => {
+      narrativeTimerRef.current = null;
+      setNarrative(nextNarrative);
+    }, motion === 'reduced' ? 80 : 460);
   }, [
     executeInteraction,
+    activeInteractionId,
+    cinematicActive,
     narrative,
     nearestInteractionId,
+    motion,
     paused,
     playCue,
     showTutorial,
   ]);
 
   const controls = usePlayerControls({
-    enabled: !paused && !showTutorial && narrative === null,
+    enabled: !paused
+      && !cinematicActive
+      && !showTutorial
+      && narrative === null
+      && activeInteractionId === null,
     pauseEnabled: !paused,
     onInteract: handleInteract,
     onPause,
@@ -178,6 +242,12 @@ export function GameWorld({
     );
     return interaction?.prompt.replace(/^E\s*—\s*/, '') ?? null;
   }, [nearestInteractionId]);
+
+  const interactionTarget = useMemo(() => {
+    const targetId = activeInteractionId ?? nearestInteractionId;
+    return OPENING_ROOM_INTERACTIONS.find(({ id }) => id === targetId)
+      ?.position ?? null;
+  }, [activeInteractionId, nearestInteractionId]);
 
   const cameraConfig = useMemo<ThirdPersonCameraConfig>(() => {
     const padding = OPENING_ROOM_CONFIG.camera.collisionPadding;
@@ -201,7 +271,11 @@ export function GameWorld({
   }, []);
 
   const stageCopy = PUZZLE_STAGE_COPY[puzzle.stage];
-  const inputEnabled = !paused && !showTutorial && narrative === null;
+  const inputEnabled = !paused
+    && !cinematicActive
+    && !showTutorial
+    && narrative === null
+    && activeInteractionId === null;
   const dpr: [number, number] = quality === 'high'
     ? [1, 2]
     : quality === 'mobile'
@@ -213,6 +287,8 @@ export function GameWorld({
       className="gameplay-screen"
       data-canvas-ready={canvasReady}
       data-puzzle-stage={puzzle.stage}
+      data-cinematic-active={cinematicActive}
+      data-active-interaction={activeInteractionId ?? undefined}
     >
       {!canvasReady && (
         <div className="gameplay-loading" role="status">
@@ -249,13 +325,24 @@ export function GameWorld({
           ]}
         />
         <Suspense fallback={null}>
-          <OpeningRoom flags={flags} quality={quality} />
+          <OpeningRoom
+            flags={flags}
+            quality={quality}
+            focusedInteractionId={
+              inputEnabled ? nearestInteractionId : activeInteractionId
+            }
+            visualEvent={visualEvent}
+          />
           <EchoPlayer
             playerRef={playerRef}
             inputRef={controls.inputRef}
             cameraYawRef={cameraYawRef}
             flags={flags}
             enabled={inputEnabled}
+            paused={paused}
+            cinematicLocked={cinematicActive}
+            activeInteractionId={activeInteractionId}
+            interactionTarget={interactionTarget}
             onNearestInteractionChange={setNearestInteractionId}
             onFootstep={() => playCue('footstep', { volume: 0.18 })}
           />
@@ -265,8 +352,29 @@ export function GameWorld({
             enabled={inputEnabled}
             config={cameraConfig}
           />
+          <OpeningCinematic
+            targetRef={playerRef}
+            active={cinematicActive}
+            paused={paused}
+            reducedMotion={motion === 'reduced'}
+            onComplete={() => {
+              markCinematicSeen();
+              setCinematicActive(false);
+            }}
+          />
+          <InteractionCamera
+            playerRef={playerRef}
+            target={interactionTarget}
+            active={activeInteractionId !== null}
+            paused={paused}
+          />
         </Suspense>
       </Canvas>
+
+      <OpeningCinematicOverlay
+        active={cinematicActive}
+        reducedMotion={motion === 'reduced'}
+      />
 
       <GameplayHUD
         prompt={inputEnabled ? interactionPrompt : null}
@@ -281,7 +389,14 @@ export function GameWorld({
 
       <NarrativeOverlay
         content={narrative}
-        onClose={() => setNarrative(null)}
+        onClose={() => {
+          if (narrativeTimerRef.current) {
+            clearTimeout(narrativeTimerRef.current);
+            narrativeTimerRef.current = null;
+          }
+          setNarrative(null);
+          setActiveInteractionId(null);
+        }}
       />
     </div>
   );

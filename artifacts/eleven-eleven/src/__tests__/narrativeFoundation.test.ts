@@ -167,6 +167,7 @@ describe('Phase 2 narrative foundation', () => {
           opening_photo_inspected: true,
           opening_room_memory_recovered: true,
           opening_door_unlocked: true,
+          opening_room_cinematic_seen: true,
         },
       },
     }, 7);
@@ -177,6 +178,10 @@ describe('Phase 2 narrative foundation', () => {
     );
     assert.equal(
       migrated.narrative?.activeFlags.opening_door_unlocked,
+      true,
+    );
+    assert.equal(
+      migrated.narrative?.activeFlags.opening_room_cinematic_seen,
       true,
     );
   });

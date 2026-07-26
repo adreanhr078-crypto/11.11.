@@ -10,6 +10,10 @@ import {
   findNearestEnabledInteraction,
 } from '../features/gameplay/systems/interactionSystem';
 import {
+  findEchoAnimationClip,
+  resolveEchoAnimationState,
+} from '../features/gameplay/systems/echoAnimationSystem';
+import {
   collidesWithObstacle,
   movePlayer,
 } from '../features/gameplay/systems/playerMovementSystem';
@@ -134,6 +138,52 @@ describe('Opening room player movement', () => {
       ),
       false,
     );
+  });
+});
+
+describe('Echo visual animation state', () => {
+  it('selects idle, walk, run, interaction, and locked states deterministically', () => {
+    const base = {
+      sprinting: false,
+      interactionActive: false,
+      cinematicLocked: false,
+      paused: false,
+    };
+
+    assert.equal(resolveEchoAnimationState({ ...base, speed: 0 }), 'idle');
+    assert.equal(resolveEchoAnimationState({ ...base, speed: 1.2 }), 'walk');
+    assert.equal(
+      resolveEchoAnimationState({
+        ...base,
+        speed: 2.8,
+        sprinting: true,
+      }),
+      'run',
+    );
+    assert.equal(
+      resolveEchoAnimationState({
+        ...base,
+        speed: 0,
+        interactionActive: true,
+      }),
+      'interact',
+    );
+    assert.equal(
+      resolveEchoAnimationState({
+        ...base,
+        speed: 1,
+        cinematicLocked: true,
+      }),
+      'lockedByCinematic',
+    );
+  });
+
+  it('maps only animation clips that actually exist in a supplied GLB', () => {
+    const clips = ['Breathing Idle', 'Locomotion_Walk', 'Sprint_Forward'];
+    assert.equal(findEchoAnimationClip(clips, 'idle'), 'Breathing Idle');
+    assert.equal(findEchoAnimationClip(clips, 'walk'), 'Locomotion_Walk');
+    assert.equal(findEchoAnimationClip(clips, 'run'), 'Sprint_Forward');
+    assert.equal(findEchoAnimationClip(clips, 'interact'), null);
   });
 });
 

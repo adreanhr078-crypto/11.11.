@@ -123,6 +123,7 @@ export function ThirdPersonCamera({
   ]);
 
   useFrame((_, delta) => {
+    if (!enabled) return;
     const target = targetRef.current;
     if (!target) return;
 

@@ -32,6 +32,7 @@ import {
   useShellStore,
   useUiPreferencesStore,
 } from './shellStore';
+import { PlayerResourceCounters } from './PlayerResourceCounters';
 
 export function ApplicationShell() {
   const shell = useShellStore();
@@ -101,6 +102,7 @@ export function ApplicationShell() {
             </div>
 
             <div className="application-shell__utility">
+              <PlayerResourceCounters />
               <GameTooltip label="الإعدادات">
                 <GameButton
                   variant="secondary"

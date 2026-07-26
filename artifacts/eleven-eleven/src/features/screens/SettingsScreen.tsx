@@ -56,7 +56,7 @@ export default function SettingsScreen() {
           ))}
         </div>
         <p className="shell-muted-copy">
-          يغير كثافة الوهج والمؤثرات فقط؛ لا يغير دقة أو نسب الأصول.
+          يضبط دقة العرض والظلال والجزيئات والوهج بما يناسب الهاتف.
         </p>
       </HudPanel>
 
@@ -129,4 +129,3 @@ export default function SettingsScreen() {
     </div>
   );
 }
-

@@ -270,15 +270,97 @@
   display: none;
 }
 
-.gameplay-echo-prototype-label {
-  width: max-content;
-  padding: 0.22rem 0.42rem;
-  border: 1px solid rgb(87 231 255 / 30%);
-  color: rgb(181 244 255 / 68%);
-  font: 600 0.42rem var(--gds-font-mono);
-  letter-spacing: 0.12em;
-  background: rgb(1 7 11 / 75%);
+.opening-cinematic-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  overflow: hidden;
   pointer-events: none;
+}
+
+.opening-cinematic-overlay__blackout,
+.opening-cinematic-overlay__scan {
+  position: absolute;
+  inset: 0;
+  content: "";
+}
+
+.opening-cinematic-overlay__blackout {
+  background: #000;
+  animation: opening-cinematic-blackout 4.6s ease both;
+}
+
+.opening-cinematic-overlay__copy {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  display: grid;
+  justify-items: center;
+  gap: 0.25rem;
+  transform: translate(-50%, -50%);
+  color: #e7fbff;
+  font-family: var(--gds-font-mono);
+  letter-spacing: 0.16em;
+  text-align: center;
+  text-shadow: 0 0 1.3rem rgb(87 231 255 / 55%);
+  animation: opening-cinematic-copy 4.6s ease both;
+}
+
+.opening-cinematic-overlay__copy small {
+  color: rgb(107 231 249 / 72%);
+  font-size: 0.56rem;
+}
+
+.opening-cinematic-overlay__copy strong {
+  font-size: clamp(2.6rem, 9vw, 6rem);
+  line-height: 0.95;
+}
+
+.opening-cinematic-overlay__copy span {
+  color: rgb(219 244 248 / 72%);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.opening-cinematic-overlay__scan {
+  inset: -30% 0 auto;
+  height: 16%;
+  opacity: 0;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgb(87 231 255 / 14%),
+    transparent
+  );
+  mix-blend-mode: screen;
+  animation: opening-cinematic-scan 4.6s 0.85s ease-out both;
+}
+
+.opening-cinematic-overlay.is-reduced .opening-cinematic-overlay__blackout,
+.opening-cinematic-overlay.is-reduced .opening-cinematic-overlay__copy {
+  animation-duration: 1.35s;
+}
+
+.opening-cinematic-overlay.is-reduced .opening-cinematic-overlay__scan {
+  display: none;
+}
+
+.gameplay-screen[data-cinematic-active="true"] .gameplay-hud__status,
+.gameplay-screen[data-cinematic-active="true"] .gameplay-touch-controls,
+.gameplay-screen[data-cinematic-active="true"] .gameplay-interaction-prompt {
+  opacity: 0;
+}
+
+.gameplay-screen[data-active-interaction="opening-photo"] .gameplay-canvas {
+  animation: gameplay-photo-inspect 520ms steps(2, end) 1;
+}
+
+.gameplay-screen[data-active-interaction="opening-clock"]::before {
+  opacity: 0.42;
+  animation: gameplay-memory-scan 620ms ease-out 1;
+}
+
+.gameplay-screen[data-active-interaction="opening-door"]::after {
+  animation: gameplay-door-feedback 480ms ease-out 1;
 }
 
 .gameplay-fallback {
@@ -324,6 +406,51 @@
   0%, 91%, 100% { transform: translateX(0); opacity: 0.32; }
   92% { transform: translateX(1px); opacity: 0.38; }
   94% { transform: translateX(-1px); opacity: 0.26; }
+}
+
+@keyframes opening-cinematic-blackout {
+  0%, 12% { opacity: 1; }
+  28% { opacity: 0.2; }
+  42%, 84% { opacity: 0; }
+  92% { opacity: 0.16; }
+  100% { opacity: 0; }
+}
+
+@keyframes opening-cinematic-copy {
+  0%, 8% { opacity: 0; filter: blur(0.5rem); }
+  15%, 25% { opacity: 0.92; filter: blur(0); }
+  34%, 100% { opacity: 0; filter: blur(0.2rem); }
+}
+
+@keyframes opening-cinematic-scan {
+  0% { transform: translateY(0); opacity: 0; }
+  16% { opacity: 0.65; }
+  100% { transform: translateY(850%); opacity: 0; }
+}
+
+@keyframes gameplay-photo-inspect {
+  0%, 100% { filter: none; transform: translateX(0); }
+  24% { filter: contrast(1.35) saturate(0.72); transform: translateX(2px); }
+  56% { filter: hue-rotate(14deg) contrast(1.2); transform: translateX(-2px); }
+}
+
+@keyframes gameplay-memory-scan {
+  0% { opacity: 0.15; clip-path: inset(50% 0); }
+  45% { opacity: 0.48; clip-path: inset(0); }
+  100% { opacity: 0.18; clip-path: inset(50% 0); }
+}
+
+@keyframes gameplay-door-feedback {
+  0%, 100% {
+    opacity: 0.32;
+    box-shadow: inset 0 0 9rem rgb(0 0 0 / 82%);
+  }
+  40% {
+    opacity: 0.56;
+    box-shadow:
+      inset 0 0 8rem rgb(145 9 29 / 30%),
+      inset 0 0 9rem rgb(0 0 0 / 72%);
+  }
 }
 
 @media (hover: none), (pointer: coarse) {
@@ -430,13 +557,19 @@
 @media (prefers-reduced-motion: reduce) {
   .gameplay-screen::after,
   .gameplay-loading i::after,
-  .gameplay-interaction-prompt {
+  .gameplay-interaction-prompt,
+  .opening-cinematic-overlay__blackout,
+  .opening-cinematic-overlay__copy,
+  .opening-cinematic-overlay__scan,
+  .gameplay-canvas {
     animation: none !important;
   }
 }
 
 [data-gds-motion="reduced"] .gameplay-screen::after,
 [data-gds-motion="reduced"] .gameplay-loading i::after,
-[data-gds-motion="reduced"] .gameplay-interaction-prompt {
+[data-gds-motion="reduced"] .gameplay-interaction-prompt,
+[data-gds-motion="reduced"] .opening-cinematic-overlay__scan,
+[data-gds-motion="reduced"] .gameplay-canvas {
   animation: none;
 }

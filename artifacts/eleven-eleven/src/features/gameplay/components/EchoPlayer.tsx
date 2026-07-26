@@ -5,6 +5,7 @@ import {
 import { useFrame } from '@react-three/fiber';
 import {
   MathUtils,
+  Vector3,
   type Group,
 } from 'three';
 import { OPENING_ROOM_CONFIG } from '../data/openingRoom.config';
@@ -17,6 +18,15 @@ import type {
   PlayerControlsSnapshot,
 } from '../hooks/usePlayerControls';
 import { EchoAvatar } from './EchoAvatar';
+import {
+  INITIAL_ECHO_VISUAL_STATE,
+} from '../types/echoAnimation.types';
+import {
+  resolveEchoAnimationState,
+} from '../systems/echoAnimationSystem';
+import type {
+  Vector3 as GameplayVector3,
+} from '../types/gameplay.types';
 
 interface EchoPlayerProps {
   playerRef: MutableRefObject<Group | null>;
@@ -24,6 +34,10 @@ interface EchoPlayerProps {
   cameraYawRef: MutableRefObject<number>;
   flags: OpeningRoomNarrativeFlags;
   enabled: boolean;
+  paused: boolean;
+  cinematicLocked: boolean;
+  activeInteractionId: string | null;
+  interactionTarget: GameplayVector3 | null;
   onNearestInteractionChange: (interactionId: string | null) => void;
   onFootstep: () => void;
 }
@@ -34,11 +48,17 @@ export function EchoPlayer({
   cameraYawRef,
   flags,
   enabled,
+  paused,
+  cinematicLocked,
+  activeInteractionId,
+  interactionTarget,
   onNearestInteractionChange,
   onFootstep,
 }: EchoPlayerProps) {
-  const movingRef = useRef(false);
+  const visualStateRef = useRef({ ...INITIAL_ECHO_VISUAL_STATE });
   const footstepElapsedRef = useRef(0);
+  const lastPositionRef = useRef(new Vector3());
+  const initializedPositionRef = useRef(false);
 
   useInteraction({
     playerRef,
@@ -49,8 +69,49 @@ export function EchoPlayer({
 
   useFrame((_, frameDelta) => {
     const player = playerRef.current;
-    if (!player || !enabled) {
-      movingRef.current = false;
+    if (!player) return;
+
+    if (!initializedPositionRef.current) {
+      lastPositionRef.current.copy(player.position);
+      initializedPositionRef.current = true;
+    }
+
+    if (!enabled) {
+      const visual = visualStateRef.current;
+      visual.speed = MathUtils.damp(visual.speed, 0, 12, frameDelta);
+      visual.speedNormalized = MathUtils.damp(
+        visual.speedNormalized,
+        0,
+        10,
+        frameDelta,
+      );
+      visual.sprinting = false;
+      visual.frozen = paused;
+      visual.state = resolveEchoAnimationState({
+        speed: visual.speed,
+        sprinting: false,
+        interactionActive: activeInteractionId !== null,
+        cinematicLocked,
+        paused,
+      });
+      if (interactionTarget) {
+        const targetYaw = Math.atan2(
+          interactionTarget.x - player.position.x,
+          interactionTarget.z - player.position.z,
+        );
+        const relativeYaw = MathUtils.euclideanModulo(
+          targetYaw - player.rotation.y + Math.PI,
+          Math.PI * 2,
+        ) - Math.PI;
+        visual.lookYaw = MathUtils.clamp(relativeYaw, -0.72, 0.72);
+      } else {
+        visual.lookYaw = MathUtils.damp(
+          visual.lookYaw,
+          0,
+          7,
+          frameDelta,
+        );
+      }
       footstepElapsedRef.current = 0;
       return;
     }
@@ -74,11 +135,43 @@ export function EchoPlayer({
     const deltaX = next.x - current.x;
     const deltaZ = next.z - current.z;
     const isMoving = Math.abs(deltaX) + Math.abs(deltaZ) > 0.00001;
-    movingRef.current = isMoving;
+    const speed = Math.hypot(deltaX, deltaZ) / Math.max(delta, 0.0001);
+    const visual = visualStateRef.current;
+    visual.speed = MathUtils.damp(visual.speed, speed, 14, delta);
+    visual.speedNormalized = MathUtils.damp(
+      visual.speedNormalized,
+      MathUtils.clamp(
+        speed / OPENING_ROOM_CONFIG.movement.sprintSpeed,
+        0,
+        1,
+      ),
+      10,
+      delta,
+    );
+    visual.sprinting = Boolean(inputRef.current.sprint && isMoving);
+    visual.frozen = false;
+    visual.state = resolveEchoAnimationState({
+      speed: visual.speed,
+      sprinting: visual.sprinting,
+      interactionActive: false,
+      cinematicLocked: false,
+      paused: false,
+    });
+    visual.lookYaw = MathUtils.damp(visual.lookYaw, 0, 6, delta);
 
     if (isMoving) {
       player.position.set(next.x, next.y, next.z);
       const desiredRotation = Math.atan2(deltaX, deltaZ);
+      const turnDelta = MathUtils.euclideanModulo(
+        desiredRotation - player.rotation.y + Math.PI,
+        Math.PI * 2,
+      ) - Math.PI;
+      visual.turnLean = MathUtils.damp(
+        visual.turnLean,
+        MathUtils.clamp(turnDelta, -1, 1),
+        10,
+        delta,
+      );
       player.rotation.y = MathUtils.damp(
         player.rotation.y,
         desiredRotation,
@@ -93,8 +186,10 @@ export function EchoPlayer({
         onFootstep();
       }
     } else {
+      visual.turnLean = MathUtils.damp(visual.turnLean, 0, 9, delta);
       footstepElapsedRef.current = 0;
     }
+    lastPositionRef.current.copy(player.position);
   });
 
   const spawn = OPENING_ROOM_CONFIG.spawnPosition;
@@ -107,7 +202,7 @@ export function EchoPlayer({
       name="echo-player"
     >
       <group position={[0, -playerCenterHeight, 0]}>
-        <EchoAvatar movingRef={movingRef} />
+        <EchoAvatar visualStateRef={visualStateRef} />
       </group>
     </group>
   );

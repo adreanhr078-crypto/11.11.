@@ -9,6 +9,9 @@ import {
   type GameScreenId,
 } from './screenRegistry';
 import type { NavigationCategoryId } from './navigationTypes';
+import {
+  resolveFeatureGatedScreen,
+} from '../config/featureFlags';
 
 export type { GameScreenId } from './screenRegistry';
 
@@ -38,7 +41,9 @@ const LEGACY_SCREEN_ALIASES: Record<string, GameScreenId> = {
 function screenFromLocation(): GameScreenId {
   if (typeof window === 'undefined') return 'main-menu';
   const candidate = window.location.hash.replace(/^#\/?/, '');
-  const normalized = LEGACY_SCREEN_ALIASES[candidate] ?? candidate;
+  const normalized = resolveFeatureGatedScreen(
+    LEGACY_SCREEN_ALIASES[candidate] ?? candidate,
+  );
   return GAME_SCREEN_IDS.includes(normalized as GameScreenId)
     ? normalized as GameScreenId
     : 'main-menu';
@@ -55,7 +60,9 @@ export const useShellStore = create<ShellState>((set, get) => ({
   navigationCategory: null,
   pauseOpen: false,
   navigate(screen) {
-    const normalized = LEGACY_SCREEN_ALIASES[screen] ?? screen;
+    const normalized = resolveFeatureGatedScreen(
+      LEGACY_SCREEN_ALIASES[screen] ?? screen,
+    ) as GameScreenId;
     const current = get().currentScreen;
     writeScreenLocation(normalized);
     if (normalized === current) {

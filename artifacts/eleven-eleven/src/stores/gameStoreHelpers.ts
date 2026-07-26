@@ -44,6 +44,8 @@ export function buildInitialState(): GameState {
   const initialTransformation = createInitialTransformationState();
   
   return {
+    currency: 0,
+    collectedMemoryFragments: [],
     echo: {
       personality: createInitialEchoPersonality(),
       trust: 15, fear: 70, memoryStability: 5, corruption: 2,

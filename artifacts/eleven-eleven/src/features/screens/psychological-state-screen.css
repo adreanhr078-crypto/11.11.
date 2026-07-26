@@ -96,21 +96,57 @@
 .psychological-state__presence {
   position: absolute;
   z-index: 2;
-  inset: clamp(3.4rem, 9vh, 4.6rem) auto 0 1%;
-  width: 70%;
+  inset: clamp(3.4rem, 9vh, 4.6rem) auto 0 0;
+  width: min(72%, 68rem);
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 4% 88%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 4% 88%,
+    transparent 100%
+  );
 }
 
 .psychological-state__echo-stage {
   position: absolute;
-  inset: -1.5% -4% -2%;
+  inset: 0 -3% -1%;
+  overflow: hidden;
+}
+
+.psychological-state__echo-stage .echo-interactive-stage__character {
+  inset: -0.5% 0 0;
+  transform-style: flat;
+  transform: translate(
+    calc(var(--echo-look-x) * 0.32rem),
+    calc(var(--echo-look-y) * 0.14rem)
+  );
+  animation: psychological-echo-breathe 5.8s ease-in-out infinite;
+}
+
+.psychological-state__echo-stage .echo-interactive-stage__image,
+.psychological-state__echo-stage .echo-interactive-stage__shadow,
+.psychological-state__echo-stage .echo-interactive-stage__signal {
+  inset: 2.4% auto auto -42.5%;
+  width: 185%;
+  height: 185%;
+  object-position: 50% top;
+  transform: none;
+  image-rendering: auto;
 }
 
 .psychological-state__echo-stage .echo-interactive-stage__image {
   filter:
-    contrast(1.055)
-    saturate(1.06)
+    contrast(1.07)
+    saturate(1.045)
+    brightness(1.025)
     drop-shadow(0 1.5rem 1.5rem rgb(0 0 0 / 70%))
-    drop-shadow(0 0 1.4rem rgb(55 207 255 / 10%));
+    drop-shadow(0 0 1.7rem rgb(55 207 255 / 12%));
 }
 
 .application-shell .psychological-state__reading {
@@ -216,9 +252,23 @@
   50% { transform: scale(1.035); opacity: 0.7; }
 }
 
+@keyframes psychological-echo-breathe {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -0.22%; }
+}
+
 @media (max-width: 62rem) and (orientation: landscape) {
   .psychological-state__presence {
-    width: 67%;
+    width: 66%;
+  }
+
+  .psychological-state__echo-stage .echo-interactive-stage__image,
+  .psychological-state__echo-stage .echo-interactive-stage__shadow,
+  .psychological-state__echo-stage .echo-interactive-stage__signal {
+    inset-block-start: 2.8%;
+    left: -46%;
+    width: 192%;
+    height: 192%;
   }
 
   .application-shell .psychological-state__reading {

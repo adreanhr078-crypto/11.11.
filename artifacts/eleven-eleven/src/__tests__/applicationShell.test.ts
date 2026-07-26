@@ -21,6 +21,9 @@ import {
 } from '../app/shell/screenRegistry';
 import { useShellStore } from '../app/shell/shellStore';
 import {
+  OPENING_ROOM_3D_ENABLED,
+} from '../app/config/featureFlags';
+import {
   getCategoryScreens,
   NAVIGATION_CATEGORIES,
   PRIMARY_NAVIGATION_CATEGORIES,
@@ -190,18 +193,14 @@ describe('Application Shell', () => {
     );
   });
 
-  it('keeps the opening memory authored while other registries stay editor-ready', () => {
+  it('keeps puzzle and memory registries empty and editor-ready', () => {
     const state = useGameStore.getState();
     const memories = createMemoryScreenReadModel(state);
     const dialogue = createDialogueScreenReadModel(state);
 
-    assert.equal(memories.isAuthoredContentEmpty, false);
-    assert.equal(memories.items.length, 1);
-    assert.equal(
-      memories.items[0]?.definition.id,
-      'memory_opening_room_handprint',
-    );
-    assert.equal(memories.totalFragmentCount, 1);
+    assert.equal(memories.isAuthoredContentEmpty, true);
+    assert.deepEqual(memories.items, []);
+    assert.equal(memories.totalFragmentCount, 0);
     assert.deepEqual(dialogue.availableDefinitions, []);
     assert.equal(dialogue.node, null);
     assert.equal(dialogue.hasAuthoredContent, false);
@@ -253,7 +252,8 @@ describe('Application Shell', () => {
     }
   });
 
-  it('navigates from Story to play and returns without reloading the shell', () => {
+  it('keeps the 3D room dormant and routes its entry to puzzles', () => {
+    assert.equal(OPENING_ROOM_3D_ENABLED, false);
     useShellStore.setState({
       currentScreen: 'psychological-state',
       previousScreen: null,
@@ -262,7 +262,7 @@ describe('Application Shell', () => {
     });
 
     useShellStore.getState().navigate('play');
-    assert.equal(useShellStore.getState().currentScreen, 'play');
+    assert.equal(useShellStore.getState().currentScreen, 'puzzles');
     assert.equal(
       useShellStore.getState().previousScreen,
       'psychological-state',

@@ -10,6 +10,9 @@ import { GameIcon } from '../../ui/icons';
 import { createDashboardReadModel } from '../../application/ui/gameUiReadModels';
 import { useShellStore } from '../../app/shell/shellStore';
 import {
+  PlayerResourceCounters,
+} from '../../app/shell/PlayerResourceCounters';
+import {
   EchoPresence,
   ENVIRONMENT_PRESENTATION_ASSETS,
 } from '../../ui/presentation';
@@ -60,6 +63,7 @@ export default function MainMenuScreen() {
           <span className="shell-screen-code">01</span>
           <strong>المشهد السينمائي</strong>
         </span>
+        <PlayerResourceCounters className="shell-main-menu__resources" />
       </header>
 
       <section className="shell-main-menu__identity">

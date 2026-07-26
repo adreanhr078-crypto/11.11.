@@ -29,7 +29,7 @@ describe('Phase 1 foundation', () => {
     assert.doesNotThrow(validateContentRegistry);
     assert.equal(CONTENT_COUNTS.chapters, 7);
     assert.equal(CONTENT_COUNTS.puzzles, 0);
-    assert.equal(CONTENT_COUNTS.memories, 1);
+    assert.equal(CONTENT_COUNTS.memories, 0);
     assert.ok(CONTENT_MANIFEST.capacity.puzzles >= 2000);
     assert.ok(CONTENT_MANIFEST.capacity.memories >= 2000);
   });
@@ -89,9 +89,35 @@ describe('Phase 1 foundation', () => {
     assert.equal(state.currentChapter, 'chapter_1');
     assert.equal(state.totalPuzzles, 1000);
     assert.equal(state.puzzles.length, 0);
-    assert.equal(state.memory.totalFragments, 1);
+    assert.equal(state.memory.totalFragments, 0);
+    assert.equal(state.currency, 0);
+    assert.deepEqual(state.collectedMemoryFragments, []);
     assert.equal(state.echo.personality.trust, state.echo.trust);
     assert.equal(typeof state.actions.solve, 'function');
+  });
+
+  it('manages currency and unique memory fragments through store actions', () => {
+    const actions = useGameStore.getState().actions;
+    actions.setCurrency(10);
+    actions.addCurrency(5.9);
+    assert.equal(useGameStore.getState().currency, 15);
+    assert.equal(actions.spendCurrency(4), true);
+    assert.equal(actions.spendCurrency(99), false);
+    assert.equal(useGameStore.getState().currency, 11);
+    actions.setCurrency(-20);
+    assert.equal(useGameStore.getState().currency, 0);
+
+    actions.resetMemoryFragments();
+    assert.equal(actions.collectMemoryFragment('fragment_test'), true);
+    assert.equal(actions.collectMemoryFragment('fragment_test'), false);
+    assert.equal(actions.hasMemoryFragment('fragment_test'), true);
+    assert.deepEqual(
+      useGameStore.getState().collectedMemoryFragments,
+      ['fragment_test'],
+    );
+
+    actions.setCurrency(0);
+    actions.resetMemoryFragments();
   });
 
   it('exposes paged content access for large future registries', async () => {
@@ -141,5 +167,26 @@ describe('Phase 1 foundation', () => {
     assert.deepEqual(migrated.progression?.completedPuzzleIds, ['puzzle_001']);
     assert.deepEqual(migrated.progression?.skippedPuzzleIds, ['puzzle_002']);
     assert.equal(migrated.echo?.personality.trust, 45);
+    assert.equal(migrated.currency, 0);
+    assert.deepEqual(migrated.collectedMemoryFragments, []);
+  });
+
+  it('normalizes player resources when loading a save', () => {
+    const migrated = migrateGameState({
+      currency: 12.8,
+      collectedMemoryFragments: [
+        'fragment_a',
+        'fragment_a',
+        '',
+        42,
+        ' fragment_b ',
+      ],
+    }, 8);
+
+    assert.equal(migrated.currency, 12);
+    assert.deepEqual(
+      migrated.collectedMemoryFragments,
+      ['fragment_a', 'fragment_b'],
+    );
   });
 });

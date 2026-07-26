@@ -6,9 +6,12 @@ import {
 
 export type GameplayAudioCue =
   | 'ambient'
+  | 'systemHum'
   | 'footstep'
+  | 'cloth'
   | 'clock'
-  | 'door'
+  | 'doorLocked'
+  | 'doorOpen'
   | 'memoryGlitch';
 
 /**
@@ -19,9 +22,12 @@ export const GAMEPLAY_AUDIO_ASSETS: Readonly<
   Record<GameplayAudioCue, string | null>
 > = Object.freeze({
   ambient: null,
+  systemHum: null,
   footstep: null,
+  cloth: null,
   clock: null,
-  door: null,
+  doorLocked: null,
+  doorOpen: null,
   memoryGlitch: null,
 });
 

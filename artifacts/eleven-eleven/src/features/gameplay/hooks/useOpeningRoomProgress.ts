@@ -24,6 +24,8 @@ const PERSISTED_FLAG_KEYS = {
 
 export const OPENING_ROOM_CONTROLS_SEEN_FLAG =
   'opening_room_controls_seen';
+export const OPENING_ROOM_CINEMATIC_SEEN_FLAG =
+  'opening_room_cinematic_seen';
 
 function readOpeningRoomFlags(
   activeFlags: Readonly<Record<string, boolean>>,
@@ -172,12 +174,23 @@ export function useOpeningRoomProgress() {
     );
   }, []);
 
+  const markCinematicSeen = useCallback(() => {
+    useGameStore.getState().actions.setNarrativeFlag(
+      OPENING_ROOM_CINEMATIC_SEEN_FLAG,
+      true,
+    );
+  }, []);
+
   return {
     flags,
     puzzle,
     enterRoom,
     executeInteraction,
     markControlsSeen,
+    markCinematicSeen,
     controlsSeen: Boolean(activeFlags[OPENING_ROOM_CONTROLS_SEEN_FLAG]),
+    cinematicSeen: Boolean(
+      activeFlags[OPENING_ROOM_CINEMATIC_SEEN_FLAG],
+    ),
   };
 }
