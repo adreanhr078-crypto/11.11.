@@ -27,10 +27,10 @@ export const NAVIGATION_CATEGORIES = [
     id: 'story',
     label: 'القصة',
     shortLabel: 'القصة',
-    description: 'متابعة الفصل الحالي والمشاهد والحوارات الأساسية.',
+    description: 'متابعة الحالة النفسية الحالية لـ Echo.',
     iconId: 'category-story',
     tone: 'danger',
-    landingScreenId: 'dashboard',
+    landingScreenId: 'psychological-state',
     primary: true,
   },
   {

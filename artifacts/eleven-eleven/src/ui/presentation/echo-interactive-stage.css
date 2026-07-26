@@ -1,0 +1,235 @@
+.echo-interactive-stage {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: visible;
+  perspective: 70rem;
+  touch-action: pan-y;
+  user-select: none;
+  cursor: crosshair;
+}
+
+.echo-interactive-stage__depth,
+.echo-interactive-stage__character,
+.echo-interactive-stage__interaction {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.echo-interactive-stage__depth {
+  transform:
+    translate3d(
+      calc(var(--echo-look-x) * -0.45rem),
+      calc(var(--echo-look-y) * -0.3rem),
+      -2rem
+    );
+  transition: transform 180ms ease-out;
+}
+
+.echo-interactive-stage__halo {
+  position: absolute;
+  inset: 12% auto auto 50%;
+  width: min(50vmin, 31rem);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, transparent 0 37%, rgb(83 220 255 / 6%) 38% 40%, transparent 42%),
+    conic-gradient(from 45deg, transparent, rgb(255 46 68 / 18%), transparent 28%, rgb(64 214 255 / 15%), transparent 58%);
+  box-shadow:
+    0 0 8rem rgb(255 35 57 / 10%),
+    inset 0 0 5rem rgb(54 208 255 / 8%);
+  transform: translateX(-50%);
+  animation: echo-stage-halo 16s linear infinite;
+}
+
+.echo-interactive-stage[data-form="corrupted"] .echo-interactive-stage__halo {
+  background:
+    radial-gradient(circle, transparent 0 35%, rgb(255 31 48 / 12%) 36% 39%, transparent 41%),
+    conic-gradient(from 45deg, transparent, rgb(255 28 44 / 34%), transparent 24%, rgb(111 0 17 / 26%), transparent 56%);
+  box-shadow:
+    0 0 9rem rgb(255 24 42 / 18%),
+    inset 0 0 5rem rgb(255 25 42 / 12%);
+}
+
+.echo-interactive-stage__orbit {
+  position: absolute;
+  inset: 17% auto auto 50%;
+  aspect-ratio: 1;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 50%;
+  transform: translateX(-50%) rotateX(67deg);
+}
+
+.echo-interactive-stage__orbit--outer {
+  width: min(56vmin, 36rem);
+  box-shadow: 0 0 2.5rem rgb(60 212 255 / 8%);
+}
+
+.echo-interactive-stage__orbit--inner {
+  inset-block-start: 24%;
+  width: min(37vmin, 24rem);
+  border-color: rgb(255 48 67 / 13%);
+  animation: echo-stage-orbit 9s ease-in-out infinite alternate;
+}
+
+.echo-interactive-stage__floor {
+  position: absolute;
+  inset: auto auto 1.5% 50%;
+  width: min(60vmin, 39rem);
+  height: 16%;
+  border: 1px solid rgb(63 213 255 / 14%);
+  border-radius: 50%;
+  background:
+    repeating-radial-gradient(ellipse, transparent 0 12%, rgb(65 215 255 / 7%) 13% 13.5%, transparent 14% 23%),
+    radial-gradient(ellipse, rgb(54 207 255 / 10%), transparent 65%);
+  box-shadow: 0 0 4rem rgb(46 205 255 / 13%);
+  transform: translateX(-50%) rotateX(70deg);
+}
+
+.echo-interactive-stage[data-form="corrupted"] .echo-interactive-stage__floor {
+  border-color: rgb(255 35 54 / 20%);
+  background:
+    repeating-radial-gradient(ellipse, transparent 0 12%, rgb(255 38 55 / 9%) 13% 13.5%, transparent 14% 23%),
+    radial-gradient(ellipse, rgb(255 28 47 / 14%), transparent 65%);
+  box-shadow: 0 0 4rem rgb(255 25 43 / 18%);
+}
+
+.echo-interactive-stage__character {
+  display: grid;
+  place-items: end center;
+  transform-style: preserve-3d;
+  transform:
+    rotateY(calc(var(--echo-look-x) * 2.4deg))
+    rotateX(calc(var(--echo-look-y) * -1.4deg))
+    translate3d(
+      calc(var(--echo-look-x) * 0.72rem),
+      calc(var(--echo-look-y) * 0.28rem),
+      2rem
+    );
+  transition: transform 150ms ease-out;
+  animation: echo-stage-breath 5.8s ease-in-out infinite;
+}
+
+.echo-interactive-stage__image,
+.echo-interactive-stage__shadow,
+.echo-interactive-stage__signal {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+  -webkit-user-drag: none;
+}
+
+.echo-interactive-stage__image {
+  z-index: 2;
+  filter:
+    drop-shadow(0 1.5rem 1.5rem rgb(0 0 0 / 70%))
+    drop-shadow(0 0 1.4rem rgb(55 207 255 / 8%));
+}
+
+.echo-interactive-stage__shadow {
+  z-index: 1;
+  opacity: 0.32;
+  filter: blur(1.4rem) brightness(0) drop-shadow(0 0 2rem rgb(255 27 49 / 50%));
+  transform: scale(1.025) translateY(0.5%);
+}
+
+.echo-interactive-stage__signal {
+  z-index: 3;
+  opacity: 0;
+  mix-blend-mode: screen;
+  filter: saturate(1.5) contrast(1.15);
+  clip-path: inset(38% 0 42%);
+}
+
+.echo-interactive-stage[data-form="corrupted"] .echo-interactive-stage__image {
+  filter:
+    drop-shadow(0 1.6rem 1.6rem rgb(0 0 0 / 78%))
+    drop-shadow(0 0 1.8rem rgb(255 28 47 / 17%));
+}
+
+.echo-interactive-stage[data-form="corrupted"] .echo-interactive-stage__signal {
+  opacity: 0.2;
+  animation: echo-stage-glitch 4.7s steps(1, end) infinite;
+}
+
+.echo-interactive-stage__interaction {
+  z-index: 5;
+  opacity: 0;
+  transform:
+    translate3d(
+      calc(50% + var(--echo-look-x) * 16%),
+      calc(48% + var(--echo-look-y) * 14%),
+      4rem
+    );
+}
+
+.echo-interactive-stage__interaction span,
+.echo-interactive-stage__interaction i {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 3rem;
+  aspect-ratio: 1;
+  border: 1px solid rgb(88 221 255 / 42%);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.echo-interactive-stage__interaction i {
+  width: 0.35rem;
+  border: 0;
+  background: rgb(255 54 72);
+  box-shadow: 0 0 1rem rgb(255 41 60);
+}
+
+.echo-interactive-stage[data-reacting="true"] .echo-interactive-stage__interaction {
+  opacity: 1;
+}
+
+.echo-interactive-stage[data-reacting="true"] .echo-interactive-stage__interaction span {
+  animation: echo-stage-response 760ms ease-out;
+}
+
+@keyframes echo-stage-breath {
+  0%, 100% { translate: 0 0; scale: 1; }
+  50% { translate: 0 -0.3%; scale: 1.004 1.008; }
+}
+
+@keyframes echo-stage-halo {
+  to { transform: translateX(-50%) rotate(360deg); }
+}
+
+@keyframes echo-stage-orbit {
+  from { transform: translateX(-50%) rotateX(67deg) rotateZ(-7deg); }
+  to { transform: translateX(-50%) rotateX(67deg) rotateZ(7deg); }
+}
+
+@keyframes echo-stage-glitch {
+  0%, 92%, 100% { clip-path: inset(38% 0 42%); transform: translateX(0); }
+  93% { clip-path: inset(18% 0 72%); transform: translateX(-0.55rem); }
+  95% { clip-path: inset(66% 0 20%); transform: translateX(0.42rem); }
+  97% { clip-path: inset(44% 0 43%); transform: translateX(-0.25rem); }
+}
+
+@keyframes echo-stage-response {
+  from { opacity: 1; scale: 0.4; }
+  to { opacity: 0; scale: 2.8; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .echo-interactive-stage *,
+  .echo-interactive-stage {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+[data-gds-motion="reduced"] .echo-interactive-stage * {
+  animation: none !important;
+  transition: none !important;
+}

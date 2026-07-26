@@ -16,6 +16,38 @@ export interface CinematicPlaybackReadModel {
   elapsedFromCheckpointMs: number;
 }
 
+export interface CinematicEpisodeLibraryItem {
+  episode: CinematicEpisodeDefinition;
+  unlocked: boolean;
+  completed: boolean;
+  active: boolean;
+}
+
+export interface CinematicLibraryReadModel {
+  episodes: CinematicEpisodeLibraryItem[];
+  hasAuthoredEpisodes: boolean;
+}
+
+export function getCinematicLibraryReadModel(
+  state: GameState,
+): CinematicLibraryReadModel {
+  const context = {
+    echo: state.echo.personality,
+    progression: state.progression,
+    narrative: state.narrative,
+  };
+
+  return {
+    episodes: CINEMATIC_EPISODE_DEFINITIONS.map((episode) => ({
+      episode,
+      unlocked: conditionsPass(episode.unlockConditions, context),
+      completed: state.cinematic.completedEpisodeIds.includes(episode.id),
+      active: state.cinematic.activeEpisodeId === episode.id,
+    })),
+    hasAuthoredEpisodes: CINEMATIC_EPISODE_DEFINITIONS.length > 0,
+  };
+}
+
 export function getCinematicPlaybackReadModel(
   state: GameState,
   now = Date.now(),
@@ -47,4 +79,3 @@ export function getCinematicPlaybackReadModel(
       : Math.max(0, now - state.cinematic.currentSceneStartedAt),
   };
 }
-

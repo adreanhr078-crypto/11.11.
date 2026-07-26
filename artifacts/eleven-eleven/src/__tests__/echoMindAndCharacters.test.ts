@@ -5,6 +5,9 @@ import {
   detectEchoMindLocale,
 } from '../application/echo/echoMindExperience';
 import {
+  createEchoMindKnowledgeContext,
+} from '../application/echo/echoMindAiService';
+import {
   createCharactersScreenReadModel,
 } from '../application/ui/gameUiReadModels';
 import { buildInitialState } from '../stores/gameStoreHelpers';
@@ -25,6 +28,24 @@ describe('Echo Mind and Character Archive', () => {
       envelope.response.includes('مدفون') || envelope.response.includes('الوصول'),
       true,
     );
+  });
+
+  it('sends AI only player-discovered narrative knowledge', () => {
+    const state = buildInitialState();
+    state.narrative.activeFlags.locked_ending_secret = true;
+    state.narrative.decisionHistory.push({
+      id: 'decision_seen',
+      choiceId: 'choice_taken',
+      source: 'dialogue',
+      createdAt: 1,
+    });
+
+    const context = createEchoMindKnowledgeContext(state, 'ar');
+    const serialized = JSON.stringify(context);
+
+    assert.equal(serialized.includes('locked_ending_secret'), false);
+    assert.equal(serialized.includes('decision_seen'), true);
+    assert.deepEqual(context.unlockedMemories, []);
   });
 
   it('opens only Echo by default inside the character archive', () => {

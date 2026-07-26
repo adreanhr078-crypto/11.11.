@@ -1,5 +1,7 @@
 export interface EchoPresentationAssetSet {
   portrait: string;
+  fullBodyNormal: string;
+  fullBodyCorrupted: string;
   fallbackLabel: string;
 }
 
@@ -9,6 +11,9 @@ export interface EchoPresentationAssetSet {
  */
 export const ECHO_PRESENTATION_ASSETS: EchoPresentationAssetSet = {
   portrait: '/assets/characters/echo-portrait-v1.png',
+  fullBodyNormal: '/assets/characters/echo-fullbody-normal-v1.png',
+  fullBodyCorrupted:
+    '/assets/characters/echo-fullbody-corrupted-v1.png',
   fallbackLabel: 'Echo',
 };
 

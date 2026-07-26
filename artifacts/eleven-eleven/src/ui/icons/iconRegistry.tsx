@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   Film,
   Gem,
+  HeartPulse,
   Home,
   LockKeyhole,
   MessageCircle,
@@ -58,12 +59,12 @@ export const GAME_ICON_REGISTRY = {
   'category-story': {
     id: 'category-story',
     systemId: 'story',
-    screenIds: ['dashboard', 'cinematic', 'dialogue'],
+    screenIds: ['psychological-state'],
     actionId: 'navigation.open-story',
     label: { ar: 'القصة', en: 'Story' },
     description: {
-      ar: 'متابعة الفصل الحالي والمشاهد والحوارات الأساسية',
-      en: 'Continue the active chapter, scenes, and core dialogue',
+      ar: 'متابعة الحالة النفسية الحالية لـ Echo',
+      en: 'View Echo current psychological state',
     },
     tooltip: { ar: 'القصة', en: 'Story' },
     tone: 'danger',
@@ -180,6 +181,20 @@ export const GAME_ICON_REGISTRY = {
     tooltip: { ar: 'نظام Echo', en: 'Echo system' },
     tone: 'danger',
     glyph: Sparkles,
+  },
+  'screen-psychological-state': {
+    id: 'screen-psychological-state',
+    systemId: 'story',
+    screenIds: ['psychological-state'],
+    actionId: 'navigation.open-psychological-state',
+    label: { ar: 'الحالة النفسية', en: 'Psychological state' },
+    description: {
+      ar: 'قراءة مشاعر Echo وتأثير القرارات عليها',
+      en: 'Read Echo emotions and how decisions affect them',
+    },
+    tooltip: { ar: 'الحالة النفسية', en: 'Psychological state' },
+    tone: 'danger',
+    glyph: HeartPulse,
   },
   'screen-cinematic': {
     id: 'screen-cinematic',
@@ -366,7 +381,7 @@ export const GAME_ICON_REGISTRY = {
   'resource-crystal': {
     id: 'resource-crystal',
     systemId: 'economy',
-    screenIds: ['dashboard', 'puzzles', 'progress'],
+    screenIds: ['psychological-state', 'puzzles', 'progress'],
     actionId: 'economy.view-crystals',
     label: { ar: 'بلورات Echo', en: 'Echo crystals' },
     description: {
@@ -394,7 +409,7 @@ export const GAME_ICON_REGISTRY = {
   'status-route': {
     id: 'status-route',
     systemId: 'progress',
-    screenIds: ['dashboard', 'progress'],
+    screenIds: ['psychological-state', 'progress'],
     actionId: 'progress.view-current-route',
     label: { ar: 'مسار الرحلة', en: 'Journey route' },
     description: {

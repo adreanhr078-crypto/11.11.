@@ -83,8 +83,8 @@ export default function MainMenuScreen() {
           <GameButton
             size="lg"
             fullWidth
-            leadingIcon={<GameIcon id="screen-dashboard" />}
-            onClick={() => navigate('dashboard')}
+            leadingIcon={<GameIcon id="screen-psychological-state" />}
+            onClick={() => navigate('psychological-state')}
           >
             {model.hasJourneyProgress ? 'متابعة الرحلة' : 'ابدأ الرحلة'}
           </GameButton>

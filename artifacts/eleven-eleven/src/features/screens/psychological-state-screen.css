@@ -1,0 +1,240 @@
+.psychological-state {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  overflow: hidden;
+  color: var(--gds-text-primary);
+  background: #020408;
+}
+
+.psychological-state__world,
+.psychological-state__world::before,
+.psychological-state__grade,
+.psychological-state__aura {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.psychological-state__world {
+  z-index: -2;
+  background-position: center;
+  background-size: cover;
+  transform: scale(1.035);
+  animation: psychological-camera 18s ease-in-out infinite alternate;
+}
+
+.psychological-state__world::before {
+  content: "";
+  background:
+    linear-gradient(90deg, rgb(0 0 0 / 12%), transparent 44%, rgb(0 0 0 / 78%) 78%),
+    linear-gradient(180deg, rgb(0 0 0 / 55%), transparent 28% 62%, rgb(0 0 0 / 93%));
+}
+
+.psychological-state__grade {
+  background:
+    radial-gradient(circle at 29% 48%, rgb(var(--evs-primary-rgb) / 16%), transparent 27%),
+    radial-gradient(circle at 70% 44%, rgb(var(--evs-secondary-rgb) / 8%), transparent 32%);
+  transition: background var(--evs-transition-ms) ease;
+}
+
+.psychological-state__aura {
+  inset: 12% auto auto 9%;
+  width: min(43vw, 38rem);
+  aspect-ratio: 1;
+  border: 1px solid rgb(var(--evs-primary-rgb) / 16%);
+  border-radius: 50%;
+  opacity: calc(0.35 + var(--evs-intensity) * 0.35);
+  box-shadow:
+    0 0 5rem rgb(var(--evs-primary-rgb) / 8%),
+    inset 0 0 4rem rgb(var(--evs-secondary-rgb) / 5%);
+  animation: psychological-aura 8s ease-in-out infinite;
+}
+
+.psychological-state__header {
+  position: absolute;
+  z-index: 5;
+  inset: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-height: clamp(3.2rem, 9vh, 4.4rem);
+  border-block-end: 1px solid rgb(255 255 255 / 7%);
+  background: linear-gradient(180deg, rgb(1 3 6 / 94%), rgb(1 3 6 / 40%));
+}
+
+.psychological-state__header > span:nth-child(2) {
+  display: grid;
+  gap: 0.08rem;
+}
+
+.psychological-state__header small {
+  color: var(--evs-primary);
+  font: 600 var(--gds-type-2xs) var(--gds-font-mono);
+  letter-spacing: 0.12em;
+}
+
+.psychological-state__live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-inline-start: auto;
+  color: var(--gds-text-secondary);
+  font-size: var(--gds-type-xs);
+}
+
+.psychological-state__live i {
+  width: 0.5rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--evs-primary);
+  box-shadow: 0 0 0.75rem var(--evs-primary);
+}
+
+.psychological-state__presence {
+  position: absolute;
+  z-index: 2;
+  inset: clamp(3.4rem, 9vh, 4.6rem) auto 0 1%;
+  width: 70%;
+}
+
+.psychological-state__echo-stage {
+  position: absolute;
+  inset: -1.5% -4% -2%;
+}
+
+.psychological-state__echo-stage .echo-interactive-stage__image {
+  filter:
+    contrast(1.055)
+    saturate(1.06)
+    drop-shadow(0 1.5rem 1.5rem rgb(0 0 0 / 70%))
+    drop-shadow(0 0 1.4rem rgb(55 207 255 / 10%));
+}
+
+.application-shell .psychological-state__reading {
+  position: absolute;
+  z-index: 4;
+  inset: 50% max(var(--gds-edge-buffer), 2.7vw) auto auto;
+  width: clamp(17rem, 29vw, 25rem);
+  max-height: calc(100% - clamp(5.2rem, 15vh, 7.5rem));
+  overflow: auto;
+  transform: translateY(-47%);
+  background:
+    linear-gradient(135deg, rgb(var(--evs-primary-rgb) / 8%), transparent 42%),
+    rgb(2 5 9 / 82%);
+  backdrop-filter: blur(1rem);
+}
+
+.psychological-state__reading .gds-panel__body {
+  display: grid;
+  gap: clamp(0.55rem, 1.35vh, 0.8rem);
+  padding: clamp(0.7rem, 1.5vmin, 1rem);
+}
+
+.psychological-state__reading-title {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.75rem;
+}
+
+.psychological-state__reading-title > svg {
+  width: clamp(1.5rem, 3vmin, 2rem);
+  height: auto;
+  color: var(--evs-primary);
+  filter: drop-shadow(0 0 0.8rem rgb(var(--evs-primary-rgb) / 35%));
+}
+
+.psychological-state__reading-title h2,
+.psychological-state__reading-title p,
+.psychological-state__guidance p {
+  margin: 0;
+}
+
+.psychological-state__reading-title h2 {
+  font-size: clamp(0.95rem, 1.8vw, 1.28rem);
+}
+
+.psychological-state__reading-title p {
+  margin-block-start: 0.22rem;
+  color: var(--gds-text-secondary);
+  font-size: var(--gds-type-xs);
+  line-height: 1.65;
+}
+
+.psychological-state__reading-title small {
+  display: inline-flex;
+  margin-block-start: 0.45rem;
+  color: var(--evs-primary);
+  font: 600 var(--gds-type-2xs) var(--gds-font-mono);
+}
+
+.psychological-state__channels {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.28rem;
+}
+
+.psychological-state__channels article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 0.4rem;
+  padding: 0.35rem 0.45rem;
+  border-block-end: 1px solid rgb(255 255 255 / 6%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 1.5%));
+}
+
+.psychological-state__channels article > small {
+  color: var(--gds-text-muted);
+  font-size: var(--gds-type-2xs);
+  white-space: nowrap;
+}
+
+@keyframes psychological-camera {
+  from { transform: scale(1.035) translate3d(-0.25%, 0, 0); }
+  to { transform: scale(1.07) translate3d(0.4%, -0.3%, 0); }
+}
+
+@keyframes psychological-aura {
+  0%, 100% { transform: scale(0.97); opacity: 0.36; }
+  50% { transform: scale(1.035); opacity: 0.7; }
+}
+
+@media (max-width: 62rem) and (orientation: landscape) {
+  .psychological-state__presence {
+    width: 67%;
+  }
+
+  .application-shell .psychological-state__reading {
+    width: clamp(16rem, 32vw, 21rem);
+  }
+}
+
+@media (max-height: 35rem) and (orientation: landscape) {
+  .psychological-state__reading-title p {
+    display: none;
+  }
+
+  .psychological-state__reading .gds-panel__body {
+    gap: 0.55rem;
+  }
+
+  .psychological-state__channels article {
+    padding-block: 0.24rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .psychological-state__world,
+  .psychological-state__aura {
+    animation: none !important;
+  }
+}
+
+[data-gds-motion="reduced"] .psychological-state__world,
+[data-gds-motion="reduced"] .psychological-state__aura {
+  animation: none;
+}

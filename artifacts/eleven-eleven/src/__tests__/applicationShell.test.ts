@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
 import {
@@ -8,6 +8,13 @@ import {
   createMemoryScreenReadModel,
   createPuzzleScreenReadModel,
 } from '../application/ui/gameUiReadModels';
+import {
+  createPsychologicalStateReadModel,
+} from '../application/ui/psychologicalStateReadModel';
+import {
+  createEchoPresentationReadModel,
+  ECHO_CORRUPTED_FORM_FLAG,
+} from '../application/ui/echoPresentationReadModel';
 import {
   GAME_SCREEN_DEFINITIONS,
   GAME_SCREEN_REGISTRY,
@@ -67,6 +74,77 @@ describe('Application Shell', () => {
       navigableScreens.includes('main-menu'),
       false,
     );
+    assert.deepEqual(
+      getCategoryScreens('story').map(({ id }) => id),
+      ['psychological-state'],
+    );
+  });
+
+  it('keeps the legacy night runtime out of the active application boot path', () => {
+    const appSource = readFileSync(
+      resolve(process.cwd(), 'src', 'App.tsx'),
+      'utf8',
+    );
+    const runtimeSource = readFileSync(
+      resolve(
+        process.cwd(),
+        'src',
+        'app',
+        'shell',
+        'GameRuntimeBridge.tsx',
+      ),
+      'utf8',
+    );
+
+    for (const legacyImport of [
+      'eleven-theme.css',
+      'dashboard.css',
+      'backgrounds.css',
+      'EchoPortrait.css',
+    ]) {
+      assert.equal(appSource.includes(legacyImport), false);
+    }
+    for (const legacyRuntime of [
+      'AnimationSystem',
+      'AchievementToast',
+      'CinematicMode',
+      'advanceTime()',
+      'useAudioSystem',
+    ]) {
+      assert.equal(runtimeSource.includes(legacyRuntime), false);
+    }
+  });
+
+  it('derives the psychological state screen from canonical Echo values', () => {
+    const state = useGameStore.getState();
+    const model = createPsychologicalStateReadModel(state, 'trust');
+
+    assert.equal(model.dominantLabel, 'الثقة');
+    assert.equal(model.channels.length, 6);
+    assert.equal(
+      model.channels.find(({ id }) => id === 'trust')?.value,
+      state.echo.personality.trust,
+    );
+  });
+
+  it('reveals the corrupted Echo form only through narrative state', () => {
+    const state = useGameStore.getState();
+    assert.equal(createEchoPresentationReadModel(state).form, 'normal');
+
+    const transformedState = {
+      ...state,
+      narrative: {
+        ...state.narrative,
+        activeFlags: {
+          ...state.narrative.activeFlags,
+          [ECHO_CORRUPTED_FORM_FLAG]: true,
+        },
+      },
+    };
+    assert.equal(
+      createEchoPresentationReadModel(transformedState).form,
+      'corrupted',
+    );
   });
 
   it('maps every screen icon to a system, action, and label', () => {
@@ -118,8 +196,11 @@ describe('Application Shell', () => {
 
     assert.equal(memories.isAuthoredContentEmpty, true);
     assert.deepEqual(memories.items, []);
+    assert.equal(memories.totalFragmentCount, 0);
     assert.deepEqual(dialogue.availableDefinitions, []);
     assert.equal(dialogue.node, null);
+    assert.equal(dialogue.hasAuthoredContent, false);
+    assert.equal(dialogue.speakerName, 'Echo');
   });
 
   it('adapts the existing puzzle runtime without creating content in UI', () => {
@@ -137,14 +218,20 @@ describe('Application Shell', () => {
   });
 
   it('keeps Echo artwork as a replaceable presentation asset', () => {
-    assert.equal(
-      existsSync(resolve(
-        process.cwd(),
-        'public',
-        ECHO_PRESENTATION_ASSETS.portrait.replace(/^\//, ''),
-      )),
-      true,
-    );
+    for (const asset of [
+      ECHO_PRESENTATION_ASSETS.portrait,
+      ECHO_PRESENTATION_ASSETS.fullBodyNormal,
+      ECHO_PRESENTATION_ASSETS.fullBodyCorrupted,
+    ]) {
+      assert.equal(
+        existsSync(resolve(
+          process.cwd(),
+          'public',
+          asset.replace(/^\//, ''),
+        )),
+        true,
+      );
+    }
     assert.equal(ECHO_PRESENTATION_ASSETS.fallbackLabel, 'Echo');
   });
 

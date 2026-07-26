@@ -29,6 +29,10 @@ import {
   validateCinematicContentRegistry,
 } from '../infrastructure/content/cinematicContentRegistry';
 import { migrateGameState } from '../infrastructure/persistence/gamePersistence';
+import {
+  getCinematicLibraryReadModel,
+} from '../application/cinematics/cinematicReadModel';
+import { useGameStore } from '../stores/gameStore';
 
 function scene(
   definition: Partial<CinematicSceneDefinition>
@@ -180,6 +184,9 @@ describe('Anime cinematic scene system', () => {
     assert.equal(CINEMATIC_COUNTS.cinematicEpisodes, 0);
     assert.equal(CINEMATIC_COUNTS.cinematicScenes, 0);
     assert.equal(CONTENT_MANIFEST.capacity.cinematics, 500);
+    const library = getCinematicLibraryReadModel(useGameStore.getState());
+    assert.equal(library.hasAuthoredEpisodes, false);
+    assert.deepEqual(library.episodes, []);
   });
 
   it('supports Japanese voice cues with Arabic subtitles', () => {

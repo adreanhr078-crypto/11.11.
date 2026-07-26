@@ -26,10 +26,11 @@ interface ShellState {
 }
 
 const LEGACY_SCREEN_ALIASES: Record<string, GameScreenId> = {
-  day: 'dashboard',
-  wishes: 'dialogue',
+  day: 'psychological-state',
+  dashboard: 'psychological-state',
+  wishes: 'psychological-state',
   flowers: 'memories',
-  night: 'characters',
+  night: 'psychological-state',
   achievements: 'progress',
   overview: 'progress',
 };
@@ -54,14 +55,15 @@ export const useShellStore = create<ShellState>((set, get) => ({
   navigationCategory: null,
   pauseOpen: false,
   navigate(screen) {
+    const normalized = LEGACY_SCREEN_ALIASES[screen] ?? screen;
     const current = get().currentScreen;
-    writeScreenLocation(screen);
-    if (screen === current) {
+    writeScreenLocation(normalized);
+    if (normalized === current) {
       set({ navigationCategory: null, pauseOpen: false });
       return;
     }
     set({
-      currentScreen: screen,
+      currentScreen: normalized,
       previousScreen: current,
       navigationCategory: null,
       pauseOpen: false,
@@ -69,9 +71,9 @@ export const useShellStore = create<ShellState>((set, get) => ({
   },
   goBack() {
     const { previousScreen } = get();
-    writeScreenLocation(previousScreen ?? 'dashboard');
+    writeScreenLocation(previousScreen ?? 'psychological-state');
     set({
-      currentScreen: previousScreen ?? 'dashboard',
+      currentScreen: previousScreen ?? 'psychological-state',
       previousScreen: null,
       navigationCategory: null,
       pauseOpen: false,
@@ -97,14 +99,18 @@ export const useUiPreferencesStore = create<UiPreferencesState>()(
     (set) => ({
       quality: 'balanced',
       motion: 'balanced',
-      showTelemetry: true,
+      showTelemetry: false,
       setQuality: (quality) => set({ quality }),
       setMotion: (motion) => set({ motion }),
       setShowTelemetry: (showTelemetry) => set({ showTelemetry }),
     }),
     {
       name: 'eleven_ui_preferences',
-      version: 1,
+      version: 2,
+      migrate: (persistedState) => ({
+        ...(persistedState as Partial<UiPreferencesState>),
+        showTelemetry: false,
+      }),
     },
   ),
 );

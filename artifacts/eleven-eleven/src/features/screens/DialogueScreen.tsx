@@ -1,168 +1,128 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { MessageCircleMore, Sparkles } from 'lucide-react';
 import { useGameStore } from '../../stores/gameStore';
 import {
   ChoiceCard,
   GameButton,
-  GameTabs,
-  HudPanel,
+  GlassPanel,
 } from '../../ui/design-system';
 import { createDialogueScreenReadModel } from '../../application/ui/gameUiReadModels';
-import { EchoChat } from '../../components/echo/EchoChat';
 import {
   EchoPresence,
   ENVIRONMENT_PRESENTATION_ASSETS,
 } from '../../ui/presentation';
 
-type DialogueTab = 'graph' | 'echo-channel';
-
 export default function DialogueScreen() {
   const state = useGameStore();
-  const [tab, setTab] = useState<DialogueTab>('graph');
-  const [previewChoice, setPreviewChoice] = useState(0);
   const model = useMemo(() => createDialogueScreenReadModel(state), [state]);
 
   return (
-    <div className="shell-screen shell-dialogue-screen shell-dialogue-screen--decision">
-      <header className="shell-screen-heading">
+    <div
+      className="shell-screen shell-dialogue-screen shell-dialogue-screen--story"
+      dir="rtl"
+    >
+      <div
+        className="story-dialogue__world"
+        style={{
+          backgroundImage: `url("${ENVIRONMENT_PRESENTATION_ASSETS.memoryLaboratory}")`,
+        }}
+        aria-hidden="true"
+      >
+        <span className="story-dialogue__world-grade" />
+        <span className="story-dialogue__world-signal" />
+        <EchoPresence
+          className="story-dialogue__echo"
+          variant="hero"
+          eager
+        />
+      </div>
+
+      <header className="story-dialogue__hud gds-safe-area">
         <span className="shell-screen-code">05</span>
         <span>
-          <small>DECISION LEDGER CONNECTED</small>
-          <h1>التواصل مع Echo</h1>
+          <small>CONVERSATION</small>
+          <strong>لحظة قرار</strong>
         </span>
-        <GameTabs
-          value={tab}
-          onChange={(id) => setTab(id as DialogueTab)}
-          ariaLabel="نوع الحوار"
-          tone="danger"
-          items={[
-            { id: 'graph', label: 'المشهد المتفرع' },
-            { id: 'echo-channel', label: 'قناة Echo' },
-          ]}
-        />
+        <span className="story-dialogue__ledger-state">
+          <i />
+          قراراتك محفوظة
+        </span>
       </header>
 
-      {tab === 'echo-channel' ? (
-        <HudPanel
-          className="shell-dialogue-screen__legacy-channel"
-          tone="memory"
-          eyebrow="COMPATIBILITY CHANNEL"
-          title="محادثة Echo الحرة"
-        >
-          <EchoChat />
-        </HudPanel>
-      ) : (
-        <div className="core5-decision-screen">
-          <div
-            className="core5-decision-screen__world"
-            style={{
-              backgroundImage: `url("${ENVIRONMENT_PRESENTATION_ASSETS.memoryLaboratory}")`,
-            }}
-            aria-hidden="true"
+      {model.node ? (
+        <>
+          <GlassPanel
+            className="story-dialogue__line"
+            tone="danger"
+            eyebrow={model.speakerName}
           >
-            <span className="core5-decision-screen__distortion" />
-            <EchoPresence
-              className="core5-decision-screen__echo"
-              variant="hero"
-              eager
-            />
-          </div>
+            <blockquote>{model.node.text.ar}</blockquote>
+          </GlassPanel>
 
-          <section className="core5-decision-screen__prompt">
-            <small>{model.definition?.id ?? 'DIALOGUE_GRAPH_SLOT_00'}</small>
-            <strong>{model.node?.speakerId ?? 'Echo'}</strong>
-            {model.node ? (
-              <blockquote>{model.node.text.ar}</blockquote>
-            ) : (
-              <blockquote>
-                بانتظار بيانات الحوار من الرسم البياني السردي.
-              </blockquote>
-            )}
-            <span>DECISION LEDGER // CONNECTED</span>
-          </section>
-
-          <aside className="core5-decision-screen__impact">
+          <section
+            className="story-dialogue__choices gds-safe-area"
+            aria-label="خيارات الحوار"
+          >
             <header>
-              <small>EMOTIONAL FEEDBACK</small>
-              <strong>تأثير القرار</strong>
+              <Sparkles aria-hidden="true" />
+              <span>
+                <strong>اختر ردك</strong>
+                <small>قد يتذكر Echo هذا القرار لاحقًا</small>
+              </span>
             </header>
-            <div className="core5-decision-screen__impact-orbit" aria-hidden="true">
-              <span /><span /><i />
-            </div>
-            <dl>
-              <div>
-                <dt>TRUST</dt>
-                <dd>{state.echo.personality.trust}%</dd>
-              </div>
-              <div>
-                <dt>FEAR</dt>
-                <dd>{state.echo.personality.fear}%</dd>
-              </div>
-              <div>
-                <dt>CORRUPTION</dt>
-                <dd>{state.echo.personality.corruption}%</dd>
-              </div>
-            </dl>
-            <p>
-              {model.decisions.length > 0
-                ? `${model.decisions.length} قرارات محفوظة في السجل`
-                : 'السجل بانتظار أول قرار مؤلف.'}
-            </p>
-          </aside>
-
-          <section className="core5-decision-screen__choices">
-            {model.node ? (
-              model.node.choices.map((choice, index) => (
+            <div>
+              {model.node.choices.map((choice, index) => (
                 <ChoiceCard
                   key={choice.id}
                   index={index + 1}
                   title={choice.text.ar}
                   tone={index === 0 ? 'danger' : 'memory'}
-                  consequence="سيُحفظ هذا القرار في Decision Ledger."
+                  consequence="سيُسجل هذا الاختيار في مسار القصة"
                   onClick={() => state.actions.chooseDialogueOption(choice.id)}
                 />
-              ))
-            ) : (
-              Array.from({ length: 3 }, (_, index) => (
-                <button
-                  key={index}
-                  type="button"
-                  data-active={previewChoice === index}
-                  data-tone={index === 0 ? 'danger' : index === 1 ? 'memory' : 'neutral'}
-                  onClick={() => setPreviewChoice(index)}
-                >
-                  <span>{String(index + 1).padStart(2, '0')}</span>
-                  <i>{index === 0 ? '◇' : index === 1 ? '◉' : '⬡'}</i>
-                  <strong>CHOICE_SLOT_{String(index + 1).padStart(2, '0')}</strong>
-                  <small>بانتظار نص الخيار</small>
-                </button>
-              ))
-            )}
+              ))}
+            </div>
           </section>
+        </>
+      ) : (
+        <GlassPanel
+          className="story-dialogue__empty"
+          tone="memory"
+          eyebrow="ECHO CHANNEL"
+        >
+          <MessageCircleMore aria-hidden="true" />
+          <h1>لا توجد محادثة نشطة</h1>
+          <p>
+            ستبدأ المحادثات والخيارات تلقائيًا عندما تصل إلى لحظة قصصية
+            مرتبطة بها.
+          </p>
 
-          <footer className="core5-decision-screen__feedback">
-            <span>
-              <i />
-              EMOTION CHANNEL {String(previewChoice + 1).padStart(2, '0')}
-            </span>
-            <p>المعاينة البصرية لا تسجل قرارًا دون محتوى حواري مؤلف.</p>
-            <code>data/dialogues/index.json</code>
-          </footer>
-
-          {model.availableDefinitions.length > 0 && !model.node && (
-            <div className="core5-decision-screen__available">
-              {model.availableDefinitions.map((dialogue) => (
+          {model.availableDefinitions.length > 0 ? (
+            <div className="story-dialogue__available">
+              {model.availableDefinitions.map((dialogue, index) => (
                 <GameButton
                   key={dialogue.id}
-                  variant="secondary"
+                  variant={index === 0 ? 'primary' : 'secondary'}
                   onClick={() => state.actions.startDialogueGraph(dialogue.id)}
                 >
-                  {dialogue.id}
+                  بدء المحادثة {index + 1}
                 </GameButton>
               ))}
             </div>
+          ) : (
+            <small>
+              لا يوجد محتوى حواري متاح في هذا الإصدار بعد.
+            </small>
           )}
-        </div>
+        </GlassPanel>
       )}
+
+      <footer className="story-dialogue__hint gds-safe-area">
+        <span aria-hidden="true">11:11</span>
+        <p>
+          لون المشهد واستجابة Echo يتغيران مع حالته العاطفية وقراراتك السابقة.
+        </p>
+      </footer>
     </div>
   );
 }

@@ -41,15 +41,29 @@ export const GAME_SCREEN_DEFINITIONS = [
     )),
   },
   {
+    id: 'psychological-state',
+    label: 'الحالة النفسية',
+    shortLabel: 'الحالة النفسية',
+    description: 'قراءة حالة Echo العاطفية وتأثير قرارات اللاعب عليها.',
+    code: '01',
+    tone: 'danger',
+    iconId: 'screen-psychological-state',
+    categoryId: 'story',
+    navigation: 'landing',
+    component: lazy(() => import(
+      '../../features/screens/PsychologicalStateScreen'
+    )),
+  },
+  {
     id: 'dashboard',
     label: 'نظام Echo',
     shortLabel: 'Echo',
     description: 'الحالة الحالية ومسار الرحلة والقرار التالي.',
-    code: '01',
+    code: 'L1',
     tone: 'danger',
     iconId: 'screen-dashboard',
     categoryId: 'story',
-    navigation: 'landing',
+    navigation: 'hidden',
     component: lazy(() => import(
       '../../features/screens/DashboardScreen'
     )),
@@ -63,7 +77,7 @@ export const GAME_SCREEN_DEFINITIONS = [
     tone: 'rare',
     iconId: 'screen-cinematic',
     categoryId: 'story',
-    navigation: 'secondary',
+    navigation: 'hidden',
     component: lazy(() => import(
       '../../features/screens/CinematicPlayerScreen'
     )),
@@ -119,7 +133,7 @@ export const GAME_SCREEN_DEFINITIONS = [
     tone: 'memory',
     iconId: 'screen-dialogue',
     categoryId: 'story',
-    navigation: 'secondary',
+    navigation: 'hidden',
     component: lazy(() => import(
       '../../features/screens/DialogueScreen'
     )),

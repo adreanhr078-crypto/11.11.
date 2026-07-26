@@ -132,12 +132,22 @@ export interface MemoryScreenItem {
   definition: MemoryDefinition;
   unlocked: boolean;
   unlockedFragments: number;
+  fragmentTotal: number;
+  progress: number;
+  fragments: Array<{
+    id: string;
+    title: string;
+    text: string;
+    unlocked: boolean;
+    order: number;
+  }>;
 }
 
 export interface MemoryScreenReadModel {
   items: MemoryScreenItem[];
   unlockedCount: number;
   fragmentCount: number;
+  totalFragmentCount: number;
   timeline: GameState['memory']['timelineEvents'];
   isAuthoredContentEmpty: boolean;
 }
@@ -155,12 +165,33 @@ export function createMemoryScreenReadModel(
     unlockedFragments: definition.fragments.filter(
       (fragment) => unlockedFragments.has(fragment.id),
     ).length,
+    fragmentTotal: definition.fragments.length,
+    progress: percentage(
+      definition.fragments.filter(
+        (fragment) => unlockedFragments.has(fragment.id),
+      ).length,
+      definition.fragments.length,
+    ),
+    fragments: definition.fragments
+      .slice()
+      .sort((left, right) => left.order - right.order)
+      .map((fragment) => ({
+        id: fragment.id,
+        title: fragment.title.ar,
+        text: fragment.text.ar,
+        unlocked: unlockedFragments.has(fragment.id),
+        order: fragment.order,
+      })),
   }));
 
   return {
     items,
     unlockedCount: items.filter((item) => item.unlocked).length,
     fragmentCount: unlockedFragments.size,
+    totalFragmentCount: MEMORY_DEFINITIONS.reduce(
+      (total, definition) => total + definition.fragments.length,
+      0,
+    ),
     timeline: state.memory.timelineEvents.slice(-12).reverse(),
     isAuthoredContentEmpty: MEMORY_DEFINITIONS.length === 0,
   };
@@ -199,8 +230,20 @@ export function createPuzzleScreenReadModel(
 export interface DialogueScreenReadModel {
   definition: DialogueDefinition | null;
   node: DialogueNode | null;
+  speakerName: string;
   availableDefinitions: DialogueDefinition[];
   decisions: GameState['narrative']['decisionHistory'];
+  hasAuthoredContent: boolean;
+}
+
+function dialogueSpeakerName(speakerId: string | undefined): string {
+  if (!speakerId) return 'Echo';
+  const normalized = speakerId
+    .replace(/^character_/, '')
+    .replace(/[_-]+/g, ' ')
+    .trim();
+  if (!normalized) return 'Echo';
+  return titleCase(normalized);
 }
 
 export function createDialogueScreenReadModel(
@@ -230,12 +273,14 @@ export function createDialogueScreenReadModel(
   return {
     definition,
     node: visibleNode,
+    speakerName: dialogueSpeakerName(visibleNode?.speakerId),
     availableDefinitions: DIALOGUE_DEFINITIONS.filter(
       (dialogue) => !state.narrative.dialogue.completedDialogueIds.includes(
         dialogue.id,
       ),
     ),
     decisions: state.narrative.decisionHistory.slice(-8).reverse(),
+    hasAuthoredContent: DIALOGUE_DEFINITIONS.length > 0,
   };
 }
 
