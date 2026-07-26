@@ -13,6 +13,10 @@ import {
   CINEMATIC_EPISODE_DEFINITIONS,
 } from '../../infrastructure/content/cinematicContentRegistry';
 import { conditionsPass } from '../../domain/narrative/ruleEngine';
+import {
+  CHAPTER_01_MANHWA_PAGES,
+  CHAPTER_01_PUZZLES,
+} from '../../content/puzzles/chapter01Campaign';
 
 export interface DashboardReadModel {
   chapter: {
@@ -64,31 +68,31 @@ export function createDashboardReadModel(
   const chapter = CHAPTER_DEFINITIONS.find(
     (item) => item.id === state.progression.currentChapterId,
   ) ?? CHAPTER_DEFINITIONS[0];
+  const campaignPuzzleIds = new Set(
+    CHAPTER_01_PUZZLES.map((puzzle) => puzzle.id),
+  );
   const resolved = new Set([
     ...state.progression.completedPuzzleIds,
     ...state.progression.skippedPuzzleIds,
-  ]).size;
-  const authoredFragments = MEMORY_DEFINITIONS.reduce(
-    (total, memory) => total + memory.fragments.length,
+  ].filter((puzzleId) => campaignPuzzleIds.has(puzzleId))).size;
+  const fragmentTotal = CHAPTER_01_MANHWA_PAGES.reduce(
+    (total, page) => total + page.requiredShardIds.length,
     0,
   );
-  const fragmentTotal = authoredFragments || state.memory.totalFragments;
-  const fragmentCount = authoredFragments
-    ? state.narrative.unlockedMemoryFragmentIds.length
-    : state.memory.fragmentsCollected;
+  const fragmentCount = state.collectedMemoryFragments.length;
 
   return {
     chapter: {
       id: chapter?.id ?? state.progression.currentChapterId,
       title: chapter?.title.ar ?? 'فصل غير معنْون',
       description: chapter?.description.ar ?? 'بانتظار بيانات الفصل.',
-      progress: percentage(resolved, state.totalPuzzles),
+      progress: percentage(resolved, CHAPTER_01_PUZZLES.length),
     },
     personality: state.echo.personality,
     memory: {
-      unlocked: state.narrative.unlockedMemoryIds.length,
-      fragments: state.narrative.unlockedMemoryFragmentIds.length,
-      totalDefinitions: MEMORY_DEFINITIONS.length,
+      unlocked: state.unlockedManhwaPageIds.length,
+      fragments: fragmentCount,
+      totalDefinitions: CHAPTER_01_MANHWA_PAGES.length,
       legacyCollected: state.memory.fragmentsCollected,
       legacyTotal: state.memory.totalFragments,
       progress: percentage(fragmentCount, fragmentTotal),
@@ -105,14 +109,14 @@ export function createDashboardReadModel(
       total: state.narrative.endingEligibility.length,
     },
     resources: {
-      coins: state.echo.coins,
+      coins: state.currency,
       crystals: state.echo.crystals,
-      shards: state.allMemoryShards.length,
+      shards: state.collectedMemoryFragments.length,
     },
     puzzleProgress: {
       resolved,
-      total: state.totalPuzzles,
-      progress: percentage(resolved, state.totalPuzzles),
+      total: CHAPTER_01_PUZZLES.length,
+      progress: percentage(resolved, CHAPTER_01_PUZZLES.length),
     },
     cinematic: {
       authoredEpisodes: CINEMATIC_EPISODE_DEFINITIONS.length,
@@ -123,6 +127,8 @@ export function createDashboardReadModel(
       resolved > 0
       || state.narrative.decisionHistory.length > 0
       || state.narrative.unlockedMemoryIds.length > 0
+      || state.collectedMemoryFragments.length > 0
+      || state.unlockedManhwaPageIds.length > 0
       || state.cinematic.completedSceneIds.length > 0
     ),
   };
@@ -289,6 +295,9 @@ export interface EchoMindScreenReadModel {
   stageTitle: string;
   stageSubtitle: string;
   conversationPlaceholder: string;
+  recoveredBeliefs: string[];
+  openQuestions: string[];
+  knowledgeNodeIds: string[];
 }
 
 export function createEchoMindScreenReadModel(
@@ -302,6 +311,9 @@ export function createEchoMindScreenReadModel(
       ? 'صوته متشوش قليلًا، لكنه ما زال يحاول الوصول إليك.'
       : 'وجوده هش، لكنه يستجيب لندائك داخل 11:11.',
     conversationPlaceholder: 'اكتب رسالة لـ Echo',
+    recoveredBeliefs: state.narrative.beliefs.slice(-4).reverse(),
+    openQuestions: state.narrative.questions.slice(-4).reverse(),
+    knowledgeNodeIds: state.narrative.knowledgeNodeIds.slice(-4).reverse(),
   };
 }
 
@@ -532,10 +544,13 @@ export interface ProgressScreenReadModel {
 export function createProgressScreenReadModel(
   state: GameState,
 ): ProgressScreenReadModel {
+  const campaignPuzzleIds = new Set(
+    CHAPTER_01_PUZZLES.map((puzzle) => puzzle.id),
+  );
   const resolvedPuzzles = new Set([
     ...state.progression.completedPuzzleIds,
     ...state.progression.skippedPuzzleIds,
-  ]).size;
+  ].filter((puzzleId) => campaignPuzzleIds.has(puzzleId))).size;
   const timelineEvents = state.memory.timelineEvents
     .slice(-3)
     .reverse()
@@ -564,10 +579,13 @@ export function createProgressScreenReadModel(
     ).length,
     endingsTotal: state.narrative.endingEligibility.length,
     decisions: state.narrative.decisionHistory.length,
-    memoriesUnlocked: state.narrative.unlockedMemoryIds.length,
-    fragmentsUnlocked: state.narrative.unlockedMemoryFragmentIds.length,
+    memoriesUnlocked: (
+      state.narrative.unlockedMemoryIds.length
+      + state.unlockedManhwaPageIds.length
+    ),
+    fragmentsUnlocked: state.collectedMemoryFragments.length,
     resolvedPuzzles,
-    totalPuzzles: state.totalPuzzles,
+    totalPuzzles: CHAPTER_01_PUZZLES.length,
     recentEvents: [...decisions, ...timelineEvents].slice(0, 6),
   };
 }

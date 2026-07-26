@@ -1,4 +1,4 @@
-import { Suspense, useMemo } from 'react';
+import { Suspense } from 'react';
 import { useGameStore } from '../../stores/gameStore';
 import {
   GameButton,
@@ -37,8 +37,17 @@ import { PlayerResourceCounters } from './PlayerResourceCounters';
 export function ApplicationShell() {
   const shell = useShellStore();
   const preferences = useUiPreferencesStore();
-  const state = useGameStore();
-  const model = useMemo(() => createDashboardReadModel(state), [state]);
+  const chapterTitle = useGameStore(
+    (state) => createDashboardReadModel(state).chapter.title,
+  );
+  const campaignProgress = useGameStore(
+    (state) => createDashboardReadModel(state).puzzleProgress.progress,
+  );
+  const unviewedMemoryPages = useGameStore((state) => (
+    state.unlockedManhwaPageIds.filter(
+      (pageId) => !state.viewedManhwaPageIds.includes(pageId),
+    ).length
+  ));
   const definition = GAME_SCREEN_REGISTRY[shell.currentScreen];
   const currentCategory = getNavigationCategoryForScreen(
     shell.currentScreen,
@@ -92,13 +101,13 @@ export function ApplicationShell() {
             </button>
 
             <div className="application-shell__chapter">
-              <span>{model.chapter.title}</span>
+              <span>{chapterTitle}</span>
               <GameProgress
-                value={model.puzzleProgress.progress}
+                value={campaignProgress}
                 tone="danger"
                 showValue={false}
               />
-              <small>{model.puzzleProgress.progress}%</small>
+              <small>{campaignProgress}%</small>
             </div>
 
             <div className="application-shell__utility">
@@ -154,6 +163,7 @@ export function ApplicationShell() {
               <button
                 key={category.id}
                 type="button"
+                data-navigation-category={category.id}
                 data-active={currentCategory.id === category.id}
                 data-tone={category.tone}
                 onClick={() => {
@@ -167,11 +177,23 @@ export function ApplicationShell() {
                   }
                   shell.navigate(category.landingScreenId);
                 }}
-                aria-label={`${category.label}: ${category.description}`}
+                aria-label={`${category.label}: ${category.description}${
+                  category.id === 'memory' && unviewedMemoryPages > 0
+                    ? `، ${unviewedMemoryPages} ذاكرة جديدة`
+                    : ''
+                }`}
                 title={category.description}
               >
                 <GameIcon id={category.iconId} />
                 <span>{category.shortLabel}</span>
+                {category.id === 'memory' && unviewedMemoryPages > 0 && (
+                  <i
+                    className="application-shell__navigation-badge"
+                    aria-hidden="true"
+                  >
+                    {unviewedMemoryPages}
+                  </i>
+                )}
               </button>
             ))}
           </nav>

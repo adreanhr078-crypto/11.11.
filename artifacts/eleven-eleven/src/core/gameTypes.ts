@@ -17,6 +17,13 @@ import type {
   CinematicPreferences,
   CinematicState,
 } from '../domain/cinematics/cinematicState';
+import type {
+  CampaignCompletionResult,
+  CampaignPuzzleProgress,
+  HintPurchaseResult,
+  HintTierId,
+  PuzzleRewardEvent,
+} from '../domain/puzzles/campaignContracts';
 export { type ChapterId, type ChapterState } from './chapterSystem';
 
 // ─── Basic Types ─────────────────────────────────────────────────────
@@ -141,10 +148,25 @@ export interface EndingState {
 export interface GameActions {
   addCurrency: (amount: number) => void;
   spendCurrency: (amount: number) => boolean;
+  canAfford: (amount: number) => boolean;
   setCurrency: (amount: number) => void;
   collectMemoryFragment: (fragmentId: string) => boolean;
   hasMemoryFragment: (fragmentId: string) => boolean;
   resetMemoryFragments: () => void;
+  saveCampaignPuzzleProgress: (
+    puzzleId: string,
+    progress: CampaignPuzzleProgress[],
+  ) => void;
+  completeCampaignPuzzle: (
+    puzzleId: string,
+    progress: CampaignPuzzleProgress[],
+  ) => CampaignCompletionResult;
+  purchaseCampaignHint: (
+    puzzleId: string,
+    tierId: HintTierId,
+  ) => HintPurchaseResult;
+  markManhwaPageViewed: (pageId: string) => void;
+  clearPuzzleRewardEvent: () => void;
   chat: () => { dialogue: string; effects: Partial<EchoState>; };
   solve: (puzzleId: string, answer: string) => { success: boolean; message: string; achievement?: Achievement; };
   advanceTime: () => void;
@@ -199,6 +221,18 @@ export interface GameState {
   currency: number;
   /** Canonical IDs collected by the player; the UI count derives from this list. */
   collectedMemoryFragments: string[];
+  memoryFragmentCollectedAt: Record<string, string>;
+  puzzleProgress: Record<string, CampaignPuzzleProgress[]>;
+  claimedPuzzleRewards: string[];
+  unlockedHintTiersByPuzzle: Record<string, HintTierId[]>;
+  integratedMemoryFragmentIds: string[];
+  unlockedManhwaPageIds: string[];
+  viewedManhwaPageIds: string[];
+  manhwaPageUnlockedAt: Record<string, string>;
+  manhwaPageViewedAt: Record<string, string>;
+  consumedDialogueTriggerIds: string[];
+  lastAvailablePuzzleId: string;
+  lastPuzzleReward: PuzzleRewardEvent | null;
   echo: EchoState; time: TimeState; flower: FlowerState;
   memory: MemoryState; puzzles: PuzzleNode[];
   totalPuzzles: number; solvedPuzzles: number;

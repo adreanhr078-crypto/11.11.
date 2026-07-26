@@ -28,8 +28,8 @@ describe('Phase 1 foundation', () => {
   it('validates the content manifest and scalable capacity', () => {
     assert.doesNotThrow(validateContentRegistry);
     assert.equal(CONTENT_COUNTS.chapters, 7);
-    assert.equal(CONTENT_COUNTS.puzzles, 0);
-    assert.equal(CONTENT_COUNTS.memories, 0);
+    assert.equal(CONTENT_COUNTS.puzzles, 20);
+    assert.equal(CONTENT_COUNTS.memories, 29);
     assert.ok(CONTENT_MANIFEST.capacity.puzzles >= 2000);
     assert.ok(CONTENT_MANIFEST.capacity.memories >= 2000);
   });
@@ -89,9 +89,13 @@ describe('Phase 1 foundation', () => {
     assert.equal(state.currentChapter, 'chapter_1');
     assert.equal(state.totalPuzzles, 1000);
     assert.equal(state.puzzles.length, 0);
-    assert.equal(state.memory.totalFragments, 0);
+    assert.equal(state.memory.totalFragments, 290);
     assert.equal(state.currency, 0);
     assert.deepEqual(state.collectedMemoryFragments, []);
+    assert.deepEqual(state.claimedPuzzleRewards, []);
+    assert.deepEqual(state.unlockedManhwaPageIds, []);
+    assert.deepEqual(state.viewedManhwaPageIds, []);
+    assert.equal(state.lastAvailablePuzzleId, 'puzzle_001_broken_pulse');
     assert.equal(state.echo.personality.trust, state.echo.trust);
     assert.equal(typeof state.actions.solve, 'function');
   });

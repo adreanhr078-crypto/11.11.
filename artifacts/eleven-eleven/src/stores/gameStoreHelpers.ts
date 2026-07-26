@@ -34,9 +34,16 @@ import {
   CONTENT_COUNTS,
   CONTENT_MANIFEST,
 } from '../infrastructure/content/contentRegistry';
+import {
+  CHAPTER_01_MANHWA_PAGES,
+} from '../content/puzzles/chapter01Campaign';
 
 const CONFIGURED_PUZZLE_COUNT = (
   CHAPTER_DEFINITIONS.at(-1)?.puzzleRange[1] ?? 0
+);
+const CAMPAIGN_MEMORY_SHARD_SLOT_COUNT = CHAPTER_01_MANHWA_PAGES.reduce(
+  (total, page) => total + page.requiredShardIds.length,
+  0,
 );
 
 // ─── INITIAL STATE ─────────────────────────────────────────────────────
@@ -46,6 +53,18 @@ export function buildInitialState(): GameState {
   return {
     currency: 0,
     collectedMemoryFragments: [],
+    memoryFragmentCollectedAt: {},
+    puzzleProgress: {},
+    claimedPuzzleRewards: [],
+    unlockedHintTiersByPuzzle: {},
+    integratedMemoryFragmentIds: [],
+    unlockedManhwaPageIds: [],
+    viewedManhwaPageIds: [],
+    manhwaPageUnlockedAt: {},
+    manhwaPageViewedAt: {},
+    consumedDialogueTriggerIds: [],
+    lastAvailablePuzzleId: 'puzzle_001_broken_pulse',
+    lastPuzzleReward: null,
     echo: {
       personality: createInitialEchoPersonality(),
       trust: 15, fear: 70, memoryStability: 5, corruption: 2,
@@ -66,7 +85,7 @@ export function buildInitialState(): GameState {
     },
     time: { phase: 'morning', phaseIndex: 0, isNight: false, hour: 8, minute: 0, dayCycle: 1 },
     flower: { stage: 'seed', growth: 0, decay: 0, hiddenUnlocked: false, maxStage: 5 },
-    memory: { fragmentsCollected: 0, totalFragments: CONTENT_COUNTS.memories, corruptedFragments: 0, timelineEvents: [], logsUnlocked: [] },
+    memory: { fragmentsCollected: 0, totalFragments: CAMPAIGN_MEMORY_SHARD_SLOT_COUNT, corruptedFragments: 0, timelineEvents: [], logsUnlocked: [] },
     allMemoryShards: [],
     puzzles: [], // Will be populated by chapter datasets
     totalPuzzles: CONFIGURED_PUZZLE_COUNT, solvedPuzzles: 0,

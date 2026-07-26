@@ -2,6 +2,9 @@ import type { GameState } from '../../core/gameTypes';
 import {
   MEMORY_DEFINITIONS,
 } from '../../infrastructure/content/contentRegistry';
+import {
+  CHAPTER_01_MANHWA_PAGE_BY_ID,
+} from '../../content/puzzles/chapter01Campaign';
 
 export type EchoMindLocale = 'ar' | 'en';
 
@@ -129,11 +132,21 @@ function latestUnlockedMemoryTitle(
   state: GameState,
   locale: EchoMindLocale,
 ): string | null {
+  const latestPageId = state.unlockedManhwaPageIds.at(-1);
+  const page = latestPageId
+    ? CHAPTER_01_MANHWA_PAGE_BY_ID[latestPageId]
+    : undefined;
+  if (page) {
+    return locale === 'en' ? page.title.en : page.title.ar;
+  }
   const latestId = state.narrative.unlockedMemoryIds.at(-1);
-  if (!latestId) return null;
-  const memory = MEMORY_DEFINITIONS.find((item) => item.id === latestId);
-  if (!memory) return null;
-  return locale === 'en' ? memory.title.en : memory.title.ar;
+  if (latestId) {
+    const memory = MEMORY_DEFINITIONS.find((item) => item.id === latestId);
+    if (memory) {
+      return locale === 'en' ? memory.title.en : memory.title.ar;
+    }
+  }
+  return null;
 }
 
 function deriveExpression(state: GameState): EchoMindTurnEnvelope['expression'] {
@@ -142,7 +155,11 @@ function deriveExpression(state: GameState): EchoMindTurnEnvelope['expression'] 
   if (personality.anger >= 65) return 'angry';
   if (personality.sadness >= 65) return 'grieving';
   if (personality.fear >= 65) return 'afraid';
-  if (state.narrative.unlockedMemoryIds.length > 0) return 'remembering';
+  if (
+    state.narrative.unlockedMemoryIds.length > 0
+    || state.unlockedManhwaPageIds.length > 0
+    || state.narrative.beliefs.length > 0
+  ) return 'remembering';
   if (personality.humanity >= 60 || personality.trust >= 60) return 'hopeful';
   if (personality.corruption >= 45) return 'unstable';
   return 'attentive';

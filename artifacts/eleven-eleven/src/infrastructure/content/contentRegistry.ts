@@ -22,6 +22,11 @@ import type {
   PuzzleId,
   SceneId,
 } from '../../domain/content/contracts';
+import {
+  CHAPTER_01_MANHWA_PAGES,
+  CHAPTER_01_PUZZLES,
+  validateChapter01Campaign,
+} from '../../content/puzzles/chapter01Campaign';
 
 export const localizedTextSchema = z.object({
   ar: z.string(),
@@ -377,13 +382,14 @@ emptyContentIndexSchema.parse(endingsJson);
 
 export const CONTENT_COUNTS = Object.freeze({
   chapters: CHAPTER_DEFINITIONS.length,
-  puzzles: PUZZLE_DEFINITIONS.length,
-  memories: MEMORY_DEFINITIONS.length,
+  puzzles: PUZZLE_DEFINITIONS.length + CHAPTER_01_PUZZLES.length,
+  memories: MEMORY_DEFINITIONS.length + CHAPTER_01_MANHWA_PAGES.length,
   dialogues: DIALOGUE_DEFINITIONS.length,
   endings: ENDING_DEFINITIONS.length,
 });
 
 export function validateContentRegistry(): void {
+  validateChapter01Campaign();
   const ids = new Set<string>();
   let previousEnd = 0;
 

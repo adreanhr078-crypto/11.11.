@@ -44,7 +44,7 @@ export function createInitialProgression(
 }
 
 export function getPuzzleNumber(puzzleId: string): number | null {
-  const match = /^puzzle_(\d+)$/.exec(puzzleId);
+  const match = /^puzzle_(\d+)(?:_|$)/.exec(puzzleId);
   if (!match) return null;
   const value = Number(match[1]);
   return Number.isSafeInteger(value) && value > 0 ? value : null;
@@ -173,7 +173,7 @@ export function migrateLegacyProgression(
   const skippedPuzzleIds: PuzzleId[] = [];
 
   for (const puzzle of legacy.puzzles ?? []) {
-    if (!puzzle.id || !/^puzzle_\d+$/.test(puzzle.id)) continue;
+    if (!puzzle.id || !/^puzzle_\d+(?:_.+)?$/.test(puzzle.id)) continue;
     if (puzzle.status === 'solved') completedPuzzleIds.push(puzzle.id as PuzzleId);
     if (puzzle.status === 'skipped') skippedPuzzleIds.push(puzzle.id as PuzzleId);
   }

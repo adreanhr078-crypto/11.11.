@@ -5,6 +5,9 @@ import {
 import type {
   EchoMindLocale,
 } from './echoMindExperience';
+import {
+  CHAPTER_01_MANHWA_PAGE_BY_ID,
+} from '../../content/puzzles/chapter01Campaign';
 
 export interface EchoMindHistoryMessage {
   role: 'user' | 'assistant';
@@ -25,6 +28,13 @@ export interface EchoMindKnowledgeContext {
   }>;
   completedSceneIds: string[];
   solvedPuzzleIds: string[];
+  beliefs: string[];
+  questions: string[];
+  knowledgeNodeIds: string[];
+  restoredManhwaPages: Array<{
+    id: string;
+    title: string;
+  }>;
 }
 
 export interface StreamEchoMindAiInput {
@@ -85,6 +95,18 @@ export function createEchoMindKnowledgeContext(
       .map(({ id, choiceId }) => ({ id, choiceId })),
     completedSceneIds: state.cinematic.completedSceneIds.slice(-20),
     solvedPuzzleIds: state.progression.completedPuzzleIds.slice(-30),
+    beliefs: state.narrative.beliefs.slice(-30),
+    questions: state.narrative.questions.slice(-30),
+    knowledgeNodeIds: state.narrative.knowledgeNodeIds.slice(-30),
+    restoredManhwaPages: state.unlockedManhwaPageIds
+      .slice(-10)
+      .flatMap((pageId) => {
+        const page = CHAPTER_01_MANHWA_PAGE_BY_ID[pageId];
+        return page ? [{
+          id: page.id,
+          title: locale === 'en' ? page.title.en : page.title.ar,
+        }] : [];
+      }),
   };
 }
 

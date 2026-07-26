@@ -31,6 +31,10 @@ export interface EndingEligibility {
 export interface NarrativeState {
   unlockedMemoryIds: MemoryId[];
   unlockedMemoryFragmentIds: MemoryFragmentId[];
+  /** Player-discovered Echo Mind material; never contains undiscovered lore. */
+  beliefs: string[];
+  questions: string[];
+  knowledgeNodeIds: string[];
   activeFlags: Record<string, boolean>;
   decisionHistory: DecisionRecord[];
   latestDecisions: Record<string, string>;
@@ -43,6 +47,9 @@ export function createInitialNarrativeState(): NarrativeState {
   return {
     unlockedMemoryIds: [],
     unlockedMemoryFragmentIds: [],
+    beliefs: [],
+    questions: [],
+    knowledgeNodeIds: [],
     activeFlags: {},
     decisionHistory: [],
     latestDecisions: {},
@@ -67,6 +74,9 @@ export function normalizeNarrativeState(
     unlockedMemoryFragmentIds: [
       ...new Set(state.unlockedMemoryFragmentIds ?? []),
     ],
+    beliefs: [...new Set(state.beliefs ?? [])],
+    questions: [...new Set(state.questions ?? [])],
+    knowledgeNodeIds: [...new Set(state.knowledgeNodeIds ?? [])],
     activeFlags: { ...(state.activeFlags ?? {}) },
     decisionHistory: [...(state.decisionHistory ?? [])],
     latestDecisions: { ...(state.latestDecisions ?? {}) },

@@ -343,6 +343,24 @@
   font-size: 1.05rem;
 }
 
+.application-shell__navigation-badge {
+  position: absolute;
+  inset-block-start: 0.25rem;
+  inset-inline-end: 0.35rem;
+  display: grid;
+  place-items: center;
+  min-width: 1rem;
+  height: 1rem;
+  padding-inline: 0.2rem;
+  border: 1px solid rgb(36 201 235 / 58%);
+  border-radius: 99px;
+  color: var(--gds-void-950);
+  background: var(--gds-cyan-400);
+  box-shadow: 0 0 0.7rem rgb(36 201 235 / 42%);
+  font: 800 0.55rem var(--gds-font-mono);
+  font-style: normal;
+}
+
 .application-shell__navigation button[data-active="true"] {
   border-color: var(--shell-nav-line);
   color: var(--gds-text-primary);
