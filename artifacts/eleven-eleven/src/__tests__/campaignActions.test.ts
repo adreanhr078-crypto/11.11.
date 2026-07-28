@@ -3,8 +3,10 @@ import { describe, it } from 'node:test';
 import { createPlayerResourceActions } from '../application/game/createPlayerResourceActions';
 import { createPuzzleCampaignActions } from '../application/game/createPuzzleCampaignActions';
 import {
+  createGameProgressionActions,
+} from '../application/game/createGameProgressionActions';
+import {
   CHAPTER_01_MANHWA_PAGE_BY_ID,
-  CHAPTER_01_PUZZLE_BY_ID,
   CHAPTER_01_PUZZLES,
 } from '../content/puzzles/chapter01Campaign';
 import type { GameState } from '../core/gameTypes';
@@ -60,11 +62,21 @@ function createHarness(initial?: Partial<GameState>) {
       : partial;
     state = { ...state, ...update };
   };
-  const actions = createPuzzleCampaignActions(set, get);
-  const resourceActions = createPlayerResourceActions(set, get);
+  const progressionActions = createGameProgressionActions(set, get);
+  const actions = createPuzzleCampaignActions(
+    set,
+    get,
+    progressionActions,
+  );
+  const resourceActions = createPlayerResourceActions(
+    set,
+    get,
+    progressionActions,
+  );
 
   return {
     actions,
+    progressionActions,
     resourceActions,
     getState: get,
     patch(partial: Partial<GameState>) {
@@ -180,6 +192,19 @@ describe('campaign completion actions', () => {
         'My awakening began with a failing heartbeat.',
       ),
     );
+    const reloadedHarness = createHarness(reloaded);
+    const reloadDuplicate = reloadedHarness.actions.completeCampaignPuzzle(
+      puzzle.id,
+      submission,
+    );
+    assert.equal(reloadDuplicate.success, false);
+    assert.equal(reloadDuplicate.alreadyCompleted, true);
+    assert.equal(reloadedHarness.getState().currency, 15);
+    assert.deepEqual(
+      reloadedHarness.getState().progressionState.puzzles
+        .claimedRewardReceipts,
+      [`${puzzle.id}:1`],
+    );
   });
 
   it('enforces sequential hints, free tutorial hints, costs, insufficient funds, and idempotency', () => {
@@ -257,7 +282,7 @@ describe('campaign completion actions', () => {
       ['observation'],
     );
 
-    harness.patch({ currency: 100 });
+    harness.resourceActions.setCurrency(100);
     assert.equal(
       harness.actions.purchaseCampaignHint(second.id, 'connection').success,
       true,
@@ -270,12 +295,12 @@ describe('campaign completion actions', () => {
     assert.equal(harness.getState().currency, 55);
   });
 
-  it('completes Puzzles 001–010 linearly, awards 235 coins, and restores Page 01', () => {
+  it('completes Puzzles 001–010 while keeping Page 01 free', () => {
     const harness = createHarness();
     const results = completeRange(harness, 1, 10);
 
     assert.ok(results.every((result) => result.success));
-    assert.equal(results.at(-1)?.restoredPageId, 'manhwa_ch01_page_01');
+    assert.equal(results.at(-1)?.restoredPageId, undefined);
     const state = harness.getState();
     assert.equal(
       CHAPTER_01_PUZZLES
@@ -292,18 +317,23 @@ describe('campaign completion actions', () => {
         (_, index) => `page01_shard_${String(index + 1).padStart(2, '0')}`,
       ),
     );
-    assert.equal(state.integratedMemoryFragmentIds.length, 10);
+    assert.equal(state.integratedMemoryFragmentIds.length, 0);
     assert.ok(
       state.unlockedManhwaPageIds.includes('manhwa_ch01_page_01'),
     );
-    assert.ok(state.manhwaPageUnlockedAt.manhwa_ch01_page_01);
     assert.equal(
       state.narrative.activeFlags.manhwa_page_01_unlocked,
-      true,
+      undefined,
+    );
+    assert.equal(
+      state.progressionState.manhwa.claimedPageEffectIds.includes(
+        'manhwa_ch01_page_01',
+      ),
+      false,
     );
   });
 
-  it('keeps Puzzle 011 gated before Page 01 and opens it after restoration', () => {
+  it('keeps Puzzle 011 gated by Puzzle 010, not paid Page 01', () => {
     const harness = createHarness();
     completeRange(harness, 1, 9);
     const eleventh = definition(11);
@@ -350,8 +380,8 @@ describe('campaign completion actions', () => {
     assert.equal(state.currency, 505);
     assert.equal(state.progression.completedPuzzleIds.length, 20);
     assert.equal(state.collectedMemoryFragments.length, 20);
-    assert.equal(state.integratedMemoryFragmentIds.length, 20);
-    assert.equal(state.memory.totalFragments, 290);
+    assert.equal(state.integratedMemoryFragmentIds.length, 10);
+    assert.equal(state.memory.totalFragments, 280);
     assert.ok(
       state.unlockedManhwaPageIds.includes('manhwa_ch01_page_02'),
     );
@@ -377,6 +407,22 @@ describe('campaign completion actions', () => {
     assert.ok(
       state.narrative.questions.includes(
         'Is the figure in the corridor really Yuki?',
+      ),
+    );
+    assert.ok(
+      state.progressionState.manhwa.claimedPageEffectIds.includes(
+        'manhwa_ch01_page_02',
+      ),
+    );
+    assert.equal(harness.progressionActions.spendMemoryShards(20), true);
+    assert.equal(
+      harness.getState().progressionState.resources.memoryShards
+        .spendableBalance,
+      0,
+    );
+    assert.ok(
+      harness.getState().unlockedManhwaPageIds.includes(
+        'manhwa_ch01_page_02',
       ),
     );
     const pageThree = CHAPTER_01_MANHWA_PAGE_BY_ID.manhwa_ch01_page_03;
@@ -414,7 +460,10 @@ describe('campaign persistence actions', () => {
     assert.deepEqual(migrated.claimedPuzzleRewards, []);
     assert.deepEqual(migrated.unlockedHintTiersByPuzzle, {});
     assert.deepEqual(migrated.integratedMemoryFragmentIds, []);
-    assert.deepEqual(migrated.unlockedManhwaPageIds, []);
+    assert.deepEqual(
+      migrated.unlockedManhwaPageIds,
+      ['manhwa_ch01_page_01'],
+    );
     assert.deepEqual(migrated.viewedManhwaPageIds, []);
     assert.deepEqual(migrated.memoryFragmentCollectedAt, {});
     assert.deepEqual(migrated.manhwaPageUnlockedAt, {});
@@ -457,16 +506,17 @@ describe('campaign persistence actions', () => {
     }, 9);
 
     assert.ok(completedOnly.claimedPuzzleRewards?.includes(first.id));
-    assert.ok(
+    assert.equal(
       completedOnly.collectedMemoryFragments?.includes(
         first.rewards.shardId,
       ),
+      false,
     );
     assert.equal(
       completedOnly.unlockedManhwaPageIds?.includes(
         'manhwa_ch01_page_01',
       ),
-      false,
+      true,
     );
     assert.equal(
       completedOnly.lastAvailablePuzzleId,
@@ -499,8 +549,14 @@ describe('campaign persistence actions', () => {
       unlockedManhwaPageIds: ['manhwa_ch01_page_02'],
       viewedManhwaPageIds: ['manhwa_ch01_page_02'],
     }, 10);
-    assert.deepEqual(outOfOrderPage.unlockedManhwaPageIds, []);
-    assert.deepEqual(outOfOrderPage.viewedManhwaPageIds, []);
+    assert.deepEqual(outOfOrderPage.unlockedManhwaPageIds, [
+      'manhwa_ch01_page_02',
+      'manhwa_ch01_page_01',
+    ]);
+    assert.deepEqual(
+      outOfOrderPage.viewedManhwaPageIds,
+      ['manhwa_ch01_page_02'],
+    );
 
     const fabricatedFuturePage = migrateGameState({
       collectedMemoryFragments: [
@@ -527,12 +583,30 @@ describe('campaign persistence actions', () => {
       fabricatedFuturePage.collectedMemoryFragments,
       ['legacy_fragment_kept'],
     );
-    assert.deepEqual(fabricatedFuturePage.integratedMemoryFragmentIds, []);
-    assert.deepEqual(fabricatedFuturePage.unlockedManhwaPageIds, []);
-    assert.deepEqual(fabricatedFuturePage.viewedManhwaPageIds, []);
+    assert.deepEqual(
+      fabricatedFuturePage.integratedMemoryFragmentIds,
+      Array.from(
+        { length: 10 },
+        (_, index) => (
+          `page03_shard_${String(index + 1).padStart(2, '0')}`
+        ),
+      ),
+    );
+    assert.deepEqual(fabricatedFuturePage.unlockedManhwaPageIds, [
+      'manhwa_ch01_page_03',
+      'manhwa_ch01_page_01',
+    ]);
+    assert.deepEqual(
+      fabricatedFuturePage.viewedManhwaPageIds,
+      ['manhwa_ch01_page_03'],
+    );
     assert.deepEqual(fabricatedFuturePage.memoryFragmentCollectedAt, {});
-    assert.deepEqual(fabricatedFuturePage.manhwaPageUnlockedAt, {});
-    assert.deepEqual(fabricatedFuturePage.manhwaPageViewedAt, {});
+    assert.deepEqual(fabricatedFuturePage.manhwaPageUnlockedAt, {
+      manhwa_ch01_page_03: '2026-01-01T00:00:00.000Z',
+    });
+    assert.deepEqual(fabricatedFuturePage.manhwaPageViewedAt, {
+      manhwa_ch01_page_03: '2026-01-01T00:00:00.000Z',
+    });
 
     const repeatedRingValues = migrateGameState({
       puzzleProgress: {
@@ -572,10 +646,6 @@ describe('campaign persistence actions', () => {
 
   it('marks only unlocked manhwa pages viewed and remains idempotent', () => {
     const harness = createHarness();
-    harness.actions.markManhwaPageViewed('manhwa_ch01_page_01');
-    assert.deepEqual(harness.getState().viewedManhwaPageIds, []);
-
-    completeRange(harness, 1, 10);
     harness.actions.markManhwaPageViewed('manhwa_ch01_page_01');
     harness.actions.markManhwaPageViewed('manhwa_ch01_page_01');
 

@@ -110,7 +110,11 @@ export const useGameStore = create<GameState>()(
             getState,
             progressionActions,
           ),
-          ...createPuzzleCampaignActions(setState, getState),
+          ...createPuzzleCampaignActions(
+            setState,
+            getState,
+            progressionActions,
+          ),
           ...createNarrativeActions(setState, getState),
           ...createCinematicActions(setState, getState),
         },
