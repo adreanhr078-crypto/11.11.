@@ -1,675 +1,382 @@
 import {
-  useEffect,
   useMemo,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
-  type PointerEvent as ReactPointerEvent,
 } from 'react';
 import {
-  ChevronLeft,
-  ChevronRight,
-  Expand,
-  Focus,
+  BookOpen,
+  Check,
+  Diamond,
   LockKeyhole,
-  Minus,
-  Plus,
-  ScanLine,
 } from 'lucide-react';
 import {
-  CHAPTER_01_MANHWA_PAGES,
-} from '../../content/puzzles/chapter01Campaign';
-import type {
-  ManhwaMemoryPageDefinition,
-} from '../../domain/puzzles/campaignContracts';
-import { getCampaignPageStatus } from '../../domain/puzzles/campaignEngine';
+  createManhwaArchiveReadModel,
+  type ManhwaArchivePageReadModel,
+} from '../../application/ui/manhwaArchiveReadModel';
 import { useGameStore } from '../../stores/gameStore';
 import {
   GameButton,
+  GameModal,
   GlassPanel,
 } from '../../ui/design-system';
-import './memory-archive.css';
+import './manhwa-archive.css';
 
-type MemoryPageStatus =
-  | 'locked'
-  | 'collecting'
-  | 'restored'
-  | 'questioned';
+const STATUS_CLASS_NAMES = {
+  unlocked: 'unlocked',
+  available: 'available',
+  insufficient_shards: 'insufficient',
+  previous_page_required: 'prerequisite',
+} as const;
 
-interface ViewTransform {
-  scale: number;
-  x: number;
-  y: number;
-}
-
-interface DragOrigin {
-  pointerId: number;
-  pointerX: number;
-  pointerY: number;
-  imageX: number;
-  imageY: number;
-}
-
-const INITIAL_VIEW: ViewTransform = {
-  scale: 1,
-  x: 0,
-  y: 0,
-};
-
-const ORDERED_MANHWA_PAGES = [...CHAPTER_01_MANHWA_PAGES].sort((
-  first,
-  second,
-) => (
-  first.pageNumber - second.pageNumber
-  || first.id.localeCompare(second.id)
-));
-
-const statusLabels: Record<
-  MemoryPageStatus,
-  { ar: string; en: string }
-> = {
-  locked: { ar: 'مقفلة', en: 'LOCKED' },
-  collecting: { ar: 'قيد التجميع', en: 'COLLECTING' },
-  restored: { ar: 'مستعادة', en: 'RESTORED' },
-  questioned: { ar: 'موضع تساؤل', en: 'QUESTIONED' },
-};
-
-function getPageStatus(
-  page: ManhwaMemoryPageDefinition,
-  collectedFragmentIds: readonly string[],
-): MemoryPageStatus {
-  return getCampaignPageStatus(
-    page,
-    collectedFragmentIds,
-    ORDERED_MANHWA_PAGES,
-  );
-}
-
-function getCollectedShardIds(
-  page: ManhwaMemoryPageDefinition,
-  collectedFragmentIds: ReadonlySet<string>,
-): string[] {
-  return [...new Set(page.requiredShardIds)].filter((fragmentId) => (
-    collectedFragmentIds.has(fragmentId)
-  ));
-}
-
-function isPageOpen(status: MemoryPageStatus): boolean {
-  return status === 'restored' || status === 'questioned';
-}
-
-function getProgressPercent(collected: number, total: number): number {
-  if (total <= 0) return 0;
-  return Math.min(100, (collected / total) * 100);
-}
-
-function clampZoom(value: number): number {
-  return Math.min(3.5, Math.max(0.75, value));
+function purchaseAnnouncement(
+  page: ManhwaArchivePageReadModel,
+): string {
+  return `تم فتح الصفحة ${page.pageLabel}. الرصيد المتبقي ${page.balanceAfterUnlock} شظية.`;
 }
 
 export default function MemoryScreen() {
-  const collectedMemoryFragments = useGameStore(
-    (state) => state.collectedMemoryFragments,
+  const progressionState = useGameStore(
+    (state) => state.progressionState,
   );
-  const viewedManhwaPageIds = useGameStore(
-    (state) => state.viewedManhwaPageIds,
+  const unlockManhwaPage = useGameStore(
+    (state) => state.actions.unlockManhwaPage,
   );
-  const markManhwaPageViewed = useGameStore(
-    (state) => state.actions.markManhwaPageViewed,
+  const model = useMemo(
+    () => createManhwaArchiveReadModel(progressionState),
+    [progressionState],
   );
-
   const [selectedPageId, setSelectedPageId] = useState(
-    ORDERED_MANHWA_PAGES[0]?.id ?? '',
+    model.pages[0]?.id ?? '',
   );
-  const [view, setView] = useState<ViewTransform>(INITIAL_VIEW);
-  const [dragOrigin, setDragOrigin] = useState<DragOrigin | null>(null);
-  const viewerRef = useRef<HTMLElement>(null);
-  const viewportRef = useRef<HTMLDivElement>(null);
-  const pageImageRef = useRef<HTMLImageElement>(null);
-  const archiveListRef = useRef<HTMLDivElement>(null);
+  const [pendingPageId, setPendingPageId] = useState<string | null>(null);
+  const [isUnlocking, setIsUnlocking] = useState(false);
+  const [announcement, setAnnouncement] = useState('');
+  const cardGridRef = useRef<HTMLDivElement>(null);
+  const unlockPendingRef = useRef(false);
 
-  const collectedSet = useMemo(
-    () => new Set(collectedMemoryFragments),
-    [collectedMemoryFragments],
-  );
-  const viewedSet = useMemo(
-    () => new Set(viewedManhwaPageIds),
-    [viewedManhwaPageIds],
-  );
-  const statusByPageId = useMemo(() => {
-    const statuses = new Map<string, MemoryPageStatus>();
-    let previousPageIsOpen = true;
-
-    ORDERED_MANHWA_PAGES.forEach((page) => {
-      const status = previousPageIsOpen
-        ? getPageStatus(page, collectedMemoryFragments)
-        : 'locked';
-      statuses.set(page.id, status);
-      previousPageIsOpen = isPageOpen(status);
-    });
-
-    return statuses;
-  }, [collectedMemoryFragments]);
-  const selectedPage = ORDERED_MANHWA_PAGES.find(
+  const selectedPage = model.pages.find(
     (page) => page.id === selectedPageId,
-  ) ?? ORDERED_MANHWA_PAGES[0]!;
-  const selectedStatus = statusByPageId.get(selectedPage.id) ?? 'locked';
-  const selectedCollectedShards = getCollectedShardIds(
-    selectedPage,
-    collectedSet,
+  ) ?? model.pages[0];
+  const pendingPage = model.pages.find(
+    (page) => page.id === pendingPageId,
   );
-  const selectedShardTotal = new Set(
-    selectedPage.requiredShardIds,
-  ).size;
-  const selectedRemainingShards = Math.max(
-    0,
-    selectedShardTotal - selectedCollectedShards.length,
-  );
-  const selectedCollectedSet = new Set(selectedCollectedShards);
-  const selectedIsOpen = isPageOpen(selectedStatus);
-  const availableViewerPages = ORDERED_MANHWA_PAGES.filter((page) => {
-    const status = statusByPageId.get(page.id);
-    return status === 'restored' || status === 'questioned';
-  });
-  const viewerPageIndex = availableViewerPages.findIndex(
-    (page) => page.id === selectedPage.id,
-  );
-  const previousPage = viewerPageIndex > 0
-    ? availableViewerPages[viewerPageIndex - 1]
-    : undefined;
-  const nextPage = viewerPageIndex >= 0
-    ? availableViewerPages[viewerPageIndex + 1]
-    : undefined;
-  const restoredPageCount = ORDERED_MANHWA_PAGES.filter((page) => {
-    const status = statusByPageId.get(page.id);
-    return status === 'restored' || status === 'questioned';
-  }).length;
-  const campaignPageCount = ORDERED_MANHWA_PAGES.length;
-  const campaignShardCount = ORDERED_MANHWA_PAGES.reduce((
-    total,
-    page,
-  ) => total + getCollectedShardIds(page, collectedSet).length, 0);
-  const campaignShardTotal = ORDERED_MANHWA_PAGES.reduce((
-    total,
-    page,
-  ) => total + new Set(page.requiredShardIds).size, 0);
 
-  useEffect(() => {
-    if (selectedIsOpen) markManhwaPageViewed(selectedPage.id);
-  }, [markManhwaPageViewed, selectedIsOpen, selectedPage.id]);
-
-  const fitPage = () => {
-    setView(INITIAL_VIEW);
-    setDragOrigin(null);
+  const focusPage = (index: number) => {
+    const normalizedIndex = Math.min(
+      model.pages.length - 1,
+      Math.max(0, index),
+    );
+    const page = model.pages[normalizedIndex];
+    if (!page) return;
+    setSelectedPageId(page.id);
+    cardGridRef.current
+      ?.querySelector<HTMLButtonElement>(
+        `[data-page-id="${page.id}"]`,
+      )
+      ?.focus();
   };
 
-  const selectPage = (pageId: string) => {
-    if (statusByPageId.get(pageId) === 'locked') return;
-    setSelectedPageId(pageId);
-    fitPage();
-  };
-
-  const adjustZoom = (amount: number) => {
-    setView((current) => ({
-      ...current,
-      scale: clampZoom(current.scale + amount),
-    }));
-  };
-
-  const fitToWidth = () => {
-    const viewport = viewportRef.current;
-    const image = pageImageRef.current;
-    if (!viewport || !image) {
-      fitPage();
-      return;
-    }
-    const renderedWidth = image.getBoundingClientRect().width;
-    const baseWidth = renderedWidth / view.scale;
-    if (baseWidth <= 0) {
-      fitPage();
-      return;
-    }
-    setView({
-      scale: clampZoom((viewport.clientWidth * 0.94) / baseWidth),
-      x: 0,
-      y: 0,
-    });
-    setDragOrigin(null);
-  };
-
-  const panBy = (x: number, y: number) => {
-    setView((current) => ({
-      ...current,
-      x: current.x + x,
-      y: current.y + y,
-    }));
-  };
-
-  const handlePointerDown = (
-    event: ReactPointerEvent<HTMLDivElement>,
-  ) => {
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setDragOrigin({
-      pointerId: event.pointerId,
-      pointerX: event.clientX,
-      pointerY: event.clientY,
-      imageX: view.x,
-      imageY: view.y,
-    });
-  };
-
-  const handlePointerMove = (
-    event: ReactPointerEvent<HTMLDivElement>,
-  ) => {
-    if (!dragOrigin || dragOrigin.pointerId !== event.pointerId) return;
-    setView((current) => ({
-      ...current,
-      x: dragOrigin.imageX + event.clientX - dragOrigin.pointerX,
-      y: dragOrigin.imageY + event.clientY - dragOrigin.pointerY,
-    }));
-  };
-
-  const releasePointer = (
-    event: ReactPointerEvent<HTMLDivElement>,
-  ) => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    setDragOrigin(null);
-  };
-
-  const handleViewerKeyDown = (
+  const handleGridKeyDown = (
     event: ReactKeyboardEvent<HTMLDivElement>,
   ) => {
-    const keyActions: Partial<Record<string, () => void>> = {
-      '+': () => adjustZoom(0.25),
-      '=': () => adjustZoom(0.25),
-      '-': () => adjustZoom(-0.25),
-      '0': fitPage,
-      ArrowUp: () => panBy(0, 32),
-      ArrowDown: () => panBy(0, -32),
-      ArrowLeft: () => panBy(32, 0),
-      ArrowRight: () => panBy(-32, 0),
-      PageUp: () => {
-        if (previousPage) selectPage(previousPage.id);
-      },
-      PageDown: () => {
-        if (nextPage) selectPage(nextPage.id);
-      },
+    const currentIndex = model.pages.findIndex(
+      (page) => page.id === selectedPageId,
+    );
+    const keyTargets: Partial<Record<string, number>> = {
+      ArrowLeft: currentIndex + 1,
+      ArrowDown: currentIndex + 1,
+      ArrowRight: currentIndex - 1,
+      ArrowUp: currentIndex - 1,
+      Home: 0,
+      End: model.pages.length - 1,
     };
-    const action = keyActions[event.key];
-    if (!action) return;
+    const targetIndex = keyTargets[event.key];
+    if (targetIndex === undefined) return;
     event.preventDefault();
-    action();
+    focusPage(targetIndex);
   };
 
-  const toggleFullscreen = async () => {
-    const viewer = viewerRef.current;
-    if (!viewer) return;
-    try {
-      if (document.fullscreenElement === viewer) {
-        await document.exitFullscreen();
-      } else {
-        await viewer.requestFullscreen();
-      }
-    } catch {
-      // Fullscreen can be denied by the host; the archive remains usable.
+  const selectPage = (page: ManhwaArchivePageReadModel) => {
+    setSelectedPageId(page.id);
+    if (page.status === 'available') {
+      setPendingPageId(page.id);
+      return;
     }
+    if (page.status !== 'unlocked') {
+      setAnnouncement(`${page.statusLabel.ar}. ${page.reason.ar}`);
+    }
+  };
+
+  const closeConfirmation = () => {
+    if (unlockPendingRef.current) return;
+    setPendingPageId(null);
+  };
+
+  const confirmUnlock = async () => {
+    if (
+      !pendingPage
+      || pendingPage.status !== 'available'
+      || unlockPendingRef.current
+    ) {
+      return;
+    }
+    unlockPendingRef.current = true;
+    setIsUnlocking(true);
+    await Promise.resolve();
+    const result = unlockManhwaPage(pendingPage.id);
+    if (result.success) {
+      setAnnouncement(purchaseAnnouncement(pendingPage));
+      setPendingPageId(null);
+      setSelectedPageId(pendingPage.id);
+    } else {
+      setAnnouncement(
+        `تعذر فتح الصفحة ${pendingPage.pageLabel}: ${
+          result.failureReason ?? 'unknown'
+        }`,
+      );
+    }
+    unlockPendingRef.current = false;
+    setIsUnlocking(false);
   };
 
   return (
-    <div
-      className="shell-screen manhwa-memory-archive"
-      dir="rtl"
-    >
-      <header className="shell-screen-heading manhwa-memory-archive__heading">
+    <div className="shell-screen manhwa-archive" dir="rtl">
+      <header className="shell-screen-heading manhwa-archive__heading">
         <span className="shell-screen-code">03</span>
         <span>
-          <small>MEMORY ARCHIVE // CHAPTER 01</small>
-          <h1>الذكريات</h1>
+          <small>MANHWA ARCHIVE // CHAPTER 01</small>
+          <h1>المانهوا</h1>
+          <p lang="en">Manhwa</p>
         </span>
         <div
-          className="manhwa-memory-archive__summary"
-          aria-label={`${campaignShardCount} من ${campaignShardTotal} شظية، ${restoredPageCount} من ${campaignPageCount} صفحات مستعادة`}
+          className="manhwa-archive__summary"
+          aria-label={`${model.unlockedPageCount} من ${model.totalPageCount} صفحات مفتوحة، الرصيد ${model.spendableShardBalance} شظية`}
         >
           <span>
-            <strong>{campaignShardCount}/{campaignShardTotal}</strong>
-            <small>شظايا</small>
+            <strong>
+              {model.unlockedPageCount}/{model.totalPageCount}
+            </strong>
+            <small>صفحات مفتوحة</small>
           </span>
           <span>
-            <strong>{restoredPageCount}/{campaignPageCount}</strong>
-            <small>صفحات</small>
+            <strong>{model.spendableShardBalance}</strong>
+            <small>شظايا متاحة</small>
           </span>
         </div>
       </header>
 
-      <div className="manhwa-memory-archive__layout">
+      <p
+        className="gds-sr-only"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {announcement}
+      </p>
+
+      <div className="manhwa-archive__layout">
         <GlassPanel
-          className="manhwa-memory-archive__index"
+          className="manhwa-archive__catalogue"
           tone="memory"
-          eyebrow="RECOVERED PAGES"
-          title="فهرس الذاكرة"
+          eyebrow="PAGES 01—29"
+          title="أرشيف الصفحات"
         >
           <div
-            ref={archiveListRef}
-            className="manhwa-memory-archive__page-list"
+            ref={cardGridRef}
+            className="manhwa-archive__grid"
+            aria-label="صفحات المانهوا"
+            onKeyDown={handleGridKeyDown}
           >
-            {ORDERED_MANHWA_PAGES.map((page) => {
-              const status = statusByPageId.get(page.id) ?? 'locked';
-              const collected = getCollectedShardIds(page, collectedSet);
-              const shardTotal = new Set(page.requiredShardIds).size;
-              const pageOpen = isPageOpen(status);
-              const isNew = pageOpen && !viewedSet.has(page.id);
+            {model.pages.map((page) => {
+              const unlocked = page.status === 'unlocked';
               return (
                 <button
                   key={page.id}
                   type="button"
-                  className="manhwa-memory-card"
-                  data-active={selectedPage.id === page.id}
-                  data-status={status}
-                  disabled={status === 'locked'}
-                  onClick={() => selectPage(page.id)}
+                  className="manhwa-archive-card"
+                  data-page-id={page.id}
+                  data-status={STATUS_CLASS_NAMES[page.status]}
+                  data-selected={selectedPage?.id === page.id}
+                  tabIndex={selectedPage?.id === page.id ? 0 : -1}
                   aria-current={
-                    selectedPage.id === page.id ? 'page' : undefined
+                    selectedPage?.id === page.id ? 'page' : undefined
                   }
-                  aria-label={
-                    `الصفحة ${page.pageNumber}: ${
-                      pageOpen ? page.title.ar : 'ذاكرة مشفرة'
-                    }، ${statusLabels[status].ar}، ${
-                      collected.length
-                    } من ${shardTotal} شظايا`
-                  }
+                  aria-label={`الصفحة ${page.pageLabel}، ${page.statusLabel.ar}، ${page.reason.ar}`}
+                  onFocus={() => setSelectedPageId(page.id)}
+                  onClick={() => selectPage(page)}
                 >
-                  <span className="manhwa-memory-card__number">
-                    {status === 'locked'
-                      ? <LockKeyhole aria-hidden="true" />
-                      : String(page.pageNumber).padStart(2, '0')}
+                  <span className="manhwa-archive-card__visual">
+                    {page.unlockedContent ? (
+                      <img
+                        src={page.unlockedContent.thumbnailSrc}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    ) : (
+                      <span
+                        className="manhwa-archive-card__placeholder"
+                        aria-hidden="true"
+                      >
+                        <LockKeyhole />
+                        <b>{page.pageLabel}</b>
+                      </span>
+                    )}
+                    <span className="manhwa-archive-card__page">
+                      PAGE {page.pageLabel}
+                    </span>
+                    {page.isNew && (
+                      <span className="manhwa-archive-card__new">
+                        NEW
+                      </span>
+                    )}
                   </span>
-                  <span className="manhwa-memory-card__copy">
-                    <small>
-                      PAGE {String(page.pageNumber).padStart(2, '0')}
-                      {' // '}
-                      {statusLabels[status].en}
-                    </small>
+
+                  <span className="manhwa-archive-card__copy">
                     <strong>
-                      {pageOpen ? page.title.ar : 'ذاكرة مشفّرة'}
+                      {page.unlockedContent
+                        ? page.unlockedContent.title.ar
+                        : `الصفحة ${page.pageLabel}`}
                     </strong>
-                    <span>{collected.length}/{shardTotal} شظايا</span>
+                    <span data-status-label>
+                      {page.statusLabel.ar}
+                      <small lang="en">{page.statusLabel.en}</small>
+                    </span>
+                    {!unlocked && (
+                      <>
+                        <span className="manhwa-archive-card__cost">
+                          <Diamond aria-hidden="true" />
+                          {page.shardCost}
+                        </span>
+                        <small>{page.reason.ar}</small>
+                      </>
+                    )}
+                    {unlocked && (
+                      <span className="manhwa-archive-card__ready">
+                        <Check aria-hidden="true" />
+                        جاهزة للقراءة
+                      </span>
+                    )}
                   </span>
-                  {isNew && (
-                    <span className="manhwa-memory-card__new">NEW</span>
-                  )}
-                  <i aria-hidden="true">
-                    <b
-                      style={{
-                        width: `${getProgressPercent(
-                          collected.length,
-                          shardTotal,
-                        )}%`,
-                      }}
-                    />
-                  </i>
                 </button>
               );
             })}
           </div>
         </GlassPanel>
 
-        <main className="manhwa-memory-archive__workspace">
-          <GlassPanel
-            className="manhwa-memory-archive__shards"
-            tone="memory"
-            eyebrow={`PAGE ${String(selectedPage.pageNumber).padStart(2, '0')} // ${statusLabels[selectedStatus].en}`}
-            title={
-              selectedIsOpen
-                ? selectedPage.title.ar
-                : 'ذاكرة مشفّرة'
-            }
-            actions={(
-              <span className="manhwa-memory-archive__count">
-                {selectedCollectedShards.length}/{selectedShardTotal}
-              </span>
-            )}
-          >
-            <ol
-              className="manhwa-memory-shard-grid"
-              aria-label={`شظايا الصفحة ${selectedPage.pageNumber}`}
-            >
-              {selectedPage.requiredShardIds.map((shardId, index) => {
-                const collected = selectedCollectedSet.has(shardId);
-                return (
-                  <li
-                    key={shardId}
-                    data-collected={collected}
-                    aria-label={
-                      `الشظية ${index + 1}: ${
-                        collected ? 'تم جمعها' : 'لم تُجمع'
-                      }`
-                    }
-                  >
-                    <span aria-hidden="true">◇</span>
-                    <small>{String(index + 1).padStart(2, '0')}</small>
-                  </li>
-                );
-              })}
-            </ol>
-            <p
-              className="manhwa-memory-archive__recovery-copy"
-              aria-live="polite"
-            >
-              {selectedStatus === 'locked' && (
-                <>
-                  أكمل استعادة الصفحة السابقة لفتح مسار هذه الذاكرة.
-                  <span lang="en">
-                    Restore the previous page to unlock this memory path.
-                  </span>
-                </>
-              )}
-              {selectedStatus === 'collecting'
-                && selectedCollectedShards.length === 0 && (
-                <>
-                  لم يتم جمع أي شظايا ذاكرة لهذه الصفحة بعد.
-                  <span lang="en">
-                    No memory fragments collected yet.
-                  </span>
-                </>
-              )}
-              {selectedStatus === 'collecting'
-                && selectedCollectedShards.length > 0 && (
-                <>
-                  تبقّت {selectedRemainingShards} شظايا
-                  لاستعادة الصورة الكاملة.
-                  <span lang="en">
-                    {selectedRemainingShards} fragments remain
-                    before reconstruction.
-                  </span>
-                </>
-              )}
-              {selectedIsOpen && (
-                <>
-                  اكتملت الشظايا. الصورة متاحة الآن داخل العارض الآمن.
-                  <span lang="en">
-                    Reconstruction complete. The page is ready to inspect.
-                  </span>
-                </>
-              )}
-            </p>
-          </GlassPanel>
-
-          {selectedIsOpen ? (
-            <section
-              ref={viewerRef}
-              className="manhwa-page-viewer"
-              aria-label={`عارض ${selectedPage.title.ar}`}
-            >
-              <header className="manhwa-page-viewer__toolbar">
-                <span className="manhwa-page-viewer__identity">
-                  <ScanLine aria-hidden="true" />
-                  <span>
-                    <small>
-                      {statusLabels[selectedStatus].en}
-                    </small>
-                    <strong>{selectedPage.title.ar}</strong>
-                  </span>
-                </span>
-                <div
-                  className="manhwa-page-viewer__controls"
-                  role="toolbar"
-                  aria-label="أدوات عرض الصفحة"
-                >
-                  <GameButton
-                    className="manhwa-page-viewer__back"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      archiveListRef.current?.scrollIntoView({
-                        behavior: 'auto',
-                        block: 'start',
-                      });
-                      archiveListRef.current
-                        ?.querySelector<HTMLButtonElement>(
-                          '[aria-current="page"]',
-                        )
-                        ?.focus();
-                    }}
-                  >
-                    العودة للأرشيف
-                  </GameButton>
-                  <GameButton
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => adjustZoom(-0.25)}
-                    aria-label="تصغير الصفحة"
-                    title="تصغير"
-                  >
-                    <Minus />
-                  </GameButton>
-                  <output
-                    aria-live="polite"
-                    aria-label="نسبة التكبير"
-                  >
-                    {Math.round(view.scale * 100)}%
-                  </output>
-                  <GameButton
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => adjustZoom(0.25)}
-                    aria-label="تكبير الصفحة"
-                    title="تكبير"
-                  >
-                    <Plus />
-                  </GameButton>
-                  <GameButton
-                    variant="ghost"
-                    size="icon"
-                    onClick={fitToWidth}
-                    aria-label="ملاءمة عرض الصفحة مع العارض"
-                    title="ملاءمة للعرض"
-                  >
-                    <Focus />
-                  </GameButton>
-                  <GameButton
-                    variant="ghost"
-                    size="icon"
-                    onClick={toggleFullscreen}
-                    aria-label="عرض الصفحة بملء الشاشة"
-                    title="ملء الشاشة"
-                  >
-                    <Expand />
-                  </GameButton>
-                </div>
-              </header>
-
-              <div
-                ref={viewportRef}
-                className="manhwa-page-viewer__viewport"
-                data-dragging={Boolean(dragOrigin)}
-                tabIndex={0}
-                role="application"
-                aria-label="اسحب لتحريك الصفحة. استخدم زائد وناقص للتكبير، والأسهم للتحريك، وصفر للملاءمة."
-                onKeyDown={handleViewerKeyDown}
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onPointerUp={releasePointer}
-                onPointerCancel={releasePointer}
-                onDoubleClick={fitPage}
-              >
-                <img
-                  ref={pageImageRef}
-                  src={selectedPage.imageSrc}
-                  alt={selectedPage.accessibleDescription.ar}
-                  loading="lazy"
-                  decoding="async"
-                  draggable={false}
-                  style={{
-                    transform: `translate3d(${view.x}px, ${view.y}px, 0) scale(${view.scale})`,
-                  }}
-                />
-                <span
-                  className="manhwa-page-viewer__scan"
-                  aria-hidden="true"
-                />
-              </div>
-
-              <details className="manhwa-page-viewer__transcript">
-                <summary>الوصف النصي وحوار الصفحة</summary>
-                <p>{selectedPage.accessibleDescription.ar}</p>
-                <ol>
-                  {selectedPage.transcript.map((line, index) => (
-                    <li key={`${selectedPage.id}-transcript-${index}`}>
-                      {line.ar}
-                    </li>
-                  ))}
-                </ol>
-              </details>
-
-              <footer className="manhwa-page-viewer__navigation">
-                <GameButton
-                  variant="ghost"
-                  leadingIcon={<ChevronRight />}
-                  disabled={!previousPage}
-                  onClick={() => {
-                    if (previousPage) selectPage(previousPage.id);
-                  }}
-                >
-                  الصفحة السابقة
-                </GameButton>
+        <GlassPanel
+          className="manhwa-archive__preview"
+          tone="memory"
+          eyebrow={selectedPage
+            ? `PAGE ${selectedPage.pageLabel} // ${selectedPage.statusLabel.en.toUpperCase()}`
+            : 'PAGE'}
+          title={selectedPage?.unlockedContent?.title.ar ?? 'صفحة مقفلة'}
+        >
+          {selectedPage?.unlockedContent ? (
+            <article className="manhwa-archive__reader">
+              <img
+                src={selectedPage.unlockedContent.thumbnailSrc}
+                alt={selectedPage.unlockedContent.accessibleDescription.ar}
+                loading="lazy"
+                decoding="async"
+              />
+              <div>
                 <span>
-                  {viewerPageIndex + 1} / {availableViewerPages.length}
+                  <BookOpen aria-hidden="true" />
+                  عرض مضمّن مؤقت
                 </span>
-                <GameButton
-                  variant="ghost"
-                  trailingIcon={<ChevronLeft />}
-                  disabled={!nextPage}
-                  onClick={() => {
-                    if (nextPage) selectPage(nextPage.id);
-                  }}
-                >
-                  الصفحة التالية
-                </GameButton>
-              </footer>
-            </section>
-          ) : (
-            <section
-              className="manhwa-page-sealed"
-              data-status={selectedStatus}
-              aria-label="الصفحة غير مستعادة"
+                <p>
+                  {selectedPage.unlockedContent.accessibleDescription.ar}
+                </p>
+                <small lang="en">
+                  Reading this preview does not record a view or apply
+                  narrative effects.
+                </small>
+              </div>
+            </article>
+          ) : selectedPage ? (
+            <article
+              className="manhwa-archive__sealed"
+              data-status={STATUS_CLASS_NAMES[selectedPage.status]}
             >
-              <span className="manhwa-page-sealed__signal" aria-hidden="true">
-                {selectedStatus === 'locked'
-                  ? <LockKeyhole />
-                  : <ScanLine />}
+              <span aria-hidden="true">
+                <LockKeyhole />
               </span>
-              <small>IMAGE CHANNEL // SEALED</small>
-              <h2>الصورة غير متاحة بعد</h2>
-              <p>
-                لا تُحمّل صفحة المانهوا قبل اكتمال شظاياها وفتحها داخل
-                نظام الذاكرة.
-              </p>
-            </section>
-          )}
-        </main>
+              <small>PAGE {selectedPage.pageLabel} // SEALED</small>
+              <h2>{selectedPage.statusLabel.ar}</h2>
+              <p>{selectedPage.reason.ar}</p>
+              <dl>
+                <div>
+                  <dt>تكلفة الفتح</dt>
+                  <dd>{selectedPage.shardCost}</dd>
+                </div>
+                <div>
+                  <dt>الرصيد الحالي</dt>
+                  <dd>{model.spendableShardBalance}</dd>
+                </div>
+              </dl>
+              {selectedPage.status === 'available' && (
+                <GameButton
+                  variant="memory"
+                  leadingIcon={<Diamond />}
+                  onClick={() => setPendingPageId(selectedPage.id)}
+                >
+                  فتح الصفحة
+                </GameButton>
+              )}
+            </article>
+          ) : null}
+        </GlassPanel>
       </div>
+
+      <GameModal
+        open={Boolean(pendingPage)}
+        onClose={closeConfirmation}
+        eyebrow="MANHWA ARCHIVE // UNLOCK"
+        title={`تأكيد فتح الصفحة ${pendingPage?.pageLabel ?? ''}`}
+        description="يُخصم الرصيد عبر معاملة الأرشيف المركزية. فتح الصفحة دائم ولا يتراجع بعد إنفاق الشظايا."
+        tone="memory"
+        closeLabel="إلغاء فتح الصفحة"
+        footer={(
+          <>
+            <GameButton
+              variant="ghost"
+              disabled={isUnlocking}
+              onClick={closeConfirmation}
+            >
+              إلغاء
+            </GameButton>
+            <GameButton
+              variant="memory"
+              loading={isUnlocking}
+              loadingLabel="جارٍ فتح الصفحة"
+              disabled={!pendingPage || pendingPage.status !== 'available'}
+              leadingIcon={<Diamond />}
+              onClick={() => void confirmUnlock()}
+            >
+              تأكيد الفتح
+            </GameButton>
+          </>
+        )}
+      >
+        {pendingPage && (
+          <dl className="manhwa-archive__confirmation">
+            <div>
+              <dt>تكلفة الصفحة</dt>
+              <dd>{pendingPage.shardCost}</dd>
+            </div>
+            <div>
+              <dt>الرصيد الحالي</dt>
+              <dd>{model.spendableShardBalance}</dd>
+            </div>
+            <div>
+              <dt>الرصيد بعد الشراء</dt>
+              <dd>{pendingPage.balanceAfterUnlock}</dd>
+            </div>
+          </dl>
+        )}
+      </GameModal>
     </div>
   );
 }

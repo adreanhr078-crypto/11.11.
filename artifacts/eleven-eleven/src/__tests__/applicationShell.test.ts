@@ -82,6 +82,54 @@ describe('Application Shell', () => {
       getCategoryScreens('story').map(({ id }) => id),
       ['psychological-state'],
     );
+    assert.equal(
+      NAVIGATION_CATEGORIES.find(({ id }) => id === 'memory')?.label,
+      'المانهوا',
+    );
+    assert.equal(GAME_SCREEN_REGISTRY.memories.label, 'المانهوا');
+    assert.match(
+      GAME_SCREEN_REGISTRY.memories.description,
+      /Manhwa/,
+    );
+  });
+
+  it('reads Manhwa badges and player counters from canonical progression', () => {
+    const shellSource = readFileSync(
+      resolve(
+        process.cwd(),
+        'src',
+        'app',
+        'shell',
+        'ApplicationShell.tsx',
+      ),
+      'utf8',
+    );
+    const countersSource = readFileSync(
+      resolve(
+        process.cwd(),
+        'src',
+        'app',
+        'shell',
+        'PlayerResourceCounters.tsx',
+      ),
+      'utf8',
+    );
+
+    assert.ok(shellSource.includes('getCanonicalManhwaBadgeCount'));
+    assert.ok(shellSource.includes('state.progressionState'));
+    assert.equal(shellSource.includes('state.unlockedManhwaPageIds'), false);
+    assert.equal(shellSource.includes('state.viewedManhwaPageIds'), false);
+    assert.ok(countersSource.includes(
+      'state.progressionState.resources.coins',
+    ));
+    assert.ok(countersSource.includes(
+      'state.progressionState.resources.memoryShards.spendableBalance',
+    ));
+    assert.equal(countersSource.includes('state.currency'), false);
+    assert.equal(
+      countersSource.includes('state.collectedMemoryFragments'),
+      false,
+    );
   });
 
   it('keeps the legacy night runtime out of the active application boot path', () => {

@@ -24,20 +24,44 @@ describe('campaign interaction accessibility', () => {
     assert.ok(puzzleScreen.includes('inert={Boolean(rewardEvent)}'));
   });
 
-  it('keeps locked page images unloaded and exposes viewer alternatives', () => {
+  it('keeps locked images out of the UI and uses the canonical unlock action', () => {
     const memoryScreen = source('src/features/screens/MemoryScreen.tsx');
-    const imageBranch = memoryScreen.indexOf('{selectedIsOpen ? (');
-    const imageElement = memoryScreen.indexOf('<img', imageBranch);
-    const sealedBranch = memoryScreen.indexOf(': (', imageElement);
+    const readModel = source(
+      'src/application/ui/manhwaArchiveReadModel.ts',
+    );
 
-    assert.ok(imageBranch >= 0);
-    assert.ok(imageElement > imageBranch);
-    assert.ok(sealedBranch > imageElement);
+    assert.ok(memoryScreen.includes('page.unlockedContent ? ('));
     assert.ok(memoryScreen.includes('loading="lazy"'));
-    assert.ok(memoryScreen.includes('onPointerDown'));
+    assert.ok(memoryScreen.includes('unlockManhwaPage(pendingPage.id)'));
+    assert.ok(memoryScreen.includes('<GameModal'));
+    assert.ok(readModel.includes('...(unlocked'));
+    assert.ok(readModel.includes('thumbnailSrc: page.imageSrc'));
+    assert.ok(readModel.includes(': {})'));
+    assert.equal(memoryScreen.includes('CHAPTER_01_MANHWA_PAGES'), false);
+    assert.equal(memoryScreen.includes('markManhwaPageViewed'), false);
+    assert.equal(memoryScreen.includes('viewedPageIds'), false);
+    assert.equal(memoryScreen.includes('pageViewedAt'), false);
+    assert.equal(memoryScreen.includes('claimedPageEffectIds'), false);
+    assert.equal(memoryScreen.includes('applyEchoEffects'), false);
+    assert.equal(memoryScreen.includes('requestFullscreen'), false);
+  });
+
+  it('supports keyboard, ARIA, focus restoration, and live feedback', () => {
+    const memoryScreen = source('src/features/screens/MemoryScreen.tsx');
+    const overlays = source('src/ui/design-system/overlays.tsx');
+
     assert.ok(memoryScreen.includes('onKeyDown'));
-    assert.ok(memoryScreen.includes('الوصف النصي وحوار الصفحة'));
-    assert.ok(memoryScreen.includes('العودة للأرشيف'));
+    assert.ok(memoryScreen.includes('ArrowLeft'));
+    assert.ok(memoryScreen.includes('ArrowRight'));
+    assert.ok(memoryScreen.includes('Home'));
+    assert.ok(memoryScreen.includes('End'));
+    assert.ok(memoryScreen.includes('tabIndex='));
+    assert.ok(memoryScreen.includes('aria-live="polite"'));
+    assert.ok(memoryScreen.includes('aria-atomic="true"'));
+    assert.ok(memoryScreen.includes('aria-current='));
+    assert.ok(memoryScreen.includes('aria-label='));
+    assert.ok(overlays.includes('previousFocus?.focus()'));
+    assert.ok(overlays.includes('event.key === \'Escape\''));
   });
 
   it('honors reduced motion for rewards, shards, and the manhwa viewer', () => {
@@ -45,7 +69,7 @@ describe('campaign interaction accessibility', () => {
       'src/features/screens/puzzle-campaign.css',
     );
     const memoryStyles = source(
-      'src/features/screens/memory-archive.css',
+      'src/features/screens/manhwa-archive.css',
     );
 
     assert.ok(puzzleStyles.includes('@media (prefers-reduced-motion: reduce)'));
