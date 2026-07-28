@@ -10,6 +10,10 @@ import type {
 } from '../../core/puzzleRewardTypes';
 import type { PuzzleId } from '../content/contracts';
 import {
+  increaseAchievementProgress,
+  synchronizeAchievementProgress,
+} from '../achievements/achievementProgression';
+import {
   clampProgressMetric,
   normalizeNonNegativeInteger,
   reconcileGameProgressionState,
@@ -220,6 +224,7 @@ function validateEchoEffect(effect: EchoEffect): boolean {
 export function applyEchoEffects(
   state: GameProgressionState,
   effect: EchoEffect,
+  unlockedAt: number | null = null,
 ): GameProgressionTransitionResult {
   if (!validateEchoEffect(effect)) return { success: false, state };
   const echo = { ...state.echo };
@@ -233,6 +238,15 @@ export function applyEchoEffects(
     state: {
       ...state,
       echo,
+      achievements: synchronizeAchievementProgress(
+        state.achievements,
+        {
+          completedPuzzleCount:
+            state.puzzles.journey.completedPuzzleIds.length,
+          echoTrust: echo.trust,
+        },
+        unlockedAt,
+      ),
     },
   };
 }
@@ -415,29 +429,17 @@ export function applyPuzzleRewardTransaction(
     newlyDiscoveredCount += 1;
   }
 
+  const unlockedAt = Date.parse(timestamp);
   const echoTransition = applyEchoEffects(
     state,
     reward.echoEffect ?? {},
+    unlockedAt,
   );
-  const achievementById = {
-    ...state.achievements.byId,
-  };
-  const unlockedAt = Date.parse(timestamp);
-  for (const [achievementId, increment] of Object.entries(
+  const achievementProgress = increaseAchievementProgress(
+    echoTransition.state.achievements,
     reward.achievementProgress ?? {},
-  )) {
-    const current = achievementById[achievementId]!;
-    const nextCurrent = Math.min(current.target, current.current + increment);
-    achievementById[achievementId] = {
-      ...current,
-      current: nextCurrent,
-      unlockedAt: (
-        nextCurrent >= current.target && current.unlockedAt === null
-      )
-        ? unlockedAt
-        : current.unlockedAt,
-    };
-  }
+    unlockedAt,
+  );
 
   const unlockedPageIds = [
     ...state.manhwa.unlockedPageIds,
@@ -464,6 +466,14 @@ export function applyPuzzleRewardTransaction(
     ...state.puzzles.journey.completedPuzzleIds,
     normalizedPuzzleId as PuzzleId,
   ]);
+  const synchronizedAchievementProgress = synchronizeAchievementProgress(
+    achievementProgress,
+    {
+      completedPuzzleCount: completedPuzzleIds.length,
+      echoTrust: echoTransition.state.echo.trust,
+    },
+    unlockedAt,
+  );
   const nextState = reconcileGameProgressionState({
     ...state,
     resources: {
@@ -498,7 +508,7 @@ export function applyPuzzleRewardTransaction(
       pageUnlockedAt,
     },
     achievements: {
-      byId: achievementById,
+      byId: synchronizedAchievementProgress.byId,
     },
     echo: echoTransition.state.echo,
     story: {

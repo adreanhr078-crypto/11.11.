@@ -7,6 +7,10 @@ import {
   DEFAULT_ECHO_PROGRESS,
   GAME_PROGRESSION_SCHEMA_VERSION,
 } from '../../core/gameProgressionDefaults';
+import {
+  ACHIEVEMENT_DEFINITIONS,
+  getAchievementDefinition,
+} from '../../core/achievementDefinitions';
 import type {
   ChapterId,
   PuzzleId,
@@ -30,6 +34,9 @@ import {
 import {
   normalizeCinematicState,
 } from '../../domain/cinematics/cinematicState';
+import {
+  createAchievementViews,
+} from '../../domain/achievements/achievementProgression';
 import {
   CHAPTER_DEFINITIONS,
   CONTENT_MANIFEST,
@@ -426,6 +433,7 @@ export function migrateGameState(
     : [];
   const rawAchievementById = readObject(canonicalAchievements, 'byId');
   const achievementIds = new Set([
+    ...ACHIEVEMENT_DEFINITIONS.map((definition) => definition.id),
     ...Object.keys(rawAchievementById),
     ...legacyAchievements
       .filter(isObject)
@@ -445,24 +453,32 @@ export function migrateGameState(
     );
     const legacyUnlocked = isObject(legacyAchievement)
       && legacyAchievement.unlocked === true;
-    const target = Math.max(
+    const persistedTarget = Math.max(
       1,
       normalizeNonNegativeInteger(
         hasFiniteNumber(rawEntry.target) ? rawEntry.target : 1,
       ),
     );
-    const current = legacyUnlocked
+    const persistedCurrent = Math.min(
+      persistedTarget,
+      normalizeNonNegativeInteger(
+        hasFiniteNumber(rawEntry.current) ? rawEntry.current : 0,
+      ),
+    );
+    const canonicalUnlockedAt = normalizeOptionalTimestamp(
+      rawEntry.unlockedAt,
+    );
+    const wasUnlocked = legacyUnlocked
+      || canonicalUnlockedAt !== null
+      || persistedCurrent >= persistedTarget;
+    const target = getAchievementDefinition(id)?.target ?? persistedTarget;
+    const current = wasUnlocked
       ? target
-      : Math.min(
-          target,
-          normalizeNonNegativeInteger(
-            hasFiniteNumber(rawEntry.current) ? rawEntry.current : 0,
-          ),
-        );
+      : Math.min(target, persistedCurrent);
     achievementProgressById[id] = {
       current,
       target,
-      unlockedAt: normalizeOptionalTimestamp(rawEntry.unlockedAt)
+      unlockedAt: canonicalUnlockedAt
         ?? (
           isObject(legacyAchievement)
             ? normalizeOptionalTimestamp(legacyAchievement.unlockedAt)
@@ -730,6 +746,9 @@ export function mergeGameState(
     chapters,
     solvedPuzzles: progression.completedPuzzleIds.length,
     currentChapter: progression.currentChapterId,
+    achievements: createAchievementViews(
+      progressionState.achievements,
+    ),
     actions: currentState.actions,
   };
 }

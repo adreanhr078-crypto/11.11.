@@ -3,6 +3,9 @@ import type {
   GameProgressionState,
 } from '../../core/gameProgressionTypes';
 import { GAME_PROGRESSION_SCHEMA_VERSION } from '../../core/gameProgressionDefaults';
+import {
+  synchronizeAchievementProgress,
+} from '../achievements/achievementProgression';
 
 export function clampProgressMetric(value: number): number {
   if (!Number.isFinite(value)) return 0;
@@ -50,6 +53,22 @@ export function reconcileGameProgressionState(
   );
   const completed = new Set(completedPuzzleIds);
   const unlockedPageIds = uniqueStrings(state.manhwa.unlockedPageIds);
+  const normalizedAchievementProgress = {
+    byId: Object.fromEntries(
+      Object.entries(state.achievements.byId).map(([id, entry]) => [
+        id,
+        normalizeAchievementEntry(entry),
+      ]),
+    ),
+  };
+  const achievements = synchronizeAchievementProgress(
+    normalizedAchievementProgress,
+    {
+      completedPuzzleCount: completedPuzzleIds.length,
+      echoTrust: clampProgressMetric(state.echo.trust),
+    },
+    null,
+  );
 
   return {
     ...state,
@@ -98,14 +117,7 @@ export function reconcileGameProgressionState(
         state.manhwa.claimedPageEffectIds,
       ),
     },
-    achievements: {
-      byId: Object.fromEntries(
-        Object.entries(state.achievements.byId).map(([id, entry]) => [
-          id,
-          normalizeAchievementEntry(entry),
-        ]),
-      ),
-    },
+    achievements,
     echo: {
       ...state.echo,
       humanity: clampProgressMetric(state.echo.humanity),

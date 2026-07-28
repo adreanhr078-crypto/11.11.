@@ -1,5 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useGameStore } from '../stores/gameStore';
+import {
+  createAchievementViews,
+} from '../domain/achievements/achievementProgression';
 
 interface AchievementToastState {
   visible: boolean;
@@ -7,12 +10,30 @@ interface AchievementToastState {
 }
 
 export const AchievementToast: React.FC = () => {
-  const achievements = useGameStore(s => s.achievements);
+  const progress = useGameStore(
+    (state) => state.progressionState.achievements,
+  );
+  const achievements = useMemo(
+    () => createAchievementViews(progress),
+    [progress],
+  );
   const [toast, setToast] = useState<AchievementToastState>({ visible: false, achievement: null });
   const prevUnlockedRef = React.useRef<Set<string>>(new Set());
+  const initializedRef = React.useRef(false);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const currentUnlocked = new Set(
+      achievements.filter((achievement) => achievement.unlocked).map(
+        (achievement) => achievement.id,
+      ),
+    );
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      prevUnlockedRef.current = currentUnlocked;
+      return undefined;
+    }
+
     const newlyUnlocked = achievements.filter(a => a.unlocked && a.unlockedAt && !prevUnlockedRef.current.has(a.id));
     if (newlyUnlocked.length > 0) {
       const latest = newlyUnlocked[newlyUnlocked.length - 1];
@@ -20,7 +41,6 @@ export const AchievementToast: React.FC = () => {
       timer = setTimeout(() => setToast({ visible: false, achievement: null }), 3000);
     }
 
-    const currentUnlocked = new Set(achievements.filter(a => a.unlocked).map(a => a.id));
     prevUnlockedRef.current = currentUnlocked;
 
     return () => { if (timer) clearTimeout(timer); };

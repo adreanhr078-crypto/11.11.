@@ -3,9 +3,11 @@ import type {
   EchoProgressState,
   GameProgressionState,
 } from './gameProgressionTypes';
-import type { Achievement } from './gameTypes';
 import type { ProgressionState } from '../domain/progression/progression';
 import type { NarrativeState } from '../domain/narrative/narrativeState';
+import {
+  ACHIEVEMENT_DEFINITIONS,
+} from './achievementDefinitions';
 
 export const GAME_PROGRESSION_SCHEMA_VERSION = 1;
 
@@ -26,16 +28,14 @@ export const DEFAULT_ECHO_PROGRESS: Readonly<EchoProgressState> = {
   forgivenessPoints: 0,
 };
 
-export function createInitialAchievementProgress(
-  achievements: readonly Achievement[],
-): AchievementProgressState {
+export function createInitialAchievementProgressState(): AchievementProgressState {
   return {
-    byId: Object.fromEntries(achievements.map((achievement) => [
-      achievement.id,
+    byId: Object.fromEntries(ACHIEVEMENT_DEFINITIONS.map((definition) => [
+      definition.id,
       {
-        current: achievement.unlocked ? 1 : 0,
-        target: 1,
-        unlockedAt: achievement.unlockedAt,
+        current: 0,
+        target: definition.target,
+        unlockedAt: null,
       },
     ])),
   };
@@ -44,7 +44,6 @@ export function createInitialAchievementProgress(
 export interface CreateInitialGameProgressionInput {
   journey: ProgressionState;
   narrative: NarrativeState;
-  achievements: readonly Achievement[];
   echo?: Partial<EchoProgressState>;
   initiallyUnlockedManhwaPageIds?: readonly string[];
 }
@@ -78,7 +77,7 @@ export function createInitialGameProgressionState(
       pageViewedAt: {},
       claimedPageEffectIds: [],
     },
-    achievements: createInitialAchievementProgress(input.achievements),
+    achievements: createInitialAchievementProgressState(),
     echo: {
       ...DEFAULT_ECHO_PROGRESS,
       ...input.echo,

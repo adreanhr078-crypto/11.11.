@@ -16,6 +16,9 @@ import {
 import type {
   GameProgressionTransitionResult,
 } from '../../domain/progression/gameProgressionReducer';
+import {
+  createAchievementViews,
+} from '../../domain/achievements/achievementProgression';
 import type {
   GameStateGetter,
   GameStateSetter,
@@ -116,6 +119,9 @@ export function projectGameProgressionCompatibility(
       ...state.memory,
       fragmentsCollected: discoveredShardIds.length,
     },
+    achievements: createAchievementViews(
+      progressionState.achievements,
+    ),
   };
 }
 
@@ -191,8 +197,9 @@ export function createGameProgressionActions(
     },
 
     applyEchoEffects(effects) {
+      const timestamp = Date.parse(now());
       return commitTransition(
-        (state) => applyEchoEffects(state, effects),
+        (state) => applyEchoEffects(state, effects, timestamp),
       );
     },
 
