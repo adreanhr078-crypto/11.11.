@@ -4,22 +4,17 @@
  */
 
 import type {
-  GameState, EchoState, TimeState, PuzzleNode, ChapterId, FlowerStage,
-  EchoMood, WishStatus, Achievement, EndingState, TimelineEvent, PuzzleStatus, ChapterState
+  GameState, EchoState, PuzzleNode, ChapterId, FlowerStage,
+  EchoMood, Achievement, EndingState, PuzzleStatus, ChapterState
 } from '../core/gameTypes';
-import type { MemoryShard } from '../core/memoryShardsTypes';
+import type { StoryPhase } from '../core/puzzleTypes';
 import {
   getPuzzleByNumber,
   getAllPuzzles,
 } from '../core/puzzles/puzzleBank';
 import {
   createInitialTransformationState,
-  determineStage,
   getEchoDialogueByStage,
-  determineEnding,
-  getEndingDescription,
-  calculateTransformationEffects,
-  applyTransformation
 } from '../core/echoTransformationSystem';
 import { CHAPTER_DATASETS, CHAPTER_ORDER } from '../core/chapterSystem';
 import { createInitialEchoPersonality } from '../domain/echo/echoPersonality';
@@ -31,12 +26,19 @@ import { createInitialNarrativeState } from '../domain/narrative/narrativeState'
 import { createInitialCinematicState } from '../domain/cinematics/cinematicState';
 import {
   CHAPTER_DEFINITIONS,
-  CONTENT_COUNTS,
   CONTENT_MANIFEST,
 } from '../infrastructure/content/contentRegistry';
 import {
   CHAPTER_01_MANHWA_PAGES,
 } from '../content/puzzles/chapter01Campaign';
+import {
+  createInitialAchievementProgressState,
+  createInitialGameProgressionState,
+} from '../core/gameProgressionDefaults';
+import {
+  createAchievementViews,
+  synchronizeAchievementProgress,
+} from '../domain/achievements/achievementProgression';
 
 const CONFIGURED_PUZZLE_COUNT = (
   CHAPTER_DEFINITIONS.at(-1)?.puzzleRange[1] ?? 0
@@ -49,8 +51,43 @@ const CAMPAIGN_MEMORY_SHARD_SLOT_COUNT = CHAPTER_01_MANHWA_PAGES.reduce(
 // ─── INITIAL STATE ─────────────────────────────────────────────────────
 export function buildInitialState(): GameState {
   const initialTransformation = createInitialTransformationState();
+  const personality = createInitialEchoPersonality();
+  const progression = createInitialProgression(
+    CONTENT_MANIFEST.contentVersion,
+    CHAPTER_DEFINITIONS,
+  );
+  const narrative = createInitialNarrativeState();
+  const achievements = generateAllAchievements();
+  const initiallyUnlockedManhwaPageIds = CHAPTER_01_MANHWA_PAGES
+    .filter((page) => (
+      page.requiredShardIds.length === 0
+      && !page.prerequisitePageId
+    ))
+    .map((page) => page.id);
+  const progressionState = createInitialGameProgressionState({
+    journey: progression,
+    narrative,
+    initiallyUnlockedManhwaPageIds,
+    echo: {
+      humanity: personality.humanity,
+      trust: personality.trust,
+      fear: personality.fear,
+      anger: personality.anger,
+      sadness: personality.sadness,
+      corruption: personality.corruption,
+      memoriesRecovered: personality.memoriesRecovered,
+      memoryStability: 5,
+      hope: 20,
+      ragePoints: initialTransformation.ragePoints,
+      loneliness: 80,
+      awareness: 3,
+      isolation: 0,
+      forgivenessPoints: initialTransformation.forgivenessPoints,
+    },
+  });
   
   return {
+    progressionState,
     currency: 0,
     collectedMemoryFragments: [],
     memoryFragmentCollectedAt: {},
@@ -66,7 +103,7 @@ export function buildInitialState(): GameState {
     lastAvailablePuzzleId: 'puzzle_001_broken_pulse',
     lastPuzzleReward: null,
     echo: {
-      personality: createInitialEchoPersonality(),
+      personality,
       trust: 15, fear: 70, memoryStability: 5, corruption: 2,
       hope: 20, loneliness: 80, awareness: 3, isolation: 0,
       mood: 'خائف', personalityTraits: ['خائف', 'متردد'],
@@ -89,11 +126,8 @@ export function buildInitialState(): GameState {
     allMemoryShards: [],
     puzzles: [], // Will be populated by chapter datasets
     totalPuzzles: CONFIGURED_PUZZLE_COUNT, solvedPuzzles: 0,
-    progression: createInitialProgression(
-      CONTENT_MANIFEST.contentVersion,
-      CHAPTER_DEFINITIONS,
-    ),
-    narrative: createInitialNarrativeState(),
+    progression,
+    narrative,
     cinematic: createInitialCinematicState(),
     finalChoice: null,
     unlockedEndings: [],
@@ -134,7 +168,7 @@ export function buildInitialState(): GameState {
     ],
     player: { curiosity: 25, interactions: 0, choices: [] },
     world: { stability: 100, glitchLevel: 0, corruptionLevel: 0, anomalyCount: 0 },
-    achievements: generateAllAchievements(),
+    achievements,
     endings: {
       sorrow: { unlocked: false, progress: 0 },
       truth: { unlocked: false, progress: 0 },
@@ -149,75 +183,9 @@ export function buildInitialState(): GameState {
   };
 }
 
-// ─── ACHIEVEMENTS (24 + story-based) ─────────────────────────────────
-let cachedAllAchievements: Achievement[] | null = null;
-
+// ─── ACHIEVEMENT COMPATIBILITY VIEWS ─────────────────────────────────
 export function generateAllAchievements(): Achievement[] {
-  if (!cachedAllAchievements) {
-    // Original achievements
-    const originalAchievements: Achievement[] = [
-      { id: 'first_puzzle', name: 'أول خطوة', desc: 'حل أول لغز', icon: '🧩', unlocked: false, unlockedAt: null },
-      { id: 'ten_puzzles', name: 'باحث', desc: 'حل 10 ألغاز', icon: '🔍', unlocked: false, unlockedAt: null },
-      { id: 'twenty_puzzles', name: 'مستكشف', desc: 'حل 20 لغزاً', icon: '🗺️', unlocked: false, unlockedAt: null },
-      { id: 'fifty_puzzles', name: 'محقق', desc: 'حل 50 لغزاً', icon: '🔎', unlocked: false, unlockedAt: null },
-      { id: 'hundred_puzzles', name: 'مكتشف', desc: 'حل 100 لغز', icon: '💡', unlocked: false, unlockedAt: null },
-      { id: 'all_puzzles', name: 'الحقيقة كاملة', desc: 'حل جميع الألغاز', icon: '👁️', unlocked: false, unlockedAt: null },
-      { id: 'entity_echo', name: 'أصل الصدى', desc: 'أكمل مرحلة إيكو', icon: '🔊', unlocked: false, unlockedAt: null },
-      { id: 'entity_watcher', name: 'عين الحقيقة', desc: 'أكمل مرحلة المراقب', icon: '📹', unlocked: false, unlockedAt: null },
-      { id: 'entity_signal', name: 'صوت الأم', desc: 'أكمل مرحلة الإشارة', icon: '💌', unlocked: false, unlockedAt: null },
-      { id: 'entity_architect', name: 'مهندس الخروج', desc: 'أكمل مرحلة المهندس', icon: '🔑', unlocked: false, unlockedAt: null },
-      { id: 'first_chat', name: 'محادثة أولى', desc: 'تحدث مع Echo', icon: '💬', unlocked: false, unlockedAt: null },
-      { id: 'trust_25', name: 'ثقة ناشئة', desc: 'ارفع ثقة Echo إلى 25%', icon: '🤝', unlocked: false, unlockedAt: null },
-      { id: 'trust_50', name: 'صديق', desc: 'ارفع ثقة Echo إلى 50%', icon: '🤗', unlocked: false, unlockedAt: null },
-      { id: 'trust_75', name: 'صديق مخلص', desc: 'ارفع ثقة Echo إلى 75%', icon: '❤️', unlocked: false, unlockedAt: null },
-      { id: 'trust_100', name: 'واحد', desc: 'ارفع ثقة Echo إلى 100%', icon: '💖', unlocked: false, unlockedAt: null },
-      { id: 'flower_seed', name: 'بذرة', desc: 'الزهرة تبدأ بالنمو', icon: '🌱', unlocked: false, unlockedAt: null },
-      { id: 'flower_sprout', name: 'برعم', desc: 'الزهرة في مرحلة البرعم', icon: '🌿', unlocked: false, unlockedAt: null },
-      { id: 'flower_bloom', name: 'تفتح', desc: 'الزهرة تتفتح', icon: '🌷', unlocked: false, unlockedAt: null },
-      { id: 'flower_flourish', name: 'ازدهار', desc: 'الزهرة في أوجها', icon: '🌸', unlocked: false, unlockedAt: null },
-      { id: 'flower_complete', name: 'اكتمال', desc: 'الزهرة اكتملت', icon: '🌺', unlocked: false, unlockedAt: null },
-      { id: 'first_wish', name: 'أمنية', desc: 'أضف أمنية', icon: '⭐', unlocked: false, unlockedAt: null },
-      { id: 'survive_night', name: 'الناجي من الليل', desc: 'أول دورة ليلية', icon: '🌙', unlocked: false, unlockedAt: null },
-      { id: 'ending_sorrow', name: 'نهاية حزينة', desc: 'وصلت للنهاية الحزينة', icon: '💧', unlocked: false, unlockedAt: null },
-      { id: 'ending_truth', name: 'الحقيقة', desc: 'وصلت للحقيقة', icon: '🔦', unlocked: false, unlockedAt: null },
-      { id: 'ending_dark', name: 'الظلام', desc: 'وصلت لنهاية الظلام', icon: '🌑', unlocked: false, unlockedAt: null },
-      { id: 'ending_mystery', name: 'الغموض', desc: 'وصلت للنهاية الغامضة', icon: '🔮', unlocked: false, unlockedAt: null },
-      
-      // Transformation achievements
-      { id: 'echo_fractured', name: 'التحول', desc: 'إيكو يتحول للجانب المظلم', icon: '👹', unlocked: false, unlockedAt: null },
-      { id: 'echo_redeemed', name: 'الفداء', desc: 'إيكو يسامح ويعود للخير', icon: '😇', unlocked: false, unlockedAt: null },
-      { id: 'echo_ascended', name: 'التسامي', desc: 'إيكو يصل للوعي الكامل', icon: '✨', unlocked: false, unlockedAt: null },
-      { id: 'vengeance_ending', name: 'الانتقام', desc: 'نهاية الانتقام', icon: '⚔️', unlocked: false, unlockedAt: null },
-      { id: 'redemption_ending', name: 'الفداء', desc: 'نهاية الفداء', icon: '💚', unlocked: false, unlockedAt: null },
-      
-      // Story arc achievements
-      { id: 'act1_complete', name: 'الصحوة', desc: 'أكمل الفصل الأول', icon: '🌟', unlocked: false, unlockedAt: null },
-      { id: 'act2_complete', name: 'الاكتشاف', desc: 'أكمل الفصل الثاني', icon: '🗺️', unlocked: false, unlockedAt: null },
-      { id: 'act3_complete', name: 'الاتصال', desc: 'أكمل الفصل الثالث', icon: '💌', unlocked: false, unlockedAt: null },
-      { id: 'act4_complete', name: 'الحقيقة', desc: 'أكمل الفصل الرابع', icon: '💡', unlocked: false, unlockedAt: null },
-      { id: 'act5_complete', name: 'الكسر', desc: 'أكمل الفصل الخامس', icon: '💥', unlocked: false, unlockedAt: null },
-      { id: 'act6_complete', name: 'الثأر', desc: 'أكمل الفصل السادس', icon: '🔥', unlocked: false, unlockedAt: null },
-      { id: 'act7_complete', name: 'الخاتمة', desc: 'أكمل الفصل السابع', icon: '🏆', unlocked: false, unlockedAt: null },
-      
-      // Secret achievements
-      { id: 'secret_lina', name: 'رسالة لينا', desc: 'اكتشف كل رسائل لينا', icon: '💝', unlocked: false, unlockedAt: null },
-      { id: 'secret_kenja', name: 'ندم كينجا', desc: 'اكتشف قصة كينجا الكاملة', icon: '📖', unlocked: false, unlockedAt: null },
-      { id: 'secret_flower', name: 'الزهرة المفقودة', desc: 'اكتشف السر الخفي للزهرة', icon: '🌺', unlocked: false, unlockedAt: null },
-      
-      // Level achievements
-      { id: 'level_5', name: 'مستوى 5', desc: 'وصلت للمستوى 5', icon: '⭐', unlocked: false, unlockedAt: null },
-      { id: 'level_10', name: 'مستوى 10', desc: 'وصلت للمستوى 10', icon: '🌟', unlocked: false, unlockedAt: null },
-      { id: 'level_20', name: 'مستوى 20', desc: 'وصلت للمستوى 20', icon: '💫', unlocked: false, unlockedAt: null },
-      { id: 'level_50', name: 'مستوى 50', desc: 'وصلت للمستوى 50', icon: '🏆', unlocked: false, unlockedAt: null },
-      
-      // Shard achievements
-      { id: 'shard_collector', name: 'جامع الشظايا', desc: 'اجمع 5 شظيات ذاكرة', icon: '🧩', unlocked: false, unlockedAt: null },
-      { id: 'shard_master', name: 'سيد الشظايا', desc: 'اجمع كل الشظيات', icon: '👁️', unlocked: false, unlockedAt: null },
-    ];
-
-    cachedAllAchievements = [...originalAchievements];
-  }
-  return cachedAllAchievements.map(a => ({ ...a }));
+  return createAchievementViews(createInitialAchievementProgressState());
 }
 
 // ─── PUZZLE GENERATOR (MANUAL ONLY) ──────────────────────────────
@@ -241,7 +209,7 @@ export function generateAllPuzzles(): PuzzleNode[] {
       dependencies: previousPuzzleId ? [previousPuzzleId] : [],
       effects: manual.effects,
       act: manual.act,
-      phase: manual.phase as any,
+      phase: normalizeStoryPhase(manual.phase),
       hints: manual.hints,
       puzzleType: manual.type,
     };
@@ -278,12 +246,25 @@ export function ensurePuzzleGenerated(state: GameState, puzzleNumber: number): P
     dependencies: previousPuzzleId ? [previousPuzzleId] : [],
     effects: manual.effects,
     act: manual.act,
-    phase: manual.phase as any,
+    phase: normalizeStoryPhase(manual.phase),
     hints: manual.hints,
     puzzleType: manual.type,
   };
 
   return newNode;
+}
+
+function normalizeStoryPhase(value: string): StoryPhase | undefined {
+  const phases: readonly StoryPhase[] = [
+    'awakening',
+    'discovery',
+    'connection',
+    'truth',
+    'fracture',
+    'vengeance',
+    'finale',
+  ];
+  return phases.find((phase) => phase === value);
 }
 
 function getChapterForPuzzleNumber(puzzleNumber: number): ChapterId {
@@ -360,61 +341,28 @@ export function checkAllAchievements(
   endings: EndingState,
   memoryProgress?: { collected: number; total: number },
 ): Achievement[] {
-  const list: Achievement[] = generateAllAchievements();
-  const u = (id: string) => {
-    const achievement = list.find(a => a.id === id);
-    if (achievement) achievement.unlocked = true;
-  };
+  const progress = synchronizeAchievementProgress(
+    createInitialAchievementProgressState(),
+    {
+      completedPuzzleCount: solved,
+      echoTrust: echo.trust,
+      echoLevel: echo.level,
+      flowerStage,
+      wishCount,
+      dayCycle,
+      endings: {
+        sorrow: endings.sorrow.unlocked,
+        truth: endings.truth.unlocked,
+        dark: endings.dark.unlocked,
+        mystery: endings.mystery.unlocked,
+      },
+      transformationStage: echo.transformationStage,
+      memoryShards: memoryProgress,
+    },
+    null,
+  );
 
-  // Original achievements
-  u('first_puzzle');
-  if (solved >= 10) u('ten_puzzles');
-  if (solved >= 20) u('twenty_puzzles');
-  if (solved >= 50) u('fifty_puzzles');
-  if (solved >= 100) u('hundred_puzzles');
-  if (solved >= CONFIGURED_PUZZLE_COUNT) u('all_puzzles');
-  if (echo.trust >= 25) u('trust_25');
-  if (echo.trust >= 50) u('trust_50');
-  if (echo.trust >= 75) u('trust_75');
-  if (echo.trust >= 100) u('trust_100');
-  if (flowerStage === 'seed') u('flower_seed');
-  if (flowerStage === 'sprout') u('flower_sprout');
-  if (flowerStage === 'bloom') u('flower_bloom');
-  if (flowerStage === 'flourish') u('flower_flourish');
-  if (flowerStage === 'completed') u('flower_complete');
-  if (wishCount >= 1) u('first_wish');
-  if (dayCycle >= 2) u('survive_night');
-  if (endings.sorrow.unlocked) u('ending_sorrow');
-  if (endings.truth.unlocked) u('ending_truth');
-  if (endings.dark.unlocked) u('ending_dark');
-  if (endings.mystery.unlocked) u('ending_mystery');
-
-  // Transformation achievements
-  if (echo.transformationStage === 'fractured' || echo.transformationStage === 'vengeful') u('echo_fractured');
-  if (echo.transformationStage === 'redeemed') u('echo_redeemed');
-  if (echo.transformationStage === 'ascended') u('echo_ascended');
-
-  // Compatibility achievement IDs are derived from canonical chapter ranges.
-  CHAPTER_DEFINITIONS.forEach(chapter => {
-    const actId = `act${chapter.order}_complete`;
-    if (solved >= chapter.puzzleRange[1]) u(actId);
-  });
-  
-  // Level achievements
-  if (echo.level >= 5) u('level_5');
-  if (echo.level >= 10) u('level_10');
-  if (echo.level >= 20) u('level_20');
-  if (echo.level >= 50) u('level_50');
-
-  // Shard achievements
-  if (memoryProgress && memoryProgress.collected >= 5) u('shard_collector');
-  if (
-    memoryProgress
-    && memoryProgress.total > 0
-    && memoryProgress.collected >= memoryProgress.total
-  ) u('shard_master');
-
-  return list;
+  return createAchievementViews(progress);
 }
 
 export function mergeAchievements(current: Achievement[], newOnes: Achievement[]): Achievement[] {

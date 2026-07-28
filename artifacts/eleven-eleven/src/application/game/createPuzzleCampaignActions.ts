@@ -5,26 +5,26 @@ import {
   CHAPTER_01_PUZZLES,
 } from '../../content/puzzles/chapter01Campaign';
 import type {
-  EchoState,
   GameActions,
   GameState,
 } from '../../core/gameTypes';
-import type { PuzzleId } from '../../domain/content/contracts';
 import type {
-  CampaignPuzzleProgress,
   EchoMindDelta,
   HintTierId,
 } from '../../domain/puzzles/campaignContracts';
+import type { PuzzleId } from '../../domain/content/contracts';
 import {
   getCampaignPageStatus,
   getCampaignPuzzleStatus,
   isCampaignPuzzleSubmissionCorrect,
 } from '../../domain/puzzles/campaignEngine';
-import { recordPuzzleOutcome } from '../../domain/progression/progression';
 import {
-  CHAPTER_DEFINITIONS,
-} from '../../infrastructure/content/contentRegistry';
-import { applyLegacyEchoEffects } from './echoCompatibility';
+  createChapter01RewardPlan,
+} from './chapter01RewardAdapter';
+import {
+  createGameProgressionActions,
+  type GameProgressionActions,
+} from './createGameProgressionActions';
 import type { GameStateGetter, GameStateSetter } from './statePorts';
 
 type PuzzleCampaignActions = Pick<
@@ -46,10 +46,6 @@ function unique(values: readonly string[]): string[] {
   return [...new Set(values)];
 }
 
-function clamp(value: number): number {
-  return Math.min(100, Math.max(0, value));
-}
-
 function puzzleIsAvailable(state: GameState, puzzleId: string): boolean {
   const definition = CHAPTER_01_PUZZLE_BY_ID[puzzleId];
   if (!definition) return false;
@@ -60,32 +56,9 @@ function puzzleIsAvailable(state: GameState, puzzleId: string): boolean {
   }) !== 'locked';
 }
 
-function applyEchoMindDelta(
-  echo: EchoState,
-  delta: EchoMindDelta,
-): EchoState {
-  const next = applyLegacyEchoEffects(echo, {
-    fear: delta.emotions.fear,
-    trust: delta.emotions.trust,
-    hope: delta.emotions.hope,
-    corruption: delta.emotions.corruption,
-    memoryStability: delta.emotions.memoryStability,
-    ragePoints: delta.emotions.rage,
-  });
-  return {
-    ...next,
-    awareness: clamp(next.awareness + (delta.emotions.awareness ?? 0)),
-    loneliness: clamp(next.loneliness + (delta.emotions.loneliness ?? 0)),
-    forgivenessPoints: clamp(
-      next.forgivenessPoints + (delta.emotions.forgiveness ?? 0),
-    ),
-  };
-}
-
 function nextNarrative(
   state: GameState,
-  deltas: EchoMindDelta[],
-  flags: readonly string[],
+  deltas: readonly EchoMindDelta[],
 ) {
   return {
     ...state.narrative,
@@ -101,26 +74,37 @@ function nextNarrative(
       ...state.narrative.knowledgeNodeIds,
       ...deltas.flatMap((delta) => delta.knowledgeNodesAdded),
     ]),
-    activeFlags: {
-      ...state.narrative.activeFlags,
-      ...Object.fromEntries(flags.map((flag) => [flag, true])),
-    },
+    activeFlags: { ...state.narrative.activeFlags },
   };
 }
 
 export function createPuzzleCampaignActions(
   set: GameStateSetter,
   get: GameStateGetter,
+  progressionActions: GameProgressionActions = createGameProgressionActions(
+    set,
+    get,
+  ),
 ): PuzzleCampaignActions {
   return {
     saveCampaignPuzzleProgress(puzzleId, progress) {
       if (!CHAPTER_01_PUZZLE_BY_ID[puzzleId]) return;
-      set((state) => ({
-        puzzleProgress: {
-          ...state.puzzleProgress,
+      set((state) => {
+        const campaignProgressByPuzzleId = {
+          ...state.progressionState.puzzles.campaignProgressByPuzzleId,
           [puzzleId]: progress,
-        },
-      }));
+        };
+        return {
+          progressionState: {
+            ...state.progressionState,
+            puzzles: {
+              ...state.progressionState.puzzles,
+              campaignProgressByPuzzleId,
+            },
+          },
+          puzzleProgress: campaignProgressByPuzzleId,
+        };
+      });
     },
 
     completeCampaignPuzzle(puzzleId, progress) {
@@ -134,8 +118,12 @@ export function createPuzzleCampaignActions(
         };
       }
       if (
-        state.claimedPuzzleRewards.includes(puzzleId)
-        || state.progression.completedPuzzleIds.includes(puzzleId as PuzzleId)
+        state.progressionState.puzzles.claimedRewardReceipts.includes(
+          `${puzzleId}:1`,
+        )
+        || state.progression.completedPuzzleIds.includes(
+          definition.id as PuzzleId,
+        )
       ) {
         return {
           success: false,
@@ -151,172 +139,147 @@ export function createPuzzleCampaignActions(
         };
       }
 
-      let restoredPageId: string | undefined;
-      let pageDelta: EchoMindDelta | undefined;
-      let pageFlags: string[] = [];
-      let pageDialogue: string | undefined;
-      let pageTriggers: string[] = [];
-      const collectedMemoryFragments = unique([
-        ...state.collectedMemoryFragments,
-        definition.rewards.shardId,
-      ]);
-      const targetPage = CHAPTER_01_MANHWA_PAGE_BY_ID[definition.targetPageId];
-      const hasPrerequisitePage = (
-        !targetPage?.prerequisitePageId
-        || state.unlockedManhwaPageIds.includes(targetPage.prerequisitePageId)
+      const timestamp = new Date().toISOString();
+      const rewardPlan = createChapter01RewardPlan(
+        definition,
+        state.progressionState,
       );
-      const pageComplete = Boolean(
-        targetPage
-        && hasPrerequisitePage
-        && targetPage.requiredShardIds.every(
-          (shardId) => collectedMemoryFragments.includes(shardId),
+      const rewardResult = progressionActions.applyPuzzleReward(
+        definition.id,
+        rewardPlan.reward,
+        timestamp,
+      );
+      if (!rewardResult.success) {
+        return {
+          success: false,
+          alreadyCompleted: rewardResult.alreadyClaimed,
+          message: rewardResult.alreadyClaimed
+            ? 'تم تسجيل هذه الذاكرة ومكافأتها سابقًا.'
+            : 'تعذر تسجيل مكافأة الذاكرة.',
+        };
+      }
+
+      const rewardedState = get();
+      const restoredPageId = rewardPlan.restoredPageId
+        && rewardResult.unlockedPageIds.includes(
+          rewardPlan.restoredPageId,
         )
+        ? rewardPlan.restoredPageId
+        : undefined;
+      const restoredPage = restoredPageId
+        ? CHAPTER_01_MANHWA_PAGE_BY_ID[restoredPageId]
+        : undefined;
+      const narrative = nextNarrative(
+        rewardedState,
+        rewardPlan.narrativeDeltas,
       );
-
-      if (
-        pageComplete
-        && targetPage
-        && !state.unlockedManhwaPageIds.includes(targetPage.id)
-      ) {
-        restoredPageId = targetPage.id;
-        pageDelta = targetPage.echoMindDelta;
-        pageFlags = targetPage.narrativeFlags;
-        pageDialogue = targetPage.dialogue.ar;
-        pageTriggers = targetPage.dialogueTriggers;
-      }
-
-      const deltas = [
-        definition.echoMindDelta,
-        ...(pageDelta ? [pageDelta] : []),
-      ];
-      const flags = [...definition.narrativeFlags, ...pageFlags];
-      const dialogueLines = [
-        definition.dialogue.ar,
-        ...(pageDialogue ? [pageDialogue] : []),
-      ];
-      const dialogueTriggers = unique([
-        ...definition.dialogueTriggers,
-        ...pageTriggers,
-      ]);
-      let echo = state.echo;
-      for (const delta of deltas) {
-        echo = applyEchoMindDelta(echo, delta);
-      }
-      echo = {
-        ...echo,
-        lastDialogue: dialogueLines.at(-1) ?? echo.lastDialogue,
-        dialogueHistory: [
-          ...echo.dialogueHistory,
-          ...dialogueLines,
-        ].slice(-80),
-      };
-
-      const progression = recordPuzzleOutcome(
-        state.progression,
-        definition.id as PuzzleId,
-        'chapter_1',
-        'solved',
-        CHAPTER_DEFINITIONS,
-      );
-      const unlockedManhwaPageIds = restoredPageId
-        ? unique([...state.unlockedManhwaPageIds, restoredPageId])
-        : state.unlockedManhwaPageIds;
-      const integratedMemoryFragmentIds = restoredPageId && targetPage
+      const integratedMemoryFragmentIds = restoredPageId
         ? unique([
-            ...state.integratedMemoryFragmentIds,
-            ...targetPage.requiredShardIds,
+            ...rewardedState.integratedMemoryFragmentIds,
+            ...rewardPlan.integratedShardIds,
           ])
-        : state.integratedMemoryFragmentIds;
+        : rewardedState.integratedMemoryFragmentIds;
       const nextPuzzle = CHAPTER_01_PUZZLES[definition.order];
       const nextPuzzleStatus = nextPuzzle
         ? getCampaignPuzzleStatus(nextPuzzle, {
-            completedPuzzleIds: progression.completedPuzzleIds,
-            collectedShardIds: collectedMemoryFragments,
-            progressByPuzzleId: state.puzzleProgress,
+            completedPuzzleIds:
+              rewardedState.progression.completedPuzzleIds,
+            collectedShardIds:
+              rewardedState.collectedMemoryFragments,
+            progressByPuzzleId: rewardedState.puzzleProgress,
           })
         : 'locked';
       const lastAvailablePuzzleId = nextPuzzle
         && nextPuzzleStatus !== 'locked'
         ? nextPuzzle.id
         : definition.id;
-      const now = new Date().toISOString();
       const timelineEvents = [
-        ...state.memory.timelineEvents,
+        ...rewardedState.memory.timelineEvents,
         {
           id: `campaign-${definition.id}`,
-          time: now,
-          phase: state.time.phase,
+          time: timestamp,
+          phase: rewardedState.time.phase,
           description: `استُعيدت شظية من: ${definition.title.ar}`,
           type: 'puzzle' as const,
         },
-        ...(restoredPageId && targetPage ? [{
+        ...(restoredPageId && restoredPage ? [{
           id: `campaign-${restoredPageId}`,
-          time: now,
-          phase: state.time.phase,
-          description: `استُعيدت صفحة الذاكرة: ${targetPage.title.ar}`,
+          time: timestamp,
+          phase: rewardedState.time.phase,
+          description: `استُعيدت صفحة الذاكرة: ${restoredPage.title.ar}`,
           type: 'memory' as const,
         }] : []),
       ];
+      const campaignProgressByPuzzleId = {
+        ...rewardedState.progressionState.puzzles
+          .campaignProgressByPuzzleId,
+        [definition.id]: progress,
+      };
+      const claimedPageEffectIds = rewardPlan.pageEffectReceiptId
+        && restoredPageId
+        ? unique([
+            ...rewardedState.progressionState.manhwa
+              .claimedPageEffectIds,
+            rewardPlan.pageEffectReceiptId,
+          ])
+        : rewardedState.progressionState.manhwa.claimedPageEffectIds;
 
       set({
-        currency: state.currency + definition.rewards.coins,
-        collectedMemoryFragments,
-        memoryFragmentCollectedAt: {
-          ...state.memoryFragmentCollectedAt,
-          [definition.rewards.shardId]:
-            state.memoryFragmentCollectedAt[definition.rewards.shardId]
-            ?? now,
+        progressionState: {
+          ...rewardedState.progressionState,
+          puzzles: {
+            ...rewardedState.progressionState.puzzles,
+            campaignProgressByPuzzleId,
+          },
+          manhwa: {
+            ...rewardedState.progressionState.manhwa,
+            claimedPageEffectIds,
+          },
+          story: {
+            narrative,
+          },
         },
-        claimedPuzzleRewards: [
-          ...state.claimedPuzzleRewards,
-          definition.id,
-        ],
         integratedMemoryFragmentIds,
-        unlockedManhwaPageIds,
-        manhwaPageUnlockedAt: restoredPageId
-          ? {
-              ...state.manhwaPageUnlockedAt,
-              [restoredPageId]: state.manhwaPageUnlockedAt[restoredPageId]
-                ?? now,
-            }
-          : state.manhwaPageUnlockedAt,
         consumedDialogueTriggerIds: unique([
-          ...state.consumedDialogueTriggerIds,
-          ...dialogueTriggers,
+          ...rewardedState.consumedDialogueTriggerIds,
+          ...rewardPlan.dialogueTriggers,
         ]),
         lastAvailablePuzzleId,
         lastPuzzleReward: {
-          nonce: Date.now(),
+          nonce: Date.parse(timestamp),
           puzzleId: definition.id,
           coins: definition.rewards.coins,
           shardId: definition.rewards.shardId,
           ...(restoredPageId ? { restoredPageId } : {}),
         },
-        puzzleProgress: {
-          ...state.puzzleProgress,
-          [definition.id]: progress,
+        puzzleProgress: campaignProgressByPuzzleId,
+        echo: {
+          ...rewardedState.echo,
+          lastDialogue:
+            rewardPlan.dialogueLines.at(-1)
+            ?? rewardedState.echo.lastDialogue,
+          dialogueHistory: [
+            ...rewardedState.echo.dialogueHistory,
+            ...rewardPlan.dialogueLines,
+          ].slice(-80),
         },
-        echo,
-        narrative: nextNarrative(state, deltas, flags),
-        progression,
+        narrative,
         memory: {
-          ...state.memory,
-          fragmentsCollected: collectedMemoryFragments.length,
-          // Every PDF page owns ten archive slots. Deferred slots remain
-          // impossible to collect until real puzzle rewards are authored.
+          ...rewardedState.memory,
           totalFragments: CHAPTER_01_MANHWA_PAGES.reduce(
             (total, page) => total + page.requiredShardIds.length,
             0,
           ),
           timelineEvents,
         },
-        solvedPuzzles: progression.completedPuzzleIds.length,
       });
 
       return {
         success: true,
         alreadyCompleted: false,
-        message: pageDialogue ?? definition.dialogue.ar,
+        message:
+          rewardPlan.dialogueLines.at(-1)
+          ?? definition.dialogue.ar,
         ...(restoredPageId ? { restoredPageId } : {}),
       };
     },
@@ -326,14 +289,22 @@ export function createPuzzleCampaignActions(
       const definition = CHAPTER_01_PUZZLE_BY_ID[puzzleId];
       const tierIndex = hintOrder.indexOf(tierId);
       const hint = definition?.hints.find((item) => item.id === tierId);
-      if (!definition || !hint || tierIndex < 0 || !puzzleIsAvailable(state, puzzleId)) {
+      if (
+        !definition
+        || !hint
+        || tierIndex < 0
+        || !puzzleIsAvailable(state, puzzleId)
+      ) {
         return {
           success: false,
           alreadyUnlocked: false,
           message: 'هذا التلميح غير متاح.',
         };
       }
-      const unlocked = state.unlockedHintTiersByPuzzle[puzzleId] ?? [];
+      const unlocked = (
+        state.progressionState.puzzles.unlockedHintTiersByPuzzle[puzzleId]
+        ?? []
+      );
       if (unlocked.includes(tierId)) {
         return {
           success: true,
@@ -349,11 +320,18 @@ export function createPuzzleCampaignActions(
           message: 'افتح مستوى التلميح السابق أولًا.',
         };
       }
-      if (state.currency < hint.cost) {
-        const missing = hint.cost - state.currency;
-        const insufficientTrigger = `hint_insufficient_currency_${puzzleId}`;
-        if (!state.consumedDialogueTriggerIds.includes(insufficientTrigger)) {
-          const insufficientLine = `نحتاج ${missing} عملات إضافية لهذا التلميح. يمكننا الاستمرار دون شرائه.`;
+      const balance = state.progressionState.resources.coins;
+      if (balance < hint.cost) {
+        const missing = hint.cost - balance;
+        const insufficientTrigger =
+          `hint_insufficient_currency_${puzzleId}`;
+        if (
+          !state.consumedDialogueTriggerIds.includes(
+            insufficientTrigger,
+          )
+        ) {
+          const insufficientLine =
+            `نحتاج ${missing} عملات إضافية لهذا التلميح. يمكننا الاستمرار دون شرائه.`;
           set({
             consumedDialogueTriggerIds: unique([
               ...state.consumedDialogueTriggerIds,
@@ -376,33 +354,49 @@ export function createPuzzleCampaignActions(
         };
       }
 
+      if (hint.cost > 0 && !progressionActions.spendCoins(hint.cost)) {
+        return {
+          success: false,
+          alreadyUnlocked: false,
+          message: 'الرصيد غير كافٍ.',
+        };
+      }
+      const paidState = get();
       const firstHintTrigger = `hint_first_${puzzleId}`;
       const firstHintLine = 'سأشير إلى الأثر فقط… القرار ما زال لك.';
       const shouldTriggerFirstHintDialogue = (
         unlocked.length === 0
-        && !state.consumedDialogueTriggerIds.includes(firstHintTrigger)
+        && !paidState.consumedDialogueTriggerIds.includes(firstHintTrigger)
       );
+      const unlockedHintTiersByPuzzle = {
+        ...paidState.progressionState.puzzles
+          .unlockedHintTiersByPuzzle,
+        [puzzleId]: [...unlocked, tierId],
+      };
       set({
-        currency: Math.max(0, state.currency - hint.cost),
-        unlockedHintTiersByPuzzle: {
-          ...state.unlockedHintTiersByPuzzle,
-          [puzzleId]: [...unlocked, tierId],
+        progressionState: {
+          ...paidState.progressionState,
+          puzzles: {
+            ...paidState.progressionState.puzzles,
+            unlockedHintTiersByPuzzle,
+          },
         },
+        unlockedHintTiersByPuzzle,
         consumedDialogueTriggerIds: unique([
-          ...state.consumedDialogueTriggerIds,
+          ...paidState.consumedDialogueTriggerIds,
           firstHintTrigger,
         ]),
         echo: {
-          ...state.echo,
+          ...paidState.echo,
           lastDialogue: shouldTriggerFirstHintDialogue
             ? firstHintLine
-            : state.echo.lastDialogue,
+            : paidState.echo.lastDialogue,
           dialogueHistory: shouldTriggerFirstHintDialogue
             ? [
-                ...state.echo.dialogueHistory,
+                ...paidState.echo.dialogueHistory,
                 firstHintLine,
               ].slice(-80)
-            : state.echo.dialogueHistory,
+            : paidState.echo.dialogueHistory,
         },
       });
       return {
@@ -419,36 +413,55 @@ export function createPuzzleCampaignActions(
       const pageStatus = page
         ? getCampaignPageStatus(
             page,
-            state.collectedMemoryFragments,
+            state.progressionState.resources.memoryShards
+              .discoveredShardIds,
             CHAPTER_01_MANHWA_PAGES,
           )
         : 'locked';
       if (
         !page
         || (pageStatus !== 'restored' && pageStatus !== 'questioned')
-        || state.viewedManhwaPageIds.includes(pageId)
+        || state.progressionState.manhwa.viewedPageIds.includes(pageId)
       ) {
         return;
       }
-      const now = new Date().toISOString();
+      const timestamp = new Date().toISOString();
+      const unlockedPageIds = unique([
+        ...state.progressionState.manhwa.unlockedPageIds,
+        pageId,
+      ]);
+      const viewedPageIds = unique([
+        ...state.progressionState.manhwa.viewedPageIds,
+        pageId,
+      ]);
+      const pageUnlockedAt = {
+        ...state.progressionState.manhwa.pageUnlockedAt,
+        [pageId]:
+          state.progressionState.manhwa.pageUnlockedAt[pageId]
+          ?? timestamp,
+      };
+      const pageViewedAt = {
+        ...state.progressionState.manhwa.pageViewedAt,
+        [pageId]:
+          state.progressionState.manhwa.pageViewedAt[pageId]
+          ?? timestamp,
+      };
       const reopenedLine = page.dialogue.ar;
       set({
-        unlockedManhwaPageIds: unique([
-          ...state.unlockedManhwaPageIds,
-          pageId,
-        ]),
-        viewedManhwaPageIds: unique([
-          ...state.viewedManhwaPageIds,
-          pageId,
-        ]),
-        manhwaPageUnlockedAt: {
-          ...state.manhwaPageUnlockedAt,
-          [pageId]: state.manhwaPageUnlockedAt[pageId] ?? now,
+        progressionState: {
+          ...state.progressionState,
+          manhwa: {
+            ...state.progressionState.manhwa,
+            unlockedPageIds,
+            viewedPageIds,
+            pageUnlockedAt,
+            pageViewedAt,
+          },
         },
-        manhwaPageViewedAt: {
-          ...state.manhwaPageViewedAt,
-          [pageId]: state.manhwaPageViewedAt[pageId] ?? now,
-        },
+        unlockedManhwaPageIds: unlockedPageIds,
+        viewedManhwaPageIds: viewedPageIds,
+        manhwaPageUnlockedAt: pageUnlockedAt,
+        manhwaPageViewedAt: pageViewedAt,
         consumedDialogueTriggerIds: unique([
           ...state.consumedDialogueTriggerIds,
           `reopened_${pageId}`,

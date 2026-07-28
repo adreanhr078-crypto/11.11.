@@ -4,6 +4,12 @@
  */
 
 import type { MemoryShard } from './memoryShardsTypes';
+import type { GameProgressionState } from './gameProgressionTypes';
+import type {
+  EchoEffect,
+  PuzzleReward,
+  PuzzleRewardTransactionResult,
+} from './puzzleRewardTypes';
 import type { EchoTransformationStage, StoryPhase, PuzzleEffects } from './puzzleTypes';
 import type { ChapterId, ChapterState } from './chapterSystem';
 import type { EchoPersonality } from '../domain/echo/echoPersonality';
@@ -146,6 +152,19 @@ export interface EndingState {
 }
 
 export interface GameActions {
+  addCoins: (amount: number) => boolean;
+  spendCoins: (amount: number) => boolean;
+  canAffordCoins: (amount: number) => boolean;
+  setCoins: (amount: number) => boolean;
+  grantMemoryShard: (shardId: string, timestamp?: string) => boolean;
+  spendMemoryShards: (amount: number) => boolean;
+  hasMemoryShards: (amount: number) => boolean;
+  applyEchoEffects: (effects: EchoEffect) => boolean;
+  applyPuzzleReward: (
+    puzzleId: string,
+    reward: PuzzleReward,
+    timestamp?: string,
+  ) => PuzzleRewardTransactionResult;
   addCurrency: (amount: number) => void;
   spendCurrency: (amount: number) => boolean;
   canAfford: (amount: number) => boolean;
@@ -217,6 +236,8 @@ export interface GameActions {
 }
 
 export interface GameState {
+  /** Canonical, versioned source of truth for durable player progression. */
+  progressionState: GameProgressionState;
   /** Player currency used by the new UI-driven content layer. */
   currency: number;
   /** Canonical IDs collected by the player; the UI count derives from this list. */

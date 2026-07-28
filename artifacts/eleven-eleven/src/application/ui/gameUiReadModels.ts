@@ -17,6 +17,10 @@ import {
   CHAPTER_01_MANHWA_PAGES,
   CHAPTER_01_PUZZLES,
 } from '../../content/puzzles/chapter01Campaign';
+import {
+  createAchievementViews,
+  type AchievementView,
+} from '../../domain/achievements/achievementProgression';
 
 export interface DashboardReadModel {
   chapter: {
@@ -527,6 +531,25 @@ export interface ProgressEventReadModel {
   meta: string;
 }
 
+export interface AchievementsReadModel {
+  items: AchievementView[];
+  unlockedCount: number;
+  totalCount: number;
+}
+
+export function createAchievementsReadModel(
+  state: GameState,
+): AchievementsReadModel {
+  const items = createAchievementViews(
+    state.progressionState.achievements,
+  );
+  return {
+    items,
+    unlockedCount: items.filter((achievement) => achievement.unlocked).length,
+    totalCount: items.length,
+  };
+}
+
 export interface ProgressScreenReadModel {
   achievementsUnlocked: number;
   achievementsTotal: number;
@@ -544,6 +567,7 @@ export interface ProgressScreenReadModel {
 export function createProgressScreenReadModel(
   state: GameState,
 ): ProgressScreenReadModel {
+  const achievements = createAchievementsReadModel(state);
   const campaignPuzzleIds = new Set(
     CHAPTER_01_PUZZLES.map((puzzle) => puzzle.id),
   );
@@ -569,10 +593,8 @@ export function createProgressScreenReadModel(
     }));
 
   return {
-    achievementsUnlocked: state.achievements.filter(
-      (achievement) => achievement.unlocked,
-    ).length,
-    achievementsTotal: state.achievements.length,
+    achievementsUnlocked: achievements.unlockedCount,
+    achievementsTotal: achievements.totalCount,
     endingsSeen: state.seenEndings.length,
     endingsEligible: state.narrative.endingEligibility.filter(
       (ending) => ending.eligible,

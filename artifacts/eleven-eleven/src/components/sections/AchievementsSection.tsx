@@ -1,8 +1,13 @@
 import React from 'react';
 import { useGameStore } from '../../stores/gameStore';
+import {
+  createAchievementsReadModel,
+} from '../../application/ui/gameUiReadModels';
 
 export const AchievementsSection: React.FC = () => {
-  const { achievements, solvedPuzzles, totalPuzzles, endings } = useGameStore();
+  const state = useGameStore();
+  const { solvedPuzzles, totalPuzzles, endings } = state;
+  const achievements = createAchievementsReadModel(state).items;
   return (
     <div className="dashboard-home">
       <div className="section-header-custom"><h1><span style={{color:'var(--accent)'}}>11.11</span> — الإنجازات</h1><p className="subtitle">{achievements.filter(a=>a.unlocked).length}/{achievements.length} مفتوحة</p></div>
@@ -22,7 +27,7 @@ export const AchievementsSection: React.FC = () => {
       </div>
       <div className="grid-2">
         <div className="card"><div className="card-header"><h3 className="card-title"><span>📖</span> النهايات</h3></div><div className="card-body">
-          {Object.entries(endings).map(([id, e]: any) => (
+          {Object.entries(endings).map(([id, e]) => (
             <div key={id} className="ending-card" style={{marginBottom:'0.5rem'}}>
               <h4>{id==='sorrow'?'💧 حزينة':id==='truth'?'🔦 حقيقة':id==='dark'?'🌑 مظلمة':'🔮 محيرة'}</h4>
               <p>تقدم: {e.progress}% {e.unlocked?'✅ مفتوحة':''}</p>

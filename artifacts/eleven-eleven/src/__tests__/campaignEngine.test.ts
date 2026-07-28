@@ -164,16 +164,16 @@ describe('campaign availability and memory pages', () => {
     assert.deepEqual(availability.availablePuzzleIds, [second.id]);
   });
 
-  it('requires the first restored page before Puzzle 011 becomes available', () => {
+  it('opens Puzzle 011 by puzzle order because Page 01 is free', () => {
     const eleventh = puzzle('puzzle_011_what_was_forgotten');
     const firstTenCompleted = completionIds(10);
 
     assert.equal(
       getCampaignPuzzleStatus(
         eleventh,
-        snapshot(firstTenCompleted, shardIds(1, 9)),
+        snapshot(firstTenCompleted),
       ),
-      'locked',
+      'available',
     );
     assert.equal(
       getCampaignPuzzleStatus(
@@ -196,17 +196,17 @@ describe('campaign availability and memory pages', () => {
         'page02_shard_01',
       ]),
       {
-        collected: 3,
-        total: 10,
-        remaining: 7,
-        complete: false,
-        collectedShardIds: shardIds(1, 3),
+        collected: 0,
+        total: 0,
+        remaining: 0,
+        complete: true,
+        collectedShardIds: [],
       },
     );
-    assert.equal(getCampaignPageStatus(pageOne, []), 'collecting');
+    assert.equal(getCampaignPageStatus(pageOne, []), 'restored');
     assert.equal(
       getCampaignPageStatus(pageOne, shardIds(1, 9)),
-      'collecting',
+      'restored',
     );
     assert.equal(
       getCampaignPageStatus(pageOne, shardIds(1)),
@@ -214,7 +214,7 @@ describe('campaign availability and memory pages', () => {
     );
     assert.equal(
       getCampaignPageStatus(pageTwo, shardIds(2)),
-      'locked',
+      'questioned',
     );
     assert.equal(
       getCampaignPageStatus(pageTwo, shardIds(1)),

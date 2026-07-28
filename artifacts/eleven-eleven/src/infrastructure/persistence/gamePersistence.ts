@@ -1,5 +1,17 @@
 import type { GameState } from '../../core/gameTypes';
 import type {
+  AchievementProgressEntry,
+  GameProgressionState,
+} from '../../core/gameProgressionTypes';
+import {
+  DEFAULT_ECHO_PROGRESS,
+  GAME_PROGRESSION_SCHEMA_VERSION,
+} from '../../core/gameProgressionDefaults';
+import {
+  ACHIEVEMENT_DEFINITIONS,
+  getAchievementDefinition,
+} from '../../core/achievementDefinitions';
+import type {
   ChapterId,
   PuzzleId,
 } from '../../domain/content/contracts';
@@ -12,14 +24,19 @@ import {
   migrateLegacyProgression,
 } from '../../domain/progression/progression';
 import {
-  migrateEchoPersonality,
-} from '../../domain/echo/echoPersonality';
-import {
   normalizeNarrativeState,
 } from '../../domain/narrative/narrativeState';
 import {
+  clampProgressMetric,
+  normalizeNonNegativeInteger,
+  reconcileGameProgressionState,
+} from '../../domain/progression/gameProgressionState';
+import {
   normalizeCinematicState,
 } from '../../domain/cinematics/cinematicState';
+import {
+  createAchievementViews,
+} from '../../domain/achievements/achievementProgression';
 import {
   CHAPTER_DEFINITIONS,
   CONTENT_MANIFEST,
@@ -35,13 +52,14 @@ import {
   getCampaignPageStatus,
 } from '../../domain/puzzles/campaignEngine';
 
-export const GAME_SAVE_VERSION = 11;
+export const GAME_SAVE_VERSION = 12;
 
 // Keep the established key so Zustand can migrate existing local saves.
 export const GAME_STORAGE_NAME = '11-11-game-store-v5';
 
 type PersistedState = Partial<GameState> & {
   progression?: GameState['progression'];
+  progressionState?: GameProgressionState;
 };
 
 const CAMPAIGN_SHARD_ID_PATTERN = /^page\d{2}_shard_\d{2}$/;
@@ -58,6 +76,38 @@ function normalizeCurrency(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value)
     ? Math.max(0, Math.floor(value))
     : 0;
+}
+
+function hasFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function normalizeMetric(value: unknown, fallback: number): number {
+  return hasFiniteNumber(value)
+    ? clampProgressMetric(value)
+    : clampProgressMetric(fallback);
+}
+
+function normalizeOptionalTimestamp(value: unknown): number | null {
+  return hasFiniteNumber(value) ? value : null;
+}
+
+function hasOwn(object: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(object, key);
+}
+
+function readObject(
+  object: Record<string, unknown>,
+  key: string,
+): Record<string, unknown> {
+  return isObject(object[key]) ? object[key] : {};
+}
+
+function receiptToPuzzleId(receipt: string): string {
+  const separatorIndex = receipt.lastIndexOf(':');
+  return separatorIndex > 0
+    ? receipt.slice(0, separatorIndex)
+    : receipt;
 }
 
 function normalizeMemoryFragments(value: unknown): string[] {
@@ -211,7 +261,20 @@ export function migrateGameState(
 ): PersistedState {
   if (!isObject(persistedState)) return {};
   const persisted = persistedState as PersistedState;
-  const legacyEcho = isObject(persisted.echo) ? persisted.echo : {};
+  const legacyEcho: Record<string, unknown> = isObject(persisted.echo)
+    ? persisted.echo
+    : {};
+  const legacyPersonality = readObject(legacyEcho, 'personality');
+  const canonical = isObject(persisted.progressionState)
+    ? persisted.progressionState
+    : {};
+  const canonicalResources = readObject(canonical, 'resources');
+  const canonicalShards = readObject(canonicalResources, 'memoryShards');
+  const canonicalPuzzles = readObject(canonical, 'puzzles');
+  const canonicalManhwa = readObject(canonical, 'manhwa');
+  const canonicalAchievements = readObject(canonical, 'achievements');
+  const canonicalEcho = readObject(canonical, 'echo');
+  const canonicalStory = readObject(canonical, 'story');
   const legacyProgression = migrateLegacyProgression(
     CONTENT_MANIFEST.contentVersion,
     CHAPTER_DEFINITIONS,
@@ -221,11 +284,18 @@ export function migrateGameState(
     },
   );
   const baseProgression = normalizeProgression(
-    persisted.progression,
+    canonicalPuzzles.journey ?? persisted.progression,
     legacyProgression,
   );
+  const claimedRewardReceipts = hasOwn(
+    canonicalPuzzles,
+    'claimedRewardReceipts',
+  )
+    ? normalizeStringArray(canonicalPuzzles.claimedRewardReceipts)
+    : normalizeStringArray(persisted.claimedPuzzleRewards)
+        .map((puzzleId) => `${puzzleId}:1`);
   const claimedPuzzleRewards = normalizeStringArray(
-    persisted.claimedPuzzleRewards,
+    claimedRewardReceipts.map(receiptToPuzzleId),
   );
   const completedPuzzleIds = new Set<string>(
     baseProgression.completedPuzzleIds,
@@ -239,6 +309,7 @@ export function migrateGameState(
       && !claimedPuzzleRewards.includes(puzzleId)
     ) {
       claimedPuzzleRewards.push(puzzleId);
+      claimedRewardReceipts.push(`${puzzleId}:1`);
     }
   }
   const progression = {
@@ -246,16 +317,22 @@ export function migrateGameState(
     completedPuzzleIds: [...completedPuzzleIds] as PuzzleId[],
   };
   const collectedMemoryFragments = normalizeCollectedFragmentIds(
-    persisted.collectedMemoryFragments,
+    hasOwn(canonicalShards, 'discoveredShardIds')
+      ? canonicalShards.discoveredShardIds
+      : persisted.collectedMemoryFragments,
   );
-  for (const puzzle of CHAPTER_01_PUZZLES) {
-    if (
-      completedPuzzleIds.has(puzzle.id)
-      && !collectedMemoryFragments.includes(puzzle.rewards.shardId)
-    ) {
-      collectedMemoryFragments.push(puzzle.rewards.shardId);
-    }
-  }
+  const legacyMemory: Record<string, unknown> = isObject(persisted.memory)
+    ? persisted.memory
+    : {};
+  const spendableBalance = hasOwn(canonicalShards, 'spendableBalance')
+    ? normalizeCurrency(canonicalShards.spendableBalance)
+    : Math.max(
+        collectedMemoryFragments.length,
+        normalizeCurrency(legacyMemory.fragmentsCollected),
+      );
+  const totalSpent = hasOwn(canonicalShards, 'totalSpent')
+    ? normalizeCurrency(canonicalShards.totalSpent)
+    : 0;
   const knownPageIds = new Set(
     CHAPTER_01_MANHWA_PAGES.map((page) => page.id),
   );
@@ -268,16 +345,12 @@ export function migrateGameState(
     ),
   ]));
   const unlockedManhwaPageIds = normalizeStringArray(
-    persisted.unlockedManhwaPageIds,
+    hasOwn(canonicalManhwa, 'unlockedPageIds')
+      ? canonicalManhwa.unlockedPageIds
+      : persisted.unlockedManhwaPageIds,
   ).filter((pageId) => (
     !CHAPTER_01_PAGE_ID_PATTERN.test(pageId)
-    || (
-      knownPageIds.has(pageId)
-      && (
-        pageStatuses.get(pageId) === 'restored'
-        || pageStatuses.get(pageId) === 'questioned'
-      )
-    )
+    || knownPageIds.has(pageId)
   ));
   for (const [pageId, status] of pageStatuses) {
     if (
@@ -299,7 +372,9 @@ export function migrateGameState(
     }
   }
   const viewedManhwaPageIds = normalizeStringArray(
-    persisted.viewedManhwaPageIds,
+    hasOwn(canonicalManhwa, 'viewedPageIds')
+      ? canonicalManhwa.viewedPageIds
+      : persisted.viewedManhwaPageIds,
   ).filter((pageId) => (
     !CHAPTER_01_PAGE_ID_PATTERN.test(pageId)
     || (
@@ -309,7 +384,9 @@ export function migrateGameState(
   ));
   const memoryFragmentCollectedAt = Object.fromEntries(
     Object.entries(normalizeStringRecord(
-      persisted.memoryFragmentCollectedAt,
+      hasOwn(canonicalShards, 'discoveredAt')
+        ? canonicalShards.discoveredAt
+        : persisted.memoryFragmentCollectedAt,
     )).filter(([fragmentId]) => (
       !CAMPAIGN_SHARD_ID_PATTERN.test(fragmentId)
       || collectedMemoryFragments.includes(fragmentId)
@@ -317,7 +394,9 @@ export function migrateGameState(
   );
   const manhwaPageUnlockedAt = Object.fromEntries(
     Object.entries(normalizeStringRecord(
-      persisted.manhwaPageUnlockedAt,
+      hasOwn(canonicalManhwa, 'pageUnlockedAt')
+        ? canonicalManhwa.pageUnlockedAt
+        : persisted.manhwaPageUnlockedAt,
     )).filter(([pageId]) => (
       !CHAPTER_01_PAGE_ID_PATTERN.test(pageId)
       || unlockedManhwaPageIds.includes(pageId)
@@ -325,7 +404,9 @@ export function migrateGameState(
   );
   const manhwaPageViewedAt = Object.fromEntries(
     Object.entries(normalizeStringRecord(
-      persisted.manhwaPageViewedAt,
+      hasOwn(canonicalManhwa, 'pageViewedAt')
+        ? canonicalManhwa.pageViewedAt
+        : persisted.manhwaPageViewedAt,
     )).filter(([pageId]) => (
       !CHAPTER_01_PAGE_ID_PATTERN.test(pageId)
       || viewedManhwaPageIds.includes(pageId)
@@ -334,7 +415,11 @@ export function migrateGameState(
   const availability = deriveCampaignAvailability({
     completedPuzzleIds: progression.completedPuzzleIds,
     collectedShardIds: collectedMemoryFragments,
-    progressByPuzzleId: normalizePuzzleProgress(persisted.puzzleProgress),
+    progressByPuzzleId: normalizePuzzleProgress(
+      hasOwn(canonicalPuzzles, 'campaignProgressByPuzzleId')
+        ? canonicalPuzzles.campaignProgressByPuzzleId
+        : persisted.puzzleProgress,
+    ),
   });
   const latestCompletedPuzzle = [...CHAPTER_01_PUZZLES]
     .reverse()
@@ -343,16 +428,184 @@ export function migrateGameState(
     ?? latestCompletedPuzzle?.id
     ?? CHAPTER_01_PUZZLES[0]!.id;
 
+  const legacyAchievements = Array.isArray(persisted.achievements)
+    ? persisted.achievements
+    : [];
+  const rawAchievementById = readObject(canonicalAchievements, 'byId');
+  const achievementIds = new Set([
+    ...ACHIEVEMENT_DEFINITIONS.map((definition) => definition.id),
+    ...Object.keys(rawAchievementById),
+    ...legacyAchievements
+      .filter(isObject)
+      .map((achievement) => achievement.id)
+      .filter((id): id is string => typeof id === 'string'),
+  ]);
+  const achievementProgressById: Record<
+    string,
+    AchievementProgressEntry
+  > = {};
+  for (const id of achievementIds) {
+    const rawEntry = isObject(rawAchievementById[id])
+      ? rawAchievementById[id]
+      : {};
+    const legacyAchievement = legacyAchievements.find(
+      (achievement) => isObject(achievement) && achievement.id === id,
+    );
+    const legacyUnlocked = isObject(legacyAchievement)
+      && legacyAchievement.unlocked === true;
+    const persistedTarget = Math.max(
+      1,
+      normalizeNonNegativeInteger(
+        hasFiniteNumber(rawEntry.target) ? rawEntry.target : 1,
+      ),
+    );
+    const persistedCurrent = Math.min(
+      persistedTarget,
+      normalizeNonNegativeInteger(
+        hasFiniteNumber(rawEntry.current) ? rawEntry.current : 0,
+      ),
+    );
+    const canonicalUnlockedAt = normalizeOptionalTimestamp(
+      rawEntry.unlockedAt,
+    );
+    const wasUnlocked = legacyUnlocked
+      || canonicalUnlockedAt !== null
+      || persistedCurrent >= persistedTarget;
+    const target = getAchievementDefinition(id)?.target ?? persistedTarget;
+    const current = wasUnlocked
+      ? target
+      : Math.min(target, persistedCurrent);
+    achievementProgressById[id] = {
+      current,
+      target,
+      unlockedAt: canonicalUnlockedAt
+        ?? (
+          isObject(legacyAchievement)
+            ? normalizeOptionalTimestamp(legacyAchievement.unlockedAt)
+            : null
+        ),
+    };
+  }
+
+  const legacyHumanity = hasFiniteNumber(legacyPersonality.humanity)
+    ? legacyPersonality.humanity
+    : legacyEcho.hope;
+  const legacyAnger = hasFiniteNumber(legacyPersonality.anger)
+    ? legacyPersonality.anger
+    : legacyEcho.ragePoints;
+  const canonicalMetric = (
+    key: keyof GameProgressionState['echo'],
+    legacyValue: unknown,
+  ): number => (
+    hasOwn(canonicalEcho, key)
+      ? normalizeMetric(canonicalEcho[key], DEFAULT_ECHO_PROGRESS[key])
+      : normalizeMetric(legacyValue, DEFAULT_ECHO_PROGRESS[key])
+  );
+  const echoProgress = {
+    humanity: canonicalMetric('humanity', legacyHumanity),
+    trust: canonicalMetric('trust', legacyPersonality.trust ?? legacyEcho.trust),
+    fear: canonicalMetric('fear', legacyPersonality.fear ?? legacyEcho.fear),
+    anger: canonicalMetric('anger', legacyAnger),
+    memoryStability: canonicalMetric(
+      'memoryStability',
+      legacyEcho.memoryStability,
+    ),
+    memoriesRecovered: canonicalMetric(
+      'memoriesRecovered',
+      legacyPersonality.memoriesRecovered,
+    ),
+    corruption: canonicalMetric(
+      'corruption',
+      legacyPersonality.corruption ?? legacyEcho.corruption,
+    ),
+    hope: canonicalMetric('hope', legacyEcho.hope),
+    ragePoints: canonicalMetric('ragePoints', legacyEcho.ragePoints),
+    sadness: canonicalMetric('sadness', legacyPersonality.sadness),
+    loneliness: canonicalMetric('loneliness', legacyEcho.loneliness),
+    awareness: canonicalMetric('awareness', legacyEcho.awareness),
+    isolation: canonicalMetric('isolation', legacyEcho.isolation),
+    forgivenessPoints: canonicalMetric(
+      'forgivenessPoints',
+      legacyEcho.forgivenessPoints,
+    ),
+  };
+  const coins = hasOwn(canonicalResources, 'coins')
+    ? normalizeCurrency(canonicalResources.coins)
+    : hasOwn(persisted, 'currency')
+      ? normalizeCurrency(persisted.currency)
+      : normalizeCurrency(legacyEcho.coins);
+  const puzzleProgress = normalizePuzzleProgress(
+    hasOwn(canonicalPuzzles, 'campaignProgressByPuzzleId')
+      ? canonicalPuzzles.campaignProgressByPuzzleId
+      : persisted.puzzleProgress,
+  );
+  const unlockedHintTiersByPuzzle = normalizeHintMap(
+    hasOwn(canonicalPuzzles, 'unlockedHintTiersByPuzzle')
+      ? canonicalPuzzles.unlockedHintTiersByPuzzle
+      : persisted.unlockedHintTiersByPuzzle,
+  );
+  const claimedPageEffectIds = hasOwn(
+    canonicalManhwa,
+    'claimedPageEffectIds',
+  )
+    ? normalizeStringArray(canonicalManhwa.claimedPageEffectIds)
+    : [...unlockedManhwaPageIds];
+  const narrativeSource = hasOwn(canonicalStory, 'narrative')
+    ? canonicalStory.narrative
+    : persisted.narrative;
+  const narrative = normalizeNarrativeState(
+    isObject(narrativeSource)
+      ? narrativeSource as Partial<GameState['narrative']>
+      : undefined,
+  );
+  const progressionState = reconcileGameProgressionState({
+    schemaVersion: GAME_PROGRESSION_SCHEMA_VERSION,
+    resources: {
+      coins,
+      memoryShards: {
+        spendableBalance,
+        discoveredShardIds: collectedMemoryFragments,
+        discoveredAt: memoryFragmentCollectedAt,
+        totalSpent,
+      },
+    },
+    puzzles: {
+      journey: progression,
+      campaignProgressByPuzzleId: puzzleProgress,
+      claimedRewardReceipts,
+      unlockedHintTiersByPuzzle,
+    },
+    manhwa: {
+      unlockedPageIds: unlockedManhwaPageIds,
+      viewedPageIds: viewedManhwaPageIds,
+      pageUnlockedAt: manhwaPageUnlockedAt,
+      pageViewedAt: manhwaPageViewedAt,
+      claimedPageEffectIds,
+    },
+    achievements: {
+      byId: achievementProgressById,
+    },
+    echo: echoProgress,
+    story: {
+      narrative,
+    },
+  });
+
   return {
     ...persisted,
-    currency: normalizeCurrency(persisted.currency),
-    collectedMemoryFragments,
-    memoryFragmentCollectedAt,
-    puzzleProgress: normalizePuzzleProgress(persisted.puzzleProgress),
-    claimedPuzzleRewards,
-    unlockedHintTiersByPuzzle: normalizeHintMap(
-      persisted.unlockedHintTiersByPuzzle,
+    progressionState,
+    currency: progressionState.resources.coins,
+    collectedMemoryFragments:
+      progressionState.resources.memoryShards.discoveredShardIds,
+    memoryFragmentCollectedAt:
+      progressionState.resources.memoryShards.discoveredAt,
+    puzzleProgress:
+      progressionState.puzzles.campaignProgressByPuzzleId,
+    claimedPuzzleRewards: normalizeStringArray(
+      progressionState.puzzles.claimedRewardReceipts.map(receiptToPuzzleId),
     ),
+    unlockedHintTiersByPuzzle:
+      progressionState.puzzles.unlockedHintTiersByPuzzle,
     integratedMemoryFragmentIds,
     unlockedManhwaPageIds,
     viewedManhwaPageIds,
@@ -363,15 +616,30 @@ export function migrateGameState(
     ),
     lastAvailablePuzzleId,
     lastPuzzleReward: null,
-    progression,
-    ...(persisted.echo
-      ? { echo: {
-          ...persisted.echo,
-          personality: persisted.echo.personality
-            ?? migrateEchoPersonality(legacyEcho),
-        } }
-      : {}),
-    narrative: normalizeNarrativeState(persisted.narrative),
+    progression: progressionState.puzzles.journey,
+    narrative: progressionState.story.narrative,
+    echo: {
+      ...(isObject(persisted.echo) ? persisted.echo : {}),
+      personality: {
+        humanity: progressionState.echo.humanity,
+        trust: progressionState.echo.trust,
+        fear: progressionState.echo.fear,
+        anger: progressionState.echo.anger,
+        sadness: progressionState.echo.sadness,
+        corruption: progressionState.echo.corruption,
+        memoriesRecovered: progressionState.echo.memoriesRecovered,
+      },
+      trust: progressionState.echo.trust,
+      fear: progressionState.echo.fear,
+      memoryStability: progressionState.echo.memoryStability,
+      corruption: progressionState.echo.corruption,
+      hope: progressionState.echo.hope,
+      loneliness: progressionState.echo.loneliness,
+      awareness: progressionState.echo.awareness,
+      isolation: progressionState.echo.isolation,
+      ragePoints: progressionState.echo.ragePoints,
+      forgivenessPoints: progressionState.echo.forgivenessPoints,
+    } as GameState['echo'],
     cinematic: normalizeCinematicState(persisted.cinematic),
   };
 }
@@ -381,11 +649,15 @@ export function mergeGameState(
   currentState: GameState,
 ): GameState {
   const persisted = migrateGameState(persistedState, 0);
-  const progression = persisted.progression ?? currentState.progression;
+  const progressionState = persisted.progressionState
+    ?? currentState.progressionState;
+  const progression = progressionState.puzzles.journey;
   const {
     actions: _persistedActions,
     puzzles: _persistedPuzzles,
     chapters: _persistedChapters,
+    progressionState: _persistedProgressionState,
+    echo: persistedEcho,
     ...safePersisted
   } = persisted;
   const solved = new Set<PuzzleId>(progression.completedPuzzleIds);
@@ -422,21 +694,164 @@ export function mergeGameState(
       },
     ];
   })) as GameState['chapters'];
+  const echoProgress = progressionState.echo;
 
   return {
     ...currentState,
     ...safePersisted,
+    progressionState,
+    currency: progressionState.resources.coins,
+    collectedMemoryFragments:
+      progressionState.resources.memoryShards.discoveredShardIds,
+    memoryFragmentCollectedAt:
+      progressionState.resources.memoryShards.discoveredAt,
+    puzzleProgress:
+      progressionState.puzzles.campaignProgressByPuzzleId,
+    claimedPuzzleRewards: normalizeStringArray(
+      progressionState.puzzles.claimedRewardReceipts.map(receiptToPuzzleId),
+    ),
+    unlockedHintTiersByPuzzle:
+      progressionState.puzzles.unlockedHintTiersByPuzzle,
+    unlockedManhwaPageIds: progressionState.manhwa.unlockedPageIds,
+    viewedManhwaPageIds: progressionState.manhwa.viewedPageIds,
+    manhwaPageUnlockedAt: progressionState.manhwa.pageUnlockedAt,
+    manhwaPageViewedAt: progressionState.manhwa.pageViewedAt,
     progression,
+    narrative: progressionState.story.narrative,
+    echo: {
+      ...currentState.echo,
+      ...persistedEcho,
+      personality: {
+        ...currentState.echo.personality,
+        humanity: echoProgress.humanity,
+        trust: echoProgress.trust,
+        fear: echoProgress.fear,
+        anger: echoProgress.anger,
+        sadness: echoProgress.sadness,
+        corruption: echoProgress.corruption,
+        memoriesRecovered: echoProgress.memoriesRecovered,
+      },
+      trust: echoProgress.trust,
+      fear: echoProgress.fear,
+      memoryStability: echoProgress.memoryStability,
+      corruption: echoProgress.corruption,
+      hope: echoProgress.hope,
+      loneliness: echoProgress.loneliness,
+      awareness: echoProgress.awareness,
+      isolation: echoProgress.isolation,
+      ragePoints: echoProgress.ragePoints,
+      forgivenessPoints: echoProgress.forgivenessPoints,
+    },
     puzzles,
     chapters,
     solvedPuzzles: progression.completedPuzzleIds.length,
     currentChapter: progression.currentChapterId,
+    achievements: createAchievementViews(
+      progressionState.achievements,
+    ),
     actions: currentState.actions,
   };
 }
 
 export function partializeGameState(state: GameState): PersistedState {
+  const previous = state.progressionState;
+  const discoveredShardIds = normalizeCollectedFragmentIds([
+    ...previous.resources.memoryShards.discoveredShardIds,
+    ...state.collectedMemoryFragments,
+  ]);
+  const previousShardIds = new Set(
+    previous.resources.memoryShards.discoveredShardIds,
+  );
+  const newlyDiscoveredCount = discoveredShardIds.filter(
+    (id) => !previousShardIds.has(id),
+  ).length;
+  const unlockedPageIds = normalizeStringArray([
+    ...previous.manhwa.unlockedPageIds,
+    ...state.unlockedManhwaPageIds,
+  ]);
+  const viewedPageIds = normalizeStringArray([
+    ...previous.manhwa.viewedPageIds,
+    ...state.viewedManhwaPageIds,
+  ]).filter((pageId) => unlockedPageIds.includes(pageId));
+  const claimedRewardReceipts = normalizeStringArray([
+    ...previous.puzzles.claimedRewardReceipts,
+    ...state.claimedPuzzleRewards.map((puzzleId) => `${puzzleId}:1`),
+  ]);
+  const achievementProgressById = {
+    ...previous.achievements.byId,
+  };
+  for (const achievement of state.achievements) {
+    const existing = achievementProgressById[achievement.id];
+    const target = existing?.target ?? 1;
+    achievementProgressById[achievement.id] = {
+      current: achievement.unlocked
+        ? target
+        : existing?.current ?? 0,
+      target,
+      unlockedAt: achievement.unlockedAt ?? existing?.unlockedAt ?? null,
+    };
+  }
+  const progressionState = reconcileGameProgressionState({
+    ...previous,
+    resources: {
+      coins: state.currency,
+      memoryShards: {
+        spendableBalance: (
+          previous.resources.memoryShards.spendableBalance
+          + newlyDiscoveredCount
+        ),
+        discoveredShardIds,
+        discoveredAt: {
+          ...previous.resources.memoryShards.discoveredAt,
+          ...state.memoryFragmentCollectedAt,
+        },
+        totalSpent: previous.resources.memoryShards.totalSpent,
+      },
+    },
+    puzzles: {
+      journey: state.progression,
+      campaignProgressByPuzzleId: state.puzzleProgress,
+      claimedRewardReceipts,
+      unlockedHintTiersByPuzzle: state.unlockedHintTiersByPuzzle,
+    },
+    manhwa: {
+      unlockedPageIds,
+      viewedPageIds,
+      pageUnlockedAt: {
+        ...previous.manhwa.pageUnlockedAt,
+        ...state.manhwaPageUnlockedAt,
+      },
+      pageViewedAt: {
+        ...previous.manhwa.pageViewedAt,
+        ...state.manhwaPageViewedAt,
+      },
+      claimedPageEffectIds: previous.manhwa.claimedPageEffectIds,
+    },
+    achievements: {
+      byId: achievementProgressById,
+    },
+    echo: {
+      humanity: state.echo.personality.humanity,
+      trust: state.echo.personality.trust,
+      fear: state.echo.personality.fear,
+      anger: state.echo.personality.anger,
+      memoryStability: state.echo.memoryStability,
+      memoriesRecovered: state.echo.personality.memoriesRecovered,
+      corruption: state.echo.personality.corruption,
+      hope: state.echo.hope,
+      ragePoints: state.echo.ragePoints,
+      sadness: state.echo.personality.sadness,
+      loneliness: state.echo.loneliness,
+      awareness: state.echo.awareness,
+      isolation: state.echo.isolation,
+      forgivenessPoints: state.echo.forgivenessPoints,
+    },
+    story: {
+      narrative: state.narrative,
+    },
+  });
   return {
+    progressionState,
     currency: state.currency,
     collectedMemoryFragments: state.collectedMemoryFragments,
     memoryFragmentCollectedAt: state.memoryFragmentCollectedAt,

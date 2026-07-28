@@ -207,7 +207,7 @@ describe('Chapter 01 authored campaign content', () => {
     }
   });
 
-  it('registers all 29 PDF pages in order while requiring the previous page', () => {
+  it('registers free Page 01 and keeps later PDF pages ordered', () => {
     assert.equal(CHAPTER_01_MANHWA_PDF_PAGE_COUNT, 29);
     assert.equal(
       CHAPTER_01_MANHWA_PAGES.length,
@@ -223,7 +223,10 @@ describe('Chapter 01 authored campaign content', () => {
         page.imageSrc,
         `/manhwa/chapter-01/page-${pageToken}.webp`,
       );
-      assert.deepEqual(page.requiredShardIds, expectedShardIds(pageNumber));
+      assert.deepEqual(
+        page.requiredShardIds,
+        pageNumber === 1 ? [] : expectedShardIds(pageNumber),
+      );
       assert.equal(
         page.prerequisitePageId,
         pageNumber === 1

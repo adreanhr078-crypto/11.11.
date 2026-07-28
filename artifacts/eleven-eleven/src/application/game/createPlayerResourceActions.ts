@@ -1,4 +1,8 @@
 import type { GameActions } from '../../core/gameTypes';
+import {
+  createGameProgressionActions,
+  type GameProgressionActions,
+} from './createGameProgressionActions';
 import type { GameStateGetter, GameStateSetter } from './statePorts';
 
 type PlayerResourceActions = Pick<
@@ -23,30 +27,32 @@ function normalizeFragmentId(fragmentId: string): string {
 }
 
 export function createPlayerResourceActions(
-  set: GameStateSetter,
+  _set: GameStateSetter,
   get: GameStateGetter,
+  progressionActions: GameProgressionActions = createGameProgressionActions(
+    _set,
+    get,
+  ),
 ): PlayerResourceActions {
   return {
     addCurrency(amount) {
       const increment = normalizeCurrency(amount);
       if (increment === 0) return;
-      set((state) => ({ currency: state.currency + increment }));
+      progressionActions.addCoins(increment);
     },
 
     spendCurrency(amount) {
       const cost = normalizeCurrency(amount);
-      if (cost === 0 || get().currency < cost) return false;
-      set((state) => ({ currency: Math.max(0, state.currency - cost) }));
-      return true;
+      return cost > 0 && progressionActions.spendCoins(cost);
     },
 
     canAfford(amount) {
       const cost = normalizeCurrency(amount);
-      return get().currency >= cost;
+      return cost === 0 || progressionActions.canAffordCoins(cost);
     },
 
     setCurrency(amount) {
-      set({ currency: normalizeCurrency(amount) });
+      progressionActions.setCoins(normalizeCurrency(amount));
     },
 
     collectMemoryFragment(fragmentId) {
@@ -56,41 +62,20 @@ export function createPlayerResourceActions(
       if (
         !id
         || CAMPAIGN_SHARD_ID_PATTERN.test(id)
-        || get().collectedMemoryFragments.includes(id)
+        || get().progressionState.resources.memoryShards
+          .discoveredShardIds.includes(id)
       ) return false;
-      set((state) => ({
-        collectedMemoryFragments: [...state.collectedMemoryFragments, id],
-        memoryFragmentCollectedAt: {
-          ...state.memoryFragmentCollectedAt,
-          [id]: new Date().toISOString(),
-        },
-        memory: {
-          ...state.memory,
-          fragmentsCollected: state.collectedMemoryFragments.length + 1,
-        },
-      }));
-      return true;
+      return progressionActions.grantMemoryShard(id);
     },
 
     hasMemoryFragment(fragmentId) {
       const id = normalizeFragmentId(fragmentId);
-      return Boolean(id) && get().collectedMemoryFragments.includes(id);
+      return Boolean(id) && get().progressionState.resources.memoryShards
+        .discoveredShardIds.includes(id);
     },
 
     resetMemoryFragments() {
-      set((state) => ({
-        collectedMemoryFragments: [],
-        memoryFragmentCollectedAt: {},
-        integratedMemoryFragmentIds: [],
-        unlockedManhwaPageIds: [],
-        viewedManhwaPageIds: [],
-        manhwaPageUnlockedAt: {},
-        manhwaPageViewedAt: {},
-        memory: {
-          ...state.memory,
-          fragmentsCollected: 0,
-        },
-      }));
+      progressionActions.resetMemoryShards();
     },
   };
 }

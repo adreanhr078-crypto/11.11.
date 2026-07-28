@@ -22,6 +22,9 @@ import {
   createPlayerResourceActions,
 } from '../application/game/createPlayerResourceActions';
 import {
+  createGameProgressionActions,
+} from '../application/game/createGameProgressionActions';
+import {
   createPuzzleCampaignActions,
 } from '../application/game/createPuzzleCampaignActions';
 import { createNarrativeActions } from '../application/narrative/createNarrativeActions';
@@ -90,15 +93,28 @@ export const useGameStore = create<GameState>()(
     (set, get) => {
       const setState = set as GameStateSetter;
       const getState = get as GameStateGetter;
+      const progressionActions = createGameProgressionActions(
+        setState,
+        getState,
+      );
       return {
         ...createInitialGameState(),
         actions: {
-          ...createEchoActions(setState, getState),
+          ...progressionActions,
+          ...createEchoActions(setState, getState, progressionActions),
           ...createPuzzleActions(setState, getState),
           ...createMissionActions(setState, getState),
           ...createWorldActions(setState, getState),
-          ...createPlayerResourceActions(setState, getState),
-          ...createPuzzleCampaignActions(setState, getState),
+          ...createPlayerResourceActions(
+            setState,
+            getState,
+            progressionActions,
+          ),
+          ...createPuzzleCampaignActions(
+            setState,
+            getState,
+            progressionActions,
+          ),
           ...createNarrativeActions(setState, getState),
           ...createCinematicActions(setState, getState),
         },
