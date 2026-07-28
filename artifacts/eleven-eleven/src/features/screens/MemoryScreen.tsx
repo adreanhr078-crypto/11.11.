@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useMemo,
   useRef,
   useState,
@@ -12,8 +13,12 @@ import {
 } from 'lucide-react';
 import {
   createManhwaArchiveReadModel,
+  getUnlockedManhwaViewerPages,
   type ManhwaArchivePageReadModel,
 } from '../../application/ui/manhwaArchiveReadModel';
+import {
+  ManhwaFullscreenViewer,
+} from '../manhwa/ManhwaFullscreenViewer';
 import { useGameStore } from '../../stores/gameStore';
 import {
   GameButton,
@@ -42,6 +47,9 @@ export default function MemoryScreen() {
   const unlockManhwaPage = useGameStore(
     (state) => state.actions.unlockManhwaPage,
   );
+  const viewManhwaPage = useGameStore(
+    (state) => state.actions.viewManhwaPage,
+  );
   const model = useMemo(
     () => createManhwaArchiveReadModel(progressionState),
     [progressionState],
@@ -50,10 +58,12 @@ export default function MemoryScreen() {
     model.pages[0]?.id ?? '',
   );
   const [pendingPageId, setPendingPageId] = useState<string | null>(null);
+  const [viewerPageId, setViewerPageId] = useState<string | null>(null);
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [announcement, setAnnouncement] = useState('');
   const cardGridRef = useRef<HTMLDivElement>(null);
   const unlockPendingRef = useRef(false);
+  const viewerOriginPageIdRef = useRef<string | null>(null);
 
   const selectedPage = model.pages.find(
     (page) => page.id === selectedPageId,
@@ -61,6 +71,28 @@ export default function MemoryScreen() {
   const pendingPage = model.pages.find(
     (page) => page.id === pendingPageId,
   );
+  const viewerPages = useMemo(
+    () => getUnlockedManhwaViewerPages(model),
+    [model],
+  );
+  const openViewer = (pageId: string) => {
+    if (!viewerPages.some((page) => page.id === pageId)) return;
+    viewerOriginPageIdRef.current = pageId;
+    setViewerPageId(pageId);
+  };
+  const closeViewer = useCallback(() => {
+    const originPageId = viewerOriginPageIdRef.current;
+    viewerOriginPageIdRef.current = null;
+    setViewerPageId(null);
+    window.requestAnimationFrame(() => {
+      if (!originPageId) return;
+      cardGridRef.current
+        ?.querySelector<HTMLButtonElement>(
+          `[data-page-id="${originPageId}"]`,
+        )
+        ?.focus();
+    });
+  }, []);
 
   const focusPage = (index: number) => {
     const normalizedIndex = Math.min(
@@ -101,6 +133,10 @@ export default function MemoryScreen() {
     setSelectedPageId(page.id);
     if (page.status === 'available') {
       setPendingPageId(page.id);
+      return;
+    }
+    if (page.status === 'unlocked' && page.unlockedContent) {
+      openViewer(page.id);
       return;
     }
     if (page.status !== 'unlocked') {
@@ -274,25 +310,25 @@ export default function MemoryScreen() {
           title={selectedPage?.unlockedContent?.title.ar ?? 'صفحة مقفلة'}
         >
           {selectedPage?.unlockedContent ? (
-            <article className="manhwa-archive__reader">
-              <img
-                src={selectedPage.unlockedContent.thumbnailSrc}
-                alt={selectedPage.unlockedContent.accessibleDescription.ar}
-                loading="lazy"
-                decoding="async"
-              />
+            <article className="manhwa-archive__reader-launcher">
               <div>
                 <span>
                   <BookOpen aria-hidden="true" />
-                  عرض مضمّن مؤقت
+                  الصفحة جاهزة للقراءة
                 </span>
                 <p>
                   {selectedPage.unlockedContent.accessibleDescription.ar}
                 </p>
                 <small lang="en">
-                  Reading this preview does not record a view or apply
-                  narrative effects.
+                  Viewing is recorded only after the fullscreen image loads.
                 </small>
+                <GameButton
+                  variant="memory"
+                  leadingIcon={<BookOpen />}
+                  onClick={() => openViewer(selectedPage.id)}
+                >
+                  فتح عارض المانهوا
+                </GameButton>
               </div>
             </article>
           ) : selectedPage ? (
@@ -377,6 +413,22 @@ export default function MemoryScreen() {
           </dl>
         )}
       </GameModal>
+
+      {viewerPageId && (
+        <ManhwaFullscreenViewer
+          pages={viewerPages}
+          initialPageId={viewerPageId}
+          onRequestClose={closeViewer}
+          onSuccessfulImageLoad={(pageId) => {
+            const result = viewManhwaPage(pageId);
+            if (result.success && !result.alreadyViewed) {
+              setAnnouncement(
+                `تم تسجيل مشاهدة الصفحة ${pageId.slice(-2)} بنجاح.`,
+              );
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

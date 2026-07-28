@@ -1,5 +1,4 @@
 import {
-  CHAPTER_01_MANHWA_PAGE_BY_ID,
   CHAPTER_01_MANHWA_PAGES,
   CHAPTER_01_PUZZLE_BY_ID,
   CHAPTER_01_PUZZLES,
@@ -14,7 +13,6 @@ import type {
 } from '../../domain/puzzles/campaignContracts';
 import type { PuzzleId } from '../../domain/content/contracts';
 import {
-  getCampaignPageStatus,
   getCampaignPuzzleStatus,
   isCampaignPuzzleSubmissionCorrect,
 } from '../../domain/puzzles/campaignEngine';
@@ -32,7 +30,6 @@ type PuzzleCampaignActions = Pick<
   | 'saveCampaignPuzzleProgress'
   | 'completeCampaignPuzzle'
   | 'purchaseCampaignHint'
-  | 'markManhwaPageViewed'
   | 'clearPuzzleRewardEvent'
 >;
 
@@ -364,76 +361,6 @@ export function createPuzzleCampaignActions(
         message: hint.text.ar,
         hint,
       };
-    },
-
-    markManhwaPageViewed(pageId) {
-      const state = get();
-      const page = CHAPTER_01_MANHWA_PAGE_BY_ID[pageId];
-      const pageStatus = page
-        ? getCampaignPageStatus(
-            page,
-            state.progressionState.resources.memoryShards
-              .discoveredShardIds,
-            CHAPTER_01_MANHWA_PAGES,
-          )
-        : 'locked';
-      if (
-        !page
-        || (pageStatus !== 'restored' && pageStatus !== 'questioned')
-        || state.progressionState.manhwa.viewedPageIds.includes(pageId)
-      ) {
-        return;
-      }
-      const timestamp = new Date().toISOString();
-      const unlockedPageIds = unique([
-        ...state.progressionState.manhwa.unlockedPageIds,
-        pageId,
-      ]);
-      const viewedPageIds = unique([
-        ...state.progressionState.manhwa.viewedPageIds,
-        pageId,
-      ]);
-      const pageUnlockedAt = {
-        ...state.progressionState.manhwa.pageUnlockedAt,
-        [pageId]:
-          state.progressionState.manhwa.pageUnlockedAt[pageId]
-          ?? timestamp,
-      };
-      const pageViewedAt = {
-        ...state.progressionState.manhwa.pageViewedAt,
-        [pageId]:
-          state.progressionState.manhwa.pageViewedAt[pageId]
-          ?? timestamp,
-      };
-      const reopenedLine = page.dialogue.ar;
-      set({
-        progressionState: {
-          ...state.progressionState,
-          manhwa: {
-            ...state.progressionState.manhwa,
-            unlockedPageIds,
-            viewedPageIds,
-            pageUnlockedAt,
-            pageViewedAt,
-          },
-        },
-        unlockedManhwaPageIds: unlockedPageIds,
-        viewedManhwaPageIds: viewedPageIds,
-        manhwaPageUnlockedAt: pageUnlockedAt,
-        manhwaPageViewedAt: pageViewedAt,
-        consumedDialogueTriggerIds: unique([
-          ...state.consumedDialogueTriggerIds,
-          `reopened_${pageId}`,
-        ]),
-        echo: {
-          ...state.echo,
-          lastDialogue: reopenedLine,
-          dialogueHistory: [
-            ...state.echo.dialogueHistory,
-            reopenedLine,
-          ].slice(-80),
-        },
-      });
     },
 
     clearPuzzleRewardEvent() {

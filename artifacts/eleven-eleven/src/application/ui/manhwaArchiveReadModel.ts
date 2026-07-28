@@ -17,7 +17,7 @@ export type ManhwaArchivePageStatus =
   | 'insufficient_shards'
   | 'previous_page_required';
 
-interface ManhwaArchiveUnlockedContent {
+export interface ManhwaArchiveUnlockedContent {
   title: ManhwaMemoryPageDefinition['title'];
   thumbnailSrc: string;
   accessibleDescription:
@@ -50,6 +50,11 @@ export interface ManhwaArchiveReadModel {
   unlockedPageCount: number;
   totalPageCount: number;
   newPageCount: number;
+}
+
+export interface ManhwaViewerPageReadModel
+  extends ManhwaArchivePageReadModel {
+  unlockedContent: ManhwaArchiveUnlockedContent;
 }
 
 const statusLabels: Record<
@@ -210,4 +215,15 @@ export function getCanonicalManhwaBadgeCount(
     .size - new Set(progressionState.manhwa.unlockedPageIds.filter(
       (pageId) => viewedPageIds.has(pageId),
     )).size;
+}
+
+export function getUnlockedManhwaViewerPages(
+  model: ManhwaArchiveReadModel,
+): ManhwaViewerPageReadModel[] {
+  return model.pages.filter(
+    (page): page is ManhwaViewerPageReadModel => (
+      page.status === 'unlocked'
+      && page.unlockedContent !== undefined
+    ),
+  );
 }

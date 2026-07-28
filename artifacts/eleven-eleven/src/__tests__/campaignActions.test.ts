@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { createPlayerResourceActions } from '../application/game/createPlayerResourceActions';
 import { createManhwaArchiveActions } from '../application/game/createManhwaArchiveActions';
+import { createManhwaPageViewActions } from '../application/game/createManhwaPageViewActions';
 import { createPuzzleCampaignActions } from '../application/game/createPuzzleCampaignActions';
 import {
   createGameProgressionActions,
@@ -64,11 +65,16 @@ function createHarness(initial?: Partial<GameState>) {
     state = { ...state, ...update };
   };
   const progressionActions = createGameProgressionActions(set, get);
-  const actions = createPuzzleCampaignActions(
+  const campaignActions = createPuzzleCampaignActions(
     set,
     get,
     progressionActions,
   );
+  const pageViewActions = createManhwaPageViewActions(set, get);
+  const actions = {
+    ...campaignActions,
+    ...pageViewActions,
+  };
   const resourceActions = createPlayerResourceActions(
     set,
     get,
@@ -673,7 +679,7 @@ describe('campaign persistence actions', () => {
     );
     assert.equal(
       state.consumedDialogueTriggerIds.filter(
-        (id) => id === 'reopened_manhwa_ch01_page_01',
+        (id) => id === 'echo_reacts_to_page_01',
       ).length,
       1,
     );

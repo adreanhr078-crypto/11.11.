@@ -286,6 +286,197 @@
   font-family: var(--gds-font-mono);
 }
 
+.manhwa-archive__reader-launcher {
+  display: grid;
+  place-content: center;
+  min-height: 28rem;
+  padding: clamp(1rem, 4vw, 2.5rem);
+  background:
+    radial-gradient(circle, rgb(72 220 247 / 8%), transparent 42%),
+    #010306;
+}
+
+.manhwa-archive__reader-launcher > div {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  max-width: 30rem;
+  text-align: center;
+}
+
+.manhwa-archive__reader-launcher span {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--gds-cyan-400);
+  font: 600 var(--gds-type-xs) var(--gds-font-mono);
+}
+
+.manhwa-archive__reader-launcher span svg {
+  width: 1rem;
+}
+
+.manhwa-archive__reader-launcher p,
+.manhwa-archive__reader-launcher small {
+  margin: 0;
+  color: var(--gds-text-muted);
+  line-height: 1.8;
+}
+
+.manhwa-archive__reader-launcher small {
+  direction: ltr;
+  font: 500 var(--gds-type-2xs) var(--gds-font-mono);
+}
+
+.manhwa-viewer-overlay {
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  display: grid;
+  padding:
+    max(0.5rem, env(safe-area-inset-top))
+    max(0.5rem, env(safe-area-inset-right))
+    max(0.5rem, env(safe-area-inset-bottom))
+    max(0.5rem, env(safe-area-inset-left));
+  background:
+    radial-gradient(circle at 50% 40%, rgb(72 220 247 / 8%), transparent 50%),
+    rgb(0 2 4 / 98%);
+  backdrop-filter: blur(1rem);
+  animation: manhwa-viewer-enter 180ms var(--gds-ease-enter) both;
+}
+
+.manhwa-viewer {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid rgb(72 220 247 / 20%);
+  background: #010306;
+  box-shadow: 0 1.5rem 5rem rgb(0 0 0 / 74%);
+}
+
+.manhwa-viewer__toolbar,
+.manhwa-viewer__navigation {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.8rem;
+  background: rgb(3 8 12 / 96%);
+}
+
+.manhwa-viewer__toolbar {
+  border-block-end: 1px solid rgb(255 255 255 / 7%);
+}
+
+.manhwa-viewer__toolbar > span {
+  display: grid;
+  min-width: 0;
+}
+
+.manhwa-viewer__toolbar small {
+  color: var(--gds-cyan-400);
+  font: 600 0.56rem var(--gds-font-mono);
+  letter-spacing: 0.08em;
+}
+
+.manhwa-viewer__toolbar strong {
+  overflow: hidden;
+  color: var(--gds-text-primary);
+  font-size: var(--gds-type-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.manhwa-viewer__stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  background:
+    repeating-linear-gradient(
+      180deg,
+      transparent 0 3px,
+      rgb(255 255 255 / 2%) 4px
+    ),
+    #010204;
+}
+
+.manhwa-viewer__stage > img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 100%;
+  object-fit: contain;
+  box-shadow: 0 1rem 4rem rgb(0 0 0 / 78%);
+  animation: manhwa-viewer-page-ready 220ms var(--gds-ease-enter) both;
+}
+
+.manhwa-viewer__stage > img[hidden] {
+  display: none;
+}
+
+.manhwa-viewer__status {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.65rem;
+  padding: 2rem;
+  color: var(--gds-text-secondary);
+  text-align: center;
+  background: rgb(1 3 6 / 92%);
+}
+
+.manhwa-viewer__status > span {
+  width: 2.2rem;
+  aspect-ratio: 1;
+  border: 2px solid rgb(72 220 247 / 18%);
+  border-block-start-color: var(--gds-cyan-400);
+  border-radius: 50%;
+  animation: manhwa-viewer-spin 700ms linear infinite;
+}
+
+.manhwa-viewer__status small {
+  color: var(--gds-text-muted);
+  font: 500 var(--gds-type-2xs) var(--gds-font-mono);
+}
+
+.manhwa-viewer__navigation {
+  border-block-start: 1px solid rgb(255 255 255 / 7%);
+}
+
+.manhwa-viewer__navigation > span {
+  color: var(--gds-text-muted);
+  font: 600 var(--gds-type-2xs) var(--gds-font-mono);
+}
+
+@keyframes manhwa-viewer-enter {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes manhwa-viewer-page-ready {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+}
+
+@keyframes manhwa-viewer-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
 .manhwa-archive__sealed {
   position: relative;
   display: grid;
@@ -424,11 +615,19 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .manhwa-archive-card {
+  .manhwa-archive-card,
+  .manhwa-viewer-overlay,
+  .manhwa-viewer__stage > img,
+  .manhwa-viewer__status > span {
     transition: none;
+    animation: none;
   }
 }
 
-[data-gds-motion="reduced"] .manhwa-archive-card {
+[data-gds-motion="reduced"] .manhwa-archive-card,
+[data-gds-motion="reduced"] .manhwa-viewer-overlay,
+[data-gds-motion="reduced"] .manhwa-viewer__stage > img,
+[data-gds-motion="reduced"] .manhwa-viewer__status > span {
   transition: none;
+  animation: none;
 }

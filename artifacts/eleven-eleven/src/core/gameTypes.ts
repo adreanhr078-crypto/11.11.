@@ -13,6 +13,9 @@ import type {
 import type {
   ManhwaUnlockTransactionResult,
 } from './manhwaArchiveTypes';
+import type {
+  ManhwaPageViewTransactionResult,
+} from './manhwaPageViewTypes';
 import type { EchoTransformationStage, StoryPhase, PuzzleEffects } from './puzzleTypes';
 import type { ChapterId, ChapterState } from './chapterSystem';
 import type { EchoPersonality } from '../domain/echo/echoPersonality';
@@ -172,6 +175,10 @@ export interface GameActions {
     pageId: string,
     timestamp?: string,
   ) => ManhwaUnlockTransactionResult;
+  viewManhwaPage: (
+    pageId: string,
+    timestamp?: string,
+  ) => ManhwaPageViewTransactionResult;
   addCurrency: (amount: number) => void;
   spendCurrency: (amount: number) => boolean;
   canAfford: (amount: number) => boolean;
