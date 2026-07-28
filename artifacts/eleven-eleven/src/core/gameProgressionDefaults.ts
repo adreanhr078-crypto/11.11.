@@ -8,8 +8,11 @@ import type { NarrativeState } from '../domain/narrative/narrativeState';
 import {
   ACHIEVEMENT_DEFINITIONS,
 } from './achievementDefinitions';
+import {
+  createManhwaUnlockReceiptKey,
+} from './manhwaArchiveTypes';
 
-export const GAME_PROGRESSION_SCHEMA_VERSION = 1;
+export const GAME_PROGRESSION_SCHEMA_VERSION = 2;
 
 export const DEFAULT_ECHO_PROGRESS: Readonly<EchoProgressState> = {
   humanity: 35,
@@ -75,6 +78,9 @@ export function createInitialGameProgressionState(
       viewedPageIds: [],
       pageUnlockedAt: {},
       pageViewedAt: {},
+      claimedPageUnlockReceipts: [
+        ...new Set(input.initiallyUnlockedManhwaPageIds ?? []),
+      ].map((pageId) => createManhwaUnlockReceiptKey(pageId)),
       claimedPageEffectIds: [],
     },
     achievements: createInitialAchievementProgressState(),
