@@ -89,12 +89,20 @@ describe('Phase 1 foundation', () => {
     assert.equal(state.currentChapter, 'chapter_1');
     assert.equal(state.totalPuzzles, 1000);
     assert.equal(state.puzzles.length, 0);
-    assert.equal(state.memory.totalFragments, 290);
+    assert.equal(state.memory.totalFragments, 280);
     assert.equal(state.currency, 0);
     assert.deepEqual(state.collectedMemoryFragments, []);
     assert.deepEqual(state.claimedPuzzleRewards, []);
     assert.deepEqual(state.unlockedManhwaPageIds, []);
     assert.deepEqual(state.viewedManhwaPageIds, []);
+    assert.deepEqual(
+      state.progressionState.manhwa.unlockedPageIds,
+      ['manhwa_ch01_page_01'],
+    );
+    assert.equal(state.progressionState.echo.memoryStability, 5);
+    assert.equal(state.progressionState.echo.memoriesRecovered, 0);
+    assert.equal(state.progressionState.echo.humanity, 35);
+    assert.equal(state.progressionState.echo.hope, 20);
     assert.equal(state.lastAvailablePuzzleId, 'puzzle_001_broken_pulse');
     assert.equal(state.echo.personality.trust, state.echo.trust);
     assert.equal(typeof state.actions.solve, 'function');

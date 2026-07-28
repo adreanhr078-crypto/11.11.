@@ -4,22 +4,17 @@
  */
 
 import type {
-  GameState, EchoState, TimeState, PuzzleNode, ChapterId, FlowerStage,
-  EchoMood, WishStatus, Achievement, EndingState, TimelineEvent, PuzzleStatus, ChapterState
+  GameState, EchoState, PuzzleNode, ChapterId, FlowerStage,
+  EchoMood, Achievement, EndingState, PuzzleStatus, ChapterState
 } from '../core/gameTypes';
-import type { MemoryShard } from '../core/memoryShardsTypes';
+import type { StoryPhase } from '../core/puzzleTypes';
 import {
   getPuzzleByNumber,
   getAllPuzzles,
 } from '../core/puzzles/puzzleBank';
 import {
   createInitialTransformationState,
-  determineStage,
   getEchoDialogueByStage,
-  determineEnding,
-  getEndingDescription,
-  calculateTransformationEffects,
-  applyTransformation
 } from '../core/echoTransformationSystem';
 import { CHAPTER_DATASETS, CHAPTER_ORDER } from '../core/chapterSystem';
 import { createInitialEchoPersonality } from '../domain/echo/echoPersonality';
@@ -31,12 +26,12 @@ import { createInitialNarrativeState } from '../domain/narrative/narrativeState'
 import { createInitialCinematicState } from '../domain/cinematics/cinematicState';
 import {
   CHAPTER_DEFINITIONS,
-  CONTENT_COUNTS,
   CONTENT_MANIFEST,
 } from '../infrastructure/content/contentRegistry';
 import {
   CHAPTER_01_MANHWA_PAGES,
 } from '../content/puzzles/chapter01Campaign';
+import { createInitialGameProgressionState } from '../core/gameProgressionDefaults';
 
 const CONFIGURED_PUZZLE_COUNT = (
   CHAPTER_DEFINITIONS.at(-1)?.puzzleRange[1] ?? 0
@@ -49,8 +44,44 @@ const CAMPAIGN_MEMORY_SHARD_SLOT_COUNT = CHAPTER_01_MANHWA_PAGES.reduce(
 // ─── INITIAL STATE ─────────────────────────────────────────────────────
 export function buildInitialState(): GameState {
   const initialTransformation = createInitialTransformationState();
+  const personality = createInitialEchoPersonality();
+  const progression = createInitialProgression(
+    CONTENT_MANIFEST.contentVersion,
+    CHAPTER_DEFINITIONS,
+  );
+  const narrative = createInitialNarrativeState();
+  const achievements = generateAllAchievements();
+  const initiallyUnlockedManhwaPageIds = CHAPTER_01_MANHWA_PAGES
+    .filter((page) => (
+      page.requiredShardIds.length === 0
+      && !page.prerequisitePageId
+    ))
+    .map((page) => page.id);
+  const progressionState = createInitialGameProgressionState({
+    journey: progression,
+    narrative,
+    achievements,
+    initiallyUnlockedManhwaPageIds,
+    echo: {
+      humanity: personality.humanity,
+      trust: personality.trust,
+      fear: personality.fear,
+      anger: personality.anger,
+      sadness: personality.sadness,
+      corruption: personality.corruption,
+      memoriesRecovered: personality.memoriesRecovered,
+      memoryStability: 5,
+      hope: 20,
+      ragePoints: initialTransformation.ragePoints,
+      loneliness: 80,
+      awareness: 3,
+      isolation: 0,
+      forgivenessPoints: initialTransformation.forgivenessPoints,
+    },
+  });
   
   return {
+    progressionState,
     currency: 0,
     collectedMemoryFragments: [],
     memoryFragmentCollectedAt: {},
@@ -66,7 +97,7 @@ export function buildInitialState(): GameState {
     lastAvailablePuzzleId: 'puzzle_001_broken_pulse',
     lastPuzzleReward: null,
     echo: {
-      personality: createInitialEchoPersonality(),
+      personality,
       trust: 15, fear: 70, memoryStability: 5, corruption: 2,
       hope: 20, loneliness: 80, awareness: 3, isolation: 0,
       mood: 'خائف', personalityTraits: ['خائف', 'متردد'],
@@ -89,11 +120,8 @@ export function buildInitialState(): GameState {
     allMemoryShards: [],
     puzzles: [], // Will be populated by chapter datasets
     totalPuzzles: CONFIGURED_PUZZLE_COUNT, solvedPuzzles: 0,
-    progression: createInitialProgression(
-      CONTENT_MANIFEST.contentVersion,
-      CHAPTER_DEFINITIONS,
-    ),
-    narrative: createInitialNarrativeState(),
+    progression,
+    narrative,
     cinematic: createInitialCinematicState(),
     finalChoice: null,
     unlockedEndings: [],
@@ -134,7 +162,7 @@ export function buildInitialState(): GameState {
     ],
     player: { curiosity: 25, interactions: 0, choices: [] },
     world: { stability: 100, glitchLevel: 0, corruptionLevel: 0, anomalyCount: 0 },
-    achievements: generateAllAchievements(),
+    achievements,
     endings: {
       sorrow: { unlocked: false, progress: 0 },
       truth: { unlocked: false, progress: 0 },
@@ -241,7 +269,7 @@ export function generateAllPuzzles(): PuzzleNode[] {
       dependencies: previousPuzzleId ? [previousPuzzleId] : [],
       effects: manual.effects,
       act: manual.act,
-      phase: manual.phase as any,
+      phase: normalizeStoryPhase(manual.phase),
       hints: manual.hints,
       puzzleType: manual.type,
     };
@@ -278,12 +306,25 @@ export function ensurePuzzleGenerated(state: GameState, puzzleNumber: number): P
     dependencies: previousPuzzleId ? [previousPuzzleId] : [],
     effects: manual.effects,
     act: manual.act,
-    phase: manual.phase as any,
+    phase: normalizeStoryPhase(manual.phase),
     hints: manual.hints,
     puzzleType: manual.type,
   };
 
   return newNode;
+}
+
+function normalizeStoryPhase(value: string): StoryPhase | undefined {
+  const phases: readonly StoryPhase[] = [
+    'awakening',
+    'discovery',
+    'connection',
+    'truth',
+    'fracture',
+    'vengeance',
+    'finale',
+  ];
+  return phases.find((phase) => phase === value);
 }
 
 function getChapterForPuzzleNumber(puzzleNumber: number): ChapterId {

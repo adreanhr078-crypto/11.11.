@@ -4,6 +4,7 @@
  */
 
 import type { MemoryShard } from './memoryShardsTypes';
+import type { GameProgressionState } from './gameProgressionTypes';
 import type { EchoTransformationStage, StoryPhase, PuzzleEffects } from './puzzleTypes';
 import type { ChapterId, ChapterState } from './chapterSystem';
 import type { EchoPersonality } from '../domain/echo/echoPersonality';
@@ -217,6 +218,8 @@ export interface GameActions {
 }
 
 export interface GameState {
+  /** Canonical, versioned source of truth for durable player progression. */
+  progressionState: GameProgressionState;
   /** Player currency used by the new UI-driven content layer. */
   currency: number;
   /** Canonical IDs collected by the player; the UI count derives from this list. */
