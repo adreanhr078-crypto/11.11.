@@ -7,9 +7,8 @@ import {
   updateTraits,
 } from '../../stores/gameStoreHelpers';
 import {
-  applyLegacyEchoEffects,
-  setLegacyEchoValue,
-} from './echoCompatibility';
+  type GameProgressionActions,
+} from './createGameProgressionActions';
 import type { GameStateGetter, GameStateSetter } from './statePorts';
 
 type EchoActions = Pick<
@@ -27,24 +26,30 @@ type EchoActions = Pick<
 export function createEchoActions(
   set: GameStateSetter,
   get: GameStateGetter,
+  progressionActions: GameProgressionActions,
 ): EchoActions {
   return {
     chat: () => {
-      const state = get();
-      const dialogue = generateEchoDialogue(state);
       const effects = {
         trust: 3,
         fear: -2,
         hope: 2,
       };
-      let echo = applyLegacyEchoEffects(state.echo, effects);
-      echo = {
-        ...echo,
-        loneliness: Math.max(0, echo.loneliness - 3),
+      progressionActions.applyEchoEffects({
+        ...effects,
+        loneliness: -3,
+      });
+      progressionActions.addCoins(5);
+      const state = get();
+      const dialogue = generateEchoDialogue(state);
+      let echo = {
+        ...state.echo,
         lastDialogue: dialogue,
-        dialogueHistory: [...echo.dialogueHistory.slice(-50), dialogue],
-        xp: echo.xp + 10,
-        coins: echo.coins + 5,
+        dialogueHistory: [
+          ...state.echo.dialogueHistory.slice(-50),
+          dialogue,
+        ],
+        xp: state.echo.xp + 10,
       };
       echo = {
         ...echo,
@@ -77,65 +82,27 @@ export function createEchoActions(
     },
 
     updateTransformation: (type, amount) => {
-      const state = get();
-      const echo = type === 'rage'
-        ? setLegacyEchoValue(
-            state.echo,
-            'ragePoints',
-            state.echo.ragePoints + amount,
-          )
-        : {
-            ...state.echo,
-            forgivenessPoints: Math.min(
-              100,
-              Math.max(0, state.echo.forgivenessPoints + amount),
-            ),
-          };
-      set({ echo });
+      progressionActions.applyEchoEffects(
+        type === 'rage'
+          ? { ragePoints: amount }
+          : { forgivenessPoints: amount },
+      );
     },
 
     incrementTrust: (amount = 1) => {
-      const state = get();
-      set({
-        echo: setLegacyEchoValue(
-          state.echo,
-          'trust',
-          state.echo.trust + amount,
-        ),
-      });
+      progressionActions.applyEchoEffects({ trust: amount });
     },
 
     decrementTrust: (amount = 1) => {
-      const state = get();
-      set({
-        echo: setLegacyEchoValue(
-          state.echo,
-          'trust',
-          state.echo.trust - amount,
-        ),
-      });
+      progressionActions.applyEchoEffects({ trust: -amount });
     },
 
     incrementFear: (amount = 1) => {
-      const state = get();
-      set({
-        echo: setLegacyEchoValue(
-          state.echo,
-          'fear',
-          state.echo.fear + amount,
-        ),
-      });
+      progressionActions.applyEchoEffects({ fear: amount });
     },
 
     decrementFear: (amount = 1) => {
-      const state = get();
-      set({
-        echo: setLegacyEchoValue(
-          state.echo,
-          'fear',
-          state.echo.fear - amount,
-        ),
-      });
+      progressionActions.applyEchoEffects({ fear: -amount });
     },
 
     incrementCuriosity: (amount = 1) => {
