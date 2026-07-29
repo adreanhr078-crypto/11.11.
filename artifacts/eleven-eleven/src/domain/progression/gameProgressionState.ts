@@ -10,6 +10,9 @@ import {
 import {
   synchronizeAchievementProgress,
 } from '../achievements/achievementProgression';
+import {
+  normalizeEchoEventProgressState,
+} from '../echo/echoEventReducer';
 
 export function clampProgressMetric(value: number): number {
   if (!Number.isFinite(value)) return 0;
@@ -157,6 +160,7 @@ export function reconcileGameProgressionState(
         state.echo.forgivenessPoints,
       ),
     },
+    echoEvents: normalizeEchoEventProgressState(state.echoEvents),
     story: {
       narrative: state.story.narrative,
     },

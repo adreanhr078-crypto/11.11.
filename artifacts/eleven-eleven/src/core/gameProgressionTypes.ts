@@ -4,6 +4,7 @@ import type {
 } from '../domain/puzzles/campaignContracts';
 import type { ProgressionState } from '../domain/progression/progression';
 import type { NarrativeState } from '../domain/narrative/narrativeState';
+import type { EchoEventProgressState } from './echoEventTypes';
 
 export interface MemoryShardProgressState {
   /** Spendable shard balance. Spending never removes discovery records. */
@@ -82,5 +83,6 @@ export interface GameProgressionState {
   manhwa: ManhwaProgressState;
   achievements: AchievementProgressState;
   echo: EchoProgressState;
+  echoEvents: EchoEventProgressState;
   story: StoryProgressState;
 }

@@ -11,6 +11,10 @@ import type {
   PuzzleRewardTransactionResult,
 } from './puzzleRewardTypes';
 import type {
+  StandaloneEchoEvent,
+  StandaloneEchoEventResult,
+} from './echoEventTypes';
+import type {
   ManhwaUnlockTransactionResult,
 } from './manhwaArchiveTypes';
 import type {
@@ -166,6 +170,9 @@ export interface GameActions {
   spendMemoryShards: (amount: number) => boolean;
   hasMemoryShards: (amount: number) => boolean;
   applyEchoEffects: (effects: EchoEffect) => boolean;
+  applyStandaloneEchoEvent: (
+    event: StandaloneEchoEvent,
+  ) => StandaloneEchoEventResult;
   applyPuzzleReward: (
     puzzleId: string,
     reward: PuzzleReward,
