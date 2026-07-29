@@ -7,8 +7,20 @@ import {
 } from '../../domain/narrative/dialogueGraph';
 import { recordDecision } from '../../domain/narrative/decisionLedger';
 import { evaluateEndingEligibility } from '../../domain/narrative/endingEngine';
-import { unlockEligibleMemories } from '../../domain/narrative/memorySystem';
+import {
+  findNextEligibleMemorySource,
+} from '../../domain/narrative/memorySystem';
 import type { NarrativeState } from '../../domain/narrative/narrativeState';
+import {
+  applyNarrativeEventTransaction,
+} from '../../domain/narrative/narrativeEventTransaction';
+import {
+  RUNTIME_NARRATIVE_KNOWLEDGE_NODES,
+} from '../../domain/narrative/knowledgeRegistry';
+import {
+  RUNTIME_ECHO_EVOLUTION_STAGES,
+  RUNTIME_ECHO_STORY_EVENTS,
+} from '../../domain/echo/echoEvolutionDefinitions';
 import {
   DIALOGUE_DEFINITIONS,
   ENDING_DEFINITIONS,
@@ -17,13 +29,15 @@ import {
 import type {
   GameStateGetter,
   GameStateSetter,
+  GameTimestampProvider,
 } from '../game/statePorts';
-import {
-  applyEchoPersonalitySourceTransition,
-} from '../game/canonicalEchoSourceTransition';
 import {
   projectGameProgressionCompatibility,
 } from '../game/createGameProgressionActions';
+import {
+  createDialogueNarrativeEffectPlan,
+  createMemoryNarrativeEffectPlan,
+} from './narrativeSourceAdapters';
 
 type NarrativeActions = Pick<
   GameActions,
@@ -52,72 +66,127 @@ function withEndingEligibility(
   };
 }
 
-function projectNarrativeEchoSource(
+function canonicalPersonality(
   state: ReturnType<GameStateGetter>,
-  echo: EchoPersonality,
-  narrative: NarrativeState,
-) {
-  const transition = applyEchoPersonalitySourceTransition(
-    state.progressionState,
-    echo,
-  );
-  const progressionState = {
-    ...transition.state,
-    story: { narrative },
+  progressionState = state.progressionState,
+): EchoPersonality {
+  return {
+    humanity: progressionState.echo.humanity,
+    trust: progressionState.echo.trust,
+    fear: progressionState.echo.fear,
+    anger: progressionState.echo.anger,
+    sadness: progressionState.echo.sadness,
+    corruption: progressionState.echo.corruption,
+    memoriesRecovered: progressionState.echo.memoriesRecovered,
   };
-  return projectGameProgressionCompatibility(state, progressionState);
 }
+
+const NARRATIVE_TRANSACTION_CONTEXT = {
+  knowledgeNodes: RUNTIME_NARRATIVE_KNOWLEDGE_NODES,
+  storyEvents: RUNTIME_ECHO_STORY_EVENTS,
+  evolutionStages: RUNTIME_ECHO_EVOLUTION_STAGES,
+};
 
 export function createNarrativeActions(
   set: GameStateSetter,
   get: GameStateGetter,
+  now: GameTimestampProvider = () => new Date().toISOString(),
 ): NarrativeActions {
   return {
     setNarrativeFlag(flag, value) {
-      set((state) => ({
-        narrative: withEndingEligibility(
+      set((state) => {
+        const narrative = withEndingEligibility(
           {
-            ...state.narrative,
+            ...state.progressionState.story.narrative,
             activeFlags: {
-              ...state.narrative.activeFlags,
+              ...state.progressionState.story.narrative.activeFlags,
               [flag]: value,
             },
           },
-          state.echo.personality,
-          state.progression,
-        ),
-      }));
+          canonicalPersonality(state),
+          state.progressionState.puzzles.journey,
+        );
+        return projectGameProgressionCompatibility(state, {
+          ...state.progressionState,
+          story: { narrative },
+        });
+      });
     },
 
     recordNarrativeDecision(decisionId, choiceId, source = 'system') {
-      set((state) => ({
-        narrative: withEndingEligibility(
-          recordDecision(state.narrative, {
+      set((state) => {
+        const narrative = withEndingEligibility(
+          recordDecision(state.progressionState.story.narrative, {
             decisionId,
             choiceId,
             source,
           }),
-          state.echo.personality,
-          state.progression,
-        ),
-      }));
+          canonicalPersonality(state),
+          state.progressionState.puzzles.journey,
+        );
+        return projectGameProgressionCompatibility(state, {
+          ...state.progressionState,
+          story: { narrative },
+        });
+      });
     },
 
     unlockEligibleMemories() {
       const state = get();
-      const result = unlockEligibleMemories(MEMORY_DEFINITIONS, {
-        echo: state.echo.personality,
-        progression: state.progression,
-        narrative: state.narrative,
-      });
-      const narrative = withEndingEligibility(
-        result.narrative,
-        result.echo,
-        state.progression,
-      );
+      let progressionState = state.progressionState;
+      const unlockedMemoryIds: string[] = [];
+      const unlockedFragmentIds: string[] = [];
+      const timestamp = now();
 
+      for (;;) {
+        const source = findNextEligibleMemorySource(
+          MEMORY_DEFINITIONS,
+          {
+            echo: canonicalPersonality(state, progressionState),
+            progression: progressionState.puzzles.journey,
+            narrative: progressionState.story.narrative,
+          },
+        );
+        if (!source) break;
+        const plan = createMemoryNarrativeEffectPlan(
+          source,
+          timestamp,
+        );
+        if (!plan) {
+          throw new Error('Memory contains a non-canonical effect');
+        }
+        const transaction = applyNarrativeEventTransaction(
+          progressionState,
+          plan,
+          NARRATIVE_TRANSACTION_CONTEXT,
+        );
+        if (!transaction.success) {
+          throw new Error(
+            `Memory transaction failed: ${transaction.failureReason}`,
+          );
+        }
+        if (transaction.state === progressionState) {
+          throw new Error('Memory receipt does not match narrative state');
+        }
+        progressionState = transaction.state;
+        if (source.kind === 'memory') {
+          unlockedMemoryIds.push(source.definition.id);
+        } else {
+          unlockedFragmentIds.push(source.fragment.id);
+        }
+      }
+
+      const narrative = withEndingEligibility(
+        progressionState.story.narrative,
+        canonicalPersonality(state, progressionState),
+        progressionState.puzzles.journey,
+      );
+      progressionState = {
+        ...progressionState,
+        story: { narrative },
+      };
       set({
-        ...projectNarrativeEchoSource(state, result.echo, narrative),
+        ...projectGameProgressionCompatibility(state, progressionState),
         memory: {
           ...state.memory,
           fragmentsCollected: narrative.unlockedMemoryFragmentIds.length,
@@ -129,8 +198,8 @@ export function createNarrativeActions(
       });
 
       return {
-        unlockedMemoryIds: result.unlockedMemoryIds,
-        unlockedFragmentIds: result.unlockedFragmentIds,
+        unlockedMemoryIds,
+        unlockedFragmentIds,
       };
     },
 
@@ -144,22 +213,27 @@ export function createNarrativeActions(
       }
 
       const result = startDialogue(definition, {
-        echo: state.echo.personality,
-        progression: state.progression,
-        narrative: state.narrative,
+        echo: canonicalPersonality(state),
+        progression: state.progressionState.puzzles.journey,
+        narrative: state.progressionState.story.narrative,
       });
+      const narrative = withEndingEligibility(
+        result.narrative,
+        canonicalPersonality(state),
+        state.progressionState.puzzles.journey,
+      );
       set({
-        narrative: withEndingEligibility(
-          result.narrative,
-          result.echo,
-          state.progression,
-        ),
+        ...projectGameProgressionCompatibility(state, {
+          ...state.progressionState,
+          story: { narrative },
+        }),
       });
     },
 
     chooseDialogueOption(choiceId) {
       const state = get();
-      const dialogueId = state.narrative.dialogue.activeDialogueId;
+      const narrativeState = state.progressionState.story.narrative;
+      const dialogueId = narrativeState.dialogue.activeDialogueId;
       if (!dialogueId) {
         throw new Error('No active dialogue graph');
       }
@@ -171,32 +245,77 @@ export function createNarrativeActions(
       }
 
       const result = chooseDialogueOption(definition, choiceId, {
-        echo: state.echo.personality,
-        progression: state.progression,
-        narrative: state.narrative,
+        echo: canonicalPersonality(state),
+        progression: state.progressionState.puzzles.journey,
+        narrative: narrativeState,
       });
-      const narrative = withEndingEligibility(
-        result.narrative,
-        result.echo,
-        state.progression,
+      const activeNodeId = narrativeState.dialogue.currentNodeId
+        ?? definition.entryNodeId;
+      const activeNode = definition.nodes.find(
+        ({ id }) => id === activeNodeId,
       );
+      if (!activeNode) {
+        throw new Error(
+          `${definition.id} current node is missing: ${activeNodeId}`,
+        );
+      }
+      const timestamp = now();
+      const plan = createDialogueNarrativeEffectPlan(
+        definition,
+        activeNode,
+        choiceId,
+        {
+          nextNodeId: result.node?.nodeId ?? null,
+          completed: result.completed,
+        },
+        timestamp,
+        narrativeState.dialogue.completedDialogueIds.includes(
+          definition.id,
+        ),
+      );
+      if (!plan) {
+        throw new Error('Dialogue contains a non-canonical effect');
+      }
+      const transaction = applyNarrativeEventTransaction(
+        state.progressionState,
+        plan,
+        NARRATIVE_TRANSACTION_CONTEXT,
+      );
+      if (!transaction.success) {
+        throw new Error(
+          `Dialogue transaction failed: ${transaction.failureReason}`,
+        );
+      }
+      const narrative = withEndingEligibility(
+        transaction.state.story.narrative,
+        canonicalPersonality(state, transaction.state),
+        transaction.state.puzzles.journey,
+      );
+      const progressionState = {
+        ...transaction.state,
+        story: { narrative },
+      };
       set({
-        ...projectNarrativeEchoSource(state, result.echo, narrative),
+        ...projectGameProgressionCompatibility(state, progressionState),
       });
     },
 
     evaluateNarrativeEndings() {
       const state = get();
       const result = evaluateEndingEligibility(ENDING_DEFINITIONS, {
-        echo: state.echo.personality,
-        progression: state.progression,
-        narrative: state.narrative,
+        echo: canonicalPersonality(state),
+        progression: state.progressionState.puzzles.journey,
+        narrative: state.progressionState.story.narrative,
       });
-      set({
-        narrative: {
-          ...state.narrative,
+      const narrative = {
+          ...state.progressionState.story.narrative,
           endingEligibility: result.eligibility,
-        },
+      };
+      set({
+        ...projectGameProgressionCompatibility(state, {
+          ...state.progressionState,
+          story: { narrative },
+        }),
         unlockedEndings: [
           ...new Set([
             ...state.unlockedEndings,

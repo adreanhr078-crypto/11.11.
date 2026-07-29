@@ -19,6 +19,12 @@ import {
 import {
   normalizeEchoEvolutionProgressState,
 } from '../echo/echoEvolutionProgress';
+import {
+  normalizeNarrativeEventProgressState,
+} from '../narrative/narrativeEventTransaction';
+import {
+  normalizeNarrativeState,
+} from '../narrative/narrativeState';
 
 export function clampProgressMetric(value: number): number {
   if (!Number.isFinite(value)) return 0;
@@ -184,9 +190,12 @@ export function reconcileGameProgressionState(
       ),
     },
     echoEvents: normalizeEchoEventProgressState(state.echoEvents),
+    narrativeEvents: normalizeNarrativeEventProgressState(
+      state.narrativeEvents,
+    ),
     evolution: normalizeEchoEvolutionProgressState(state.evolution),
     story: {
-      narrative: state.story.narrative,
+      narrative: normalizeNarrativeState(state.story.narrative),
     },
   };
 }

@@ -153,6 +153,11 @@ export function conditionsPass(
   ));
 }
 
+/**
+ * @deprecated Compatibility-only effect evaluator. It may be used off-store
+ * to inspect legacy authored data, but active permanent writes must commit
+ * through a source-owned canonical transaction.
+ */
 export function applyContentEffects(
   effects: readonly ContentEffect[],
   context: RuleEvaluationContext,
@@ -254,4 +259,3 @@ export type {
   PuzzleId,
   SceneId,
 };
-

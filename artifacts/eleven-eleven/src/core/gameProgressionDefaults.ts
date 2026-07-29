@@ -16,8 +16,11 @@ import {
   INITIAL_ECHO_EVOLUTION_STAGE_ID,
   type EchoEvolutionProgressState,
 } from './echoEvolutionTypes';
+import type {
+  NarrativeEventProgressState,
+} from './narrativeEventTypes';
 
-export const GAME_PROGRESSION_SCHEMA_VERSION = 6;
+export const GAME_PROGRESSION_SCHEMA_VERSION = 7;
 
 export const DEFAULT_ECHO_PROGRESS: Readonly<EchoProgressState> = {
   humanity: 35,
@@ -52,6 +55,16 @@ export function createInitialAchievementProgressState(): AchievementProgressStat
 export function createInitialEchoEventProgressState(): EchoEventProgressState {
   return {
     standaloneReceiptsByKey: {},
+  };
+}
+
+export function createInitialNarrativeEventProgressState():
+NarrativeEventProgressState {
+  return {
+    claimedSourceReceiptKeys: [],
+    sourceFingerprintsByReceiptKey: {},
+    sourceAppliedAtByReceiptKey: {},
+    provenStoryEventsByReceiptKey: {},
   };
 }
 
@@ -111,6 +124,7 @@ export function createInitialGameProgressionState(
       ...input.echo,
     },
     echoEvents: createInitialEchoEventProgressState(),
+    narrativeEvents: createInitialNarrativeEventProgressState(),
     evolution: createInitialEchoEvolutionProgressState(),
     story: {
       narrative: input.narrative,

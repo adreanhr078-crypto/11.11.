@@ -66,8 +66,11 @@ import {
 import {
   migrateEchoEvolutionProgress,
 } from './echoEvolutionMigration';
+import {
+  normalizeNarrativeEventProgressState,
+} from '../../domain/narrative/narrativeEventTransaction';
 
-export const GAME_SAVE_VERSION = 17;
+export const GAME_SAVE_VERSION = 18;
 
 // Keep the established key so Zustand can migrate existing local saves.
 export const GAME_STORAGE_NAME = '11-11-game-store-v5';
@@ -295,6 +298,10 @@ export function migrateGameState(
   const canonicalAchievements = readObject(canonical, 'achievements');
   const canonicalEcho = readObject(canonical, 'echo');
   const canonicalEchoEvents = readObject(canonical, 'echoEvents');
+  const canonicalNarrativeEvents = readObject(
+    canonical,
+    'narrativeEvents',
+  );
   const canonicalEvolution = readObject(canonical, 'evolution');
   const canonicalStory = readObject(canonical, 'story');
   const legacyProgression = migrateLegacyProgression(
@@ -606,6 +613,38 @@ export function migrateGameState(
       ? narrativeSource as Partial<GameState['narrative']>
       : undefined,
   );
+  const narrativeEvents = normalizeNarrativeEventProgressState(
+    canonicalNarrativeEvents,
+  );
+  const legacyNarrativeReceiptKeys = [
+    ...narrative.unlockedMemoryIds.map((memoryId) => (
+      `memory:${memoryId}:1`
+    )),
+    ...narrative.unlockedMemoryFragmentIds.map((fragmentId) => (
+      `memory-fragment:${fragmentId}:1`
+    )),
+    ...Object.entries(narrative.latestDecisions).flatMap(
+      ([decisionId, choiceId]) => {
+        const separator = decisionId.indexOf(':');
+        if (
+          separator < 1
+          || !decisionId.startsWith('dialogue_')
+          || !choiceId.trim()
+        ) {
+          return [];
+        }
+        const dialogueId = decisionId.slice(0, separator);
+        const nodeId = decisionId.slice(separator + 1);
+        return nodeId
+          ? [`dialogue:${dialogueId}:${nodeId}:${choiceId}:1`]
+          : [];
+      },
+    ),
+  ];
+  narrativeEvents.claimedSourceReceiptKeys = normalizeStringArray([
+    ...narrativeEvents.claimedSourceReceiptKeys,
+    ...legacyNarrativeReceiptKeys,
+  ]);
   const progressionState = reconcileGameProgressionState({
     schemaVersion: GAME_PROGRESSION_SCHEMA_VERSION,
     resources: {
@@ -638,6 +677,7 @@ export function migrateGameState(
     },
     echo: echoProgress,
     echoEvents: normalizeEchoEventProgressState(canonicalEchoEvents),
+    narrativeEvents,
     evolution: migrateEchoEvolutionProgress(canonicalEvolution),
     story: {
       narrative,
