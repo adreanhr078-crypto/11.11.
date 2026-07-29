@@ -384,7 +384,7 @@ describe('legacy resource wrappers', () => {
     );
   });
 
-  it('routes legacy Echo controls without merging independent channels', () => {
+  it('isolates deprecated Echo controls from canonical channels', () => {
     const harness = createHarness();
     const wrappers = createEchoActions(
       harness.set,
@@ -401,8 +401,8 @@ describe('legacy resource wrappers', () => {
     assert.equal(state.echo.trust, 20);
     assert.equal(state.progressionState.echo.fear, 60);
     assert.equal(state.echo.fear, 60);
-    assert.equal(state.progressionState.echo.ragePoints, 12);
-    assert.equal(state.echo.ragePoints, 12);
+    assert.equal(state.progressionState.echo.ragePoints, 0);
+    assert.equal(state.echo.ragePoints, 0);
     assert.equal(state.progressionState.echo.anger, 0);
     assert.equal(state.echo.personality.anger, 0);
   });

@@ -1,10 +1,6 @@
 import type { EchoState } from '../../core/gameTypes';
-import {
-  applyEchoPersonalityEffects,
-  clampStat,
-} from '../../domain/echo/echoPersonality';
+import { clampStat } from '../../domain/echo/echoPersonality';
 import type { EchoPersonality } from '../../domain/echo/echoPersonality';
-import type { EchoStat } from '../../domain/content/contracts';
 
 export type LegacyEchoEffects = Partial<Pick<
   EchoState,
@@ -16,45 +12,28 @@ export type LegacyEchoEffects = Partial<Pick<
   | 'ragePoints'
 >>;
 
-const legacyToCanonical: Record<keyof LegacyEchoEffects, EchoStat> = {
-  trust: 'trust',
-  fear: 'fear',
-  memoryStability: 'memoriesRecovered',
-  corruption: 'corruption',
-  hope: 'humanity',
-  ragePoints: 'anger',
-};
-
+/**
+ * @deprecated Compatibility snapshot helper only.
+ *
+ * Active gameplay must update `progressionState.echo` through a canonical or
+ * source-owned transaction and then project it. This helper intentionally
+ * updates only the requested legacy scalar and never writes Echo personality.
+ */
 export function applyLegacyEchoEffects(
   echo: EchoState,
   effects: LegacyEchoEffects,
 ): EchoState {
-  const personalityEffects: Partial<Record<EchoStat, number>> = {};
-
-  for (const [legacyKey, amount] of Object.entries(effects) as Array<
+  const next = { ...echo };
+  for (const [key, amount] of Object.entries(effects) as Array<
     [keyof LegacyEchoEffects, number | undefined]
   >) {
-    if (amount === undefined) continue;
-    personalityEffects[legacyToCanonical[legacyKey]] = amount;
+    if (typeof amount !== 'number' || !Number.isFinite(amount)) continue;
+    next[key] = clampStat(next[key] + amount);
   }
-
-  const personality = applyEchoPersonalityEffects(
-    echo.personality,
-    personalityEffects,
-  );
-
-  return {
-    ...echo,
-    personality,
-    trust: personality.trust,
-    fear: personality.fear,
-    memoryStability: personality.memoriesRecovered,
-    corruption: personality.corruption,
-    hope: personality.humanity,
-    ragePoints: personality.anger,
-  };
+  return next;
 }
 
+/** @deprecated Compatibility snapshot helper only; never a state authority. */
 export function setLegacyEchoValue(
   echo: EchoState,
   key: keyof LegacyEchoEffects,
@@ -75,9 +54,6 @@ export function syncEchoPersonality(
     personality,
     trust: personality.trust,
     fear: personality.fear,
-    memoryStability: personality.memoriesRecovered,
     corruption: personality.corruption,
-    hope: personality.humanity,
-    ragePoints: personality.anger,
   };
 }

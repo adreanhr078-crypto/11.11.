@@ -16,7 +16,12 @@ import {
 import {
   ENDING_DEFINITIONS,
 } from '../../infrastructure/content/contentRegistry';
-import { syncEchoPersonality } from '../game/echoCompatibility';
+import {
+  applyEchoPersonalitySourceTransition,
+} from '../game/canonicalEchoSourceTransition';
+import {
+  projectGameProgressionCompatibility,
+} from '../game/createGameProgressionActions';
 import type {
   GameStateGetter,
   GameStateSetter,
@@ -65,9 +70,16 @@ function applyTransition(
       progression: state.progression,
     },
   );
+  const transition = applyEchoPersonalitySourceTransition(
+    state.progressionState,
+    result.echo,
+  );
+  const progressionState = {
+    ...transition.state,
+    story: { narrative },
+  };
   set({
-    echo: syncEchoPersonality(state.echo, result.echo),
-    narrative,
+    ...projectGameProgressionCompatibility(state, progressionState),
     cinematic: result.cinematic,
   });
 }
@@ -140,4 +152,3 @@ export function createCinematicActions(
     },
   };
 }
-

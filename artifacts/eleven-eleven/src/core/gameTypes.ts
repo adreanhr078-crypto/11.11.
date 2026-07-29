@@ -6,10 +6,14 @@
 import type { MemoryShard } from './memoryShardsTypes';
 import type { GameProgressionState } from './gameProgressionTypes';
 import type {
-  EchoEffect,
   PuzzleReward,
   PuzzleRewardTransactionResult,
 } from './puzzleRewardTypes';
+import type {
+  CanonicalEchoEffect,
+  StandaloneEchoEvent,
+  StandaloneEchoEventResult,
+} from './echoEventTypes';
 import type {
   ManhwaUnlockTransactionResult,
 } from './manhwaArchiveTypes';
@@ -92,7 +96,7 @@ export interface EchoState {
   skippedPuzzles: string[];   // puzzle IDs that were skipped
   rerolledPuzzles: string[];  // puzzle IDs that were rerolled
   
-  // New: Echo transformation system
+  /** @deprecated Compatibility view only; Phase 3C will own evolution. */
   transformationStage: EchoTransformationStage;
   ragePoints: number;
   forgivenessPoints: number;
@@ -165,7 +169,10 @@ export interface GameActions {
   grantMemoryShard: (shardId: string, timestamp?: string) => boolean;
   spendMemoryShards: (amount: number) => boolean;
   hasMemoryShards: (amount: number) => boolean;
-  applyEchoEffects: (effects: EchoEffect) => boolean;
+  applyEchoEffects: (effects: CanonicalEchoEffect) => boolean;
+  applyStandaloneEchoEvent: (
+    event: StandaloneEchoEvent,
+  ) => StandaloneEchoEventResult;
   applyPuzzleReward: (
     puzzleId: string,
     reward: PuzzleReward,
@@ -215,6 +222,7 @@ export interface GameActions {
   decrementFear: (amount?: number) => void;
   incrementCuriosity: (amount?: number) => void;
   setLevel: (level: number) => void;
+  /** @deprecated Phase 3B blocks legacy transformation metric writes. */
   updateTransformation?: (type: 'rage' | 'forgiveness', amount: number) => void;
   buyHint: (puzzleId: string) => { success: boolean; message: string; hint?: string };
   skipPuzzle: (puzzleId: string) => { success: boolean; message: string };

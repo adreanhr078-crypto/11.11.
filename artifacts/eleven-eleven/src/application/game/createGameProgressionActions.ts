@@ -3,6 +3,9 @@ import type {
   GameState,
 } from '../../core/gameTypes';
 import type { PuzzleRewardTransactionResult } from '../../core/puzzleRewardTypes';
+import type {
+  StandaloneEchoEventResult,
+} from '../../core/echoEventTypes';
 import {
   addCoins,
   applyEchoEffects,
@@ -16,6 +19,13 @@ import {
 import type {
   GameProgressionTransitionResult,
 } from '../../domain/progression/gameProgressionReducer';
+import {
+  applyStandaloneEchoEventTransaction,
+  createStandaloneEchoEventReceiptKey,
+} from '../../domain/echo/echoEventReducer';
+import {
+  projectCanonicalEchoCompatibility,
+} from '../../domain/echo/echoCompatibilityProjection';
 import {
   createAchievementViews,
 } from '../../domain/achievements/achievementProgression';
@@ -35,6 +45,7 @@ type PublicGameProgressionActions = Pick<
   | 'spendMemoryShards'
   | 'hasMemoryShards'
   | 'applyEchoEffects'
+  | 'applyStandaloneEchoEvent'
   | 'applyPuzzleReward'
 >;
 
@@ -66,7 +77,6 @@ export function projectGameProgressionCompatibility(
   state: GameState,
   progressionState: GameState['progressionState'],
 ): Partial<GameState> {
-  const echoProgress = progressionState.echo;
   const discoveredShardIds =
     progressionState.resources.memoryShards.discoveredShardIds;
 
@@ -92,27 +102,10 @@ export function projectGameProgressionCompatibility(
     solvedPuzzles:
       progressionState.puzzles.journey.completedPuzzleIds.length,
     echo: {
-      ...state.echo,
-      personality: {
-        ...state.echo.personality,
-        humanity: echoProgress.humanity,
-        trust: echoProgress.trust,
-        fear: echoProgress.fear,
-        anger: echoProgress.anger,
-        sadness: echoProgress.sadness,
-        corruption: echoProgress.corruption,
-        memoriesRecovered: echoProgress.memoriesRecovered,
-      },
-      trust: echoProgress.trust,
-      fear: echoProgress.fear,
-      memoryStability: echoProgress.memoryStability,
-      corruption: echoProgress.corruption,
-      hope: echoProgress.hope,
-      ragePoints: echoProgress.ragePoints,
-      loneliness: echoProgress.loneliness,
-      awareness: echoProgress.awareness,
-      isolation: echoProgress.isolation,
-      forgivenessPoints: echoProgress.forgivenessPoints,
+      ...projectCanonicalEchoCompatibility(
+        progressionState.echo,
+        state.echo,
+      ),
       coins: progressionState.resources.coins,
     },
     memory: {
@@ -201,6 +194,33 @@ export function createGameProgressionActions(
       return commitTransition(
         (state) => applyEchoEffects(state, effects, timestamp),
       );
+    },
+
+    applyStandaloneEchoEvent(event) {
+      let result: StandaloneEchoEventResult = {
+        success: false,
+        applied: false,
+        alreadyApplied: false,
+        conflict: false,
+        receiptKey: createStandaloneEchoEventReceiptKey(
+          event.eventId,
+          event.eventVersion,
+        ),
+      };
+      set((state) => {
+        const transition = applyStandaloneEchoEventTransaction(
+          state.progressionState,
+          event,
+        );
+        result = transition;
+        return transition.applied
+          ? projectGameProgressionCompatibility(
+              state,
+              transition.state,
+            )
+          : {};
+      });
+      return result;
     },
 
     applyPuzzleReward(puzzleId, reward, timestamp = now()) {

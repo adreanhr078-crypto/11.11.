@@ -11,8 +11,13 @@ import {
 import {
   createManhwaUnlockReceiptKey,
 } from './manhwaArchiveTypes';
+import type { EchoEventProgressState } from './echoEventTypes';
+import {
+  INITIAL_ECHO_EVOLUTION_STAGE_ID,
+  type EchoEvolutionProgressState,
+} from './echoEvolutionTypes';
 
-export const GAME_PROGRESSION_SCHEMA_VERSION = 2;
+export const GAME_PROGRESSION_SCHEMA_VERSION = 4;
 
 export const DEFAULT_ECHO_PROGRESS: Readonly<EchoProgressState> = {
   humanity: 35,
@@ -41,6 +46,21 @@ export function createInitialAchievementProgressState(): AchievementProgressStat
         unlockedAt: null,
       },
     ])),
+  };
+}
+
+export function createInitialEchoEventProgressState(): EchoEventProgressState {
+  return {
+    standaloneReceiptsByKey: {},
+  };
+}
+
+export function createInitialEchoEvolutionProgressState():
+EchoEvolutionProgressState {
+  return {
+    currentStageId: INITIAL_ECHO_EVOLUTION_STAGE_ID,
+    reachedStageIds: [INITIAL_ECHO_EVOLUTION_STAGE_ID],
+    stageReachedAt: {},
   };
 }
 
@@ -88,6 +108,8 @@ export function createInitialGameProgressionState(
       ...DEFAULT_ECHO_PROGRESS,
       ...input.echo,
     },
+    echoEvents: createInitialEchoEventProgressState(),
+    evolution: createInitialEchoEvolutionProgressState(),
     story: {
       narrative: input.narrative,
     },

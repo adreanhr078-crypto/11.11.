@@ -44,6 +44,12 @@ export function applyEchoPersonalityEffects(
   return next;
 }
 
+/**
+ * Read-only legacy save fallback.
+ *
+ * Runtime commands must never use this migration to rebuild canonical Echo
+ * state from compatibility aliases.
+ */
 export function migrateEchoPersonality(legacy: Partial<{
   trust: number;
   fear: number;

@@ -4,6 +4,8 @@ import type {
 } from '../domain/puzzles/campaignContracts';
 import type { ProgressionState } from '../domain/progression/progression';
 import type { NarrativeState } from '../domain/narrative/narrativeState';
+import type { EchoEventProgressState } from './echoEventTypes';
+import type { EchoEvolutionProgressState } from './echoEvolutionTypes';
 
 export interface MemoryShardProgressState {
   /** Spendable shard balance. Spending never removes discovery records. */
@@ -62,7 +64,9 @@ export interface EchoProgressState {
   memoryStability: number;
   memoriesRecovered: number;
   corruption: number;
+  /** @deprecated Independent compatibility value; never canonical humanity. */
   hope: number;
+  /** @deprecated Independent compatibility value; never canonical anger. */
   ragePoints: number;
   sadness: number;
   loneliness: number;
@@ -82,5 +86,7 @@ export interface GameProgressionState {
   manhwa: ManhwaProgressState;
   achievements: AchievementProgressState;
   echo: EchoProgressState;
+  echoEvents: EchoEventProgressState;
+  evolution: EchoEvolutionProgressState;
   story: StoryProgressState;
 }

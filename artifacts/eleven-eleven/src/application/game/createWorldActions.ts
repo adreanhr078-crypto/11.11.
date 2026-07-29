@@ -13,8 +13,11 @@ import {
   updateTraits,
 } from '../../stores/gameStoreHelpers';
 import {
-  applyLegacyEchoEffects,
-} from './echoCompatibility';
+  applyEchoEffects,
+} from '../../domain/progression/gameProgressionReducer';
+import {
+  projectCanonicalEchoCompatibility,
+} from '../../domain/echo/echoCompatibilityProjection';
 import type { GameStateGetter, GameStateSetter } from './statePorts';
 import { GAME_STORAGE_NAME } from '../../infrastructure/persistence/gamePersistence';
 import { ExpandedEndingSystem } from '../../domain/endings/endingCatalog';
@@ -58,69 +61,80 @@ function resolveTime(now: Date): {
 export function createWorldActions(
   set: GameStateSetter,
   get: GameStateGetter,
+  now: () => Date = () => new Date(),
 ): WorldActions {
   return {
     advanceTime: () => {
-      const state = get();
-      const now = new Date();
-      const clock = resolveTime(now);
-      const newDayCycle = now.getHours() === 0 && state.time.hour === 23
-        ? state.time.dayCycle + 1
-        : state.time.dayCycle;
-      const echoEffects = clock.isNight
-        ? { fear: 0.4, hope: -0.05, corruption: -0.1 }
-        : { fear: -0.2, hope: 0.3 };
-      let echo = applyLegacyEchoEffects(state.echo, echoEffects);
-      echo = {
-        ...echo,
-        loneliness: Math.min(
-          100,
-          Math.max(0, echo.loneliness + (clock.isNight ? 0.1 : -0.2)),
-        ),
-        awareness: Math.min(
-          100,
-          echo.awareness + (clock.isNight ? 0.3 : 0),
-        ),
-      };
-      echo = {
-        ...echo,
-        mood: updateEchoMood(echo),
-        personalityTraits: updateTraits(echo),
-      };
-      const glitchLevel = Math.max(
-        0,
-        state.world.glitchLevel - (clock.isNight ? 0.2 : 0.3),
-      );
-      const world = {
-        ...state.world,
-        glitchLevel,
-        stability: Math.max(0, 100 - glitchLevel - echo.corruption),
-        corruptionLevel: Math.min(100, glitchLevel + echo.corruption),
-      };
-      const patch: Parameters<GameStateSetter>[0] = {
-        time: {
-          ...state.time,
-          ...clock,
-          hour: now.getHours(),
-          minute: now.getMinutes(),
-          dayCycle: newDayCycle,
-        },
-        world,
-        echo,
-        narrativeTriggers: clock.phaseIndex >= 1
-          ? { ...state.narrativeTriggers, first_night: true }
-          : state.narrativeTriggers,
-      };
-
-      if (newDayCycle > state.time.dayCycle) {
-        Object.assign(patch, {
-          dailyMissions: getDailyMissions(
-            state.progression.completedPuzzleIds,
+      const currentTime = now();
+      set((state) => {
+        const clock = resolveTime(currentTime);
+        const newDayCycle = (
+          currentTime.getHours() === 0
+          && state.time.hour === 23
+        )
+          ? state.time.dayCycle + 1
+          : state.time.dayCycle;
+        const echoEffects = clock.isNight
+          ? {
+              fear: 0.4,
+              corruption: -0.1,
+            }
+          : {
+              fear: -0.2,
+            };
+        const transition = applyEchoEffects(
+          state.progressionState,
+          echoEffects,
+        );
+        if (!transition.success) return {};
+        const projectedEcho = projectCanonicalEchoCompatibility(
+          transition.state.echo,
+          state.echo,
+        );
+        const echo = {
+          ...projectedEcho,
+          mood: updateEchoMood(projectedEcho),
+          personalityTraits: updateTraits(projectedEcho),
+        };
+        const glitchLevel = Math.max(
+          0,
+          state.world.glitchLevel - (clock.isNight ? 0.2 : 0.3),
+        );
+        const world = {
+          ...state.world,
+          glitchLevel,
+          stability: Math.max(0, 100 - glitchLevel - echo.corruption),
+          corruptionLevel: Math.min(
+            100,
+            glitchLevel + echo.corruption,
           ),
-          lastMissionRefresh: Date.now(),
-        });
-      }
-      set(patch);
+        };
+        const patch = {
+          progressionState: transition.state,
+          time: {
+            ...state.time,
+            ...clock,
+            hour: currentTime.getHours(),
+            minute: currentTime.getMinutes(),
+            dayCycle: newDayCycle,
+          },
+          world,
+          echo,
+          narrativeTriggers: clock.phaseIndex >= 1
+            ? { ...state.narrativeTriggers, first_night: true }
+            : state.narrativeTriggers,
+        };
+
+        return newDayCycle > state.time.dayCycle
+          ? {
+              ...patch,
+              dailyMissions: getDailyMissions(
+                state.progression.completedPuzzleIds,
+              ),
+              lastMissionRefresh: currentTime.getTime(),
+            }
+          : patch;
+      });
     },
 
     addWish: (text) => {

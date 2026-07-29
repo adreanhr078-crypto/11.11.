@@ -54,8 +54,17 @@ import {
   createManhwaUnlockReceiptKey,
   getManhwaUnlockReceiptPageId,
 } from '../../core/manhwaArchiveTypes';
+import {
+  normalizeEchoEventProgressState,
+} from '../../domain/echo/echoEventReducer';
+import {
+  projectCanonicalEchoCompatibility,
+} from '../../domain/echo/echoCompatibilityProjection';
+import {
+  migrateEchoEvolutionProgress,
+} from './echoEvolutionMigration';
 
-export const GAME_SAVE_VERSION = 13;
+export const GAME_SAVE_VERSION = 15;
 
 // Keep the established key so Zustand can migrate existing local saves.
 export const GAME_STORAGE_NAME = '11-11-game-store-v5';
@@ -85,10 +94,15 @@ function hasFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
-function normalizeMetric(value: unknown, fallback: number): number {
+function normalizeCanonicalMetric(value: unknown, fallback: number): number {
   return hasFiniteNumber(value)
     ? clampProgressMetric(value)
     : clampProgressMetric(fallback);
+}
+
+function normalizeLegacyMetric(value: unknown, fallback: number): number {
+  const normalized = hasFiniteNumber(value) ? value : fallback;
+  return clampProgressMetric(Math.round(normalized));
 }
 
 function normalizeOptionalTimestamp(value: unknown): number | null {
@@ -277,6 +291,8 @@ export function migrateGameState(
   const canonicalManhwa = readObject(canonical, 'manhwa');
   const canonicalAchievements = readObject(canonical, 'achievements');
   const canonicalEcho = readObject(canonical, 'echo');
+  const canonicalEchoEvents = readObject(canonical, 'echoEvents');
+  const canonicalEvolution = readObject(canonical, 'evolution');
   const canonicalStory = readObject(canonical, 'story');
   const legacyProgression = migrateLegacyProgression(
     CONTENT_MANIFEST.contentVersion,
@@ -491,8 +507,11 @@ export function migrateGameState(
     legacyValue: unknown,
   ): number => (
     hasOwn(canonicalEcho, key)
-      ? normalizeMetric(canonicalEcho[key], DEFAULT_ECHO_PROGRESS[key])
-      : normalizeMetric(legacyValue, DEFAULT_ECHO_PROGRESS[key])
+      ? normalizeCanonicalMetric(
+          canonicalEcho[key],
+          DEFAULT_ECHO_PROGRESS[key],
+        )
+      : normalizeLegacyMetric(legacyValue, DEFAULT_ECHO_PROGRESS[key])
   );
   const echoProgress = {
     humanity: canonicalMetric('humanity', legacyHumanity),
@@ -597,6 +616,8 @@ export function migrateGameState(
       byId: achievementProgressById,
     },
     echo: echoProgress,
+    echoEvents: normalizeEchoEventProgressState(canonicalEchoEvents),
+    evolution: migrateEchoEvolutionProgress(canonicalEvolution),
     story: {
       narrative,
     },
@@ -706,6 +727,17 @@ export function mergeGameState(
     ];
   })) as GameState['chapters'];
   const echoProgress = progressionState.echo;
+  const compatibilityEcho = projectCanonicalEchoCompatibility(
+    echoProgress,
+    {
+      ...currentState.echo,
+      ...persistedEcho,
+      personality: {
+        ...currentState.echo.personality,
+        ...persistedEcho?.personality,
+      },
+    },
+  );
 
   return {
     ...currentState,
@@ -730,28 +762,8 @@ export function mergeGameState(
     progression,
     narrative: progressionState.story.narrative,
     echo: {
-      ...currentState.echo,
-      ...persistedEcho,
-      personality: {
-        ...currentState.echo.personality,
-        humanity: echoProgress.humanity,
-        trust: echoProgress.trust,
-        fear: echoProgress.fear,
-        anger: echoProgress.anger,
-        sadness: echoProgress.sadness,
-        corruption: echoProgress.corruption,
-        memoriesRecovered: echoProgress.memoriesRecovered,
-      },
-      trust: echoProgress.trust,
-      fear: echoProgress.fear,
-      memoryStability: echoProgress.memoryStability,
-      corruption: echoProgress.corruption,
-      hope: echoProgress.hope,
-      loneliness: echoProgress.loneliness,
-      awareness: echoProgress.awareness,
-      isolation: echoProgress.isolation,
-      ragePoints: echoProgress.ragePoints,
-      forgivenessPoints: echoProgress.forgivenessPoints,
+      ...compatibilityEcho,
+      coins: progressionState.resources.coins,
     },
     puzzles,
     chapters,
@@ -843,26 +855,17 @@ export function partializeGameState(state: GameState): PersistedState {
     achievements: {
       byId: achievementProgressById,
     },
-    echo: {
-      humanity: state.echo.personality.humanity,
-      trust: state.echo.personality.trust,
-      fear: state.echo.personality.fear,
-      anger: state.echo.personality.anger,
-      memoryStability: state.echo.memoryStability,
-      memoriesRecovered: state.echo.personality.memoriesRecovered,
-      corruption: state.echo.personality.corruption,
-      hope: state.echo.hope,
-      ragePoints: state.echo.ragePoints,
-      sadness: state.echo.personality.sadness,
-      loneliness: state.echo.loneliness,
-      awareness: state.echo.awareness,
-      isolation: state.echo.isolation,
-      forgivenessPoints: state.echo.forgivenessPoints,
-    },
+    // Canonical progression is the save authority. Legacy fields are a
+    // one-way projection and must never overwrite canonical metrics.
+    echo: previous.echo,
     story: {
       narrative: state.narrative,
     },
   });
+  const compatibilityEcho = projectCanonicalEchoCompatibility(
+    progressionState.echo,
+    state.echo,
+  );
   return {
     progressionState,
     currency: state.currency,
@@ -878,7 +881,10 @@ export function partializeGameState(state: GameState): PersistedState {
     manhwaPageViewedAt: state.manhwaPageViewedAt,
     consumedDialogueTriggerIds: state.consumedDialogueTriggerIds,
     lastAvailablePuzzleId: state.lastAvailablePuzzleId,
-    echo: state.echo,
+    echo: {
+      ...compatibilityEcho,
+      coins: progressionState.resources.coins,
+    },
     progression: state.progression,
     narrative: state.narrative,
     cinematic: state.cinematic,

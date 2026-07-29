@@ -33,12 +33,8 @@ export function createEchoActions(
       const effects = {
         trust: 3,
         fear: -2,
-        hope: 2,
       };
-      progressionActions.applyEchoEffects({
-        ...effects,
-        loneliness: -3,
-      });
+      progressionActions.applyEchoEffects(effects);
       progressionActions.addCoins(5);
       const state = get();
       const dialogue = generateEchoDialogue(state);
@@ -82,11 +78,10 @@ export function createEchoActions(
     },
 
     updateTransformation: (type, amount) => {
-      progressionActions.applyEchoEffects(
-        type === 'rage'
-          ? { ragePoints: amount }
-          : { forgivenessPoints: amount },
-      );
+      // Compatibility API only. Phase 3C will replace stage progression;
+      // legacy rage/forgiveness values must not drive canonical Echo.
+      void type;
+      void amount;
     },
 
     incrementTrust: (amount = 1) => {
