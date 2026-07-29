@@ -16,6 +16,9 @@ import {
 } from '../../ui/icons';
 import { createDashboardReadModel } from '../../application/ui/gameUiReadModels';
 import {
+  getCanonicalManhwaBadgeCount,
+} from '../../application/ui/manhwaArchiveReadModel';
+import {
   PremiumAtmosphere,
   ScreenTransition,
 } from '../../ui/presentation';
@@ -43,10 +46,8 @@ export function ApplicationShell() {
   const campaignProgress = useGameStore(
     (state) => createDashboardReadModel(state).puzzleProgress.progress,
   );
-  const unviewedMemoryPages = useGameStore((state) => (
-    state.unlockedManhwaPageIds.filter(
-      (pageId) => !state.viewedManhwaPageIds.includes(pageId),
-    ).length
+  const unviewedManhwaPages = useGameStore((state) => (
+    getCanonicalManhwaBadgeCount(state.progressionState)
   ));
   const definition = GAME_SCREEN_REGISTRY[shell.currentScreen];
   const currentCategory = getNavigationCategoryForScreen(
@@ -178,20 +179,20 @@ export function ApplicationShell() {
                   shell.navigate(category.landingScreenId);
                 }}
                 aria-label={`${category.label}: ${category.description}${
-                  category.id === 'memory' && unviewedMemoryPages > 0
-                    ? `، ${unviewedMemoryPages} ذاكرة جديدة`
+                  category.id === 'memory' && unviewedManhwaPages > 0
+                    ? `، ${unviewedManhwaPages} صفحة مانهوا جديدة`
                     : ''
                 }`}
                 title={category.description}
               >
                 <GameIcon id={category.iconId} />
                 <span>{category.shortLabel}</span>
-                {category.id === 'memory' && unviewedMemoryPages > 0 && (
+                {category.id === 'memory' && unviewedManhwaPages > 0 && (
                   <i
                     className="application-shell__navigation-badge"
                     aria-hidden="true"
                   >
-                    {unviewedMemoryPages}
+                    {unviewedManhwaPages}
                   </i>
                 )}
               </button>

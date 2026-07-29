@@ -27,6 +27,12 @@ import {
 import {
   createPuzzleCampaignActions,
 } from '../application/game/createPuzzleCampaignActions';
+import {
+  createManhwaArchiveActions,
+} from '../application/game/createManhwaArchiveActions';
+import {
+  createManhwaPageViewActions,
+} from '../application/game/createManhwaPageViewActions';
 import { createNarrativeActions } from '../application/narrative/createNarrativeActions';
 import { createCinematicActions } from '../application/cinematics/createCinematicActions';
 import type {
@@ -115,6 +121,8 @@ export const useGameStore = create<GameState>()(
             getState,
             progressionActions,
           ),
+          ...createManhwaArchiveActions(setState, getState),
+          ...createManhwaPageViewActions(setState, getState),
           ...createNarrativeActions(setState, getState),
           ...createCinematicActions(setState, getState),
         },

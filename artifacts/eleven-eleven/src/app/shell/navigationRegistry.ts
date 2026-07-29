@@ -35,9 +35,9 @@ export const NAVIGATION_CATEGORIES = [
   },
   {
     id: 'memory',
-    label: 'الذكريات',
-    shortLabel: 'الذكريات',
-    description: 'عرض الذكريات المستعادة والشظايا المرتبطة بها.',
+    label: 'المانهوا',
+    shortLabel: 'المانهوا',
+    description: 'أرشيف صفحات المانهوا وفتحها باستخدام شظايا الذاكرة.',
     iconId: 'category-memory',
     tone: 'memory',
     landingScreenId: 'memories',

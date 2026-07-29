@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { createPlayerResourceActions } from '../application/game/createPlayerResourceActions';
+import { createManhwaArchiveActions } from '../application/game/createManhwaArchiveActions';
+import { createManhwaPageViewActions } from '../application/game/createManhwaPageViewActions';
 import { createPuzzleCampaignActions } from '../application/game/createPuzzleCampaignActions';
 import {
   createGameProgressionActions,
@@ -63,19 +65,26 @@ function createHarness(initial?: Partial<GameState>) {
     state = { ...state, ...update };
   };
   const progressionActions = createGameProgressionActions(set, get);
-  const actions = createPuzzleCampaignActions(
+  const campaignActions = createPuzzleCampaignActions(
     set,
     get,
     progressionActions,
   );
+  const pageViewActions = createManhwaPageViewActions(set, get);
+  const actions = {
+    ...campaignActions,
+    ...pageViewActions,
+  };
   const resourceActions = createPlayerResourceActions(
     set,
     get,
     progressionActions,
   );
+  const archiveActions = createManhwaArchiveActions(set, get);
 
   return {
     actions,
+    archiveActions,
     progressionActions,
     resourceActions,
     getState: get,
@@ -369,21 +378,22 @@ describe('campaign completion actions', () => {
     );
   });
 
-  it('completes Puzzles 011–020 and restores Page 02 in questioned state', () => {
+  it('keeps archive unlock and page effects separate from puzzle completion', () => {
     const harness = createHarness();
     completeRange(harness, 1, 10);
     const results = completeRange(harness, 11, 20);
 
     assert.ok(results.every((result) => result.success));
-    assert.equal(results.at(-1)?.restoredPageId, 'manhwa_ch01_page_02');
+    assert.equal(results.at(-1)?.restoredPageId, undefined);
     const state = harness.getState();
     assert.equal(state.currency, 505);
     assert.equal(state.progression.completedPuzzleIds.length, 20);
     assert.equal(state.collectedMemoryFragments.length, 20);
-    assert.equal(state.integratedMemoryFragmentIds.length, 10);
+    assert.equal(state.integratedMemoryFragmentIds.length, 0);
     assert.equal(state.memory.totalFragments, 280);
-    assert.ok(
+    assert.equal(
       state.unlockedManhwaPageIds.includes('manhwa_ch01_page_02'),
+      false,
     );
     assert.equal(
       state.unlockedManhwaPageIds.includes('manhwa_ch01_page_03'),
@@ -402,19 +412,32 @@ describe('campaign completion actions', () => {
     );
     assert.equal(
       state.narrative.activeFlags.manhwa_page_02_unlocked,
-      true,
+      undefined,
     );
-    assert.ok(
+    assert.equal(
       state.narrative.questions.includes(
         'Is the figure in the corridor really Yuki?',
       ),
+      false,
     );
-    assert.ok(
+    assert.equal(
       state.progressionState.manhwa.claimedPageEffectIds.includes(
         'manhwa_ch01_page_02',
       ),
+      false,
     );
-    assert.equal(harness.progressionActions.spendMemoryShards(20), true);
+
+    const unlocked = harness.archiveActions.unlockManhwaPage(
+      'manhwa_ch01_page_02',
+      '2026-01-02T03:04:05.000Z',
+    );
+    assert.equal(unlocked.success, true);
+    assert.equal(unlocked.costSpent, 3);
+    assert.equal(
+      harness.getState().progressionState.resources.memoryShards.totalSpent,
+      3,
+    );
+    assert.equal(harness.progressionActions.spendMemoryShards(17), true);
     assert.equal(
       harness.getState().progressionState.resources.memoryShards
         .spendableBalance,
@@ -656,7 +679,7 @@ describe('campaign persistence actions', () => {
     );
     assert.equal(
       state.consumedDialogueTriggerIds.filter(
-        (id) => id === 'reopened_manhwa_ch01_page_01',
+        (id) => id === 'echo_reacts_to_page_01',
       ).length,
       1,
     );

@@ -98,9 +98,9 @@ export const GAME_SCREEN_DEFINITIONS = [
   },
   {
     id: 'memories',
-    label: 'شبكة الذاكرة',
-    shortLabel: 'الذكريات',
-    description: 'عرض الذكريات المستعادة والشظايا المرتبطة بها.',
+    label: 'المانهوا',
+    shortLabel: 'المانهوا',
+    description: 'Manhwa Archive // أرشيف الصفحات المفتوحة والمقفلة.',
     code: '03',
     tone: 'memory',
     iconId: 'screen-memory',

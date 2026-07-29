@@ -4,6 +4,10 @@ import type {
 } from '../../core/gameProgressionTypes';
 import { GAME_PROGRESSION_SCHEMA_VERSION } from '../../core/gameProgressionDefaults';
 import {
+  createManhwaUnlockReceiptKey,
+  getManhwaUnlockReceiptPageId,
+} from '../../core/manhwaArchiveTypes';
+import {
   synchronizeAchievementProgress,
 } from '../achievements/achievementProgression';
 
@@ -53,6 +57,21 @@ export function reconcileGameProgressionState(
   );
   const completed = new Set(completedPuzzleIds);
   const unlockedPageIds = uniqueStrings(state.manhwa.unlockedPageIds);
+  const claimedPageUnlockReceipts = uniqueStrings(
+    state.manhwa.claimedPageUnlockReceipts,
+  ).filter((receipt) => {
+    const pageId = getManhwaUnlockReceiptPageId(receipt);
+    return pageId !== null && unlockedPageIds.includes(pageId);
+  });
+  for (const pageId of unlockedPageIds) {
+    if (!claimedPageUnlockReceipts.some(
+      (receipt) => getManhwaUnlockReceiptPageId(receipt) === pageId,
+    )) {
+      claimedPageUnlockReceipts.push(
+        createManhwaUnlockReceiptKey(pageId),
+      );
+    }
+  }
   const normalizedAchievementProgress = {
     byId: Object.fromEntries(
       Object.entries(state.achievements.byId).map(([id, entry]) => [
@@ -113,6 +132,7 @@ export function reconcileGameProgressionState(
       viewedPageIds: uniqueStrings(state.manhwa.viewedPageIds).filter(
         (pageId) => unlockedPageIds.includes(pageId),
       ),
+      claimedPageUnlockReceipts,
       claimedPageEffectIds: uniqueStrings(
         state.manhwa.claimedPageEffectIds,
       ),

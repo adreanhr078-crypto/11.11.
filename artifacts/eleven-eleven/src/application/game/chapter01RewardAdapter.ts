@@ -1,7 +1,3 @@
-import {
-  CHAPTER_01_MANHWA_PAGE_BY_ID,
-} from '../../content/puzzles/chapter01Campaign';
-import type { GameProgressionState } from '../../core/gameProgressionTypes';
 import type {
   EchoEffect,
   PuzzleReward,
@@ -18,9 +14,6 @@ export interface Chapter01RewardPlan {
   narrativeDeltas: EchoMindDelta[];
   dialogueLines: string[];
   dialogueTriggers: string[];
-  restoredPageId?: string;
-  integratedShardIds: string[];
-  pageEffectReceiptId?: string;
 }
 
 function unique(values: readonly string[]): string[] {
@@ -55,44 +48,14 @@ function toEchoEffect(deltas: readonly EchoMindDelta[]): EchoEffect {
 
 /**
  * Adapts existing Chapter 01 content to the generic reward contract.
- * Page 01 is already free in canonical state, so its authored page effect is
- * never folded into Puzzle 001. A paid page effect is included only when this
- * exact reward will unlock that page for the first time.
+ * Manhwa page access and page effects are intentionally absent. Phase 2 pays
+ * for pages inside the archive and applies authored page effects on first
+ * eligible view, while puzzle rewards retain their authored values.
  */
 export function createChapter01RewardPlan(
   definition: CampaignPuzzleDefinition,
-  progressionState: GameProgressionState,
 ): Chapter01RewardPlan {
-  const page = CHAPTER_01_MANHWA_PAGE_BY_ID[definition.targetPageId];
-  const discoveredShardIds = unique([
-    ...progressionState.resources.memoryShards.discoveredShardIds,
-    definition.rewards.shardId,
-  ]);
-  const prerequisiteAvailable = Boolean(
-    page
-    && (
-      !page.prerequisitePageId
-      || progressionState.manhwa.unlockedPageIds.includes(
-        page.prerequisitePageId,
-      )
-    )
-  );
-  const willUnlockPage = Boolean(
-    page
-    && prerequisiteAvailable
-    && !progressionState.manhwa.unlockedPageIds.includes(page.id)
-    && page.requiredShardIds.every(
-      (shardId) => discoveredShardIds.includes(shardId),
-    )
-  );
-  const narrativeDeltas = [
-    definition.echoMindDelta,
-    ...(willUnlockPage && page ? [page.echoMindDelta] : []),
-  ];
-  const storyFlags = unique([
-    ...definition.narrativeFlags,
-    ...(willUnlockPage && page ? page.narrativeFlags : []),
-  ]);
+  const narrativeDeltas = [definition.echoMindDelta];
 
   return {
     reward: {
@@ -103,32 +66,11 @@ export function createChapter01RewardPlan(
       }],
       echoEffect: toEchoEffect(narrativeDeltas),
       storyFlags: Object.fromEntries(
-        storyFlags.map((flag) => [flag, true]),
+        unique(definition.narrativeFlags).map((flag) => [flag, true]),
       ),
-      pageUnlocks: page && prerequisiteAvailable
-        ? [{
-            pageId: page.id,
-            requiredShardIds: page.requiredShardIds,
-          }]
-        : [],
     },
     narrativeDeltas,
-    dialogueLines: [
-      definition.dialogue.ar,
-      ...(willUnlockPage && page ? [page.dialogue.ar] : []),
-    ],
-    dialogueTriggers: unique([
-      ...definition.dialogueTriggers,
-      ...(willUnlockPage && page ? page.dialogueTriggers : []),
-    ]),
-    ...(willUnlockPage && page
-      ? {
-          restoredPageId: page.id,
-          pageEffectReceiptId: page.id,
-        }
-      : {}),
-    integratedShardIds: willUnlockPage && page
-      ? [...page.requiredShardIds]
-      : [],
+    dialogueLines: [definition.dialogue.ar],
+    dialogueTriggers: unique(definition.dialogueTriggers),
   };
 }

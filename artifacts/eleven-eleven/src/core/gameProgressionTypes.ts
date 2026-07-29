@@ -32,6 +32,7 @@ export interface ManhwaProgressState {
   viewedPageIds: string[];
   pageUnlockedAt: Record<string, string>;
   pageViewedAt: Record<string, string>;
+  claimedPageUnlockReceipts: string[];
   claimedPageEffectIds: string[];
 }
 

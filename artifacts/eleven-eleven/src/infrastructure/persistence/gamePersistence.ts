@@ -49,10 +49,13 @@ import {
 } from '../../content/puzzles/chapter01Campaign';
 import {
   deriveCampaignAvailability,
-  getCampaignPageStatus,
 } from '../../domain/puzzles/campaignEngine';
+import {
+  createManhwaUnlockReceiptKey,
+  getManhwaUnlockReceiptPageId,
+} from '../../core/manhwaArchiveTypes';
 
-export const GAME_SAVE_VERSION = 12;
+export const GAME_SAVE_VERSION = 13;
 
 // Keep the established key so Zustand can migrate existing local saves.
 export const GAME_STORAGE_NAME = '11-11-game-store-v5';
@@ -336,14 +339,6 @@ export function migrateGameState(
   const knownPageIds = new Set(
     CHAPTER_01_MANHWA_PAGES.map((page) => page.id),
   );
-  const pageStatuses = new Map(CHAPTER_01_MANHWA_PAGES.map((page) => [
-    page.id,
-    getCampaignPageStatus(
-      page,
-      collectedMemoryFragments,
-      CHAPTER_01_MANHWA_PAGES,
-    ),
-  ]));
   const unlockedManhwaPageIds = normalizeStringArray(
     hasOwn(canonicalManhwa, 'unlockedPageIds')
       ? canonicalManhwa.unlockedPageIds
@@ -352,13 +347,11 @@ export function migrateGameState(
     !CHAPTER_01_PAGE_ID_PATTERN.test(pageId)
     || knownPageIds.has(pageId)
   ));
-  for (const [pageId, status] of pageStatuses) {
-    if (
-      (status === 'restored' || status === 'questioned')
-      && !unlockedManhwaPageIds.includes(pageId)
-    ) {
-      unlockedManhwaPageIds.push(pageId);
-    }
+  const freePageId = CHAPTER_01_MANHWA_PAGES.find(
+    (page) => page.pageNumber === 1,
+  )?.id;
+  if (freePageId && !unlockedManhwaPageIds.includes(freePageId)) {
+    unlockedManhwaPageIds.push(freePageId);
   }
   const integratedMemoryFragmentIds = normalizeCollectedFragmentIds(
     persisted.integratedMemoryFragmentIds,
@@ -550,6 +543,23 @@ export function migrateGameState(
   )
     ? normalizeStringArray(canonicalManhwa.claimedPageEffectIds)
     : [...unlockedManhwaPageIds];
+  const claimedPageUnlockReceipts = normalizeStringArray(
+    hasOwn(canonicalManhwa, 'claimedPageUnlockReceipts')
+      ? canonicalManhwa.claimedPageUnlockReceipts
+      : [],
+  ).filter((receipt) => {
+    const pageId = getManhwaUnlockReceiptPageId(receipt);
+    return pageId !== null && unlockedManhwaPageIds.includes(pageId);
+  });
+  for (const pageId of unlockedManhwaPageIds) {
+    if (!claimedPageUnlockReceipts.some(
+      (receipt) => getManhwaUnlockReceiptPageId(receipt) === pageId,
+    )) {
+      claimedPageUnlockReceipts.push(
+        createManhwaUnlockReceiptKey(pageId),
+      );
+    }
+  }
   const narrativeSource = hasOwn(canonicalStory, 'narrative')
     ? canonicalStory.narrative
     : persisted.narrative;
@@ -580,6 +590,7 @@ export function migrateGameState(
       viewedPageIds: viewedManhwaPageIds,
       pageUnlockedAt: manhwaPageUnlockedAt,
       pageViewedAt: manhwaPageViewedAt,
+      claimedPageUnlockReceipts,
       claimedPageEffectIds,
     },
     achievements: {
@@ -825,6 +836,8 @@ export function partializeGameState(state: GameState): PersistedState {
         ...previous.manhwa.pageViewedAt,
         ...state.manhwaPageViewedAt,
       },
+      claimedPageUnlockReceipts:
+        previous.manhwa.claimedPageUnlockReceipts,
       claimedPageEffectIds: previous.manhwa.claimedPageEffectIds,
     },
     achievements: {

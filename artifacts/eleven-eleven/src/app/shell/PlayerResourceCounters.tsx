@@ -8,9 +8,13 @@ interface PlayerResourceCountersProps {
 export function PlayerResourceCounters({
   className = '',
 }: PlayerResourceCountersProps) {
-  const currency = useGameStore((state) => state.currency);
-  const fragmentCount = useGameStore(
-    (state) => state.collectedMemoryFragments.length,
+  const currency = useGameStore(
+    (state) => state.progressionState.resources.coins,
+  );
+  const spendableShardBalance = useGameStore(
+    (state) => (
+      state.progressionState.resources.memoryShards.spendableBalance
+    ),
   );
 
   return (
@@ -30,11 +34,13 @@ export function PlayerResourceCounters({
       <span
         className="application-shell__resource"
         data-resource="memory"
-        title="شظايا الذاكرة / Memory fragments"
-        aria-label={`شظايا الذاكرة / Memory fragments: ${fragmentCount}`}
+        title="شظايا الذاكرة / Memory Shards"
+        aria-label={`شظايا الذاكرة / Memory Shards: ${spendableShardBalance}`}
       >
         <Diamond aria-hidden="true" />
-        <strong key={`fragments-${fragmentCount}`}>{fragmentCount}</strong>
+        <strong key={`shards-${spendableShardBalance}`}>
+          {spendableShardBalance}
+        </strong>
       </span>
     </div>
   );
