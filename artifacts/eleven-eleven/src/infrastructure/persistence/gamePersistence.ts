@@ -91,10 +91,15 @@ function hasFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
-function normalizeMetric(value: unknown, fallback: number): number {
+function normalizeCanonicalMetric(value: unknown, fallback: number): number {
   return hasFiniteNumber(value)
     ? clampProgressMetric(value)
     : clampProgressMetric(fallback);
+}
+
+function normalizeLegacyMetric(value: unknown, fallback: number): number {
+  const normalized = hasFiniteNumber(value) ? value : fallback;
+  return clampProgressMetric(Math.round(normalized));
 }
 
 function normalizeOptionalTimestamp(value: unknown): number | null {
@@ -498,8 +503,11 @@ export function migrateGameState(
     legacyValue: unknown,
   ): number => (
     hasOwn(canonicalEcho, key)
-      ? normalizeMetric(canonicalEcho[key], DEFAULT_ECHO_PROGRESS[key])
-      : normalizeMetric(legacyValue, DEFAULT_ECHO_PROGRESS[key])
+      ? normalizeCanonicalMetric(
+          canonicalEcho[key],
+          DEFAULT_ECHO_PROGRESS[key],
+        )
+      : normalizeLegacyMetric(legacyValue, DEFAULT_ECHO_PROGRESS[key])
   );
   const echoProgress = {
     humanity: canonicalMetric('humanity', legacyHumanity),
@@ -849,6 +857,10 @@ export function partializeGameState(state: GameState): PersistedState {
       narrative: state.narrative,
     },
   });
+  const compatibilityEcho = projectCanonicalEchoCompatibility(
+    progressionState.echo,
+    state.echo,
+  );
   return {
     progressionState,
     currency: state.currency,
@@ -864,7 +876,10 @@ export function partializeGameState(state: GameState): PersistedState {
     manhwaPageViewedAt: state.manhwaPageViewedAt,
     consumedDialogueTriggerIds: state.consumedDialogueTriggerIds,
     lastAvailablePuzzleId: state.lastAvailablePuzzleId,
-    echo: state.echo,
+    echo: {
+      ...compatibilityEcho,
+      coins: progressionState.resources.coins,
+    },
     progression: state.progression,
     narrative: state.narrative,
     cinematic: state.cinematic,

@@ -63,7 +63,9 @@ export interface EchoProgressState {
   memoryStability: number;
   memoriesRecovered: number;
   corruption: number;
+  /** @deprecated Independent compatibility value; never canonical humanity. */
   hope: number;
+  /** @deprecated Independent compatibility value; never canonical anger. */
   ragePoints: number;
   sadness: number;
   loneliness: number;

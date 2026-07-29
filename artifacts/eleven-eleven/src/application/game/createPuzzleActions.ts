@@ -8,10 +8,8 @@ import type {
   TimelineEvent,
   WishStatus,
 } from '../../core/gameTypes';
+import type { EchoEffect } from '../../core/puzzleRewardTypes';
 import { isAnswerCorrect } from '../../core/puzzles/puzzleLoader';
-import {
-  calculateTransformationEffects,
-} from '../../core/echoTransformationSystem';
 import type { PuzzleId } from '../../domain/content/contracts';
 import {
   deriveChapterProgress,
@@ -29,8 +27,11 @@ import {
   updateTraits,
 } from '../../stores/gameStoreHelpers';
 import {
-  applyLegacyEchoEffects,
-} from './echoCompatibility';
+  applyEchoEffects,
+} from '../../domain/progression/gameProgressionReducer';
+import {
+  projectCanonicalEchoCompatibility,
+} from '../../domain/echo/echoCompatibilityProjection';
 import type { GameStateGetter, GameStateSetter } from './statePorts';
 
 type PuzzleActions = Pick<
@@ -122,52 +123,52 @@ function transitionProgression(
 function applyPuzzleEffects(
   state: GameState,
   puzzle: PuzzleNode,
-): GameState['echo'] {
+): {
+  progressionState: GameState['progressionState'];
+  echo: GameState['echo'];
+} {
   const effects = puzzle.effects;
-  let echo = applyLegacyEchoEffects(state.echo, {
-    trust: effects.trust,
-    fear: effects.fear,
-    memoryStability: effects.memoryStability,
-    corruption: effects.corruption,
-    hope: effects.hope,
-  });
-  echo = {
-    ...echo,
-    loneliness: Math.min(
-      100,
-      Math.max(0, echo.loneliness + (effects.loneliness ?? 0)),
-    ),
-    awareness: Math.min(
-      100,
-      Math.max(0, echo.awareness + (effects.awareness ?? 0)),
-    ),
+  let rageDelta = effects.rageEffect ?? 0;
+  let forgivenessDelta = effects.forgivenessEffect ?? 0;
+  let corruptionDelta = 0;
+  if (puzzle.act === 5) {
+    rageDelta += 0.5;
+    corruptionDelta += 0.3;
+  }
+  if (puzzle.act === 6) {
+    rageDelta *= 1.5;
+    forgivenessDelta *= 1.5;
+  }
+  const echoEffect: EchoEffect = {};
+  const addEffect = (
+    key: keyof EchoEffect,
+    amount: number | undefined,
+  ) => {
+    if (amount === undefined) return;
+    echoEffect[key] = (echoEffect[key] ?? 0) + amount;
   };
+  addEffect('trust', effects.trust);
+  addEffect('fear', effects.fear);
+  addEffect('memoryStability', effects.memoryStability);
+  addEffect('corruption', effects.corruption);
+  addEffect('hope', effects.hope);
+  addEffect('loneliness', effects.loneliness);
+  addEffect('awareness', effects.awareness);
+  addEffect('ragePoints', rageDelta);
+  addEffect('corruption', corruptionDelta);
+  addEffect('forgivenessPoints', forgivenessDelta);
 
-  const transformation = calculateTransformationEffects(
-    effects.rageEffect ?? 0,
-    effects.forgivenessEffect ?? 0,
-    puzzle.act ?? 1,
-    echo.transformationStage,
+  const echoTransition = applyEchoEffects(
+    state.progressionState,
+    echoEffect,
   );
-  echo = applyLegacyEchoEffects(echo, {
-    ragePoints: transformation.rageDelta,
-    corruption: transformation.corruptionDelta,
-  });
-  echo = {
-    ...echo,
-    forgivenessPoints: Math.min(
-      100,
-      Math.max(0, echo.forgivenessPoints + transformation.forgivenessDelta),
-    ),
-  };
-
-  if (echo.ragePoints >= 80) echo.transformationStage = 'vengeful';
-  else if (
-    echo.forgivenessPoints >= 60
-    && echo.forgivenessPoints > echo.ragePoints
-  ) echo.transformationStage = 'redeemed';
-  else if (echo.ragePoints >= 60) echo.transformationStage = 'fractured';
-  if (echo.awareness >= 80) echo.transformationStage = 'ascended';
+  const progressionState = echoTransition.success
+    ? echoTransition.state
+    : state.progressionState;
+  let echo = projectCanonicalEchoCompatibility(
+    progressionState.echo,
+    state.echo,
+  );
 
   const xpGain = Math.max(
     1,
@@ -185,7 +186,7 @@ function applyPuzzleEffects(
   echo.coins += puzzle.coins ?? Math.floor(5 * (1 + puzzle.difficulty / 3));
   echo.mood = updateEchoMood(echo);
   echo.personalityTraits = updateTraits(echo);
-  return echo;
+  return { progressionState, echo };
 }
 
 export function createPuzzleActions(
@@ -210,7 +211,8 @@ export function createPuzzleActions(
       if (!transition) {
         return { success: false, message: 'معرّف اللغز غير صالح' };
       }
-      const echo = applyPuzzleEffects(state, puzzle);
+      const echoResult = applyPuzzleEffects(state, puzzle);
+      const echo = echoResult.echo;
       let puzzles = state.puzzles.map((item) => (
         item.id === puzzleId
           ? { ...item, status: 'solved' as PuzzleStatus }
@@ -261,6 +263,7 @@ export function createPuzzleActions(
       }
 
       set({
+        progressionState: echoResult.progressionState,
         echo,
         puzzles,
         progression: transition.progression,

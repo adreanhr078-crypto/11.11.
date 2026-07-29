@@ -18,7 +18,12 @@ import type {
   GameStateGetter,
   GameStateSetter,
 } from '../game/statePorts';
-import { syncEchoPersonality } from '../game/echoCompatibility';
+import {
+  applyEchoPersonalitySourceTransition,
+} from '../game/canonicalEchoSourceTransition';
+import {
+  projectGameProgressionCompatibility,
+} from '../game/createGameProgressionActions';
 
 type NarrativeActions = Pick<
   GameActions,
@@ -45,6 +50,22 @@ function withEndingEligibility(
     ...narrative,
     endingEligibility: result.eligibility,
   };
+}
+
+function projectNarrativeEchoSource(
+  state: ReturnType<GameStateGetter>,
+  echo: EchoPersonality,
+  narrative: NarrativeState,
+) {
+  const transition = applyEchoPersonalitySourceTransition(
+    state.progressionState,
+    echo,
+  );
+  const progressionState = {
+    ...transition.state,
+    story: { narrative },
+  };
+  return projectGameProgressionCompatibility(state, progressionState);
 }
 
 export function createNarrativeActions(
@@ -96,8 +117,7 @@ export function createNarrativeActions(
       );
 
       set({
-        echo: syncEchoPersonality(state.echo, result.echo),
-        narrative,
+        ...projectNarrativeEchoSource(state, result.echo, narrative),
         memory: {
           ...state.memory,
           fragmentsCollected: narrative.unlockedMemoryFragmentIds.length,
@@ -155,13 +175,13 @@ export function createNarrativeActions(
         progression: state.progression,
         narrative: state.narrative,
       });
+      const narrative = withEndingEligibility(
+        result.narrative,
+        result.echo,
+        state.progression,
+      );
       set({
-        echo: syncEchoPersonality(state.echo, result.echo),
-        narrative: withEndingEligibility(
-          result.narrative,
-          result.echo,
-          state.progression,
-        ),
+        ...projectNarrativeEchoSource(state, result.echo, narrative),
       });
     },
 
