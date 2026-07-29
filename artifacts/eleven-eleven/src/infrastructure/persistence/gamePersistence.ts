@@ -64,7 +64,7 @@ import {
   migrateEchoEvolutionProgress,
 } from './echoEvolutionMigration';
 
-export const GAME_SAVE_VERSION = 15;
+export const GAME_SAVE_VERSION = 16;
 
 // Keep the established key so Zustand can migrate existing local saves.
 export const GAME_STORAGE_NAME = '11-11-game-store-v5';
@@ -315,6 +315,14 @@ export function migrateGameState(
         .map((puzzleId) => `${puzzleId}:1`);
   const claimedPuzzleRewards = normalizeStringArray(
     claimedRewardReceipts.map(receiptToPuzzleId),
+  );
+  const rewardFingerprintsByReceiptKey = Object.fromEntries(
+    Object.entries(normalizeStringRecord(
+      canonicalPuzzles.rewardFingerprintsByReceiptKey,
+    )).filter(([receiptKey, fingerprint]) => (
+      claimedRewardReceipts.includes(receiptKey)
+      && /^puzzle-v1-[0-9a-f]{8}$/.test(fingerprint)
+    )),
   );
   const completedPuzzleIds = new Set<string>(
     baseProgression.completedPuzzleIds,
@@ -602,6 +610,7 @@ export function migrateGameState(
       journey: progression,
       campaignProgressByPuzzleId: puzzleProgress,
       claimedRewardReceipts,
+      rewardFingerprintsByReceiptKey,
       unlockedHintTiersByPuzzle,
     },
     manhwa: {
@@ -835,6 +844,8 @@ export function partializeGameState(state: GameState): PersistedState {
       journey: state.progression,
       campaignProgressByPuzzleId: state.puzzleProgress,
       claimedRewardReceipts,
+      rewardFingerprintsByReceiptKey:
+        previous.puzzles.rewardFingerprintsByReceiptKey,
       unlockedHintTiersByPuzzle: state.unlockedHintTiersByPuzzle,
     },
     manhwa: {

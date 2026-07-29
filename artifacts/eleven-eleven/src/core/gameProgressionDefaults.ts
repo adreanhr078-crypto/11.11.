@@ -17,7 +17,7 @@ import {
   type EchoEvolutionProgressState,
 } from './echoEvolutionTypes';
 
-export const GAME_PROGRESSION_SCHEMA_VERSION = 4;
+export const GAME_PROGRESSION_SCHEMA_VERSION = 5;
 
 export const DEFAULT_ECHO_PROGRESS: Readonly<EchoProgressState> = {
   humanity: 35,
@@ -89,6 +89,7 @@ export function createInitialGameProgressionState(
       journey: input.journey,
       campaignProgressByPuzzleId: {},
       claimedRewardReceipts: [],
+      rewardFingerprintsByReceiptKey: {},
       unlockedHintTiersByPuzzle: {},
     },
     manhwa: {

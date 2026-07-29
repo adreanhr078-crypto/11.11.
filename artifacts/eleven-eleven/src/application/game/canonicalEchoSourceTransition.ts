@@ -10,6 +10,9 @@ import type {
   EchoPersonality,
 } from '../../domain/echo/echoPersonality';
 import {
+  normalizeCanonicalEchoEffect,
+} from '../../domain/echo/canonicalEchoMetrics';
+import {
   applyEchoEffects,
   type GameProgressionTransitionResult,
 } from '../../domain/progression/gameProgressionReducer';
@@ -47,6 +50,24 @@ export function createCanonicalEffectFromPersonality(
 }
 
 /**
+ * Validates an established source's direct Echo deltas at the canonical
+ * boundary before delegating state/achievement reconciliation. The source
+ * remains responsible for its own receipt or repeatability rules.
+ */
+export function applyCanonicalEchoSourceTransition(
+  state: GameProgressionState,
+  effect: CanonicalEchoEffect,
+  timestamp: number | null = null,
+): GameProgressionTransitionResult {
+  if (Object.keys(effect).length === 0) {
+    return { success: true, state };
+  }
+  const normalized = normalizeCanonicalEchoEffect(effect);
+  if (!normalized) return { success: false, state };
+  return applyEchoEffects(state, normalized, timestamp);
+}
+
+/**
  * Applies Memory, Dialogue, or Cinematic Echo output inside that source's
  * transaction. Idempotency remains owned by the source ledger; this helper
  * never creates a standalone Echo receipt.
@@ -60,5 +81,5 @@ export function applyEchoPersonalitySourceTransition(
   if (Object.keys(effect).length === 0) {
     return { success: true, state };
   }
-  return applyEchoEffects(state, effect, timestamp);
+  return applyCanonicalEchoSourceTransition(state, effect, timestamp);
 }

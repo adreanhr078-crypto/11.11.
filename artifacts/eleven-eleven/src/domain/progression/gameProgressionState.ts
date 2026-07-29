@@ -131,6 +131,14 @@ export function reconcileGameProgressionState(
       claimedRewardReceipts: uniqueStrings(
         state.puzzles.claimedRewardReceipts,
       ),
+      rewardFingerprintsByReceiptKey: Object.fromEntries(
+        Object.entries(
+          state.puzzles.rewardFingerprintsByReceiptKey ?? {},
+        ).filter(([receiptKey, fingerprint]) => (
+          state.puzzles.claimedRewardReceipts.includes(receiptKey)
+          && /^puzzle-v1-[0-9a-f]{8}$/.test(fingerprint)
+        )),
+      ),
     },
     manhwa: {
       ...state.manhwa,

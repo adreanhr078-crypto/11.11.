@@ -133,7 +133,7 @@ describe('game progression resource commands', () => {
     const reward = completeReward({
       memoryShards: [],
       coins: 0,
-      echoEffect: {},
+      echoEffect: undefined,
       storyFlags: {},
       achievementProgress: {},
       pageUnlocks: [{
@@ -247,6 +247,7 @@ describe('atomic puzzle reward transaction', () => {
     );
     assert.equal(duplicate.success, false);
     assert.equal(duplicate.alreadyClaimed, true);
+    assert.equal(duplicate.conflict, false);
     assert.deepEqual(
       harness.getState().progressionState,
       beforeDuplicate,
@@ -324,10 +325,71 @@ describe('atomic puzzle reward transaction', () => {
     );
     assert.equal(duplicate.success, false);
     assert.equal(duplicate.alreadyClaimed, true);
+    assert.match(
+      secondHarness.getState().progressionState.puzzles
+        .rewardFingerprintsByReceiptKey['puzzle_reload_reward:1'] ?? '',
+      /^puzzle-v1-[0-9a-f]{8}$/,
+    );
     assert.deepEqual(
       secondHarness.getState().progressionState,
       before,
     );
+
+    const conflicting = secondHarness.actions.applyPuzzleReward(
+      'puzzle_reload_reward',
+      completeReward({ coins: 999 }),
+    );
+    assert.equal(conflicting.conflict, true);
+    assert.equal(conflicting.failureReason, 'reward-conflict');
+    assert.deepEqual(
+      secondHarness.getState().progressionState,
+      before,
+    );
+  });
+
+  it('rejects a conflicting payload for the same receipt atomically', () => {
+    const harness = createHarness();
+    const first = harness.actions.applyPuzzleReward(
+      'puzzle_conflicting_reward',
+      completeReward(),
+    );
+    const beforeConflict = structuredClone(
+      harness.getState().progressionState,
+    );
+    const conflicting = harness.actions.applyPuzzleReward(
+      'puzzle_conflicting_reward',
+      completeReward({ coins: 101 }),
+    );
+
+    assert.equal(first.success, true);
+    assert.match(first.fingerprint, /^puzzle-v1-[0-9a-f]{8}$/);
+    assert.equal(conflicting.success, false);
+    assert.equal(conflicting.alreadyClaimed, false);
+    assert.equal(conflicting.conflict, true);
+    assert.equal(conflicting.failureReason, 'reward-conflict');
+    assert.deepEqual(
+      harness.getState().progressionState,
+      beforeConflict,
+    );
+  });
+
+  it('rejects compatibility Echo fields from Puzzle rewards', () => {
+    const harness = createHarness();
+    const before = structuredClone(harness.getState().progressionState);
+    const reward = completeReward({
+      echoEffect: {
+        hope: 5,
+        ragePoints: 5,
+      },
+    } as unknown as Partial<PuzzleReward>);
+    const result = harness.actions.applyPuzzleReward(
+      'puzzle_compatibility_effect',
+      reward,
+    );
+
+    assert.equal(result.success, false);
+    assert.equal(result.failureReason, 'invalid-echo-effect');
+    assert.deepEqual(harness.getState().progressionState, before);
   });
 
   it('rejects malformed rewards without applying any field', () => {

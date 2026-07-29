@@ -142,6 +142,86 @@ export function createPuzzleCampaignActions(
         definition.id,
         rewardPlan.reward,
         timestamp,
+        (rewardedState, rewardedProgression) => {
+          const narrative = nextNarrative(
+            rewardedState,
+            rewardPlan.narrativeDeltas,
+          );
+          const campaignProgressByPuzzleId = {
+            ...rewardedProgression.puzzles.campaignProgressByPuzzleId,
+            [definition.id]: progress,
+          };
+          const progressionState = {
+            ...rewardedProgression,
+            puzzles: {
+              ...rewardedProgression.puzzles,
+              campaignProgressByPuzzleId,
+            },
+            story: {
+              narrative,
+            },
+          };
+          const nextPuzzle = CHAPTER_01_PUZZLES[definition.order];
+          const nextPuzzleStatus = nextPuzzle
+            ? getCampaignPuzzleStatus(nextPuzzle, {
+                completedPuzzleIds:
+                  progressionState.puzzles.journey.completedPuzzleIds,
+                collectedShardIds:
+                  progressionState.resources.memoryShards
+                    .discoveredShardIds,
+                progressByPuzzleId: campaignProgressByPuzzleId,
+              })
+            : 'locked';
+          const lastAvailablePuzzleId = nextPuzzle
+            && nextPuzzleStatus !== 'locked'
+            ? nextPuzzle.id
+            : definition.id;
+          const timelineEvents = [
+            ...rewardedState.memory.timelineEvents,
+            {
+              id: `campaign-${definition.id}`,
+              time: timestamp,
+              phase: rewardedState.time.phase,
+              description: `استُعيدت شظية من: ${definition.title.ar}`,
+              type: 'puzzle' as const,
+            },
+          ];
+
+          return {
+            progressionState,
+            patch: {
+              consumedDialogueTriggerIds: unique([
+                ...rewardedState.consumedDialogueTriggerIds,
+                ...rewardPlan.dialogueTriggers,
+              ]),
+              lastAvailablePuzzleId,
+              lastPuzzleReward: {
+                nonce: Date.parse(timestamp),
+                puzzleId: definition.id,
+                coins: definition.rewards.coins,
+                shardId: definition.rewards.shardId,
+              },
+              echo: {
+                ...rewardedState.echo,
+                lastDialogue:
+                  rewardPlan.dialogueLines.at(-1)
+                  ?? rewardedState.echo.lastDialogue,
+                dialogueHistory: [
+                  ...rewardedState.echo.dialogueHistory,
+                  ...rewardPlan.dialogueLines,
+                ].slice(-80),
+              },
+              memory: {
+                ...rewardedState.memory,
+                totalFragments: CHAPTER_01_MANHWA_PAGES.reduce(
+                  (total, page) => total + page.requiredShardIds.length,
+                  0,
+                ),
+                timelineEvents,
+              },
+            },
+          };
+        },
       );
       if (!rewardResult.success) {
         return {
@@ -152,84 +232,6 @@ export function createPuzzleCampaignActions(
             : 'تعذر تسجيل مكافأة الذاكرة.',
         };
       }
-
-      const rewardedState = get();
-      const narrative = nextNarrative(
-        rewardedState,
-        rewardPlan.narrativeDeltas,
-      );
-      const nextPuzzle = CHAPTER_01_PUZZLES[definition.order];
-      const nextPuzzleStatus = nextPuzzle
-        ? getCampaignPuzzleStatus(nextPuzzle, {
-            completedPuzzleIds:
-              rewardedState.progression.completedPuzzleIds,
-            collectedShardIds:
-              rewardedState.collectedMemoryFragments,
-            progressByPuzzleId: rewardedState.puzzleProgress,
-          })
-        : 'locked';
-      const lastAvailablePuzzleId = nextPuzzle
-        && nextPuzzleStatus !== 'locked'
-        ? nextPuzzle.id
-        : definition.id;
-      const timelineEvents = [
-        ...rewardedState.memory.timelineEvents,
-        {
-          id: `campaign-${definition.id}`,
-          time: timestamp,
-          phase: rewardedState.time.phase,
-          description: `استُعيدت شظية من: ${definition.title.ar}`,
-          type: 'puzzle' as const,
-        },
-      ];
-      const campaignProgressByPuzzleId = {
-        ...rewardedState.progressionState.puzzles
-          .campaignProgressByPuzzleId,
-        [definition.id]: progress,
-      };
-      set({
-        progressionState: {
-          ...rewardedState.progressionState,
-          puzzles: {
-            ...rewardedState.progressionState.puzzles,
-            campaignProgressByPuzzleId,
-          },
-          story: {
-            narrative,
-          },
-        },
-        consumedDialogueTriggerIds: unique([
-          ...rewardedState.consumedDialogueTriggerIds,
-          ...rewardPlan.dialogueTriggers,
-        ]),
-        lastAvailablePuzzleId,
-        lastPuzzleReward: {
-          nonce: Date.parse(timestamp),
-          puzzleId: definition.id,
-          coins: definition.rewards.coins,
-          shardId: definition.rewards.shardId,
-        },
-        puzzleProgress: campaignProgressByPuzzleId,
-        echo: {
-          ...rewardedState.echo,
-          lastDialogue:
-            rewardPlan.dialogueLines.at(-1)
-            ?? rewardedState.echo.lastDialogue,
-          dialogueHistory: [
-            ...rewardedState.echo.dialogueHistory,
-            ...rewardPlan.dialogueLines,
-          ].slice(-80),
-        },
-        narrative,
-        memory: {
-          ...rewardedState.memory,
-          totalFragments: CHAPTER_01_MANHWA_PAGES.reduce(
-            (total, page) => total + page.requiredShardIds.length,
-            0,
-          ),
-          timelineEvents,
-        },
-      });
 
       return {
         success: true,

@@ -1,7 +1,10 @@
 import type {
-  EchoEffect,
   PuzzleReward,
 } from '../../core/puzzleRewardTypes';
+import type {
+  CanonicalEchoEffect,
+  CanonicalEchoMetric,
+} from '../../core/echoEventTypes';
 import type {
   CampaignPuzzleDefinition,
   EchoMindDelta,
@@ -21,29 +24,29 @@ function unique(values: readonly string[]): string[] {
 }
 
 function addEffect(
-  effect: EchoEffect,
-  key: keyof EchoEffect,
+  effect: Partial<Record<CanonicalEchoMetric, number>>,
+  key: CanonicalEchoMetric,
   amount: number | undefined,
 ): void {
   if (amount === undefined) return;
   effect[key] = (effect[key] ?? 0) + amount;
 }
 
-function toEchoEffect(deltas: readonly EchoMindDelta[]): EchoEffect {
-  const effect: EchoEffect = {};
+function toEchoEffect(
+  deltas: readonly EchoMindDelta[],
+): CanonicalEchoEffect | undefined {
+  const effect: Partial<Record<CanonicalEchoMetric, number>> = {};
   for (const delta of deltas) {
     const emotions = delta.emotions;
+    // Only same-semantic canonical channels cross the Puzzle boundary.
+    // Legacy hope/rage/awareness-style signals are not remapped into a
+    // different psychological meaning.
     addEffect(effect, 'fear', emotions.fear);
     addEffect(effect, 'trust', emotions.trust);
-    addEffect(effect, 'hope', emotions.hope);
-    addEffect(effect, 'loneliness', emotions.loneliness);
-    addEffect(effect, 'awareness', emotions.awareness);
     addEffect(effect, 'memoryStability', emotions.memoryStability);
-    addEffect(effect, 'ragePoints', emotions.rage);
-    addEffect(effect, 'forgivenessPoints', emotions.forgiveness);
     addEffect(effect, 'corruption', emotions.corruption);
   }
-  return effect;
+  return Object.keys(effect).length > 0 ? effect : undefined;
 }
 
 /**

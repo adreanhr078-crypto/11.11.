@@ -26,6 +26,8 @@ export interface PuzzleProgressState {
   journey: ProgressionState;
   campaignProgressByPuzzleId: Record<string, CampaignPuzzleProgress[]>;
   claimedRewardReceipts: string[];
+  /** Payload metadata for the existing receipt key; not a second receipt. */
+  rewardFingerprintsByReceiptKey: Record<string, string>;
   unlockedHintTiersByPuzzle: Record<string, HintTierId[]>;
 }
 
