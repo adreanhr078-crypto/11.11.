@@ -1,30 +1,43 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "archiveDate": "2026-07-26",
+  "adoptedAt": "2026-07-29",
+  "canonVersion": "long-fall-v1",
+  "storyStatus": "ongoing",
   "language": "ar",
   "visibility": "internal",
   "runtimeIncluded": false,
-  "canonStatus": "source-material-pending-reconciliation",
+  "canonStatus": "canonical-authority",
   "spoilerLevel": "full",
   "documents": [
     {
       "title": "11.11 — السقوط الطويل لـEcho",
       "archiveFile": "story-bible--the-long-fall-of-echo.ar.md",
-      "sourcePath": "C:\\Users\\yasmo\\.codex\\attachments\\c7893b84-2863-42a8-8239-2dfea6c2b9a0\\pasted-text.txt",
-      "sha256": "81449E92133612722B1490B1B125326AD537B9B06678F26B5562041A624F4799",
+      "sourcePath": "C:\\Users\\yasmo\\.codex\\attachments\\ac0093cf-8d5d-41f0-96db-bba2f9b30dc6\\pasted-text.txt",
+      "sha256": "9839F717168D5EDBCF44A985BA68196708149BC6BC89A010C1304F2BD65FA77C",
       "visibility": "internal",
       "runtimeIncluded": false,
-      "canonStatus": "source-material-pending-reconciliation",
+      "canonStatus": "canonical-authority",
       "spoilerLevel": "full"
     },
     {
       "title": "الفصل الثاني — المراقب الذي لا يرمش",
       "archiveFile": "chapter-02--the-watcher-who-never-blinks.ar.md",
-      "sourcePath": "C:\\Users\\yasmo\\.codex\\attachments\\9ad8f3f5-da3f-4c87-b825-dd2e9dd9917c\\pasted-text.txt",
-      "sha256": "E49FBA2CE64B5FB8D72352F8EC75EB6F43A7542D02F78ED6BD6890C599A85F2E",
+      "sourcePath": "C:\\Users\\yasmo\\.codex\\attachments\\ac251ed6-eee3-4e12-999b-384d57e3b5a9\\pasted-text.txt",
+      "sha256": "C1BF425B78DF4D88E86A4792E29CE3467FE1903157DFD1644AC302C36FFDAAD4",
       "visibility": "internal",
       "runtimeIncluded": false,
-      "canonStatus": "source-material-pending-reconciliation",
+      "canonStatus": "canonical-authority",
+      "spoilerLevel": "full"
+    },
+    {
+      "title": "الفصل الثالث — الأشياء التي يجب أن تنساها",
+      "archiveFile": "chapter-03--things-you-must-forget.ar.md",
+      "sourcePath": "C:\\Users\\yasmo\\.codex\\attachments\\9f673a7c-417b-4cde-b1e2-f643778c0df7\\pasted-text.txt",
+      "sha256": "473631FD3860AB9471F53E8F7291CFFC68B2847F092D3F7F03F8E2B2DCE7055B",
+      "visibility": "internal",
+      "runtimeIncluded": false,
+      "canonStatus": "canonical-authority",
       "spoilerLevel": "full"
     }
   ]
