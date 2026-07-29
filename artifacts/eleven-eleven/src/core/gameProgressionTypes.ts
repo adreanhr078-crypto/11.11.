@@ -37,7 +37,13 @@ export interface ManhwaProgressState {
   pageUnlockedAt: Record<string, string>;
   pageViewedAt: Record<string, string>;
   claimedPageUnlockReceipts: string[];
+  /**
+   * Source-owned Page Effect receipts. Legacy saves may contain a plain
+   * pageId for v1; new receipts use `pageId:effect:effectVersion`.
+   */
   claimedPageEffectIds: string[];
+  /** Payload metadata for versioned Page Effect receipts, not a receipt. */
+  pageEffectFingerprintsByReceiptKey: Record<string, string>;
 }
 
 export interface AchievementProgressEntry {

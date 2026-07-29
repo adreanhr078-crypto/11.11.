@@ -17,7 +17,7 @@ import {
   type EchoEvolutionProgressState,
 } from './echoEvolutionTypes';
 
-export const GAME_PROGRESSION_SCHEMA_VERSION = 5;
+export const GAME_PROGRESSION_SCHEMA_VERSION = 6;
 
 export const DEFAULT_ECHO_PROGRESS: Readonly<EchoProgressState> = {
   humanity: 35,
@@ -103,6 +103,7 @@ export function createInitialGameProgressionState(
         ...new Set(input.initiallyUnlockedManhwaPageIds ?? []),
       ].map((pageId) => createManhwaUnlockReceiptKey(pageId)),
       claimedPageEffectIds: [],
+      pageEffectFingerprintsByReceiptKey: {},
     },
     achievements: createInitialAchievementProgressState(),
     echo: {

@@ -8,6 +8,9 @@ import {
   getManhwaUnlockReceiptPageId,
 } from '../../core/manhwaArchiveTypes';
 import {
+  MANHWA_PAGE_EFFECT_FINGERPRINT_PATTERN,
+} from '../../core/manhwaPageViewTypes';
+import {
   synchronizeAchievementProgress,
 } from '../achievements/achievementProgression';
 import {
@@ -78,6 +81,9 @@ export function reconcileGameProgressionState(
       );
     }
   }
+  const claimedPageEffectIds = uniqueStrings(
+    state.manhwa.claimedPageEffectIds,
+  );
   const normalizedAchievementProgress = {
     byId: Object.fromEntries(
       Object.entries(state.achievements.byId).map(([id, entry]) => [
@@ -147,8 +153,14 @@ export function reconcileGameProgressionState(
         (pageId) => unlockedPageIds.includes(pageId),
       ),
       claimedPageUnlockReceipts,
-      claimedPageEffectIds: uniqueStrings(
-        state.manhwa.claimedPageEffectIds,
+      claimedPageEffectIds,
+      pageEffectFingerprintsByReceiptKey: Object.fromEntries(
+        Object.entries(
+          state.manhwa.pageEffectFingerprintsByReceiptKey ?? {},
+        ).filter(([receiptKey, fingerprint]) => (
+          claimedPageEffectIds.includes(receiptKey)
+          && MANHWA_PAGE_EFFECT_FINGERPRINT_PATTERN.test(fingerprint)
+        )),
       ),
     },
     achievements,

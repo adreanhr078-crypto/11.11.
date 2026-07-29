@@ -55,6 +55,9 @@ import {
   getManhwaUnlockReceiptPageId,
 } from '../../core/manhwaArchiveTypes';
 import {
+  MANHWA_PAGE_EFFECT_FINGERPRINT_PATTERN,
+} from '../../core/manhwaPageViewTypes';
+import {
   normalizeEchoEventProgressState,
 } from '../../domain/echo/echoEventReducer';
 import {
@@ -64,7 +67,7 @@ import {
   migrateEchoEvolutionProgress,
 } from './echoEvolutionMigration';
 
-export const GAME_SAVE_VERSION = 16;
+export const GAME_SAVE_VERSION = 17;
 
 // Keep the established key so Zustand can migrate existing local saves.
 export const GAME_STORAGE_NAME = '11-11-game-store-v5';
@@ -569,7 +572,15 @@ export function migrateGameState(
     'claimedPageEffectIds',
   )
     ? normalizeStringArray(canonicalManhwa.claimedPageEffectIds)
-    : [...unlockedManhwaPageIds];
+    : [];
+  const pageEffectFingerprintsByReceiptKey = Object.fromEntries(
+    Object.entries(normalizeStringRecord(
+      canonicalManhwa.pageEffectFingerprintsByReceiptKey,
+    )).filter(([receiptKey, fingerprint]) => (
+      claimedPageEffectIds.includes(receiptKey)
+      && MANHWA_PAGE_EFFECT_FINGERPRINT_PATTERN.test(fingerprint)
+    )),
+  );
   const claimedPageUnlockReceipts = normalizeStringArray(
     hasOwn(canonicalManhwa, 'claimedPageUnlockReceipts')
       ? canonicalManhwa.claimedPageUnlockReceipts
@@ -620,6 +631,7 @@ export function migrateGameState(
       pageViewedAt: manhwaPageViewedAt,
       claimedPageUnlockReceipts,
       claimedPageEffectIds,
+      pageEffectFingerprintsByReceiptKey,
     },
     achievements: {
       byId: achievementProgressById,
@@ -862,6 +874,8 @@ export function partializeGameState(state: GameState): PersistedState {
       claimedPageUnlockReceipts:
         previous.manhwa.claimedPageUnlockReceipts,
       claimedPageEffectIds: previous.manhwa.claimedPageEffectIds,
+      pageEffectFingerprintsByReceiptKey:
+        previous.manhwa.pageEffectFingerprintsByReceiptKey,
     },
     achievements: {
       byId: achievementProgressById,

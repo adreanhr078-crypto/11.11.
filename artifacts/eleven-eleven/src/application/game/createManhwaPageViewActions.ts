@@ -8,6 +8,10 @@ import type {
   ManhwaPageViewTransactionResult,
 } from '../../core/manhwaPageViewTypes';
 import {
+  createManhwaPageEffectReceiptKey,
+  MANHWA_PAGE_EFFECT_VERSION,
+} from '../../core/manhwaPageViewTypes';
+import {
   applyManhwaPageViewTransaction,
 } from '../../domain/manhwa/manhwaPageViewTransaction';
 import {
@@ -47,6 +51,12 @@ export function createManhwaPageViewActions(
       alreadyViewed: false,
       effectApplied: false,
       effectReceiptAdded: false,
+      conflict: false,
+      receiptKey: createManhwaPageEffectReceiptKey(
+        normalizedPageId,
+        MANHWA_PAGE_EFFECT_VERSION,
+      ),
+      fingerprint: '',
       state: get().progressionState,
       failureReason: 'invalid-page-id',
     };

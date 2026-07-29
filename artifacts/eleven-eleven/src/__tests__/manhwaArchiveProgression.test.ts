@@ -124,6 +124,12 @@ describe('Manhwa Archive unlock transaction', () => {
         'manhwa_ch01_page_02:unlock:1',
       ),
     );
+    assert.deepEqual(result.state.manhwa.viewedPageIds, []);
+    assert.deepEqual(result.state.manhwa.claimedPageEffectIds, []);
+    assert.deepEqual(
+      result.state.manhwa.pageEffectFingerprintsByReceiptKey,
+      {},
+    );
     assert.equal(state.resources.memoryShards.spendableBalance, 3);
     assert.equal(
       state.manhwa.unlockedPageIds.includes('manhwa_ch01_page_02'),
@@ -281,6 +287,10 @@ describe('Manhwa Archive migration receipts', () => {
       migrated.progressionState?.manhwa.claimedPageUnlockReceipts.includes(
         createManhwaUnlockReceiptKey('manhwa_ch01_page_02'),
       ),
+    );
+    assert.deepEqual(
+      migrated.progressionState?.manhwa.claimedPageEffectIds,
+      [],
     );
   });
 });
