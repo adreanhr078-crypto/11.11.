@@ -5,6 +5,7 @@ import type {
 import type { ProgressionState } from '../domain/progression/progression';
 import type { NarrativeState } from '../domain/narrative/narrativeState';
 import type { EchoEventProgressState } from './echoEventTypes';
+import type { EchoEvolutionProgressState } from './echoEvolutionTypes';
 
 export interface MemoryShardProgressState {
   /** Spendable shard balance. Spending never removes discovery records. */
@@ -86,5 +87,6 @@ export interface GameProgressionState {
   achievements: AchievementProgressState;
   echo: EchoProgressState;
   echoEvents: EchoEventProgressState;
+  evolution: EchoEvolutionProgressState;
   story: StoryProgressState;
 }

@@ -60,8 +60,11 @@ import {
 import {
   projectCanonicalEchoCompatibility,
 } from '../../domain/echo/echoCompatibilityProjection';
+import {
+  migrateEchoEvolutionProgress,
+} from './echoEvolutionMigration';
 
-export const GAME_SAVE_VERSION = 14;
+export const GAME_SAVE_VERSION = 15;
 
 // Keep the established key so Zustand can migrate existing local saves.
 export const GAME_STORAGE_NAME = '11-11-game-store-v5';
@@ -289,6 +292,7 @@ export function migrateGameState(
   const canonicalAchievements = readObject(canonical, 'achievements');
   const canonicalEcho = readObject(canonical, 'echo');
   const canonicalEchoEvents = readObject(canonical, 'echoEvents');
+  const canonicalEvolution = readObject(canonical, 'evolution');
   const canonicalStory = readObject(canonical, 'story');
   const legacyProgression = migrateLegacyProgression(
     CONTENT_MANIFEST.contentVersion,
@@ -613,6 +617,7 @@ export function migrateGameState(
     },
     echo: echoProgress,
     echoEvents: normalizeEchoEventProgressState(canonicalEchoEvents),
+    evolution: migrateEchoEvolutionProgress(canonicalEvolution),
     story: {
       narrative,
     },

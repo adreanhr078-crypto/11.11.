@@ -13,6 +13,9 @@ import {
 import {
   normalizeEchoEventProgressState,
 } from '../echo/echoEventReducer';
+import {
+  normalizeEchoEvolutionProgressState,
+} from '../echo/echoEvolutionProgress';
 
 export function clampProgressMetric(value: number): number {
   if (!Number.isFinite(value)) return 0;
@@ -161,6 +164,7 @@ export function reconcileGameProgressionState(
       ),
     },
     echoEvents: normalizeEchoEventProgressState(state.echoEvents),
+    evolution: normalizeEchoEvolutionProgressState(state.evolution),
     story: {
       narrative: state.story.narrative,
     },
