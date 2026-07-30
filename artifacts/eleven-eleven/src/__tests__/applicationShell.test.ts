@@ -230,7 +230,14 @@ describe('Application Shell', () => {
     const model = createDashboardReadModel(state);
 
     assert.equal(model.chapter.id, state.progression.currentChapterId);
-    assert.equal(model.personality, state.echo.personality);
+    assert.equal(
+      model.echoStatus.metrics.humanity,
+      state.progressionState.echo.humanity,
+    );
+    assert.equal(
+      model.echoStatus.metrics.memoryStability,
+      state.progressionState.echo.memoryStability,
+    );
     assert.equal(
       model.decisions.length,
       state.narrative.decisionHistory.slice(-5).length,

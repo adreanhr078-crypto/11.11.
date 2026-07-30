@@ -5,7 +5,6 @@ import {
   GameProgress,
   GlassPanel,
   HudPanel,
-  StatMeter,
 } from '../../ui/design-system';
 import {
   GameIcon,
@@ -13,21 +12,8 @@ import {
 } from '../../ui/icons';
 import { createDashboardReadModel } from '../../application/ui/gameUiReadModels';
 import { useShellStore } from '../../app/shell/shellStore';
-import type { GameTone } from '../../ui/design-system';
 import { EchoPresence } from '../../ui/presentation';
-
-const PERSONALITY_STATS: Array<{
-  key: 'humanity' | 'trust' | 'fear' | 'anger' | 'sadness' | 'corruption';
-  label: string;
-  tone: GameTone;
-}> = [
-  { key: 'humanity', label: 'الإنسانية', tone: 'progression' },
-  { key: 'trust', label: 'الثقة', tone: 'memory' },
-  { key: 'fear', label: 'الخوف', tone: 'danger' },
-  { key: 'anger', label: 'الغضب', tone: 'danger' },
-  { key: 'sadness', label: 'الحزن', tone: 'rare' },
-  { key: 'corruption', label: 'الفساد', tone: 'rare' },
-];
+import { EchoStatusPanel } from '../../components/echo/EchoStatusPanel';
 
 export default function DashboardScreen() {
   const state = useGameStore();
@@ -102,9 +88,11 @@ export default function DashboardScreen() {
             الشخصية، الذاكرة، والقرارات كلها متصلة بنفس طبقة السرد الحالية.
           </p>
           <div className="shell-dashboard__status-row">
-            <span data-tone="memory">الاستقرار {state.echo.memoryStability}%</span>
-            <span>المستوى {state.echo.level}</span>
-            <span>التفاعلات {state.player.interactions}</span>
+            <span data-tone="memory">
+              الاستقرار {model.echoStatus.metrics.memoryStability}%
+            </span>
+            <span>الإنسانية {model.echoStatus.metrics.humanity}%</span>
+            <span>{model.echoStatus.stage.label}</span>
           </div>
         </div>
 
@@ -130,24 +118,10 @@ export default function DashboardScreen() {
         </div>
       </section>
 
-      <HudPanel
+      <EchoStatusPanel
         className="shell-dashboard__personality"
-        tone="memory"
-        eyebrow="Emotion Visual System"
-        title="الحالة النفسية"
-      >
-        <div className="shell-dashboard__stat-grid">
-          {PERSONALITY_STATS.map((stat) => (
-            <StatMeter
-              key={stat.key}
-              compact
-              label={stat.label}
-              value={model.personality[stat.key]}
-              tone={stat.tone}
-            />
-          ))}
-        </div>
-      </HudPanel>
+        model={model.echoStatus}
+      />
 
       <GlassPanel
         className="shell-dashboard__trajectory"
@@ -158,15 +132,18 @@ export default function DashboardScreen() {
         <div className="shell-dashboard__axis">
           <span>
             <small>الثقة</small>
-            <strong>{model.personality.trust}</strong>
+            <strong>{model.echoStatus.metrics.trust}</strong>
           </span>
           <i><b /></i>
           <span>
             <small>الفساد</small>
-            <strong>{model.personality.corruption}</strong>
+            <strong>{model.echoStatus.metrics.corruption}</strong>
           </span>
         </div>
-        <GameProgress value={model.personality.humanity} tone="progression" />
+        <GameProgress
+          value={model.echoStatus.metrics.humanity}
+          tone="progression"
+        />
       </GlassPanel>
 
       <HudPanel
