@@ -21,6 +21,10 @@ import {
   createAchievementViews,
   type AchievementView,
 } from '../../domain/achievements/achievementProgression';
+import {
+  createEchoStatusReadModel,
+  type EchoStatusReadModel,
+} from './echoStatusReadModel';
 
 export interface DashboardReadModel {
   chapter: {
@@ -29,7 +33,7 @@ export interface DashboardReadModel {
     description: string;
     progress: number;
   };
-  personality: GameState['echo']['personality'];
+  echoStatus: EchoStatusReadModel;
   memory: {
     unlocked: number;
     fragments: number;
@@ -92,7 +96,7 @@ export function createDashboardReadModel(
       description: chapter?.description.ar ?? 'بانتظار بيانات الفصل.',
       progress: percentage(resolved, CHAPTER_01_PUZZLES.length),
     },
-    personality: state.echo.personality,
+    echoStatus: createEchoStatusReadModel(state.progressionState),
     memory: {
       unlocked: state.unlockedManhwaPageIds.length,
       fragments: fragmentCount,

@@ -698,6 +698,80 @@
   overflow: auto;
 }
 
+.echo-status-panel:focus-visible {
+  outline: 2px solid var(--gds-cyan-400);
+  outline-offset: -2px;
+}
+
+.echo-status-panel__stage {
+  display: grid;
+  gap: 0.16rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgb(72 218 245 / 14%);
+  background: rgb(72 218 245 / 4%);
+}
+
+.echo-status-panel__stage small {
+  color: var(--gds-text-muted);
+  font: 500 var(--gds-type-2xs) var(--gds-font-mono);
+}
+
+.echo-status-panel__stage strong {
+  color: var(--gds-cyan-400);
+  font-size: var(--gds-type-sm);
+}
+
+.echo-status-panel__stage code {
+  color: var(--gds-text-muted);
+  font: 500 var(--gds-type-2xs) var(--gds-font-mono);
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.echo-status-panel__metrics {
+  display: grid;
+  gap: clamp(0.35rem, 0.9vmin, 0.55rem);
+  margin-block-start: 0.55rem;
+}
+
+.echo-status-panel__knowledge {
+  display: grid;
+  gap: 0.35rem;
+  margin-block-start: 0.65rem;
+  padding-block-start: 0.55rem;
+  border-block-start: 1px solid rgb(255 255 255 / 7%);
+}
+
+.echo-status-panel__knowledge section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid rgb(255 255 255 / 6%);
+  background: rgb(255 255 255 / 2%);
+}
+
+.echo-status-panel__knowledge section > span {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.echo-status-panel__knowledge strong {
+  color: var(--gds-text-secondary);
+  font-size: var(--gds-type-2xs);
+}
+
+.echo-status-panel__knowledge small {
+  color: var(--gds-text-muted);
+  font: 500 var(--gds-type-2xs) var(--gds-font-mono);
+}
+
+.echo-status-panel__knowledge b {
+  color: var(--gds-cyan-400);
+  font: 700 var(--gds-type-md) var(--gds-font-mono);
+}
+
 .shell-dashboard--echo-system .shell-dashboard__stat-grid {
   grid-template-columns: 1fr;
   gap: clamp(0.45rem, 1.2vmin, 0.75rem);
@@ -854,14 +928,22 @@
 
 @media (prefers-reduced-motion: reduce) {
   .shell-dashboard__core-reticle,
-  .shell-dashboard__side-signal > i {
+  .shell-dashboard__side-signal > i,
+  .echo-status-panel *,
+  .echo-status-panel *::before,
+  .echo-status-panel *::after {
     animation: none !important;
+    transition: none !important;
   }
 }
 
 [data-gds-motion="reduced"] .shell-dashboard__core-reticle,
-[data-gds-motion="reduced"] .shell-dashboard__side-signal > i {
+[data-gds-motion="reduced"] .shell-dashboard__side-signal > i,
+[data-gds-motion="reduced"] .echo-status-panel *,
+[data-gds-motion="reduced"] .echo-status-panel *::before,
+[data-gds-motion="reduced"] .echo-status-panel *::after {
   animation: none;
+  transition: none;
 }
 
 /* 03 — Memory reconstruction */
