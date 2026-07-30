@@ -16,8 +16,11 @@ import {
   INITIAL_ECHO_EVOLUTION_STAGE_ID,
   type EchoEvolutionProgressState,
 } from './echoEvolutionTypes';
+import type {
+  NarrativeEventProgressState,
+} from './narrativeEventTypes';
 
-export const GAME_PROGRESSION_SCHEMA_VERSION = 4;
+export const GAME_PROGRESSION_SCHEMA_VERSION = 7;
 
 export const DEFAULT_ECHO_PROGRESS: Readonly<EchoProgressState> = {
   humanity: 35,
@@ -55,6 +58,16 @@ export function createInitialEchoEventProgressState(): EchoEventProgressState {
   };
 }
 
+export function createInitialNarrativeEventProgressState():
+NarrativeEventProgressState {
+  return {
+    claimedSourceReceiptKeys: [],
+    sourceFingerprintsByReceiptKey: {},
+    sourceAppliedAtByReceiptKey: {},
+    provenStoryEventsByReceiptKey: {},
+  };
+}
+
 export function createInitialEchoEvolutionProgressState():
 EchoEvolutionProgressState {
   return {
@@ -89,6 +102,7 @@ export function createInitialGameProgressionState(
       journey: input.journey,
       campaignProgressByPuzzleId: {},
       claimedRewardReceipts: [],
+      rewardFingerprintsByReceiptKey: {},
       unlockedHintTiersByPuzzle: {},
     },
     manhwa: {
@@ -102,6 +116,7 @@ export function createInitialGameProgressionState(
         ...new Set(input.initiallyUnlockedManhwaPageIds ?? []),
       ].map((pageId) => createManhwaUnlockReceiptKey(pageId)),
       claimedPageEffectIds: [],
+      pageEffectFingerprintsByReceiptKey: {},
     },
     achievements: createInitialAchievementProgressState(),
     echo: {
@@ -109,6 +124,7 @@ export function createInitialGameProgressionState(
       ...input.echo,
     },
     echoEvents: createInitialEchoEventProgressState(),
+    narrativeEvents: createInitialNarrativeEventProgressState(),
     evolution: createInitialEchoEvolutionProgressState(),
     story: {
       narrative: input.narrative,

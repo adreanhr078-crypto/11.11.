@@ -1,32 +1,36 @@
 import type {
   ManhwaPageAuthoredEffect,
 } from '../../core/manhwaPageViewTypes';
-import type { EchoEffect } from '../../core/puzzleRewardTypes';
+import {
+  MANHWA_PAGE_EFFECT_VERSION,
+} from '../../core/manhwaPageViewTypes';
+import type {
+  CanonicalEchoEffect,
+  CanonicalEchoMetric,
+} from '../../core/echoEventTypes';
 import type {
   EchoMindDelta,
   ManhwaMemoryPageDefinition,
 } from '../../domain/puzzles/campaignContracts';
 
 function addEffect(
-  effect: EchoEffect,
-  key: keyof EchoEffect,
+  effect: Partial<Record<CanonicalEchoMetric, number>>,
+  key: CanonicalEchoMetric,
   amount: number | undefined,
 ): void {
   if (amount === undefined) return;
   effect[key] = (effect[key] ?? 0) + amount;
 }
 
-function toEchoEffect(delta: EchoMindDelta): EchoEffect {
-  const effect: EchoEffect = {};
+function toEchoEffect(delta: EchoMindDelta): CanonicalEchoEffect {
+  const effect: Partial<Record<CanonicalEchoMetric, number>> = {};
   const emotions = delta.emotions;
+  // Only same-semantic canonical channels cross the Manhwa boundary.
+  // Legacy hope/rage/awareness-style signals remain content metadata and are
+  // not remapped into a different psychological meaning.
   addEffect(effect, 'fear', emotions.fear);
   addEffect(effect, 'trust', emotions.trust);
-  addEffect(effect, 'hope', emotions.hope);
-  addEffect(effect, 'loneliness', emotions.loneliness);
-  addEffect(effect, 'awareness', emotions.awareness);
   addEffect(effect, 'memoryStability', emotions.memoryStability);
-  addEffect(effect, 'ragePoints', emotions.rage);
-  addEffect(effect, 'forgivenessPoints', emotions.forgiveness);
   addEffect(effect, 'corruption', emotions.corruption);
   return effect;
 }
@@ -49,6 +53,7 @@ export function createManhwaPageAuthoredEffect(
   );
 
   return {
+    effectVersion: MANHWA_PAGE_EFFECT_VERSION,
     echoEffect,
     storyFlags: Object.fromEntries(
       page.narrativeFlags.map((flag) => [flag, true]),

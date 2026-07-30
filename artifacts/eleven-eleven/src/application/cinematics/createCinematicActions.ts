@@ -88,6 +88,9 @@ export function createCinematicActions(
   set: GameStateSetter,
   get: GameStateGetter,
 ): CinematicActions {
+  // The Runtime cinematic registry is empty. Permanent authored narrative
+  // effects must use the Phase 3F `cinematic` source transaction before any
+  // episode is published; playback-only state remains handled here.
   return {
     startCinematicEpisode(episodeId) {
       const result = startCinematicEpisode(

@@ -8,7 +8,14 @@ import type {
   PuzzleRewardFailureReason,
   PuzzleRewardTransactionResult,
 } from '../../core/puzzleRewardTypes';
+import {
+  CANONICAL_ECHO_METRIC_KEYS,
+} from '../../core/echoEventTypes';
 import type { PuzzleId } from '../content/contracts';
+import {
+  applyCanonicalEchoEffect,
+  normalizeCanonicalEchoEffect,
+} from '../echo/canonicalEchoMetrics';
 import {
   increaseAchievementProgress,
   synchronizeAchievementProgress,
@@ -63,11 +70,15 @@ function failedReward(
   state: GameProgressionState,
   receiptKey: string,
   failureReason: PuzzleRewardFailureReason,
+  fingerprint = '',
+  conflict = false,
 ): PuzzleRewardTransactionResult {
   return {
     success: false,
     alreadyClaimed: false,
+    conflict,
     receiptKey,
+    fingerprint,
     state,
     unlockedPageIds: [],
     failureReason,
@@ -221,6 +232,65 @@ function validateEchoEffect(effect: EchoEffect): boolean {
   ));
 }
 
+function orderedRecord(
+  value: Readonly<Record<string, number | boolean>> | undefined,
+): Record<string, number | boolean> {
+  return Object.fromEntries(
+    Object.entries(value ?? {}).sort(([left], [right]) => (
+      left.localeCompare(right)
+    )),
+  );
+}
+
+function fnv1a(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+/**
+ * Fingerprints the source-owned Puzzle payload. Timestamp is intentionally
+ * excluded so an identical retry after reload remains idempotent.
+ */
+export function createPuzzleRewardFingerprint(
+  puzzleId: string,
+  reward: PuzzleReward,
+): string {
+  const normalizedEffect = reward.echoEffect
+    ? normalizeCanonicalEchoEffect(reward.echoEffect)
+    : undefined;
+  if (reward.echoEffect && !normalizedEffect) return '';
+  const echoEffect = Object.fromEntries(
+    CANONICAL_ECHO_METRIC_KEYS.flatMap((metric) => {
+      const amount = normalizedEffect?.[metric];
+      return amount === undefined ? [] : [[metric, amount]];
+    }),
+  );
+  const payload = {
+    puzzleId: puzzleId.trim(),
+    rewardVersion: reward.rewardVersion,
+    coins: reward.coins ?? 0,
+    memoryShards: (reward.memoryShards ?? [])
+      .map(({ id }) => id.trim())
+      .sort(),
+    echoEffect,
+    storyFlags: orderedRecord(reward.storyFlags),
+    achievementProgress: orderedRecord(reward.achievementProgress),
+    pageUnlocks: (reward.pageUnlocks ?? [])
+      .map((unlock) => ({
+        pageId: unlock.pageId.trim(),
+        requiredShardIds: unlock.requiredShardIds
+          .map((id) => id.trim())
+          .sort(),
+      }))
+      .sort((left, right) => left.pageId.localeCompare(right.pageId)),
+  };
+  return `puzzle-v1-${fnv1a(JSON.stringify(payload))}`;
+}
+
 export function applyEchoEffects(
   state: GameProgressionState,
   effect: EchoEffect,
@@ -312,7 +382,10 @@ function validateReward(
       result: failedReward(state, receiptKey, 'duplicate-shard'),
     };
   }
-  if (reward.echoEffect && !validateEchoEffect(reward.echoEffect)) {
+  if (
+    reward.echoEffect
+    && !normalizeCanonicalEchoEffect(reward.echoEffect)
+  ) {
     return {
       valid: false,
       result: failedReward(state, receiptKey, 'invalid-echo-effect'),
@@ -405,11 +478,28 @@ export function applyPuzzleRewardTransaction(
     receiptKey,
   );
   if (!validation.valid) return validation.result;
+  const fingerprint = createPuzzleRewardFingerprint(
+    normalizedPuzzleId,
+    reward,
+  );
   if (state.puzzles.claimedRewardReceipts.includes(receiptKey)) {
+    const storedFingerprint =
+      state.puzzles.rewardFingerprintsByReceiptKey?.[receiptKey];
+    if (storedFingerprint && storedFingerprint !== fingerprint) {
+      return failedReward(
+        state,
+        receiptKey,
+        'reward-conflict',
+        fingerprint,
+        true,
+      );
+    }
     return {
       success: false,
       alreadyClaimed: true,
+      conflict: false,
       receiptKey,
+      fingerprint,
       state,
       unlockedPageIds: [],
     };
@@ -430,13 +520,11 @@ export function applyPuzzleRewardTransaction(
   }
 
   const unlockedAt = Date.parse(timestamp);
-  const echoTransition = applyEchoEffects(
-    state,
-    reward.echoEffect ?? {},
-    unlockedAt,
-  );
+  const echoTransition = reward.echoEffect
+    ? applyCanonicalEchoEffect(state.echo, reward.echoEffect)
+    : { success: true, echo: state.echo };
   const achievementProgress = increaseAchievementProgress(
-    echoTransition.state.achievements,
+    state.achievements,
     reward.achievementProgress ?? {},
     unlockedAt,
   );
@@ -470,7 +558,7 @@ export function applyPuzzleRewardTransaction(
     achievementProgress,
     {
       completedPuzzleCount: completedPuzzleIds.length,
-      echoTrust: echoTransition.state.echo.trust,
+      echoTrust: echoTransition.echo.trust,
     },
     unlockedAt,
   );
@@ -501,6 +589,10 @@ export function applyPuzzleRewardTransaction(
         ...state.puzzles.claimedRewardReceipts,
         receiptKey,
       ],
+      rewardFingerprintsByReceiptKey: {
+        ...(state.puzzles.rewardFingerprintsByReceiptKey ?? {}),
+        [receiptKey]: fingerprint,
+      },
     },
     manhwa: {
       ...state.manhwa,
@@ -510,7 +602,7 @@ export function applyPuzzleRewardTransaction(
     achievements: {
       byId: synchronizedAchievementProgress.byId,
     },
-    echo: echoTransition.state.echo,
+    echo: echoTransition.echo,
     story: {
       narrative: {
         ...state.story.narrative,
@@ -525,7 +617,9 @@ export function applyPuzzleRewardTransaction(
   return {
     success: true,
     alreadyClaimed: false,
+    conflict: false,
     receiptKey,
+    fingerprint,
     state: nextState,
     unlockedPageIds: newlyUnlockedPageIds,
   };

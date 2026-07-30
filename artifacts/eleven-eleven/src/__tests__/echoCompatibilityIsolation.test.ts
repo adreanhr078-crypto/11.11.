@@ -328,8 +328,13 @@ describe('isolated active Echo sources', () => {
 
     assert.equal(result.success, true);
     assert.equal(state.echo.transformationStage, stageBefore);
-    assert.equal(state.progressionState.echo.ragePoints, 100);
+    assert.equal(state.progressionState.echo.ragePoints, 0);
+    assert.equal(state.progressionState.echo.awareness, 3);
     assertClose(state.progressionState.echo.fear, 70.5);
+    assert.equal(
+      state.progressionState.evolution.currentStageId,
+      'awakening_fragile',
+    );
     assert.equal(
       Object.keys(
         state.progressionState.echoEvents.standaloneReceiptsByKey,
@@ -353,5 +358,24 @@ describe('isolated active Echo sources', () => {
       assert.doesNotMatch(source, /syncEchoPersonality/);
       assert.doesNotMatch(source, /transformationStage\s*=/);
     }
+  });
+
+  it('keeps Puzzle source adapters free of compatibility Echo writes', () => {
+    const puzzleSources = [
+      'src/application/game/chapter01RewardAdapter.ts',
+      'src/application/game/createPuzzleActions.ts',
+      'src/application/game/createPuzzleCampaignActions.ts',
+    ].map((file) => readFileSync(file, 'utf8'));
+
+    for (const source of puzzleSources) {
+      assert.doesNotMatch(source, /addEffect\([^)]*['"]hope['"]/);
+      assert.doesNotMatch(source, /addEffect\([^)]*['"]ragePoints['"]/);
+      assert.doesNotMatch(source, /transformationStage\s*=/);
+      assert.doesNotMatch(source, /applyStandaloneEchoEvent/);
+    }
+    assert.match(
+      puzzleSources[1] ?? '',
+      /applyCanonicalEchoSourceTransition/,
+    );
   });
 });

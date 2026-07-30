@@ -8,7 +8,9 @@ import type {
   TimelineEvent,
   WishStatus,
 } from '../../core/gameTypes';
-import type { EchoEffect } from '../../core/puzzleRewardTypes';
+import type {
+  CanonicalEchoMetric,
+} from '../../core/echoEventTypes';
 import { isAnswerCorrect } from '../../core/puzzles/puzzleLoader';
 import type { PuzzleId } from '../../domain/content/contracts';
 import {
@@ -27,11 +29,11 @@ import {
   updateTraits,
 } from '../../stores/gameStoreHelpers';
 import {
-  applyEchoEffects,
-} from '../../domain/progression/gameProgressionReducer';
-import {
   projectCanonicalEchoCompatibility,
 } from '../../domain/echo/echoCompatibilityProjection';
+import {
+  applyCanonicalEchoSourceTransition,
+} from './canonicalEchoSourceTransition';
 import type { GameStateGetter, GameStateSetter } from './statePorts';
 
 type PuzzleActions = Pick<
@@ -128,20 +130,9 @@ function applyPuzzleEffects(
   echo: GameState['echo'];
 } {
   const effects = puzzle.effects;
-  let rageDelta = effects.rageEffect ?? 0;
-  let forgivenessDelta = effects.forgivenessEffect ?? 0;
-  let corruptionDelta = 0;
-  if (puzzle.act === 5) {
-    rageDelta += 0.5;
-    corruptionDelta += 0.3;
-  }
-  if (puzzle.act === 6) {
-    rageDelta *= 1.5;
-    forgivenessDelta *= 1.5;
-  }
-  const echoEffect: EchoEffect = {};
+  const echoEffect: Partial<Record<CanonicalEchoMetric, number>> = {};
   const addEffect = (
-    key: keyof EchoEffect,
+    key: CanonicalEchoMetric,
     amount: number | undefined,
   ) => {
     if (amount === undefined) return;
@@ -151,14 +142,8 @@ function applyPuzzleEffects(
   addEffect('fear', effects.fear);
   addEffect('memoryStability', effects.memoryStability);
   addEffect('corruption', effects.corruption);
-  addEffect('hope', effects.hope);
-  addEffect('loneliness', effects.loneliness);
-  addEffect('awareness', effects.awareness);
-  addEffect('ragePoints', rageDelta);
-  addEffect('corruption', corruptionDelta);
-  addEffect('forgivenessPoints', forgivenessDelta);
 
-  const echoTransition = applyEchoEffects(
+  const echoTransition = applyCanonicalEchoSourceTransition(
     state.progressionState,
     echoEffect,
   );
@@ -213,6 +198,13 @@ export function createPuzzleActions(
       }
       const echoResult = applyPuzzleEffects(state, puzzle);
       const echo = echoResult.echo;
+      const progressionState = {
+        ...echoResult.progressionState,
+        puzzles: {
+          ...echoResult.progressionState.puzzles,
+          journey: transition.progression,
+        },
+      };
       let puzzles = state.puzzles.map((item) => (
         item.id === puzzleId
           ? { ...item, status: 'solved' as PuzzleStatus }
@@ -263,7 +255,7 @@ export function createPuzzleActions(
       }
 
       set({
-        progressionState: echoResult.progressionState,
+        progressionState,
         echo,
         puzzles,
         progression: transition.progression,

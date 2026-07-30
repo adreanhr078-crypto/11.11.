@@ -8,6 +8,9 @@ import {
   getManhwaUnlockReceiptPageId,
 } from '../../core/manhwaArchiveTypes';
 import {
+  MANHWA_PAGE_EFFECT_FINGERPRINT_PATTERN,
+} from '../../core/manhwaPageViewTypes';
+import {
   synchronizeAchievementProgress,
 } from '../achievements/achievementProgression';
 import {
@@ -16,6 +19,12 @@ import {
 import {
   normalizeEchoEvolutionProgressState,
 } from '../echo/echoEvolutionProgress';
+import {
+  normalizeNarrativeEventProgressState,
+} from '../narrative/narrativeEventTransaction';
+import {
+  normalizeNarrativeState,
+} from '../narrative/narrativeState';
 
 export function clampProgressMetric(value: number): number {
   if (!Number.isFinite(value)) return 0;
@@ -78,6 +87,9 @@ export function reconcileGameProgressionState(
       );
     }
   }
+  const claimedPageEffectIds = uniqueStrings(
+    state.manhwa.claimedPageEffectIds,
+  );
   const normalizedAchievementProgress = {
     byId: Object.fromEntries(
       Object.entries(state.achievements.byId).map(([id, entry]) => [
@@ -131,6 +143,14 @@ export function reconcileGameProgressionState(
       claimedRewardReceipts: uniqueStrings(
         state.puzzles.claimedRewardReceipts,
       ),
+      rewardFingerprintsByReceiptKey: Object.fromEntries(
+        Object.entries(
+          state.puzzles.rewardFingerprintsByReceiptKey ?? {},
+        ).filter(([receiptKey, fingerprint]) => (
+          state.puzzles.claimedRewardReceipts.includes(receiptKey)
+          && /^puzzle-v1-[0-9a-f]{8}$/.test(fingerprint)
+        )),
+      ),
     },
     manhwa: {
       ...state.manhwa,
@@ -139,8 +159,14 @@ export function reconcileGameProgressionState(
         (pageId) => unlockedPageIds.includes(pageId),
       ),
       claimedPageUnlockReceipts,
-      claimedPageEffectIds: uniqueStrings(
-        state.manhwa.claimedPageEffectIds,
+      claimedPageEffectIds,
+      pageEffectFingerprintsByReceiptKey: Object.fromEntries(
+        Object.entries(
+          state.manhwa.pageEffectFingerprintsByReceiptKey ?? {},
+        ).filter(([receiptKey, fingerprint]) => (
+          claimedPageEffectIds.includes(receiptKey)
+          && MANHWA_PAGE_EFFECT_FINGERPRINT_PATTERN.test(fingerprint)
+        )),
       ),
     },
     achievements,
@@ -164,9 +190,12 @@ export function reconcileGameProgressionState(
       ),
     },
     echoEvents: normalizeEchoEventProgressState(state.echoEvents),
+    narrativeEvents: normalizeNarrativeEventProgressState(
+      state.narrativeEvents,
+    ),
     evolution: normalizeEchoEvolutionProgressState(state.evolution),
     story: {
-      narrative: state.story.narrative,
+      narrative: normalizeNarrativeState(state.story.narrative),
     },
   };
 }

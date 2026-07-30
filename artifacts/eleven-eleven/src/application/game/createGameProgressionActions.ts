@@ -2,7 +2,13 @@ import type {
   GameActions,
   GameState,
 } from '../../core/gameTypes';
-import type { PuzzleRewardTransactionResult } from '../../core/puzzleRewardTypes';
+import type {
+  PuzzleReward,
+  PuzzleRewardTransactionResult,
+} from '../../core/puzzleRewardTypes';
+import type {
+  GameProgressionState,
+} from '../../core/gameProgressionTypes';
 import type {
   StandaloneEchoEventResult,
 } from '../../core/echoEventTypes';
@@ -49,8 +55,24 @@ type PublicGameProgressionActions = Pick<
   | 'applyPuzzleReward'
 >;
 
+export interface PuzzleRewardCommitResult {
+  progressionState: GameProgressionState;
+  patch?: Partial<GameState>;
+}
+
+export type PuzzleRewardCommitFinalizer = (
+  rewardedState: GameState,
+  progressionState: GameProgressionState,
+) => PuzzleRewardCommitResult;
+
 export interface GameProgressionActions
-  extends PublicGameProgressionActions {
+  extends Omit<PublicGameProgressionActions, 'applyPuzzleReward'> {
+  applyPuzzleReward: (
+    puzzleId: string,
+    reward: PuzzleReward,
+    timestamp?: string,
+    finalize?: PuzzleRewardCommitFinalizer,
+  ) => PuzzleRewardTransactionResult;
   /** Compatibility-only reset used by the established developer/test action. */
   resetMemoryShards: () => void;
 }
@@ -223,11 +245,18 @@ export function createGameProgressionActions(
       return result;
     },
 
-    applyPuzzleReward(puzzleId, reward, timestamp = now()) {
+    applyPuzzleReward(
+      puzzleId,
+      reward,
+      timestamp = now(),
+      finalize,
+    ) {
       let transaction: PuzzleRewardTransactionResult = {
         success: false,
         alreadyClaimed: false,
+        conflict: false,
         receiptKey: `${puzzleId.trim()}:${reward.rewardVersion}`,
+        fingerprint: '',
         state: get().progressionState,
         unlockedPageIds: [],
       };
@@ -238,12 +267,31 @@ export function createGameProgressionActions(
           reward,
           timestamp,
         );
-        return transaction.success
-          ? projectGameProgressionCompatibility(
-              state,
-              transaction.state,
-            )
-          : {};
+        if (!transaction.success) return {};
+        const rewardProjection = projectGameProgressionCompatibility(
+          state,
+          transaction.state,
+        );
+        const rewardedState = {
+          ...state,
+          ...rewardProjection,
+        };
+        const completion = finalize?.(
+          rewardedState,
+          transaction.state,
+        );
+        if (!completion) return rewardProjection;
+        transaction = {
+          ...transaction,
+          state: completion.progressionState,
+        };
+        return {
+          ...projectGameProgressionCompatibility(
+            state,
+            completion.progressionState,
+          ),
+          ...completion.patch,
+        };
       });
       return transaction;
     },

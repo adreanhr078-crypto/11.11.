@@ -8,6 +8,9 @@ import {
   createGameProgressionActions,
 } from '../application/game/createGameProgressionActions';
 import {
+  createChapter01RewardPlan,
+} from '../application/game/chapter01RewardAdapter';
+import {
   CHAPTER_01_MANHWA_PAGE_BY_ID,
   CHAPTER_01_PUZZLES,
 } from '../content/puzzles/chapter01Campaign';
@@ -16,6 +19,9 @@ import type {
   CampaignPuzzleDefinition,
   CampaignPuzzleProgress,
 } from '../domain/puzzles/campaignContracts';
+import {
+  CANONICAL_ECHO_METRIC_KEYS,
+} from '../core/echoEventTypes';
 import { getCampaignPageStatus } from '../domain/puzzles/campaignEngine';
 import {
   mergeGameState,
@@ -57,8 +63,10 @@ function createHarness(initial?: Partial<GameState>) {
     ...buildInitialState(),
     ...initial,
   };
+  let setCallCount = 0;
   const get: GameStateGetter = () => state;
   const set: GameStateSetter = (partial) => {
+    setCallCount += 1;
     const update = typeof partial === 'function'
       ? partial(state)
       : partial;
@@ -88,6 +96,7 @@ function createHarness(initial?: Partial<GameState>) {
     progressionActions,
     resourceActions,
     getState: get,
+    getSetCallCount: () => setCallCount,
     patch(partial: Partial<GameState>) {
       set(partial);
     },
@@ -113,6 +122,17 @@ function completeRange(
 }
 
 describe('campaign completion actions', () => {
+  it('adapts every Chapter 01 Puzzle to canonical Echo metrics only', () => {
+    const canonicalKeys = new Set<string>(CANONICAL_ECHO_METRIC_KEYS);
+
+    for (const puzzle of CHAPTER_01_PUZZLES) {
+      const effect = createChapter01RewardPlan(puzzle).reward.echoEffect;
+      assert.ok(
+        Object.keys(effect ?? {}).every((key) => canonicalKeys.has(key)),
+      );
+    }
+  });
+
   it('applies Puzzle 001 reward, shard, Echo, and narrative exactly once', () => {
     const harness = createHarness();
     const puzzle = definition(1);
@@ -139,7 +159,14 @@ describe('campaign completion actions', () => {
     );
     assert.equal(completed.echo.fear, 71);
     assert.equal(completed.echo.personality.fear, 71);
-    assert.equal(completed.echo.awareness, 4);
+    assert.equal(completed.echo.awareness, 3);
+    assert.equal(completed.progressionState.echo.hope, 20);
+    assert.equal(completed.progressionState.echo.ragePoints, 0);
+    assert.equal(
+      completed.progressionState.evolution.currentStageId,
+      'awakening_fragile',
+    );
+    assert.equal(harness.getSetCallCount(), 1);
     assert.ok(
       completed.narrative.beliefs.includes(
         'My awakening began with a failing heartbeat.',
@@ -213,6 +240,31 @@ describe('campaign completion actions', () => {
       reloadedHarness.getState().progressionState.puzzles
         .claimedRewardReceipts,
       [`${puzzle.id}:1`],
+    );
+  });
+
+  it('rejects an invalid submission before any Zustand write', () => {
+    const harness = createHarness();
+    const puzzle = definition(1);
+    const invalidSubmission = correctSubmission(puzzle);
+    invalidSubmission[0] = {
+      stageIndex: 0,
+      values: ['invalid'],
+      matches: {},
+    };
+
+    const result = harness.actions.completeCampaignPuzzle(
+      puzzle.id,
+      invalidSubmission,
+    );
+
+    assert.equal(result.success, false);
+    assert.equal(harness.getSetCallCount(), 0);
+    assert.equal(harness.getState().currency, 0);
+    assert.deepEqual(
+      harness.getState().progressionState.puzzles
+        .claimedRewardReceipts,
+      [],
     );
   });
 
@@ -458,6 +510,36 @@ describe('campaign completion actions', () => {
 });
 
 describe('campaign persistence actions', () => {
+  it('does not replay a completed Puzzle from a legacy save', () => {
+    const puzzle = definition(1);
+    const legacyReload = mergeGameState({
+      progression: {
+        contentVersion: 'legacy',
+        currentChapterId: 'chapter_1',
+        completedPuzzleIds: [puzzle.id],
+        skippedPuzzleIds: [],
+        unlockedChapterIds: ['chapter_1'],
+        completedChapterIds: [],
+      },
+    }, buildInitialState());
+    const harness = createHarness(legacyReload);
+
+    const result = harness.actions.completeCampaignPuzzle(
+      puzzle.id,
+      correctSubmission(puzzle),
+    );
+
+    assert.equal(result.success, false);
+    assert.equal(result.alreadyCompleted, true);
+    assert.equal(harness.getSetCallCount(), 0);
+    assert.equal(harness.getState().currency, 0);
+    assert.deepEqual(
+      harness.getState().progressionState.puzzles
+        .rewardFingerprintsByReceiptKey,
+      {},
+    );
+  });
+
   it('migrates missing campaign fields to safe defaults without erasing unrelated save data', () => {
     const player = {
       curiosity: 77,

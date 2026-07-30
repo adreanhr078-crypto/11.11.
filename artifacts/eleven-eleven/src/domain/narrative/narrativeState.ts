@@ -34,7 +34,10 @@ export interface NarrativeState {
   /** Player-discovered Echo Mind material; never contains undiscovered lore. */
   beliefs: string[];
   questions: string[];
+  /** Knowledge granted to the player by published runtime sources. */
   knowledgeNodeIds: string[];
+  /** Knowledge granted to Echo; never inferred from player knowledge. */
+  echoKnowledgeNodeIds: string[];
   activeFlags: Record<string, boolean>;
   decisionHistory: DecisionRecord[];
   latestDecisions: Record<string, string>;
@@ -50,6 +53,7 @@ export function createInitialNarrativeState(): NarrativeState {
     beliefs: [],
     questions: [],
     knowledgeNodeIds: [],
+    echoKnowledgeNodeIds: [],
     activeFlags: {},
     decisionHistory: [],
     latestDecisions: {},
@@ -77,6 +81,9 @@ export function normalizeNarrativeState(
     beliefs: [...new Set(state.beliefs ?? [])],
     questions: [...new Set(state.questions ?? [])],
     knowledgeNodeIds: [...new Set(state.knowledgeNodeIds ?? [])],
+    echoKnowledgeNodeIds: [
+      ...new Set(state.echoKnowledgeNodeIds ?? []),
+    ],
     activeFlags: { ...(state.activeFlags ?? {}) },
     decisionHistory: [...(state.decisionHistory ?? [])],
     latestDecisions: { ...(state.latestDecisions ?? {}) },

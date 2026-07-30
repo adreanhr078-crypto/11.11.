@@ -22,6 +22,17 @@ export interface MemoryUnlockResult {
   unlockedFragmentIds: MemoryFragmentId[];
 }
 
+export type EligibleMemorySource =
+  | {
+      kind: 'memory';
+      definition: MemoryDefinition;
+    }
+  | {
+      kind: 'fragment';
+      definition: MemoryDefinition;
+      fragment: MemoryFragmentDefinition;
+    };
+
 function unique<T>(values: readonly T[]): T[] {
   return [...new Set(values)];
 }
@@ -49,6 +60,43 @@ export function getUnlockedMemoryFragments(
   ));
 }
 
+/**
+ * Finds one authored Memory source without applying its effects. Application
+ * code can validate and commit that source through the canonical transaction,
+ * then evaluate again against the resulting local state.
+ */
+export function findNextEligibleMemorySource(
+  definitions: readonly MemoryDefinition[],
+  params: {
+    echo: EchoPersonality;
+    progression: ProgressionState;
+    narrative: NarrativeState;
+  },
+): EligibleMemorySource | null {
+  const context = makeRuleContext(params);
+  for (const definition of definitions) {
+    if (
+      !params.narrative.unlockedMemoryIds.includes(definition.id)
+      && conditionsPass([definition.unlockCondition], context)
+    ) {
+      return { kind: 'memory', definition };
+    }
+    for (const fragment of definition.fragments) {
+      if (
+        !params.narrative.unlockedMemoryFragmentIds.includes(fragment.id)
+        && conditionsPass([fragment.unlockCondition], context)
+      ) {
+        return { kind: 'fragment', definition, fragment };
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * @deprecated Compatibility-only pure engine for legacy callers and fixtures.
+ * Active Store writes use the source-owned canonical narrative transaction.
+ */
 export function unlockEligibleMemories(
   definitions: readonly MemoryDefinition[],
   params: {
@@ -124,4 +172,3 @@ export function unlockEligibleMemories(
     unlockedFragmentIds: newlyUnlockedFragmentIds,
   };
 }
-

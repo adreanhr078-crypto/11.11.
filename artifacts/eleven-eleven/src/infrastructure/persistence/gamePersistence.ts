@@ -55,6 +55,9 @@ import {
   getManhwaUnlockReceiptPageId,
 } from '../../core/manhwaArchiveTypes';
 import {
+  MANHWA_PAGE_EFFECT_FINGERPRINT_PATTERN,
+} from '../../core/manhwaPageViewTypes';
+import {
   normalizeEchoEventProgressState,
 } from '../../domain/echo/echoEventReducer';
 import {
@@ -63,8 +66,11 @@ import {
 import {
   migrateEchoEvolutionProgress,
 } from './echoEvolutionMigration';
+import {
+  normalizeNarrativeEventProgressState,
+} from '../../domain/narrative/narrativeEventTransaction';
 
-export const GAME_SAVE_VERSION = 15;
+export const GAME_SAVE_VERSION = 18;
 
 // Keep the established key so Zustand can migrate existing local saves.
 export const GAME_STORAGE_NAME = '11-11-game-store-v5';
@@ -292,6 +298,10 @@ export function migrateGameState(
   const canonicalAchievements = readObject(canonical, 'achievements');
   const canonicalEcho = readObject(canonical, 'echo');
   const canonicalEchoEvents = readObject(canonical, 'echoEvents');
+  const canonicalNarrativeEvents = readObject(
+    canonical,
+    'narrativeEvents',
+  );
   const canonicalEvolution = readObject(canonical, 'evolution');
   const canonicalStory = readObject(canonical, 'story');
   const legacyProgression = migrateLegacyProgression(
@@ -315,6 +325,14 @@ export function migrateGameState(
         .map((puzzleId) => `${puzzleId}:1`);
   const claimedPuzzleRewards = normalizeStringArray(
     claimedRewardReceipts.map(receiptToPuzzleId),
+  );
+  const rewardFingerprintsByReceiptKey = Object.fromEntries(
+    Object.entries(normalizeStringRecord(
+      canonicalPuzzles.rewardFingerprintsByReceiptKey,
+    )).filter(([receiptKey, fingerprint]) => (
+      claimedRewardReceipts.includes(receiptKey)
+      && /^puzzle-v1-[0-9a-f]{8}$/.test(fingerprint)
+    )),
   );
   const completedPuzzleIds = new Set<string>(
     baseProgression.completedPuzzleIds,
@@ -561,7 +579,15 @@ export function migrateGameState(
     'claimedPageEffectIds',
   )
     ? normalizeStringArray(canonicalManhwa.claimedPageEffectIds)
-    : [...unlockedManhwaPageIds];
+    : [];
+  const pageEffectFingerprintsByReceiptKey = Object.fromEntries(
+    Object.entries(normalizeStringRecord(
+      canonicalManhwa.pageEffectFingerprintsByReceiptKey,
+    )).filter(([receiptKey, fingerprint]) => (
+      claimedPageEffectIds.includes(receiptKey)
+      && MANHWA_PAGE_EFFECT_FINGERPRINT_PATTERN.test(fingerprint)
+    )),
+  );
   const claimedPageUnlockReceipts = normalizeStringArray(
     hasOwn(canonicalManhwa, 'claimedPageUnlockReceipts')
       ? canonicalManhwa.claimedPageUnlockReceipts
@@ -587,6 +613,38 @@ export function migrateGameState(
       ? narrativeSource as Partial<GameState['narrative']>
       : undefined,
   );
+  const narrativeEvents = normalizeNarrativeEventProgressState(
+    canonicalNarrativeEvents,
+  );
+  const legacyNarrativeReceiptKeys = [
+    ...narrative.unlockedMemoryIds.map((memoryId) => (
+      `memory:${memoryId}:1`
+    )),
+    ...narrative.unlockedMemoryFragmentIds.map((fragmentId) => (
+      `memory-fragment:${fragmentId}:1`
+    )),
+    ...Object.entries(narrative.latestDecisions).flatMap(
+      ([decisionId, choiceId]) => {
+        const separator = decisionId.indexOf(':');
+        if (
+          separator < 1
+          || !decisionId.startsWith('dialogue_')
+          || !choiceId.trim()
+        ) {
+          return [];
+        }
+        const dialogueId = decisionId.slice(0, separator);
+        const nodeId = decisionId.slice(separator + 1);
+        return nodeId
+          ? [`dialogue:${dialogueId}:${nodeId}:${choiceId}:1`]
+          : [];
+      },
+    ),
+  ];
+  narrativeEvents.claimedSourceReceiptKeys = normalizeStringArray([
+    ...narrativeEvents.claimedSourceReceiptKeys,
+    ...legacyNarrativeReceiptKeys,
+  ]);
   const progressionState = reconcileGameProgressionState({
     schemaVersion: GAME_PROGRESSION_SCHEMA_VERSION,
     resources: {
@@ -602,6 +660,7 @@ export function migrateGameState(
       journey: progression,
       campaignProgressByPuzzleId: puzzleProgress,
       claimedRewardReceipts,
+      rewardFingerprintsByReceiptKey,
       unlockedHintTiersByPuzzle,
     },
     manhwa: {
@@ -611,12 +670,14 @@ export function migrateGameState(
       pageViewedAt: manhwaPageViewedAt,
       claimedPageUnlockReceipts,
       claimedPageEffectIds,
+      pageEffectFingerprintsByReceiptKey,
     },
     achievements: {
       byId: achievementProgressById,
     },
     echo: echoProgress,
     echoEvents: normalizeEchoEventProgressState(canonicalEchoEvents),
+    narrativeEvents,
     evolution: migrateEchoEvolutionProgress(canonicalEvolution),
     story: {
       narrative,
@@ -835,6 +896,8 @@ export function partializeGameState(state: GameState): PersistedState {
       journey: state.progression,
       campaignProgressByPuzzleId: state.puzzleProgress,
       claimedRewardReceipts,
+      rewardFingerprintsByReceiptKey:
+        previous.puzzles.rewardFingerprintsByReceiptKey,
       unlockedHintTiersByPuzzle: state.unlockedHintTiersByPuzzle,
     },
     manhwa: {
@@ -851,6 +914,8 @@ export function partializeGameState(state: GameState): PersistedState {
       claimedPageUnlockReceipts:
         previous.manhwa.claimedPageUnlockReceipts,
       claimedPageEffectIds: previous.manhwa.claimedPageEffectIds,
+      pageEffectFingerprintsByReceiptKey:
+        previous.manhwa.pageEffectFingerprintsByReceiptKey,
     },
     achievements: {
       byId: achievementProgressById,

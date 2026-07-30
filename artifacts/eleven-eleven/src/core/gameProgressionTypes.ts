@@ -6,6 +6,7 @@ import type { ProgressionState } from '../domain/progression/progression';
 import type { NarrativeState } from '../domain/narrative/narrativeState';
 import type { EchoEventProgressState } from './echoEventTypes';
 import type { EchoEvolutionProgressState } from './echoEvolutionTypes';
+import type { NarrativeEventProgressState } from './narrativeEventTypes';
 
 export interface MemoryShardProgressState {
   /** Spendable shard balance. Spending never removes discovery records. */
@@ -26,6 +27,8 @@ export interface PuzzleProgressState {
   journey: ProgressionState;
   campaignProgressByPuzzleId: Record<string, CampaignPuzzleProgress[]>;
   claimedRewardReceipts: string[];
+  /** Payload metadata for the existing receipt key; not a second receipt. */
+  rewardFingerprintsByReceiptKey: Record<string, string>;
   unlockedHintTiersByPuzzle: Record<string, HintTierId[]>;
 }
 
@@ -35,7 +38,13 @@ export interface ManhwaProgressState {
   pageUnlockedAt: Record<string, string>;
   pageViewedAt: Record<string, string>;
   claimedPageUnlockReceipts: string[];
+  /**
+   * Source-owned Page Effect receipts. Legacy saves may contain a plain
+   * pageId for v1; new receipts use `pageId:effect:effectVersion`.
+   */
   claimedPageEffectIds: string[];
+  /** Payload metadata for versioned Page Effect receipts, not a receipt. */
+  pageEffectFingerprintsByReceiptKey: Record<string, string>;
 }
 
 export interface AchievementProgressEntry {
@@ -87,6 +96,7 @@ export interface GameProgressionState {
   achievements: AchievementProgressState;
   echo: EchoProgressState;
   echoEvents: EchoEventProgressState;
+  narrativeEvents: NarrativeEventProgressState;
   evolution: EchoEvolutionProgressState;
   story: StoryProgressState;
 }
