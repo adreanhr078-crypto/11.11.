@@ -186,6 +186,15 @@ export function resolveWardWallDepth(baseY: number, front: boolean): number {
   return baseY + (front ? FRONT_WALL_DEPTH_OFFSET : BACK_WALL_DEPTH_OFFSET);
 }
 
+export function resolveWardWallRenderDepth(
+  authoredDepth: number,
+  playerDepth: number,
+  playerNearWall: boolean,
+): number {
+  if (!playerNearWall) return authoredDepth;
+  return Math.min(authoredDepth, playerDepth - 1);
+}
+
 export const WARD_PLAYER_DIRECTION_ROWS = [
   'north',
   'north-east',

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import {
   AWAKENING_WARD_INTERACTIONS,
+  AWAKENING_WARD_INTERACTION_BY_ID,
   AWAKENING_WARD_OBJECTS,
   AWAKENING_WARD_WALKABLE_ZONES,
 } from '../data/awakeningWardMap';
@@ -18,6 +19,7 @@ import {
   resolveWardPlayerFrame,
   resolveWardPlayerVisual,
   resolveWardWallDepth,
+  resolveWardWallRenderDepth,
 } from '../data/awakeningWardArt';
 import {
   hasWardItem,
@@ -329,6 +331,31 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
     front: boolean,
   ): void {
     const wallHeight = front ? 50 : 64;
+    const wallStart = projectWardPoint(start);
+    const wallEnd = projectWardPoint(end);
+    const backing = this.add.graphics().setDepth(1);
+    backing.fillStyle(front ? 0x0c0c13 : 0x11111a, 0.98);
+    backing.fillPoints([
+      new Phaser.Geom.Point(wallStart.x, wallStart.y + 4),
+      new Phaser.Geom.Point(wallEnd.x, wallEnd.y + 4),
+      new Phaser.Geom.Point(wallEnd.x, wallEnd.y - wallHeight),
+      new Phaser.Geom.Point(wallStart.x, wallStart.y - wallHeight),
+    ], true);
+    backing.lineStyle(4, 0x020304, 0.98);
+    backing.lineBetween(
+      wallStart.x,
+      wallStart.y + 5,
+      wallEnd.x,
+      wallEnd.y + 5,
+    );
+    backing.lineStyle(1, 0x5a676d, 0.56);
+    backing.lineBetween(
+      wallStart.x,
+      wallStart.y - wallHeight,
+      wallEnd.x,
+      wallEnd.y - wallHeight,
+    );
+
     const logicalLength = Math.hypot(end.x - start.x, end.y - start.y);
     const modules = Math.max(1, Math.ceil(logicalLength / 3));
     const flip = Math.abs(end.y - start.y) > Math.abs(end.x - start.x);
@@ -355,20 +382,6 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
       const b = projectWardPoint(segmentEnd);
       const projected = projectWardPoint(midpoint);
       const container = this.add.container(0, 0);
-      const backing = this.add.graphics();
-      backing.fillStyle(front ? 0x0c0c13 : 0x11111a, 0.96);
-      backing.fillPoints([
-        new Phaser.Geom.Point(a.x, a.y + 4),
-        new Phaser.Geom.Point(b.x, b.y + 4),
-        new Phaser.Geom.Point(b.x, b.y - wallHeight),
-        new Phaser.Geom.Point(a.x, a.y - wallHeight),
-      ], true);
-      backing.lineStyle(4, 0x020304, 0.95);
-      backing.lineBetween(a.x, a.y + 5, b.x, b.y + 5);
-      backing.lineStyle(1, 0x5a676d, 0.48);
-      backing.lineBetween(a.x, a.y - wallHeight, b.x, b.y - wallHeight);
-      container.add(backing);
-
       const frame = (index + (front ? 3 : flip ? 1 : 0)) % 4;
       const visual = WARD_WALL_VISUALS[frame]!;
       const module = this.add.image(
@@ -380,8 +393,9 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
         .setScale(flip ? -0.208 : 0.208, 0.208);
       container.add(module);
 
-      container.setDepth(resolveWardWallDepth(projected.y + 4, front));
-      container.setData('front', front);
+      const authoredDepth = resolveWardWallDepth(projected.y + 4, front);
+      container.setDepth(authoredDepth);
+      container.setData('authoredDepth', authoredDepth);
       container.setData('screenMinX', Math.min(a.x, b.x) - 54);
       container.setData('screenMaxX', Math.max(a.x, b.x) + 54);
       container.setData('screenStartX', a.x);
@@ -555,13 +569,13 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
 
     this.buildPickup(
       'awakening_medical_patch',
-      { x: 4.8, y: 8.2 },
+      AWAKENING_WARD_INTERACTION_BY_ID.awakening_medical_patch.position,
       WARD_ITEM_FRAMES.medicalPatch,
       0.073,
     );
     this.buildPickup(
       'awakening_battery',
-      { x: 6.4, y: 5.3 },
+      AWAKENING_WARD_INTERACTION_BY_ID.awakening_battery.position,
       WARD_ITEM_FRAMES.battery,
       0.075,
     );
@@ -630,21 +644,39 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
   ): void {
     const projected = projectWardPoint(position);
     const visual = WARD_ITEM_VISUALS[frame]!;
+    const accent = id === 'awakening_medical_patch' ? CYAN : RED;
+    const station = this.add.graphics();
+    station.fillStyle(0x080d11, 0.98);
+    station.fillPoints([
+      new Phaser.Geom.Point(-25, 1),
+      new Phaser.Geom.Point(-12, -8),
+      new Phaser.Geom.Point(25, -8),
+      new Phaser.Geom.Point(12, 1),
+    ], true);
+    station.lineStyle(2, 0x020304, 1);
+    station.strokePoints([
+      new Phaser.Geom.Point(-25, 1),
+      new Phaser.Geom.Point(-12, -8),
+      new Phaser.Geom.Point(25, -8),
+      new Phaser.Geom.Point(12, 1),
+    ], true);
+    station.lineStyle(1, accent, 0.76);
+    station.lineBetween(-11, -6, 21, -6);
     const shadow = this.add.ellipse(
       0,
-      3,
+      -3,
       visual.shadowWidth,
       visual.shadowHeight,
       0x000000,
       0.66,
     );
-    const item = this.add.image(0, 0, WARD_ART_KEYS.items, frame)
+    const item = this.add.image(0, -5, WARD_ART_KEYS.items, frame)
       .setScale(scale)
       .setOrigin(visual.originX, visual.originY);
     const container = this.add.container(
       projected.x,
       projected.y,
-      [shadow, item],
+      [station, shadow, item],
     ).setDepth(projected.y + 8);
     this.pickupSprites.set(id, container);
   }
@@ -1017,7 +1049,7 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
       this.bridge.callbacks.onNearbyInteraction(nearest?.id ?? null);
     }
     this.updateInteractionMarkers(time);
-    this.updateOcclusion(projected.x, projected.y);
+    this.updateWallLayering(projected.x, projected.y);
     this.updateRuntimeTelemetry(time, delta, moved);
   }
 
@@ -1042,7 +1074,7 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
     }
   }
 
-  private updateOcclusion(playerX: number, playerY: number): void {
+  private updateWallLayering(playerX: number, playerY: number): void {
     for (const wall of this.frontWalls) {
       const minX = wall.getData('screenMinX') as number;
       const maxX = wall.getData('screenMaxX') as number;
@@ -1054,11 +1086,16 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
         ? 0.5
         : Phaser.Math.Clamp((playerX - startX) / (endX - startX), 0, 1);
       const baseY = Phaser.Math.Linear(startY, endY, progress);
-      const playerBehindWall = playerX >= minX
+      const playerNearWall = playerX >= minX
         && playerX <= maxX
-        && playerY >= baseY - 94
-        && playerY < baseY + 12;
-      wall.setAlpha(playerBehindWall ? 0.44 : 1);
+        && playerY >= baseY - 108
+        && playerY < baseY + 24;
+      const authoredDepth = wall.getData('authoredDepth') as number;
+      wall.setDepth(resolveWardWallRenderDepth(
+        authoredDepth,
+        playerY + 8,
+        playerNearWall,
+      ));
     }
   }
 

@@ -28,6 +28,7 @@ import {
   resolveWardPlayerFrame,
   resolveWardPlayerVisual,
   resolveWardWallDepth,
+  resolveWardWallRenderDepth,
 } from '../features/awakening-ward/data/awakeningWardArt';
 import {
   AWAKENING_WARD_PUZZLE_REGISTRY,
@@ -329,12 +330,13 @@ describe('Awakening Ward production art pass', () => {
     assert.equal(WARD_WALL_VISUALS[3]?.originY, 0.713);
   });
 
-  it('sorts front walls at their local baseline instead of a global overlay', () => {
+  it('keeps front walls visible while placing a nearby player above them', () => {
     const wallDepth = resolveWardWallDepth(220, true);
     assert.equal(wallDepth, 222);
-    assert.ok(wallDepth > 210 + 8, 'wall should cover a player behind it');
-    assert.ok(wallDepth < 230 + 8, 'player should cover a wall in front of it');
     assert.equal(resolveWardWallDepth(220, false), 134);
+    assert.equal(resolveWardWallRenderDepth(wallDepth, 218, false), wallDepth);
+    assert.equal(resolveWardWallRenderDepth(wallDepth, 218, true), 217);
+    assert.equal(resolveWardWallRenderDepth(wallDepth, 238, true), wallDepth);
 
     const source = readFileSync(
       new URL(
@@ -345,6 +347,7 @@ describe('Awakening Ward production art pass', () => {
     );
     assert.equal(source.includes('front ? 430'), false);
     assert.equal(source.includes('baseY + Math.sin'), false);
+    assert.equal(source.includes('wall.setAlpha'), false);
   });
 
   it('loads the authored atlases instead of the old floor and wall placeholders', () => {

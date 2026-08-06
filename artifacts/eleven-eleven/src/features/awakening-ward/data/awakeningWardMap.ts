@@ -84,7 +84,7 @@ export const AWAKENING_WARD_OBJECTS: readonly WardSceneObject[] = [
   {
     id: 'monitor-chair',
     kind: 'chair',
-    bounds: { x: 14.8, y: 5.3, width: 1.5, height: 1.5 },
+    bounds: { x: 13.2, y: 6.2, width: 1.5, height: 1.5 },
     height: 1.4,
     collidable: true,
   },
@@ -231,7 +231,7 @@ export const AWAKENING_WARD_INTERACTIONS: readonly WardInteractionDefinition[] =
   {
     id: 'awakening_medical_patch',
     type: 'collect',
-    position: { x: 4.8, y: 8.2 },
+    position: { x: 5.35, y: 13.4 },
     interactionRadius: 1.9,
     prompt: 'خذ الرقعة الطبية',
     completedPrompt: 'تم جمع الرقعة الطبية',
@@ -244,7 +244,7 @@ export const AWAKENING_WARD_INTERACTIONS: readonly WardInteractionDefinition[] =
   {
     id: 'awakening_battery',
     type: 'collect',
-    position: { x: 6.4, y: 5.3 },
+    position: { x: 6.2, y: 4.55 },
     interactionRadius: 1.9,
     prompt: 'خذ البطارية التجريبية',
     completedPrompt: 'تم جمع البطارية',
