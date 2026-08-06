@@ -47,6 +47,7 @@ export const WARD_ITEM_FRAMES = {
 interface WardPropVisual {
   frame: number;
   scale: number;
+  originX: number;
   originY: number;
   shadowWidth: number;
   shadowHeight: number;
@@ -59,83 +60,131 @@ export const WARD_PROP_VISUALS: Partial<Record<WardObjectKind, WardPropVisual>> 
   capsule: {
     frame: 0,
     scale: 0.66,
-    originY: 0.87,
+    originX: 0.544,
+    originY: 0.88,
     shadowWidth: 235,
     shadowHeight: 62,
-    offsetY: 4,
     emissive: 'red',
   },
   'power-panel': {
     frame: 1,
     scale: 0.46,
-    originY: 0.89,
+    originX: 0.538,
+    originY: 0.904,
     shadowWidth: 108,
     shadowHeight: 34,
-    offsetY: 3,
     emissive: 'red',
   },
   'monitor-bank': {
     frame: 2,
     scale: 0.66,
-    originY: 0.88,
+    originX: 0.441,
+    originY: 0.926,
     shadowWidth: 225,
     shadowHeight: 47,
-    offsetY: 4,
     emissive: 'cyan',
   },
   storage: {
     frame: 3,
     scale: 0.5,
-    originY: 0.9,
+    originX: 0.499,
+    originY: 0.876,
     shadowWidth: 122,
     shadowHeight: 34,
-    offsetY: 4,
     emissive: 'red',
   },
   'exit-door': {
     frame: 4,
     scale: 0.55,
-    originY: 0.91,
+    originX: 0.463,
+    originY: 0.897,
     shadowWidth: 136,
     shadowHeight: 30,
-    offsetY: 5,
     emissive: 'red',
   },
   'medical-console': {
     frame: 5,
     scale: 0.43,
-    originY: 0.9,
+    originX: 0.361,
+    originY: 0.885,
     shadowWidth: 92,
     shadowHeight: 31,
-    offsetY: 4,
     emissive: 'cyan',
   },
   'side-table': {
     frame: 6,
     scale: 0.42,
-    originY: 0.9,
+    originX: 0.502,
+    originY: 0.758,
     shadowWidth: 112,
     shadowHeight: 34,
-    offsetY: 4,
   },
   crate: {
     frame: 7,
     scale: 0.39,
-    originY: 0.88,
+    originX: 0.413,
+    originY: 0.78,
     shadowWidth: 105,
     shadowHeight: 34,
-    offsetY: 4,
     emissive: 'red',
   },
   chair: {
     frame: 8,
     scale: 0.38,
-    originY: 0.91,
+    originX: 0.34,
+    originY: 0.811,
     shadowWidth: 72,
     shadowHeight: 25,
-    offsetY: 3,
   },
 };
+
+export interface WardGroundedVisual {
+  originX: number;
+  originY: number;
+  shadowWidth: number;
+  shadowHeight: number;
+}
+
+export const WARD_ITEM_VISUALS: Readonly<Record<number, WardGroundedVisual>> = {
+  [WARD_ITEM_FRAMES.keycard]: {
+    originX: 0.52,
+    originY: 0.857,
+    shadowWidth: 38,
+    shadowHeight: 12,
+  },
+  [WARD_ITEM_FRAMES.medicalPatch]: {
+    originX: 0.455,
+    originY: 0.92,
+    shadowWidth: 42,
+    shadowHeight: 14,
+  },
+  [WARD_ITEM_FRAMES.battery]: {
+    originX: 0.507,
+    originY: 0.703,
+    shadowWidth: 34,
+    shadowHeight: 12,
+  },
+  [WARD_ITEM_FRAMES.clueNote]: {
+    originX: 0.436,
+    originY: 0.78,
+    shadowWidth: 38,
+    shadowHeight: 13,
+  },
+};
+
+export const WARD_WALL_VISUALS: Readonly<Record<number, WardGroundedVisual>> = {
+  0: { originX: 0.518, originY: 0.933, shadowWidth: 0, shadowHeight: 0 },
+  1: { originX: 0.463, originY: 0.933, shadowWidth: 0, shadowHeight: 0 },
+  2: { originX: 0.518, originY: 0.7, shadowWidth: 0, shadowHeight: 0 },
+  3: { originX: 0.463, originY: 0.713, shadowWidth: 0, shadowHeight: 0 },
+};
+
+const FRONT_WALL_DEPTH_OFFSET = 2;
+const BACK_WALL_DEPTH_OFFSET = -86;
+
+export function resolveWardWallDepth(baseY: number, front: boolean): number {
+  return baseY + (front ? FRONT_WALL_DEPTH_OFFSET : BACK_WALL_DEPTH_OFFSET);
+}
 
 export const WARD_PLAYER_DIRECTION_ROWS = [
   'north',

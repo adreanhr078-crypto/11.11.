@@ -10,11 +10,14 @@ import {
   WARD_ART_PATHS,
   WARD_FLOOR_FRAMES,
   WARD_ITEM_FRAMES,
+  WARD_ITEM_VISUALS,
   WARD_PLAYER_DIRECTION_ROWS,
   WARD_PROP_VISUALS,
+  WARD_WALL_VISUALS,
   resolveWardPlayerFacingRow,
   resolveWardPlayerFrame,
   resolveWardPlayerVisual,
+  resolveWardWallDepth,
 } from '../data/awakeningWardArt';
 import {
   hasWardItem,
@@ -325,51 +328,68 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
     end: WardPoint,
     front: boolean,
   ): void {
-    const a = projectWardPoint(start);
-    const b = projectWardPoint(end);
     const wallHeight = front ? 50 : 64;
-    const container = this.add.container(0, 0);
-    const backing = this.add.graphics();
-    backing.fillStyle(front ? 0x0c0c13 : 0x11111a, 0.96);
-    backing.fillPoints([
-      new Phaser.Geom.Point(a.x, a.y + 4),
-      new Phaser.Geom.Point(b.x, b.y + 4),
-      new Phaser.Geom.Point(b.x, b.y - wallHeight),
-      new Phaser.Geom.Point(a.x, a.y - wallHeight),
-    ], true);
-    backing.lineStyle(4, 0x020304, 0.95);
-    backing.lineBetween(a.x, a.y + 5, b.x, b.y + 5);
-    backing.lineStyle(1, 0x5a676d, 0.48);
-    backing.lineBetween(a.x, a.y - wallHeight, b.x, b.y - wallHeight);
-    container.add(backing);
-
     const logicalLength = Math.hypot(end.x - start.x, end.y - start.y);
     const modules = Math.max(1, Math.ceil(logicalLength / 3));
     const flip = Math.abs(end.y - start.y) > Math.abs(end.x - start.x);
+
+    // Independent modules prevent a distant end of a long wall from sorting
+    // over the player when only the nearby section should occlude them.
     for (let index = 0; index < modules; index += 1) {
-      const progress = (index + 0.5) / modules;
-      const point = {
-        x: Phaser.Math.Linear(start.x, end.x, progress),
-        y: Phaser.Math.Linear(start.y, end.y, progress),
+      const startProgress = index / modules;
+      const endProgress = (index + 1) / modules;
+      const midpointProgress = (index + 0.5) / modules;
+      const segmentStart = {
+        x: Phaser.Math.Linear(start.x, end.x, startProgress),
+        y: Phaser.Math.Linear(start.y, end.y, startProgress),
       };
-      const projected = projectWardPoint(point);
+      const segmentEnd = {
+        x: Phaser.Math.Linear(start.x, end.x, endProgress),
+        y: Phaser.Math.Linear(start.y, end.y, endProgress),
+      };
+      const midpoint = {
+        x: Phaser.Math.Linear(start.x, end.x, midpointProgress),
+        y: Phaser.Math.Linear(start.y, end.y, midpointProgress),
+      };
+      const a = projectWardPoint(segmentStart);
+      const b = projectWardPoint(segmentEnd);
+      const projected = projectWardPoint(midpoint);
+      const container = this.add.container(0, 0);
+      const backing = this.add.graphics();
+      backing.fillStyle(front ? 0x0c0c13 : 0x11111a, 0.96);
+      backing.fillPoints([
+        new Phaser.Geom.Point(a.x, a.y + 4),
+        new Phaser.Geom.Point(b.x, b.y + 4),
+        new Phaser.Geom.Point(b.x, b.y - wallHeight),
+        new Phaser.Geom.Point(a.x, a.y - wallHeight),
+      ], true);
+      backing.lineStyle(4, 0x020304, 0.95);
+      backing.lineBetween(a.x, a.y + 5, b.x, b.y + 5);
+      backing.lineStyle(1, 0x5a676d, 0.48);
+      backing.lineBetween(a.x, a.y - wallHeight, b.x, b.y - wallHeight);
+      container.add(backing);
+
       const frame = (index + (front ? 3 : flip ? 1 : 0)) % 4;
+      const visual = WARD_WALL_VISUALS[frame]!;
       const module = this.add.image(
         projected.x,
-        projected.y + 7,
+        projected.y + 4,
         WARD_ART_KEYS.walls,
         frame,
-      ).setOrigin(0.5, 0.89)
+      ).setOrigin(visual.originX, visual.originY)
         .setScale(flip ? -0.208 : 0.208, 0.208);
       container.add(module);
-    }
 
-    container.setDepth(Math.max(a.y, b.y) + (front ? 430 : -86));
-    container.setData('front', front);
-    container.setData('screenMinX', Math.min(a.x, b.x) - 95);
-    container.setData('screenMaxX', Math.max(a.x, b.x) + 95);
-    container.setData('screenBaseY', Math.max(a.y, b.y));
-    if (front) this.frontWalls.push(container);
+      container.setDepth(resolveWardWallDepth(projected.y + 4, front));
+      container.setData('front', front);
+      container.setData('screenMinX', Math.min(a.x, b.x) - 54);
+      container.setData('screenMaxX', Math.max(a.x, b.x) + 54);
+      container.setData('screenStartX', a.x);
+      container.setData('screenStartY', a.y + 4);
+      container.setData('screenEndX', b.x);
+      container.setData('screenEndY', b.y + 4);
+      if (front) this.frontWalls.push(container);
+    }
   }
 
   private buildWalls(): void {
@@ -428,7 +448,7 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
       visual.offsetY ?? 0,
       WARD_ART_KEYS.props,
       visual.frame,
-    ).setOrigin(0.5, visual.originY)
+    ).setOrigin(visual.originX, visual.originY)
       .setScale(visual.scale);
     container.add([shadow, sprite]);
     this.objectSprites.set(object.id, sprite);
@@ -609,16 +629,23 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
     scale: number,
   ): void {
     const projected = projectWardPoint(position);
-    const shadow = this.add.ellipse(0, 6, 39, 15, 0x000000, 0.66);
+    const visual = WARD_ITEM_VISUALS[frame]!;
+    const shadow = this.add.ellipse(
+      0,
+      3,
+      visual.shadowWidth,
+      visual.shadowHeight,
+      0x000000,
+      0.66,
+    );
     const item = this.add.image(0, 0, WARD_ART_KEYS.items, frame)
       .setScale(scale)
-      .setOrigin(0.5, 0.74);
+      .setOrigin(visual.originX, visual.originY);
     const container = this.add.container(
       projected.x,
       projected.y,
       [shadow, item],
     ).setDepth(projected.y + 8);
-    container.setData('baseY', projected.y);
     this.pickupSprites.set(id, container);
   }
 
@@ -979,12 +1006,6 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
     this.redWash.setAlpha(
       this.powerOn ? 0.022 : 0.085 + Math.sin(time * 0.0023) * 0.013,
     );
-    this.pickupSprites.forEach((pickup, id) => {
-      if (!pickup.visible) return;
-      const baseY = pickup.getData('baseY') as number;
-      const phase = id === 'awakening_battery' ? 1.7 : 0;
-      pickup.setY(baseY + Math.sin(time * 0.003 + phase) * 2.2);
-    });
     const monitor = this.objectSprites.get('monitoring-main-bank');
     if (monitor && this.powerOn) {
       monitor.setAlpha(0.96 + Math.sin(time * 0.018) * 0.025);
@@ -1025,11 +1046,19 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
     for (const wall of this.frontWalls) {
       const minX = wall.getData('screenMinX') as number;
       const maxX = wall.getData('screenMaxX') as number;
-      const baseY = wall.getData('screenBaseY') as number;
+      const startX = wall.getData('screenStartX') as number;
+      const startY = wall.getData('screenStartY') as number;
+      const endX = wall.getData('screenEndX') as number;
+      const endY = wall.getData('screenEndY') as number;
+      const progress = Math.abs(endX - startX) < 0.001
+        ? 0.5
+        : Phaser.Math.Clamp((playerX - startX) / (endX - startX), 0, 1);
+      const baseY = Phaser.Math.Linear(startY, endY, progress);
       const playerBehindWall = playerX >= minX
         && playerX <= maxX
-        && playerY < baseY + 36;
-      wall.setAlpha(playerBehindWall ? 0.56 : 1);
+        && playerY >= baseY - 94
+        && playerY < baseY + 12;
+      wall.setAlpha(playerBehindWall ? 0.44 : 1);
     }
   }
 
