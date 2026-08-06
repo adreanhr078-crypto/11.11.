@@ -142,6 +142,14 @@ export async function signInWithGoogle(): Promise<void> {
   await signInWithPopup(auth, provider);
 }
 
+export async function resetPassword(email: string): Promise<void> {
+  requireAuthConfigured();
+  const auth = await prepareFirebaseAuth();
+  if (!auth) throw new Error('Firebase Auth is unavailable.');
+  const { sendPasswordResetEmail } = await import('firebase/auth');
+  await sendPasswordResetEmail(auth, email);
+}
+
 export async function continueAsGuest(): Promise<void> {
   requireAuthConfigured();
   const auth = await prepareFirebaseAuth();

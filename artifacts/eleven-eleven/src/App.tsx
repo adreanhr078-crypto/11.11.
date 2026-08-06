@@ -6,11 +6,13 @@ import './features/auth/auth.css';
 import { ApplicationShell } from './app/shell/ApplicationShell';
 import { GameRuntimeBridge } from './app/shell/GameRuntimeBridge';
 import { AuthBootstrap } from './features/auth/AuthBootstrap';
+import { CloudSaveBootstrap } from './features/cloud-save/CloudSaveBootstrap';
 
 export default function App() {
   return (
     <>
       <AuthBootstrap />
+      <CloudSaveBootstrap />
       <ApplicationShell />
       <GameRuntimeBridge />
     </>

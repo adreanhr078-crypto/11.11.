@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "vite --config vite.config.ts --host 0.0.0.0",
+    "dev:api": "wrangler pages dev dist --port 8788",
     "build": "vite build --config vite.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc --noEmit -p tsconfig.json --pretty false",
@@ -56,6 +57,12 @@
     "tailwindcss": "^4.3.1",
     "tsx": "^4.22.4",
     "typescript": "~5.9.2",
-    "vite": "^8.0.16"
+    "vite": "^8.0.16",
+    "wrangler": "4.119.0"
+  },
+  "overrides": {
+    "brace-expansion": "5.0.9",
+    "postcss": "8.5.26",
+    "undici": "7.29.0"
   }
 }

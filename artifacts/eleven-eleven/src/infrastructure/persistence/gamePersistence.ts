@@ -75,10 +75,12 @@ export const GAME_SAVE_VERSION = 18;
 // Keep the established key so Zustand can migrate existing local saves.
 export const GAME_STORAGE_NAME = '11-11-game-store-v5';
 
-type PersistedState = Partial<GameState> & {
+export type PersistedGameState = Partial<GameState> & {
   progression?: GameState['progression'];
   progressionState?: GameProgressionState;
 };
+
+type PersistedState = PersistedGameState;
 
 const CAMPAIGN_SHARD_ID_PATTERN = /^page\d{2}_shard_\d{2}$/;
 const CHAPTER_01_PAGE_ID_PATTERN = /^manhwa_ch01_page_\d{2}$/;

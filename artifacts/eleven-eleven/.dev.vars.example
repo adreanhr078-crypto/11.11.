@@ -1,6 +1,12 @@
 # Copy this file to .dev.vars for local Cloudflare Pages development.
 # Never commit .dev.vars or real provider keys.
 
+# Firebase player API. The web API key identifies the Firebase project;
+# keep all service-account credentials out of this worker.
+FIREBASE_PROJECT_ID=eleveneleven-16435
+FIREBASE_WEB_API_KEY=
+PLAYER_ALLOWED_ORIGINS=http://localhost:5173,capacitor://localhost
+
 ECHO_PROVIDER_ORDER=cloudflare,gemini,openrouter,groq,huggingface
 ECHO_MAX_PROVIDER_ATTEMPTS=10
 ECHO_PROVIDER_TIMEOUT_MS=12000

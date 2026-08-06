@@ -51,6 +51,7 @@ Thumbs.db
 
 # Vite cache
 .cache/
+.wrangler/
 
 # Vercel - ignore pnpm lockfile to prevent Vercel from using pnpm
 pnpm-lock.yaml
