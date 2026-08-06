@@ -34,22 +34,29 @@ The save normalizer removes impossible downstream flags and removes a keycard
 that is not backed by an opened drawer. Completion cannot survive without the
 full sequence and the keycard.
 
-## Art Pass V2 Asset Manifest
+## Production Art Asset Manifest
 
-Five original alpha WebP atlases live under
+Seven active original WebP assets live under
 `public/assets/awakening-ward/art-pass-v2/`. Their combined size is about
-793 KB. They are loaded only with Awakening Ward.
+1.47 MB. They are loaded only with Awakening Ward.
 
-- `floor-atlas.webp` — four detailed isometric floor variants: access plate,
-  vent, warning plate, and corridor guide light.
-- `wall-atlas.webp` — four modular wall variants: armor, utilities, medical
-  diagnostics, and emergency corridor.
+- `void-cosmos.webp` — a subdued purple cosmic backdrop that replaces empty
+  black space while preserving a dark, readable center behind the ward.
+
+- `floor-atlas.webp` — four crisp stylized isometric floor variants: access
+  plate, vent, warning plate, and corridor guide light.
+- `wall-atlas.webp` — four low modular bulkheads: armor, utilities, medical
+  diagnostics, and emergency corridor. Foreground walls remain visible at a
+  reduced opacity instead of disappearing when the player passes behind them.
 - `props-atlas.webp` — nine aligned props: capsule, power cabinet, monitoring
   station, mirror/storage, A-07 door, medical console, side table, cable crate,
   and chair.
-- `player-atlas.webp` — 32 frames across eight directions, with idle and walk
-  contact poses reused at a faster cadence for running. The subject is still a
-  deliberately anonymous temporary avatar and is not Echo.
+- `player-north-east-atlas.webp` and `player-south-west-atlas.webp` — two
+  high-resolution stylized 4x4 atlases with full-body idle and walk poses. Their
+  square 314x314 cells prevent limb cropping, symmetrical direction mapping
+  keeps all eight movement directions readable, and the temporary subject's
+  jacket carries a clear `11`. The subject remains an anonymous avatar and is
+  not Echo. The earlier `player-atlas.webp` is retained but no longer loaded.
 - `items-atlas.webp` — keycard, medical patch, battery, and clue note used in
   both the world and inventory presentation.
 
@@ -68,8 +75,11 @@ background.
   the unchanged map data.
 - Local light pools, contact shadows, emissive flicker, emergency wash, and
   corridor guidance remain quality-scalable.
-- The player has eight-direction frame animation, idle breathing, walk/run
-  timing, directional facing, and camera look-ahead.
+- The player has eight-direction full-body frame animation, planted foot
+  alignment, synchronized step lift and shadow compression, idle breathing,
+  walk/run timing, collision sized to the visible silhouette, directional
+  facing, and camera look-ahead. Higher-quality WebP encoding and always-on
+  antialiasing keep the authored detail legible on landscape phone displays.
 - Drawer, keycard, power state, screen state, and A-07 opening remain bound to
   the existing saved progression flags.
 

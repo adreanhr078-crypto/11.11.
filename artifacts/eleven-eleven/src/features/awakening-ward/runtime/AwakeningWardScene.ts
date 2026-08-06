@@ -12,6 +12,9 @@ import {
   WARD_ITEM_FRAMES,
   WARD_PLAYER_DIRECTION_ROWS,
   WARD_PROP_VISUALS,
+  resolveWardPlayerFacingRow,
+  resolveWardPlayerFrame,
+  resolveWardPlayerVisual,
 } from '../data/awakeningWardArt';
 import {
   hasWardItem,
@@ -41,7 +44,7 @@ const WORLD_WIDTH = 1960;
 const WORLD_HEIGHT = 1080;
 const WALK_SPEED = 3.5;
 const RUN_SPEED = 5.7;
-const PLAYER_SPRITE_SCALE = 0.58;
+const PLAYER_SPRITE_SCALE = 0.44;
 const CYAN = 0x64d8e7;
 const RED = 0xf03749;
 
@@ -138,10 +141,22 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
       frameWidth: WARD_ART_FRAMES.item,
       frameHeight: WARD_ART_FRAMES.item,
     });
-    this.load.spritesheet(WARD_ART_KEYS.player, WARD_ART_PATHS.player, {
-      frameWidth: WARD_ART_FRAMES.playerWidth,
-      frameHeight: WARD_ART_FRAMES.playerHeight,
-    });
+    this.load.spritesheet(
+      WARD_ART_KEYS.playerNorthEast,
+      WARD_ART_PATHS.playerNorthEast,
+      {
+        frameWidth: WARD_ART_FRAMES.playerWidth,
+        frameHeight: WARD_ART_FRAMES.playerHeight,
+      },
+    );
+    this.load.spritesheet(
+      WARD_ART_KEYS.playerSouthWest,
+      WARD_ART_PATHS.playerSouthWest,
+      {
+        frameWidth: WARD_ART_FRAMES.playerWidth,
+        frameHeight: WARD_ART_FRAMES.playerHeight,
+      },
+    );
     this.load.spritesheet(WARD_ART_KEYS.props, WARD_ART_PATHS.props, {
       frameWidth: WARD_ART_FRAMES.prop,
       frameHeight: WARD_ART_FRAMES.prop,
@@ -153,7 +168,6 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
   }
 
   create(): void {
-    this.cameras.main.setBackgroundColor('#050708');
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.createSoftLightTexture();
     this.buildFloor();
@@ -313,10 +327,10 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
   ): void {
     const a = projectWardPoint(start);
     const b = projectWardPoint(end);
-    const wallHeight = 86;
+    const wallHeight = front ? 50 : 64;
     const container = this.add.container(0, 0);
     const backing = this.add.graphics();
-    backing.fillStyle(front ? 0x070b0e : 0x0b1115, 1);
+    backing.fillStyle(front ? 0x0c0c13 : 0x11111a, 0.96);
     backing.fillPoints([
       new Phaser.Geom.Point(a.x, a.y + 4),
       new Phaser.Geom.Point(b.x, b.y + 4),
@@ -346,7 +360,7 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
         WARD_ART_KEYS.walls,
         frame,
       ).setOrigin(0.5, 0.89)
-        .setScale(flip ? -0.232 : 0.232, 0.232);
+        .setScale(flip ? -0.208 : 0.208, 0.208);
       container.add(module);
     }
 
@@ -702,6 +716,7 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
   private buildPlayer(): void {
     this.createPlayerAnimations();
     const projected = projectWardPoint(this.playerPosition);
+    const initialVisual = resolveWardPlayerVisual(this.lastFacingRow);
     const rim = this.add.image(0, 1, 'ward-soft-light')
       .setDisplaySize(58, 25)
       .setTint(RED)
@@ -711,10 +726,11 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
     this.playerSprite = this.add.sprite(
       0,
       5,
-      WARD_ART_KEYS.player,
-      this.lastFacingRow * 4,
-    ).setOrigin(0.5, 0.88)
+      initialVisual.textureKey,
+      resolveWardPlayerFrame(this.lastFacingRow, 0),
+    ).setOrigin(0.5, 0.94)
       .setScale(PLAYER_SPRITE_SCALE);
+    this.playerSprite.setFlipX(initialVisual.flipX);
     this.player = this.add.container(
       projected.x,
       projected.y,
@@ -725,9 +741,10 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
 
   private createPlayerAnimations(): void {
     WARD_PLAYER_DIRECTION_ROWS.forEach((direction, row) => {
+      const visual = resolveWardPlayerVisual(row);
       const frames = [1, 2, 3, 2].map((column) => ({
-        key: WARD_ART_KEYS.player,
-        frame: row * 4 + column,
+        key: visual.textureKey,
+        frame: resolveWardPlayerFrame(row, column),
       }));
       const walkKey = `ward-player-walk-${direction}`;
       const runKey = `ward-player-run-${direction}`;
@@ -735,7 +752,7 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
         this.anims.create({
           key: walkKey,
           frames,
-          frameRate: 8,
+          frameRate: 10,
           repeat: -1,
         });
       }
@@ -743,7 +760,7 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
         this.anims.create({
           key: runKey,
           frames,
-          frameRate: 12,
+          frameRate: 14,
           repeat: -1,
         });
       }
@@ -858,12 +875,6 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
     };
   }
 
-  private resolveFacingRow(x: number, y: number): number {
-    const angle = Math.atan2(y, x);
-    const clockwiseFromNorth = Math.round((angle + Math.PI / 2) / (Math.PI / 4));
-    return ((clockwiseFromNorth % 8) + 8) % 8;
-  }
-
   private updatePlayerVisual(
     time: number,
     input: { x: number; y: number },
@@ -871,26 +882,48 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
     running: boolean,
   ): void {
     if (moved) {
-      this.lastFacingRow = this.resolveFacingRow(input.x, input.y);
+      this.lastFacingRow = resolveWardPlayerFacingRow(input.x, input.y);
+      const visual = resolveWardPlayerVisual(this.lastFacingRow);
       const direction = WARD_PLAYER_DIRECTION_ROWS[this.lastFacingRow]!;
       const animation = `ward-player-${running ? 'run' : 'walk'}-${direction}`;
+      this.playerSprite.setFlipX(visual.flipX);
       if (this.currentPlayerAnimation !== animation) {
         this.currentPlayerAnimation = animation;
         this.playerSprite.play(animation, true);
       }
-      this.playerSprite.setRotation(
-        Phaser.Math.Clamp(input.x * 0.025, -0.025, 0.025),
+      this.playerSprite.setRotation(0);
+      const stepPhase = time * (running ? 0.02 : 0.014);
+      const footLift = Math.abs(Math.sin(stepPhase));
+      const stretch = footLift * (running ? 0.024 : 0.014);
+      this.playerSprite.setY(
+        (running ? 3 : 5) - footLift * (running ? 2.6 : 1.7),
       );
-      this.playerSprite.setY(running ? 3 : 5);
-      this.playerShadow.setScale(running ? 1.12 : 1, running ? 0.87 : 0.94);
+      this.playerSprite.setScale(
+        PLAYER_SPRITE_SCALE * (1 + stretch),
+        PLAYER_SPRITE_SCALE * (1 - stretch),
+      );
+      this.playerShadow.setScale(
+        (running ? 1.12 : 1) - footLift * 0.055,
+        (running ? 0.87 : 0.94) - footLift * 0.035,
+      );
     } else {
       if (this.currentPlayerAnimation) {
         this.playerSprite.stop();
         this.currentPlayerAnimation = '';
       }
-      this.playerSprite.setFrame(this.lastFacingRow * 4);
+      const visual = resolveWardPlayerVisual(this.lastFacingRow);
+      this.playerSprite.setTexture(
+        visual.textureKey,
+        resolveWardPlayerFrame(this.lastFacingRow, 0),
+      );
+      this.playerSprite.setFlipX(visual.flipX);
       this.playerSprite.setRotation(0);
-      this.playerSprite.setY(5 + Math.sin(time * 0.0032) * 0.7);
+      const breathing = Math.sin(time * 0.0032);
+      this.playerSprite.setY(5 + breathing * 0.55);
+      this.playerSprite.setScale(
+        PLAYER_SPRITE_SCALE * (1 - breathing * 0.003),
+        PLAYER_SPRITE_SCALE * (1 + breathing * 0.005),
+      );
       this.playerShadow.setScale(1 + Math.sin(time * 0.0032) * 0.018, 1);
     }
   }
@@ -916,6 +949,7 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
       y: (input.y - input.x) / Math.SQRT2,
     };
     const previous = this.playerPosition;
+    const previousProjected = projectWardPoint(previous);
     this.playerPosition = moveWardPlayer(
       previous,
       { x: worldDirection.x * speed, y: worldDirection.y * speed },
@@ -934,7 +968,10 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
     const moved = previous.x !== this.playerPosition.x
       || previous.y !== this.playerPosition.y;
     if (moved) this.lastMovementAt = time;
-    this.updatePlayerVisual(time, input, moved, running);
+    this.updatePlayerVisual(time, {
+      x: projected.x - previousProjected.x,
+      y: projected.y - previousProjected.y,
+    }, moved, running);
     this.cameras.main.setFollowOffset(-input.x * 46, -input.y * 24);
     this.powerPath.setAlpha(
       (this.powerOn ? 0.82 : 0.58) + Math.sin(time * 0.004) * 0.08,
@@ -992,7 +1029,7 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
       const playerBehindWall = playerX >= minX
         && playerX <= maxX
         && playerY < baseY + 36;
-      wall.setAlpha(playerBehindWall ? 0.13 : 0.96);
+      wall.setAlpha(playerBehindWall ? 0.56 : 1);
     }
   }
 

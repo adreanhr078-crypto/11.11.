@@ -17,8 +17,12 @@ import {
 } from '../features/awakening-ward/data/awakeningWardMap';
 import {
   WARD_ART_FRAMES,
+  WARD_ART_KEYS,
   WARD_ART_PATHS,
   WARD_PLAYER_DIRECTION_ROWS,
+  resolveWardPlayerFacingRow,
+  resolveWardPlayerFrame,
+  resolveWardPlayerVisual,
 } from '../features/awakening-ward/data/awakeningWardArt';
 import {
   AWAKENING_WARD_PUZZLE_REGISTRY,
@@ -35,6 +39,7 @@ import {
   isWardPositionWalkable,
   moveWardPlayer,
   resolveWardCameraZoom,
+  WARD_PLAYER_RADIUS,
 } from '../features/awakening-ward/domain/wardNavigation';
 import {
   CIRCUIT_TILES,
@@ -160,6 +165,22 @@ describe('Awakening Ward navigation and mobile runtime', () => {
     assert.notDeepEqual(outsideAttempt, { x: -72.8, y: -65.2 });
   });
 
+  it('keeps the full player silhouette clear of visible wall edges', () => {
+    const wallPenetration = {
+      x: 6,
+      y: 1.5 + WARD_PLAYER_RADIUS - 0.02,
+    };
+    const safeWallDistance = {
+      x: 6,
+      y: 1.5 + WARD_PLAYER_RADIUS + 0.05,
+    };
+    assert.equal(isWardPositionWalkable(wallPenetration), false);
+    assert.equal(isWardPositionWalkable(safeWallDistance), true);
+
+    const start = { x: 6, y: 2.8 };
+    assert.deepEqual(moveWardPlayer(start, { x: 0, y: -5 }, 1), start);
+  });
+
   it('forwards independent touch movement, run, and interaction commands', () => {
     const events: string[] = [];
     let movement = { x: 0, y: 0 };
@@ -245,7 +266,7 @@ describe('Puzzle registry and preserved prototypes', () => {
 });
 
 describe('Awakening Ward production art pass', () => {
-  it('ships compressed transparent atlases for every visual layer', () => {
+  it('ships compressed production assets for every visual layer', () => {
     for (const assetPath of Object.values(WARD_ART_PATHS)) {
       const file = new URL(`../../public${assetPath}`, import.meta.url);
       assert.ok(statSync(file).size > 50_000, `${assetPath} is unexpectedly small`);
@@ -256,9 +277,37 @@ describe('Awakening Ward production art pass', () => {
   it('keeps eight directional animation rows with integral frame geometry', () => {
     assert.equal(WARD_PLAYER_DIRECTION_ROWS.length, 8);
     assert.equal(WARD_ART_FRAMES.playerWidth, 314);
-    assert.equal(WARD_ART_FRAMES.playerHeight, 157);
+    assert.equal(WARD_ART_FRAMES.playerHeight, 314);
     assert.equal(WARD_ART_FRAMES.playerWidth * 4, 1256);
-    assert.equal(WARD_ART_FRAMES.playerHeight * 8, 1256);
+    assert.equal(WARD_ART_FRAMES.playerHeight * 4, 1256);
+  });
+
+  it('maps screen movement to the correct authored facing direction', () => {
+    const inputs = [
+      { vector: [0, -1], expected: 0 },
+      { vector: [1, -1], expected: 1 },
+      { vector: [1, 0], expected: 2 },
+      { vector: [1, 1], expected: 3 },
+      { vector: [0, 1], expected: 4 },
+      { vector: [-1, 1], expected: 5 },
+      { vector: [-1, 0], expected: 6 },
+      { vector: [-1, -1], expected: 7 },
+    ] as const;
+
+    for (const { vector, expected } of inputs) {
+      assert.equal(resolveWardPlayerFacingRow(vector[0], vector[1]), expected);
+    }
+  });
+
+  it('uses full-height atlases and mirrors symmetrical movement poses', () => {
+    assert.equal(
+      resolveWardPlayerVisual(2).textureKey,
+      WARD_ART_KEYS.playerNorthEast,
+    );
+    assert.equal(resolveWardPlayerVisual(2).flipX, false);
+    assert.equal(resolveWardPlayerVisual(6).flipX, true);
+    assert.equal(resolveWardPlayerFrame(4, 3), 3);
+    assert.equal(resolveWardPlayerFrame(7, 0), 4);
   });
 
   it('loads the authored atlases instead of the old floor and wall placeholders', () => {

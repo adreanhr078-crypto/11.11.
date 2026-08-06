@@ -23,8 +23,8 @@ export function createAwakeningWardGame(
     width: parent.clientWidth || 1280,
     height: parent.clientHeight || 720,
     backgroundColor: '#050708',
-    transparent: false,
-    antialias: quality === 'medium',
+    transparent: true,
+    antialias: true,
     pixelArt: false,
     scene: [scene],
     input: {
@@ -34,8 +34,8 @@ export function createAwakeningWardGame(
     },
     render: {
       powerPreference: 'high-performance',
-      antialiasGL: quality === 'medium',
-      roundPixels: quality === 'low',
+      antialiasGL: true,
+      roundPixels: false,
     },
     scale: {
       mode: Phaser.Scale.RESIZE,

@@ -51,8 +51,8 @@ type InventoryView = 'inventory' | 'clues' | null;
 function detectQuality(preference: 'high' | 'balanced' | 'mobile'):
   'low' | 'medium' {
   const device = navigator as Navigator & { deviceMemory?: number };
-  const weakDevice = (device.deviceMemory ?? 4) <= 4
-    || (navigator.hardwareConcurrency ?? 4) <= 4;
+  const weakDevice = (device.deviceMemory ?? 4) < 4
+    || (navigator.hardwareConcurrency ?? 4) < 4;
   return preference === 'mobile' || weakDevice ? 'low' : 'medium';
 }
 

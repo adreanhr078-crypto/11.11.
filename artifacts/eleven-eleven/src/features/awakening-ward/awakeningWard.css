@@ -13,7 +13,10 @@
   height: 100dvh;
   min-width: 320px;
   color: var(--ward-white);
-  background: #020304;
+  background:
+    #07030d
+    url("/assets/awakening-ward/art-pass-v2/void-cosmos.webp")
+    center / cover no-repeat;
   font-family: Rajdhani, "Segoe UI", Arial, sans-serif;
   letter-spacing: 0;
   touch-action: none;
@@ -27,8 +30,8 @@
   z-index: 3;
   border: 1px solid rgba(184, 39, 54, 0.18);
   box-shadow:
-    inset 0 0 110px rgba(0, 0, 0, 0.82),
-    inset 0 -48px 90px rgba(0, 0, 0, 0.52);
+    inset 0 0 100px rgba(4, 1, 9, 0.48),
+    inset 0 -48px 90px rgba(2, 1, 7, 0.38);
   content: "";
   pointer-events: none;
 }
@@ -69,7 +72,7 @@
   inset: 0;
   z-index: 4;
   pointer-events: none;
-  opacity: 0.09;
+  opacity: 0.055;
   background-image: repeating-linear-gradient(
     180deg,
     transparent 0,
@@ -85,7 +88,7 @@
 }
 
 .awakening-ward[data-quality="low"]::before {
-  box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.78);
+  box-shadow: inset 0 0 70px rgba(3, 1, 8, 0.56);
 }
 
 .awakening-ward[data-quality="low"] .ward-hud section,

@@ -10,7 +10,7 @@ import type {
   WardRect,
 } from './awakeningWardTypes';
 
-export const WARD_PLAYER_RADIUS = 0.42;
+export const WARD_PLAYER_RADIUS = 0.68;
 
 export function resolveWardCameraZoom(width: number, height: number): number {
   const requested = Math.min(width / 1360, height / 760);
