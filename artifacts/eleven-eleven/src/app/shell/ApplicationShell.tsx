@@ -38,6 +38,7 @@ import {
 import { PlayerResourceCounters } from './PlayerResourceCounters';
 import { EchoIntrusionOverlay } from '../../features/echo/EchoIntrusionOverlay';
 import { DemoExperienceLayer } from '../demo/DemoExperienceLayer';
+import { AuthStatusButton } from '../../features/auth/AuthStatusButton';
 
 export function ApplicationShell() {
   const shell = useShellStore();
@@ -115,6 +116,7 @@ export function ApplicationShell() {
 
             <div className="application-shell__utility">
               <PlayerResourceCounters />
+              <AuthStatusButton variant="ghost" />
               <GameTooltip label="الإعدادات">
                 <GameButton
                   variant="secondary"

@@ -1,0 +1,110 @@
+.auth-panel {
+  display: grid;
+  gap: 1rem;
+  min-width: min(28rem, calc(100vw - 3rem));
+}
+
+.auth-panel__notice p {
+  margin: 0 0 0.75rem;
+  color: var(--gds-text-secondary);
+}
+
+.auth-panel__notice code {
+  display: block;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--gds-line-default);
+  border-radius: 6px;
+  color: var(--gds-red-400);
+  white-space: normal;
+  word-break: break-word;
+}
+
+.auth-panel__modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  border: 1px solid var(--gds-line-default);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.auth-panel__modes button {
+  min-height: 2.5rem;
+  border: 0;
+  border-radius: 6px;
+  color: var(--gds-text-secondary);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.auth-panel__modes button[data-active="true"] {
+  color: var(--gds-text-primary);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.auth-panel__form,
+.auth-panel__providers,
+.auth-panel__profile {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.auth-panel__form label {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.auth-panel__form label span,
+.auth-panel__profile small,
+.auth-panel__profile span {
+  color: var(--gds-text-secondary);
+  font-size: 0.78rem;
+}
+
+.auth-panel__form input {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid var(--gds-line-default);
+  border-radius: 6px;
+  padding: 0 0.8rem;
+  color: var(--gds-text-primary);
+  background: rgba(2, 8, 12, 0.72);
+  font: inherit;
+}
+
+.auth-panel__form input:focus {
+  outline: 2px solid rgba(148, 212, 255, 0.42);
+  outline-offset: 2px;
+}
+
+.auth-panel__avatar {
+  display: grid;
+  place-items: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  border: 1px solid var(--gds-line-default);
+  border-radius: 50%;
+  color: var(--gds-cyan-400);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.auth-panel__profile > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.auth-panel__profile strong {
+  color: var(--gds-text-primary);
+  font-size: 1rem;
+}
+
+.auth-panel__error {
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(255, 96, 96, 0.35);
+  border-radius: 6px;
+  color: var(--gds-red-400);
+  background: rgba(255, 64, 64, 0.08);
+}

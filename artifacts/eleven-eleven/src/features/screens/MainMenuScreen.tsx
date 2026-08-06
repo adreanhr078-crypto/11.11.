@@ -16,6 +16,7 @@ import {
   EchoPresence,
   ENVIRONMENT_PRESENTATION_ASSETS,
 } from '../../ui/presentation';
+import { AuthStatusButton } from '../auth/AuthStatusButton';
 
 export default function MainMenuScreen() {
   const state = useGameStore();
@@ -64,6 +65,7 @@ export default function MainMenuScreen() {
           <strong>المشهد السينمائي</strong>
         </span>
         <PlayerResourceCounters className="shell-main-menu__resources" />
+        <AuthStatusButton variant="ghost" />
       </header>
 
       <section className="shell-main-menu__identity">
