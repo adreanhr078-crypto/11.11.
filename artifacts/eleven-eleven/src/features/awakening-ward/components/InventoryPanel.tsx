@@ -1,9 +1,6 @@
 import { useState } from 'react';
 import {
-  Battery,
   BookOpenText,
-  Cross,
-  KeyRound,
   PackageOpen,
   X,
 } from 'lucide-react';
@@ -18,9 +15,7 @@ import type {
 } from '../domain/awakeningWardTypes';
 
 function ItemIcon({ id }: { id: WardItemId }) {
-  if (id === 'keycard_a07') return <KeyRound />;
-  if (id === 'medical_patch') return <Cross />;
-  return <Battery />;
+  return <span className="ward-item-art" data-item={id} aria-hidden="true" />;
 }
 
 interface InventoryPanelProps {

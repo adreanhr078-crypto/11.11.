@@ -5,6 +5,15 @@ import {
   AWAKENING_WARD_WALKABLE_ZONES,
 } from '../data/awakeningWardMap';
 import {
+  WARD_ART_FRAMES,
+  WARD_ART_KEYS,
+  WARD_ART_PATHS,
+  WARD_FLOOR_FRAMES,
+  WARD_ITEM_FRAMES,
+  WARD_PLAYER_DIRECTION_ROWS,
+  WARD_PROP_VISUALS,
+} from '../data/awakeningWardArt';
+import {
   hasWardItem,
 } from '../domain/awakeningWardState';
 import type {
@@ -32,6 +41,9 @@ const WORLD_WIDTH = 1960;
 const WORLD_HEIGHT = 1080;
 const WALK_SPEED = 3.5;
 const RUN_SPEED = 5.7;
+const PLAYER_SPRITE_SCALE = 0.58;
+const CYAN = 0x64d8e7;
+const RED = 0xf03749;
 
 export function projectWardPoint(point: WardPoint): WardPoint {
   return {
@@ -62,32 +74,11 @@ function isoDiamond(
   return points.map((point) => new Phaser.Geom.Point(point.x, point.y));
 }
 
-function objectPalette(kind: WardSceneObject['kind']): {
-  top: number;
-  left: number;
-  right: number;
-  accent: number;
-} {
-  if (kind === 'capsule') {
-    return { top: 0x4b5962, left: 0x232c34, right: 0x141b22, accent: 0xe22d3f };
-  }
-  if (kind === 'monitor-bank' || kind === 'reader') {
-    return { top: 0x303b43, left: 0x182128, right: 0x10161b, accent: 0x51d7e5 };
-  }
-  if (kind === 'power-panel') {
-    return { top: 0x3e4548, left: 0x1d2428, right: 0x12171a, accent: 0xef3446 };
-  }
-  if (kind === 'exit-door') {
-    return { top: 0x343c43, left: 0x161d22, right: 0x0d1216, accent: 0x78d9ee };
-  }
-  return { top: 0x343b40, left: 0x1b2328, right: 0x11171b, accent: 0xaab8bf };
-}
-
 export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
   private readonly bridge: WardSceneBridge;
   private state: AwakeningWardSaveState;
   private player!: Phaser.GameObjects.Container;
-  private playerBody!: Phaser.GameObjects.Graphics;
+  private playerSprite!: Phaser.GameObjects.Sprite;
   private playerShadow!: Phaser.GameObjects.Ellipse;
   private redWash!: Phaser.GameObjects.Rectangle;
   private powerPath!: Phaser.GameObjects.Graphics;
@@ -103,8 +94,16 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
     Phaser.GameObjects.Container
   >();
   private objectContainers = new Map<string, Phaser.GameObjects.Container>();
+  private objectSprites = new Map<string, Phaser.GameObjects.Image>();
   private screenLights: Phaser.GameObjects.GameObject[] = [];
+  private lightPools: Phaser.GameObjects.Image[] = [];
   private frontWalls: Phaser.GameObjects.Container[] = [];
+  private pickupSprites = new Map<WardInteractionId, Phaser.GameObjects.Container>();
+  private drawerVisual?: Phaser.GameObjects.Container;
+  private keycardPickupSprite?: Phaser.GameObjects.Image;
+  private lastFacingRow = 4;
+  private currentPlayerAnimation = '';
+  private powerOn = false;
   private playerPosition: WardPoint;
   private stamina: number;
   private lastReportedStamina: number;
@@ -131,22 +130,36 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
   }
 
   preload(): void {
-    this.load.image(
-      'ward-floor-placeholder',
-      '/assets/awakening-ward/ward-floor-placeholder.webp',
-    );
-    this.load.image(
-      'ward-wall-placeholder',
-      '/assets/awakening-ward/ward-wall-placeholder.webp',
-    );
+    this.load.spritesheet(WARD_ART_KEYS.floor, WARD_ART_PATHS.floor, {
+      frameWidth: WARD_ART_FRAMES.floor,
+      frameHeight: WARD_ART_FRAMES.floor,
+    });
+    this.load.spritesheet(WARD_ART_KEYS.items, WARD_ART_PATHS.items, {
+      frameWidth: WARD_ART_FRAMES.item,
+      frameHeight: WARD_ART_FRAMES.item,
+    });
+    this.load.spritesheet(WARD_ART_KEYS.player, WARD_ART_PATHS.player, {
+      frameWidth: WARD_ART_FRAMES.playerWidth,
+      frameHeight: WARD_ART_FRAMES.playerHeight,
+    });
+    this.load.spritesheet(WARD_ART_KEYS.props, WARD_ART_PATHS.props, {
+      frameWidth: WARD_ART_FRAMES.prop,
+      frameHeight: WARD_ART_FRAMES.prop,
+    });
+    this.load.spritesheet(WARD_ART_KEYS.walls, WARD_ART_PATHS.walls, {
+      frameWidth: WARD_ART_FRAMES.wall,
+      frameHeight: WARD_ART_FRAMES.wall,
+    });
   }
 
   create(): void {
     this.cameras.main.setBackgroundColor('#050708');
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+    this.createSoftLightTexture();
     this.buildFloor();
     this.buildWalls();
     this.buildEnvironment();
+    this.buildLighting();
     this.buildPowerPath();
     this.buildInteractionMarkers();
     this.buildPlayer();
@@ -160,52 +173,137 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
     this.cameras.main.fadeIn(480, 4, 7, 8);
   }
 
-  private buildFloor(): void {
-    const projectedCenter = projectWardPoint({ x: 17, y: 11 });
-    const texture = this.add.tileSprite(
-      projectedCenter.x,
-      projectedCenter.y,
-      1880,
-      930,
-      'ward-floor-placeholder',
-    ).setAlpha(0.36).setDepth(-4);
-    texture.setTileScale(0.48, 0.48);
+  private createSoftLightTexture(): void {
+    if (this.textures.exists('ward-soft-light')) return;
+    const texture = this.textures.createCanvas('ward-soft-light', 256, 128);
+    if (!texture) return;
+    const context = texture.context;
+    const gradient = context.createRadialGradient(128, 64, 2, 128, 64, 124);
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.96)');
+    gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.46)');
+    gradient.addColorStop(0.72, 'rgba(255, 255, 255, 0.12)');
+    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 256, 128);
+    texture.refresh();
+  }
 
-    const maskSource = this.make.graphics({ x: 0, y: 0 }, false);
-    maskSource.fillStyle(0xffffff, 1);
-    for (const zone of AWAKENING_WARD_WALKABLE_ZONES) {
-      maskSource.fillPoints(
-        isoDiamond(zone.x, zone.y, zone.width, zone.height),
-        true,
-      );
+  private buildLighting(): void {
+    const lightDefinitions = [
+      { position: { x: 10.7, y: 10.5 }, width: 510, height: 235, powered: false },
+      { position: { x: 15.3, y: 5.1 }, width: 330, height: 150, powered: true },
+      { position: { x: 19, y: 15.4 }, width: 260, height: 122, powered: true },
+      { position: { x: 25.3, y: 11 }, width: 480, height: 120, powered: true },
+      { position: { x: 30.5, y: 11.1 }, width: 235, height: 120, powered: true },
+    ];
+    for (const definition of lightDefinitions) {
+      const projected = projectWardPoint(definition.position);
+      const light = this.add.image(
+        projected.x,
+        projected.y + 5,
+        'ward-soft-light',
+      ).setDisplaySize(definition.width, definition.height)
+        .setTint(definition.powered ? CYAN : RED)
+        .setAlpha(definition.powered ? 0.07 : 0.13)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(0);
+      light.setData('powered', definition.powered);
+      this.lightPools.push(light);
     }
-    texture.setMask(maskSource.createGeometryMask());
+  }
 
-    const floor = this.add.graphics().setDepth(-2);
+  private buildFloor(): void {
+    const underlay = this.add.graphics().setDepth(-5);
+    for (const zone of AWAKENING_WARD_WALKABLE_ZONES) {
+      underlay.fillStyle(0x030507, 1);
+      underlay.fillPoints(isoDiamond(
+        zone.x - 0.24,
+        zone.y - 0.24,
+        zone.width + 0.48,
+        zone.height + 0.48,
+      ), true);
+      underlay.lineStyle(4, 0x12191e, 1);
+      underlay.strokePoints(isoDiamond(zone.x, zone.y, zone.width, zone.height), true);
+    }
+
+    const floorTexture = this.add.renderTexture(
+      0,
+      0,
+      WORLD_WIDTH,
+      WORLD_HEIGHT,
+    ).setOrigin(0).setDepth(-3);
+    const cells: WardPoint[] = [];
     for (let y = 1; y < 22; y += 1) {
       for (let x = 1; x < 34; x += 1) {
         const center = { x: x + 0.5, y: y + 0.5 };
-        if (!AWAKENING_WARD_WALKABLE_ZONES.some(
+        if (AWAKENING_WARD_WALKABLE_ZONES.some(
           (zone) => pointInRect(center, zone),
-        )) continue;
-        floor.fillStyle((x + y) % 2 === 0 ? 0x111820 : 0x151d23, 0.72);
-        floor.fillPoints(isoDiamond(x, y), true);
-        floor.lineStyle(1, 0x39444a, 0.36);
-        floor.strokePoints(isoDiamond(x, y), true);
+        )) cells.push({ x, y });
       }
     }
+    cells.sort((a, b) => (a.x + a.y) - (b.x + b.y));
+    for (const cell of cells) {
+      const corridorGuide = cell.x >= 20
+        && cell.x <= 31
+        && (cell.y === 10 || (cell.x >= 29 && cell.y === 11));
+      const capsuleWarning = cell.x >= 7
+        && cell.x <= 14
+        && cell.y >= 8
+        && cell.y <= 14
+        && (cell.x + cell.y) % 4 === 0;
+      const hash = (cell.x * 17 + cell.y * 29) % 31;
+      const frame = corridorGuide
+        ? WARD_FLOOR_FRAMES.corridorGuide
+        : capsuleWarning
+          ? WARD_FLOOR_FRAMES.warningPlate
+          : hash === 0 || hash === 11
+            ? WARD_FLOOR_FRAMES.serviceVent
+            : WARD_FLOOR_FRAMES.accessPanel;
+      const projected = projectWardPoint({
+        x: cell.x + 0.5,
+        y: cell.y + 0.5,
+      });
+      const stamp = this.add.image(0, 0, WARD_ART_KEYS.floor, frame)
+        .setScale(0.116)
+        .setAlpha(corridorGuide ? 0.96 : 0.88);
+      if (!corridorGuide && hash % 5 === 0) stamp.setTint(0xc7d0d3);
+      floorTexture.draw(stamp, projected.x, projected.y + 7);
+      stamp.destroy();
+    }
 
-    const labels = this.add.graphics().setDepth(-1);
+    const floorDetail = this.add.graphics().setDepth(-1);
     const capsulePad = isoDiamond(6.9, 7.8, 8, 7);
-    labels.lineStyle(2, 0x9c2c37, 0.52);
-    labels.strokePoints(capsulePad, true);
+    floorDetail.fillStyle(0x050709, 0.22);
+    floorDetail.fillPoints(capsulePad, true);
+    floorDetail.lineStyle(4, 0x250c12, 0.88);
+    floorDetail.strokePoints(capsulePad, true);
+    floorDetail.lineStyle(1, 0xe43a48, 0.64);
+    floorDetail.strokePoints(isoDiamond(7.35, 8.2, 7.1, 6.2), true);
+
     const start = projectWardPoint({ x: 6.2, y: 16.2 });
-    this.add.text(start.x, start.y, 'SPAWN // A-01', {
-      color: '#7bd9e9',
+    const spawnPlate = this.add.container(start.x, start.y).setDepth(2);
+    const spawnBacking = this.add.graphics();
+    spawnBacking.fillStyle(0x071014, 0.88);
+    spawnBacking.fillPoints([
+      new Phaser.Geom.Point(-47, 0),
+      new Phaser.Geom.Point(-28, -11),
+      new Phaser.Geom.Point(47, -11),
+      new Phaser.Geom.Point(28, 0),
+    ], true);
+    spawnBacking.lineStyle(1, CYAN, 0.72);
+    spawnBacking.strokePoints([
+      new Phaser.Geom.Point(-47, 0),
+      new Phaser.Geom.Point(-28, -11),
+      new Phaser.Geom.Point(47, -11),
+      new Phaser.Geom.Point(28, 0),
+    ], true);
+    const spawnText = this.add.text(0, -6, 'A-01 // WAKE', {
+      color: '#9ce7ef',
       fontFamily: 'Rajdhani, Arial, sans-serif',
-      fontSize: '15px',
+      fontSize: '11px',
       fontStyle: 'bold',
-    }).setOrigin(0.5).setRotation(-0.46).setAlpha(0.72).setDepth(2);
+    }).setOrigin(0.5);
+    spawnPlate.add([spawnBacking, spawnText]);
   }
 
   private createWallSegment(
@@ -215,38 +313,48 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
   ): void {
     const a = projectWardPoint(start);
     const b = projectWardPoint(end);
-    const wallHeight = 94;
-    const center = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-    const container = this.add.container(center.x, center.y);
-    const graphics = this.add.graphics();
-    graphics.fillStyle(front ? 0x10171c : 0x151d23, 0.96);
-    graphics.fillPoints([
-      new Phaser.Geom.Point(a.x - center.x, a.y - center.y),
-      new Phaser.Geom.Point(b.x - center.x, b.y - center.y),
-      new Phaser.Geom.Point(b.x - center.x, b.y - center.y - wallHeight),
-      new Phaser.Geom.Point(a.x - center.x, a.y - center.y - wallHeight),
+    const wallHeight = 86;
+    const container = this.add.container(0, 0);
+    const backing = this.add.graphics();
+    backing.fillStyle(front ? 0x070b0e : 0x0b1115, 1);
+    backing.fillPoints([
+      new Phaser.Geom.Point(a.x, a.y + 4),
+      new Phaser.Geom.Point(b.x, b.y + 4),
+      new Phaser.Geom.Point(b.x, b.y - wallHeight),
+      new Phaser.Geom.Point(a.x, a.y - wallHeight),
     ], true);
-    graphics.lineStyle(2, 0x3b474e, 0.85);
-    graphics.strokePoints([
-      new Phaser.Geom.Point(a.x - center.x, a.y - center.y),
-      new Phaser.Geom.Point(b.x - center.x, b.y - center.y),
-      new Phaser.Geom.Point(b.x - center.x, b.y - center.y - wallHeight),
-      new Phaser.Geom.Point(a.x - center.x, a.y - center.y - wallHeight),
-    ], true);
-    const length = Phaser.Math.Distance.Between(a.x, a.y, b.x, b.y);
-    const texture = this.add.tileSprite(
-      0,
-      -wallHeight / 2,
-      length,
-      wallHeight - 7,
-      'ward-wall-placeholder',
-    );
-    texture.setRotation(Math.atan2(b.y - a.y, b.x - a.x));
-    texture.setTileScale(0.18, 0.18);
-    texture.setAlpha(0.28);
-    container.add([graphics, texture]);
-    container.setDepth(Math.max(a.y, b.y) + (front ? 500 : -40));
+    backing.lineStyle(4, 0x020304, 0.95);
+    backing.lineBetween(a.x, a.y + 5, b.x, b.y + 5);
+    backing.lineStyle(1, 0x5a676d, 0.48);
+    backing.lineBetween(a.x, a.y - wallHeight, b.x, b.y - wallHeight);
+    container.add(backing);
+
+    const logicalLength = Math.hypot(end.x - start.x, end.y - start.y);
+    const modules = Math.max(1, Math.ceil(logicalLength / 3));
+    const flip = Math.abs(end.y - start.y) > Math.abs(end.x - start.x);
+    for (let index = 0; index < modules; index += 1) {
+      const progress = (index + 0.5) / modules;
+      const point = {
+        x: Phaser.Math.Linear(start.x, end.x, progress),
+        y: Phaser.Math.Linear(start.y, end.y, progress),
+      };
+      const projected = projectWardPoint(point);
+      const frame = (index + (front ? 3 : flip ? 1 : 0)) % 4;
+      const module = this.add.image(
+        projected.x,
+        projected.y + 7,
+        WARD_ART_KEYS.walls,
+        frame,
+      ).setOrigin(0.5, 0.89)
+        .setScale(flip ? -0.232 : 0.232, 0.232);
+      container.add(module);
+    }
+
+    container.setDepth(Math.max(a.y, b.y) + (front ? 430 : -86));
     container.setData('front', front);
+    container.setData('screenMinX', Math.min(a.x, b.x) - 95);
+    container.setData('screenMaxX', Math.max(a.x, b.x) + 95);
+    container.setData('screenBaseY', Math.max(a.y, b.y));
     if (front) this.frontWalls.push(container);
   }
 
@@ -261,167 +369,243 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
     this.createWallSegment({ x: 28, y: 16.5 }, { x: 32.5, y: 16.5 }, true);
   }
 
-  private createPrism(object: WardSceneObject): Phaser.GameObjects.Container {
+  private createProp(object: WardSceneObject): Phaser.GameObjects.Container {
+    const visual = WARD_PROP_VISUALS[object.kind];
     const { bounds } = object;
     const centerWorld = {
       x: bounds.x + bounds.width / 2,
       y: bounds.y + bounds.height / 2,
     };
     const center = projectWardPoint(centerWorld);
-    const corners = isoDiamond(
-      bounds.x,
-      bounds.y,
-      bounds.width,
-      bounds.height,
-    ).map((point) => new Phaser.Geom.Point(
-      point.x - center.x,
-      point.y - center.y,
-    ));
-    const lift = object.height * 23;
-    const palette = objectPalette(object.kind);
-    const graphics = this.add.graphics();
-    graphics.fillStyle(palette.left, 1);
-    graphics.fillPoints([
-      corners[0]!,
-      corners[3]!,
-      new Phaser.Geom.Point(corners[3]!.x, corners[3]!.y - lift),
-      new Phaser.Geom.Point(corners[0]!.x, corners[0]!.y - lift),
-    ], true);
-    graphics.fillStyle(palette.right, 1);
-    graphics.fillPoints([
-      corners[2]!,
-      corners[3]!,
-      new Phaser.Geom.Point(corners[3]!.x, corners[3]!.y - lift),
-      new Phaser.Geom.Point(corners[2]!.x, corners[2]!.y - lift),
-    ], true);
-    graphics.fillStyle(palette.top, 1);
-    graphics.fillPoints(corners.map((corner) => (
-      new Phaser.Geom.Point(corner.x, corner.y - lift)
-    )), true);
-    graphics.lineStyle(1, 0x75828a, 0.52);
-    graphics.strokePoints(corners.map((corner) => (
-      new Phaser.Geom.Point(corner.x, corner.y - lift)
-    )), true);
-
-    const container = this.add.container(center.x, center.y, [graphics]);
+    const container = this.add.container(center.x, center.y);
+    container.setData('objectId', object.id);
     container.setDepth(projectWardPoint({
       x: bounds.x + bounds.width,
       y: bounds.y + bounds.height,
-    }).y);
-    container.setData('objectId', object.id);
-    this.decorateObject(container, object, palette.accent, lift);
+    }).y + 7);
+    if (!visual) return container;
+
+    const accent = visual.emissive === 'cyan' ? CYAN : RED;
+    if (visual.emissive) {
+      const glow = this.add.image(
+        visual.offsetX ?? 0,
+        -(visual.shadowHeight * 1.25),
+        'ward-soft-light',
+      ).setDisplaySize(
+        visual.shadowWidth * 1.85,
+        visual.shadowHeight * 3.8,
+      ).setTint(accent)
+        .setAlpha(0.12)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      container.add(glow);
+      this.screenLights.push(glow);
+    }
+
+    const shadow = this.add.ellipse(
+      visual.offsetX ?? 0,
+      5,
+      visual.shadowWidth,
+      visual.shadowHeight,
+      0x000000,
+      0.66,
+    );
+    const sprite = this.add.image(
+      visual.offsetX ?? 0,
+      visual.offsetY ?? 0,
+      WARD_ART_KEYS.props,
+      visual.frame,
+    ).setOrigin(0.5, visual.originY)
+      .setScale(visual.scale);
+    container.add([shadow, sprite]);
+    this.objectSprites.set(object.id, sprite);
+
+    if (object.kind === 'capsule' || object.kind === 'exit-door') {
+      const label = this.add.text(
+        object.kind === 'exit-door' ? -7 : 67,
+        object.kind === 'exit-door' ? -175 : -78,
+        object.label ?? (object.kind === 'capsule' ? 'A-01' : 'A-07'),
+        {
+          color: object.kind === 'exit-door' ? '#d6edf0' : '#91dae4',
+          fontFamily: 'Rajdhani, Arial, sans-serif',
+          fontSize: object.kind === 'exit-door' ? '16px' : '11px',
+          fontStyle: 'bold',
+          stroke: '#050708',
+          strokeThickness: 3,
+        },
+      ).setOrigin(0.5);
+      container.add(label);
+    }
+
+    if (object.kind === 'storage') this.buildDrawerVisual(container);
+    if (object.kind === 'side-table') {
+      const clue = this.add.image(
+        -18,
+        -61,
+        WARD_ART_KEYS.items,
+        WARD_ITEM_FRAMES.clueNote,
+      ).setScale(0.064).setRotation(-0.08);
+      container.add(clue);
+    }
     return container;
   }
 
-  private decorateObject(
-    container: Phaser.GameObjects.Container,
-    object: WardSceneObject,
-    accent: number,
-    lift: number,
-  ): void {
-    const detail = this.add.graphics();
-    if (object.kind === 'capsule') {
-      detail.fillStyle(0x071016, 0.94);
-      detail.fillRoundedRect(-116, -lift - 24, 232, 56, 28);
-      detail.lineStyle(3, 0x87939a, 0.9);
-      detail.strokeRoundedRect(-118, -lift - 27, 236, 62, 30);
-      detail.lineStyle(2, 0x51d7e5, 0.55);
-      detail.lineBetween(-78, -lift + 1, 68, -lift + 1);
-      detail.fillStyle(0xe22d3f, 0.95);
-      detail.fillCircle(90, -lift + 2, 5);
-    } else if (object.kind === 'monitor-bank') {
-      for (let index = 0; index < 4; index += 1) {
-        const x = -87 + index * 47;
-        detail.fillStyle(0x061116, 1);
-        detail.fillRoundedRect(x, -lift - 55, 41, 32, 2);
-        detail.lineStyle(1, accent, 0.8);
-        detail.strokeRoundedRect(x, -lift - 55, 41, 32, 2);
-        detail.lineBetween(x + 5, -lift - 37, x + 34, -lift - 45);
-      }
-      this.screenLights.push(detail);
-    } else if (object.kind === 'power-panel') {
-      detail.lineStyle(3, 0xe83a48, 0.85);
-      detail.lineBetween(-38, -lift - 34, -5, -lift + 2);
-      detail.lineBetween(-5, -lift + 2, 24, -lift - 27);
-      detail.fillStyle(0xef3446, 1);
-      detail.fillCircle(29, -lift - 30, 5);
-    } else if (object.kind === 'mirror') {
-      detail.fillStyle(0x6e8893, 0.25);
-      detail.fillRoundedRect(-42, -lift - 94, 84, 112, 3);
-      detail.lineStyle(3, 0xc6d4d9, 0.82);
-      detail.strokeRoundedRect(-42, -lift - 94, 84, 112, 3);
-      detail.lineStyle(1, 0xeaf9ff, 0.42);
-      detail.lineBetween(-27, -lift - 80, 20, -lift - 9);
-      detail.lineBetween(-13, -lift - 87, 31, -lift - 21);
-    } else if (object.kind === 'exit-door') {
-      detail.fillStyle(0x121a21, 1);
-      detail.fillRoundedRect(-70, -lift - 112, 140, 128, 3);
-      detail.lineStyle(4, 0x4d5b64, 1);
-      detail.strokeRoundedRect(-70, -lift - 112, 140, 128, 3);
-      detail.lineStyle(2, accent, 0.92);
-      detail.lineBetween(-52, -lift - 91, 52, -lift - 91);
-      detail.lineBetween(0, -lift - 78, 0, -lift + 4);
-      container.add(this.add.text(0, -lift - 98, object.label ?? 'A-07', {
-        color: '#b9dce5',
-        fontFamily: 'Rajdhani, Arial, sans-serif',
-        fontSize: '18px',
-        fontStyle: 'bold',
-      }).setOrigin(0.5));
-    } else if (object.kind === 'reader') {
-      detail.fillStyle(0x061116, 1);
-      detail.fillRoundedRect(-18, -lift - 22, 36, 44, 3);
-      detail.lineStyle(2, accent, 0.88);
-      detail.strokeRoundedRect(-18, -lift - 22, 36, 44, 3);
-      detail.fillStyle(accent, 0.9);
-      detail.fillRect(-9, -lift - 11, 18, 3);
-      this.screenLights.push(detail);
-    } else if (object.kind === 'storage') {
-      detail.lineStyle(2, 0x9b2b37, 0.72);
-      detail.strokeRect(-43, -lift - 5, 86, 17);
-      detail.fillStyle(0x51d7e5, 0.82);
-      detail.fillCircle(0, -lift + 3, 3);
-    } else if (object.kind === 'medical-console') {
-      detail.lineStyle(2, 0x51d7e5, 0.75);
-      detail.strokeRect(-31, -lift - 24, 62, 30);
-      detail.lineBetween(-24, -lift - 6, -8, -lift - 16);
-      detail.lineBetween(-8, -lift - 16, 8, -lift - 3);
-      detail.lineBetween(8, -lift - 3, 24, -lift - 18);
-      this.screenLights.push(detail);
-    } else if (object.kind === 'cable') {
-      detail.lineStyle(4, 0x050708, 0.94);
-      detail.lineBetween(-82, -lift, 84, -lift);
-      detail.lineStyle(1, 0x9d2b36, 0.54);
-      detail.lineBetween(-78, -lift - 1, 78, -lift - 1);
-    }
-    container.add(detail);
+  private buildDrawerVisual(parent: Phaser.GameObjects.Container): void {
+    const drawer = this.add.container(6, -36).setAlpha(0);
+    const trayShadow = this.add.ellipse(0, 9, 61, 20, 0x000000, 0.7);
+    const tray = this.add.graphics();
+    tray.fillStyle(0x0b1115, 1);
+    tray.fillPoints([
+      new Phaser.Geom.Point(-31, 2),
+      new Phaser.Geom.Point(-15, -7),
+      new Phaser.Geom.Point(34, -7),
+      new Phaser.Geom.Point(17, 3),
+    ], true);
+    tray.lineStyle(2, 0x536169, 0.92);
+    tray.strokePoints([
+      new Phaser.Geom.Point(-31, 2),
+      new Phaser.Geom.Point(-15, -7),
+      new Phaser.Geom.Point(34, -7),
+      new Phaser.Geom.Point(17, 3),
+    ], true);
+    const card = this.add.image(
+      4,
+      -5,
+      WARD_ART_KEYS.items,
+      WARD_ITEM_FRAMES.keycard,
+    ).setScale(0.072).setRotation(-0.12);
+    drawer.add([trayShadow, tray, card]);
+    parent.add(drawer);
+    this.drawerVisual = drawer;
+    this.keycardPickupSprite = card;
+  }
+
+  private buildCableRun(object: WardSceneObject): Phaser.GameObjects.Container {
+    const start = projectWardPoint({
+      x: object.bounds.x,
+      y: object.bounds.y + object.bounds.height / 2,
+    });
+    const end = projectWardPoint({
+      x: object.bounds.x + object.bounds.width,
+      y: object.bounds.y + object.bounds.height / 2,
+    });
+    const curve = new Phaser.Curves.CubicBezier(
+      new Phaser.Math.Vector2(start.x, start.y),
+      new Phaser.Math.Vector2(start.x + 58, start.y + 31),
+      new Phaser.Math.Vector2(end.x - 70, end.y - 25),
+      new Phaser.Math.Vector2(end.x, end.y),
+    );
+    const graphics = this.add.graphics();
+    graphics.lineStyle(9, 0x010203, 0.9);
+    graphics.strokePoints(curve.getPoints(28), false);
+    graphics.lineStyle(3, 0x3b2024, 0.92);
+    graphics.strokePoints(curve.getPoints(28), false);
+    graphics.lineStyle(1, 0xc33a45, 0.42);
+    graphics.strokePoints(curve.getPoints(28), false);
+    const container = this.add.container(0, 0, [graphics]).setDepth(start.y + 2);
+    container.setData('objectId', object.id);
+    return container;
   }
 
   private buildEnvironment(): void {
     for (const object of AWAKENING_WARD_OBJECTS) {
-      this.objectContainers.set(object.id, this.createPrism(object));
+      if (object.kind === 'mirror' || object.kind === 'reader') continue;
+      const visual = object.kind === 'cable'
+        ? this.buildCableRun(object)
+        : this.createProp(object);
+      this.objectContainers.set(object.id, visual);
     }
+    const storage = this.objectContainers.get('mirror-storage');
+    const exitDoor = this.objectContainers.get('exit-door-a07');
+    if (storage) this.objectContainers.set('wall-mirror', storage);
+    if (exitDoor) this.objectContainers.set('exit-reader-a07', exitDoor);
+
+    this.buildPickup(
+      'awakening_medical_patch',
+      { x: 4.8, y: 8.2 },
+      WARD_ITEM_FRAMES.medicalPatch,
+      0.073,
+    );
+    this.buildPickup(
+      'awakening_battery',
+      { x: 6.4, y: 5.3 },
+      WARD_ITEM_FRAMES.battery,
+      0.075,
+    );
+
     const clock = projectWardPoint({ x: 3.7, y: 2.1 });
-    const clockPanel = this.add.container(clock.x, clock.y - 72).setDepth(clock.y - 30);
+    const clockPanel = this.add.container(clock.x, clock.y - 77).setDepth(clock.y - 30);
+    const clockGlow = this.add.image(0, 0, 'ward-soft-light')
+      .setDisplaySize(190, 84)
+      .setTint(RED)
+      .setAlpha(0.22)
+      .setBlendMode(Phaser.BlendModes.ADD);
     const shell = this.add.graphics();
-    shell.fillStyle(0x050709, 0.98);
-    shell.fillRoundedRect(-64, -25, 128, 50, 3);
-    shell.lineStyle(2, 0x5f2830, 0.85);
-    shell.strokeRoundedRect(-64, -25, 128, 50, 3);
-    const time = this.add.text(0, 0, '11:11', {
-      color: '#f13447',
+    shell.fillStyle(0x020405, 0.99);
+    shell.fillRoundedRect(-72, -31, 144, 62, 5);
+    shell.lineStyle(5, 0x11181c, 1);
+    shell.strokeRoundedRect(-74, -33, 148, 66, 6);
+    shell.lineStyle(1, 0xa8323d, 0.94);
+    shell.strokeRoundedRect(-68, -27, 136, 54, 3);
+    shell.fillStyle(0x4c131c, 0.68);
+    shell.fillRect(-60, 19, 120, 2);
+    const ghostTime = this.add.text(2, 1, '11:11', {
+      color: '#6c0f1c',
       fontFamily: 'Rajdhani, monospace',
-      fontSize: '29px',
+      fontSize: '31px',
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setAlpha(0.72);
+    const time = this.add.text(0, 0, '11:11', {
+      color: '#ff4052',
+      fontFamily: 'Rajdhani, monospace',
+      fontSize: '31px',
       fontStyle: 'bold',
       letterSpacing: 0,
+      shadow: { color: '#ff1f38', blur: 8, fill: true },
     }).setOrigin(0.5);
-    clockPanel.add([shell, time]);
+    const clockLabel = this.add.text(-57, -39, 'WARD CLOCK // A-01', {
+      color: '#819096',
+      fontFamily: 'Rajdhani, Arial, sans-serif',
+      fontSize: '8px',
+      fontStyle: 'bold',
+    });
+    clockPanel.add([clockGlow, shell, ghostTime, time, clockLabel]);
+    this.screenLights.push(clockGlow);
     this.tweens.add({
       targets: time,
-      alpha: { from: 0.7, to: 1 },
-      duration: 1350,
+      alpha: { from: 0.74, to: 1 },
+      duration: 1420,
       yoyo: true,
       repeat: -1,
+      ease: 'Sine.InOut',
     });
+    this.tweens.add({
+      targets: clockGlow,
+      alpha: { from: 0.11, to: 0.2 },
+      duration: 1420,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.InOut',
+    });
+  }
+
+  private buildPickup(
+    id: WardInteractionId,
+    position: WardPoint,
+    frame: number,
+    scale: number,
+  ): void {
+    const projected = projectWardPoint(position);
+    const shadow = this.add.ellipse(0, 6, 39, 15, 0x000000, 0.66);
+    const item = this.add.image(0, 0, WARD_ART_KEYS.items, frame)
+      .setScale(scale)
+      .setOrigin(0.5, 0.74);
+    const container = this.add.container(
+      projected.x,
+      projected.y,
+      [shadow, item],
+    ).setDepth(projected.y + 8);
+    container.setData('baseY', projected.y);
+    this.pickupSprites.set(id, container);
   }
 
   private buildPowerPath(): void {
@@ -430,6 +614,7 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
   }
 
   private drawPowerPath(powerOn: boolean): void {
+    this.powerOn = powerOn;
     this.powerPath.clear();
     const path = [
       { x: 9, y: 4.7 },
@@ -439,33 +624,75 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
       { x: 25, y: 11 },
       { x: 30.4, y: 11.7 },
     ].map(projectWardPoint);
-    const color = powerOn ? 0x6ed6e5 : 0xef3949;
-    const alpha = powerOn ? 0.9 : 0.42;
-    this.powerPath.lineStyle(3, color, alpha);
+    const color = powerOn ? CYAN : RED;
+    const alpha = powerOn ? 0.92 : 0.58;
+    this.powerPath.lineStyle(8, 0x020304, 0.76);
     this.powerPath.beginPath();
     this.powerPath.moveTo(path[0]!.x, path[0]!.y);
     path.slice(1).forEach((point) => this.powerPath.lineTo(point.x, point.y));
     this.powerPath.strokePath();
-    for (const point of path) {
-      this.powerPath.fillStyle(color, powerOn ? 0.94 : 0.65);
-      this.powerPath.fillPoints([
-        new Phaser.Geom.Point(point.x, point.y - 4),
-        new Phaser.Geom.Point(point.x + 6, point.y),
-        new Phaser.Geom.Point(point.x, point.y + 4),
-        new Phaser.Geom.Point(point.x - 6, point.y),
-      ], true);
+    this.powerPath.lineStyle(2, color, alpha);
+    this.powerPath.beginPath();
+    this.powerPath.moveTo(path[0]!.x, path[0]!.y);
+    path.slice(1).forEach((point) => this.powerPath.lineTo(point.x, point.y));
+    this.powerPath.strokePath();
+
+    for (let index = 0; index < path.length - 1; index += 1) {
+      const start = path[index]!;
+      const end = path[index + 1]!;
+      const angle = Math.atan2(end.y - start.y, end.x - start.x);
+      for (const progress of [0.25, 0.55, 0.85]) {
+        const x = Phaser.Math.Linear(start.x, end.x, progress);
+        const y = Phaser.Math.Linear(start.y, end.y, progress);
+        const size = 7;
+        const left = new Phaser.Geom.Point(
+          x - Math.cos(angle - 0.62) * size,
+          y - Math.sin(angle - 0.62) * size,
+        );
+        const right = new Phaser.Geom.Point(
+          x - Math.cos(angle + 0.62) * size,
+          y - Math.sin(angle + 0.62) * size,
+        );
+        this.powerPath.lineStyle(2, color, alpha * 0.9);
+        this.powerPath.lineBetween(left.x, left.y, x, y);
+        this.powerPath.lineBetween(right.x, right.y, x, y);
+      }
     }
   }
 
   private buildInteractionMarkers(): void {
     for (const interaction of AWAKENING_WARD_INTERACTIONS) {
       const projected = projectWardPoint(interaction.position);
-      const ring = this.add.graphics();
-      ring.lineStyle(2, 0x78d9ee, 0.9);
-      ring.strokeCircle(0, 0, 13);
-      ring.fillStyle(0x78d9ee, 0.22);
-      ring.fillCircle(0, 0, 6);
-      const container = this.add.container(projected.x, projected.y - 7, [ring]);
+      const glow = this.add.image(0, 2, 'ward-soft-light')
+        .setDisplaySize(52, 24)
+        .setTint(CYAN)
+        .setAlpha(0.16)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      const marker = this.add.graphics();
+      marker.lineStyle(1, CYAN, 0.78);
+      marker.strokePoints([
+        new Phaser.Geom.Point(0, -11),
+        new Phaser.Geom.Point(11, 0),
+        new Phaser.Geom.Point(0, 11),
+        new Phaser.Geom.Point(-11, 0),
+      ], true);
+      marker.lineStyle(2, 0xc6f7fb, 0.9);
+      marker.lineBetween(-18, -8, -18, -2);
+      marker.lineBetween(-18, -8, -12, -8);
+      marker.lineBetween(18, -8, 18, -2);
+      marker.lineBetween(18, -8, 12, -8);
+      marker.fillStyle(CYAN, 0.78);
+      marker.fillPoints([
+        new Phaser.Geom.Point(0, -3),
+        new Phaser.Geom.Point(4, 0),
+        new Phaser.Geom.Point(0, 3),
+        new Phaser.Geom.Point(-4, 0),
+      ], true);
+      const container = this.add.container(
+        projected.x,
+        projected.y - 9,
+        [glow, marker],
+      );
       container.setDepth(projected.y + 5);
       container.setData('interactionId', interaction.id);
       this.interactionMarkers.set(interaction.id, container);
@@ -473,25 +700,54 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
   }
 
   private buildPlayer(): void {
+    this.createPlayerAnimations();
     const projected = projectWardPoint(this.playerPosition);
-    this.playerShadow = this.add.ellipse(0, 9, 34, 15, 0x000000, 0.55);
-    this.playerBody = this.add.graphics();
-    this.playerBody.fillStyle(0x090d11, 1);
-    this.playerBody.fillRoundedRect(-11, -42, 22, 39, 8);
-    this.playerBody.fillCircle(0, -50, 11);
-    this.playerBody.fillStyle(0x28333a, 1);
-    this.playerBody.fillRoundedRect(-8, -38, 16, 21, 4);
-    this.playerBody.lineStyle(2, 0xe23a49, 0.82);
-    this.playerBody.lineBetween(-7, -30, 7, -30);
-    this.playerBody.lineStyle(3, 0x0b0f12, 1);
-    this.playerBody.lineBetween(-7, -6, -10, 8);
-    this.playerBody.lineBetween(7, -6, 10, 8);
+    const rim = this.add.image(0, 1, 'ward-soft-light')
+      .setDisplaySize(58, 25)
+      .setTint(RED)
+      .setAlpha(0.08)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.playerShadow = this.add.ellipse(0, 7, 43, 16, 0x000000, 0.67);
+    this.playerSprite = this.add.sprite(
+      0,
+      5,
+      WARD_ART_KEYS.player,
+      this.lastFacingRow * 4,
+    ).setOrigin(0.5, 0.88)
+      .setScale(PLAYER_SPRITE_SCALE);
     this.player = this.add.container(
       projected.x,
       projected.y,
-      [this.playerShadow, this.playerBody],
+      [rim, this.playerShadow, this.playerSprite],
     );
     this.player.setDepth(projected.y + 8);
+  }
+
+  private createPlayerAnimations(): void {
+    WARD_PLAYER_DIRECTION_ROWS.forEach((direction, row) => {
+      const frames = [1, 2, 3, 2].map((column) => ({
+        key: WARD_ART_KEYS.player,
+        frame: row * 4 + column,
+      }));
+      const walkKey = `ward-player-walk-${direction}`;
+      const runKey = `ward-player-run-${direction}`;
+      if (!this.anims.exists(walkKey)) {
+        this.anims.create({
+          key: walkKey,
+          frames,
+          frameRate: 8,
+          repeat: -1,
+        });
+      }
+      if (!this.anims.exists(runKey)) {
+        this.anims.create({
+          key: runKey,
+          frames,
+          frameRate: 12,
+          repeat: -1,
+        });
+      }
+    });
   }
 
   private buildScreenAtmosphere(): void {
@@ -602,6 +858,43 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
     };
   }
 
+  private resolveFacingRow(x: number, y: number): number {
+    const angle = Math.atan2(y, x);
+    const clockwiseFromNorth = Math.round((angle + Math.PI / 2) / (Math.PI / 4));
+    return ((clockwiseFromNorth % 8) + 8) % 8;
+  }
+
+  private updatePlayerVisual(
+    time: number,
+    input: { x: number; y: number },
+    moved: boolean,
+    running: boolean,
+  ): void {
+    if (moved) {
+      this.lastFacingRow = this.resolveFacingRow(input.x, input.y);
+      const direction = WARD_PLAYER_DIRECTION_ROWS[this.lastFacingRow]!;
+      const animation = `ward-player-${running ? 'run' : 'walk'}-${direction}`;
+      if (this.currentPlayerAnimation !== animation) {
+        this.currentPlayerAnimation = animation;
+        this.playerSprite.play(animation, true);
+      }
+      this.playerSprite.setRotation(
+        Phaser.Math.Clamp(input.x * 0.025, -0.025, 0.025),
+      );
+      this.playerSprite.setY(running ? 3 : 5);
+      this.playerShadow.setScale(running ? 1.12 : 1, running ? 0.87 : 0.94);
+    } else {
+      if (this.currentPlayerAnimation) {
+        this.playerSprite.stop();
+        this.currentPlayerAnimation = '';
+      }
+      this.playerSprite.setFrame(this.lastFacingRow * 4);
+      this.playerSprite.setRotation(0);
+      this.playerSprite.setY(5 + Math.sin(time * 0.0032) * 0.7);
+      this.playerShadow.setScale(1 + Math.sin(time * 0.0032) * 0.018, 1);
+    }
+  }
+
   update(time: number, delta: number): void {
     if (this.locked) return;
     const ePressed = this.keyMap.E
@@ -640,15 +933,24 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
     this.player.setDepth(projected.y + 8);
     const moved = previous.x !== this.playerPosition.x
       || previous.y !== this.playerPosition.y;
-    if (moved) {
-      this.lastMovementAt = time;
-      this.playerBody.setRotation(Phaser.Math.Clamp(input.x * 0.08, -0.08, 0.08));
-      this.playerBody.setY(Math.sin(time * (running ? 0.022 : 0.015)) * 2);
-      this.playerShadow.setScale(running ? 1.08 : 1, moving ? 0.92 : 1);
-    } else {
-      this.playerBody.setRotation(0);
-      this.playerBody.setY(Math.sin(time * 0.003) * 0.8);
-      this.playerShadow.setScale(1);
+    if (moved) this.lastMovementAt = time;
+    this.updatePlayerVisual(time, input, moved, running);
+    this.cameras.main.setFollowOffset(-input.x * 46, -input.y * 24);
+    this.powerPath.setAlpha(
+      (this.powerOn ? 0.82 : 0.58) + Math.sin(time * 0.004) * 0.08,
+    );
+    this.redWash.setAlpha(
+      this.powerOn ? 0.022 : 0.085 + Math.sin(time * 0.0023) * 0.013,
+    );
+    this.pickupSprites.forEach((pickup, id) => {
+      if (!pickup.visible) return;
+      const baseY = pickup.getData('baseY') as number;
+      const phase = id === 'awakening_battery' ? 1.7 : 0;
+      pickup.setY(baseY + Math.sin(time * 0.003 + phase) * 2.2);
+    });
+    const monitor = this.objectSprites.get('monitoring-main-bank');
+    if (monitor && this.powerOn) {
+      monitor.setAlpha(0.96 + Math.sin(time * 0.018) * 0.025);
     }
 
     const nearest = this.findNearestInteraction();
@@ -657,7 +959,7 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
       this.bridge.callbacks.onNearbyInteraction(nearest?.id ?? null);
     }
     this.updateInteractionMarkers(time);
-    this.updateOcclusion(projected.y);
+    this.updateOcclusion(projected.x, projected.y);
     this.updateRuntimeTelemetry(time, delta, moved);
   }
 
@@ -682,9 +984,15 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
     }
   }
 
-  private updateOcclusion(playerY: number): void {
+  private updateOcclusion(playerX: number, playerY: number): void {
     for (const wall of this.frontWalls) {
-      wall.setAlpha(playerY < wall.y + 28 ? 0.16 : 0.82);
+      const minX = wall.getData('screenMinX') as number;
+      const maxX = wall.getData('screenMaxX') as number;
+      const baseY = wall.getData('screenBaseY') as number;
+      const playerBehindWall = playerX >= minX
+        && playerX <= maxX
+        && playerY < baseY + 36;
+      wall.setAlpha(playerBehindWall ? 0.13 : 0.96);
     }
   }
 
@@ -771,35 +1079,60 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
     const exitWasOpen = this.state.puzzleFlags.awakening_exit_unlocked;
     this.state = state;
     const powerOn = state.puzzleFlags.power_restored;
-    this.redWash?.setAlpha(powerOn ? 0.025 : 0.095);
+    this.powerOn = powerOn;
+    this.redWash?.setAlpha(powerOn ? 0.022 : 0.095);
     if (this.powerPath) this.drawPowerPath(powerOn);
     this.screenLights.forEach((light) => {
-      const display = light as Phaser.GameObjects.Graphics;
-      display.setAlpha(powerOn ? 1 : 0.26);
+      const display = light as Phaser.GameObjects.Image;
+      display.setAlpha(powerOn ? 0.17 : 0.08);
     });
+    this.lightPools.forEach((light) => {
+      const requiresPower = Boolean(light.getData('powered'));
+      if (!requiresPower) {
+        light.setTint(RED).setAlpha(powerOn ? 0.075 : 0.14);
+        return;
+      }
+      light.setTint(powerOn ? CYAN : RED).setAlpha(powerOn ? 0.105 : 0.035);
+    });
+    const poweredObjectIds = [
+      'monitoring-main-bank',
+      'medical-console-west',
+    ];
+    poweredObjectIds.forEach((id) => {
+      const sprite = this.objectSprites.get(id);
+      if (!sprite) return;
+      if (powerOn) sprite.clearTint().setAlpha(1);
+      else sprite.setTint(0x6a7174).setAlpha(0.72);
+    });
+
     const exitMarker = this.interactionMarkers.get('awakening_exit_reader');
     exitMarker?.setAlpha(hasWardItem(state, 'keycard_a07') ? 1 : 0.48);
-    const drawer = this.objectContainers.get('mirror-storage');
-    if (drawer) {
-      const targetX = state.puzzleFlags.hidden_drawer_opened
-        ? drawer.getData('closedX') ?? drawer.x + 18
-        : drawer.getData('closedX') ?? drawer.x;
-      if (drawer.getData('closedX') === undefined) {
-        drawer.setData('closedX', drawer.x);
-      }
-      if (state.puzzleFlags.hidden_drawer_opened && !drawerWasOpen) {
+    const drawerOpen = state.puzzleFlags.hidden_drawer_opened;
+    if (this.drawerVisual) {
+      if (drawerOpen && !drawerWasOpen) {
         this.tweens.add({
-          targets: drawer,
-          x: (drawer.getData('closedX') as number) + 18,
-          duration: 420,
-          ease: 'Cubic.Out',
+          targets: this.drawerVisual,
+          x: 23,
+          y: -25,
+          alpha: 1,
+          duration: 460,
+          ease: 'Back.Out',
         });
       } else {
-        drawer.x = state.puzzleFlags.hidden_drawer_opened
-          ? (drawer.getData('closedX') as number) + 18
-          : targetX;
+        this.drawerVisual.setPosition(drawerOpen ? 23 : 6, drawerOpen ? -25 : -36);
+        this.drawerVisual.setAlpha(drawerOpen ? 1 : 0);
       }
     }
+    this.keycardPickupSprite?.setVisible(
+      drawerOpen && !hasWardItem(state, 'keycard_a07'),
+    );
+    this.pickupSprites.get('awakening_medical_patch')?.setVisible(
+      !state.collectedPickupIds.includes('medical_patch'),
+    );
+    this.pickupSprites.get('awakening_battery')?.setVisible(
+      !state.collectedPickupIds.includes('battery'),
+    );
+
     const door = this.objectContainers.get('exit-door-a07');
     if (door) {
       if (door.getData('closedY') === undefined) {
@@ -808,16 +1141,16 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
       if (state.puzzleFlags.awakening_exit_unlocked && !exitWasOpen) {
         this.tweens.add({
           targets: door,
-          y: (door.getData('closedY') as number) - 58,
-          alpha: 0.34,
-          duration: 680,
+          y: (door.getData('closedY') as number) - 72,
+          alpha: 0.22,
+          duration: 760,
           ease: 'Sine.InOut',
         });
       } else {
         door.y = state.puzzleFlags.awakening_exit_unlocked
-          ? (door.getData('closedY') as number) - 58
+          ? (door.getData('closedY') as number) - 72
           : door.getData('closedY') as number;
-        door.alpha = state.puzzleFlags.awakening_exit_unlocked ? 0.34 : 1;
+        door.alpha = state.puzzleFlags.awakening_exit_unlocked ? 0.22 : 1;
       }
     }
   }
@@ -826,8 +1159,13 @@ export class AwakeningWardScene extends Phaser.Scene implements WardSceneApi {
     this.quality = quality;
     this.fogOverlay?.setVisible(quality === 'medium');
     this.screenLights.forEach((light) => {
-      const display = light as Phaser.GameObjects.Graphics;
+      const display = light as Phaser.GameObjects.Image;
       display.setBlendMode(
+        quality === 'medium' ? Phaser.BlendModes.ADD : Phaser.BlendModes.NORMAL,
+      );
+    });
+    this.lightPools.forEach((light) => {
+      light.setBlendMode(
         quality === 'medium' ? Phaser.BlendModes.ADD : Phaser.BlendModes.NORMAL,
       );
     });

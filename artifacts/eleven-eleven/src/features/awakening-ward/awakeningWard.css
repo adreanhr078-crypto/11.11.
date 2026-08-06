@@ -1,10 +1,10 @@
 .awakening-ward {
-  --ward-red: #ec3044;
-  --ward-red-dark: #8f1f2c;
-  --ward-cyan: #6ed6e5;
-  --ward-white: #e8eef0;
-  --ward-muted: #8f9aa0;
-  --ward-panel: rgba(7, 10, 12, 0.92);
+  --ward-red: #f13b4d;
+  --ward-red-dark: #8b1b29;
+  --ward-cyan: #74deeb;
+  --ward-white: #edf4f5;
+  --ward-muted: #87969c;
+  --ward-panel: rgba(4, 7, 9, 0.94);
   position: fixed;
   inset: 0;
   z-index: 30;
@@ -13,12 +13,38 @@
   height: 100dvh;
   min-width: 320px;
   color: var(--ward-white);
-  background: #050708;
+  background: #020304;
   font-family: Rajdhani, "Segoe UI", Arial, sans-serif;
   letter-spacing: 0;
   touch-action: none;
   overscroll-behavior: none;
   user-select: none;
+}
+
+.awakening-ward::before {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border: 1px solid rgba(184, 39, 54, 0.18);
+  box-shadow:
+    inset 0 0 110px rgba(0, 0, 0, 0.82),
+    inset 0 -48px 90px rgba(0, 0, 0, 0.52);
+  content: "";
+  pointer-events: none;
+}
+
+.awakening-ward::after {
+  position: absolute;
+  inset:
+    max(7px, env(safe-area-inset-top))
+    max(8px, env(safe-area-inset-right))
+    max(7px, env(safe-area-inset-bottom))
+    max(8px, env(safe-area-inset-left));
+  z-index: 5;
+  border: 1px solid rgba(169, 187, 193, 0.08);
+  clip-path: polygon(0 0, 38% 0, 39% 3px, 61% 3px, 62% 0, 100% 0, 100% 100%, 64% 100%, 63% calc(100% - 3px), 37% calc(100% - 3px), 36% 100%, 0 100%);
+  content: "";
+  pointer-events: none;
 }
 
 .awakening-ward button {
@@ -43,7 +69,7 @@
   inset: 0;
   z-index: 4;
   pointer-events: none;
-  opacity: 0.13;
+  opacity: 0.09;
   background-image: repeating-linear-gradient(
     180deg,
     transparent 0,
@@ -58,36 +84,50 @@
   mix-blend-mode: normal;
 }
 
+.awakening-ward[data-quality="low"]::before {
+  box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.78);
+}
+
+.awakening-ward[data-quality="low"] .ward-hud section,
+.awakening-ward[data-quality="low"] .ward-puzzle-backdrop {
+  backdrop-filter: none;
+}
+
 .ward-hud {
   position: absolute;
   inset: 0 0 auto;
   z-index: 20;
   display: grid;
   grid-template-columns: minmax(205px, 0.9fr) minmax(280px, 1.3fr) minmax(210px, 0.9fr);
-  gap: 12px;
+  gap: 9px;
   align-items: start;
   padding:
-    max(10px, env(safe-area-inset-top))
-    max(14px, env(safe-area-inset-right))
+    max(9px, env(safe-area-inset-top))
+    max(12px, env(safe-area-inset-right))
     0
-    max(14px, env(safe-area-inset-left));
+    max(12px, env(safe-area-inset-left));
   direction: ltr;
   pointer-events: none;
 }
 
 .ward-hud section {
   min-width: 0;
-  border-top: 2px solid rgba(128, 146, 154, 0.46);
+  border: 1px solid rgba(128, 146, 154, 0.28);
+  border-top: 2px solid rgba(128, 146, 154, 0.52);
   border-bottom: 1px solid rgba(78, 91, 98, 0.42);
-  background: rgba(4, 7, 9, 0.78);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.34);
-  backdrop-filter: blur(5px);
+  background:
+    linear-gradient(110deg, rgba(14, 20, 24, 0.91), rgba(3, 6, 8, 0.8));
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.44),
+    inset 0 1px rgba(255, 255, 255, 0.025);
+  backdrop-filter: blur(7px);
+  clip-path: polygon(0 0, calc(100% - 11px) 0, 100% 11px, 100% 100%, 11px 100%, 0 calc(100% - 11px));
 }
 
 .ward-hud__identity {
   display: grid;
   gap: 2px;
-  padding: 8px 11px;
+  padding: 8px 12px 9px;
   border-top-color: var(--ward-red) !important;
 }
 
@@ -103,7 +143,7 @@
 .ward-hud__identity strong {
   overflow: hidden;
   color: #f3f7f8;
-  font-size: 14px;
+  font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -124,15 +164,15 @@
 .ward-hud__objective {
   justify-self: center;
   width: min(100%, 520px);
-  padding: 7px 12px 8px;
+  padding: 7px 13px 8px;
   text-align: center;
 }
 
 .ward-hud__objective strong {
   display: block;
   overflow: hidden;
-  margin: 2px 0 4px;
-  font-size: 14px;
+  margin: 1px 0 3px;
+  font-size: 13px;
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -147,6 +187,31 @@
   font-weight: 800;
 }
 
+.ward-hud__progress {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(12px, 1fr));
+  gap: 3px;
+  width: min(100%, 245px);
+  margin: 5px auto 0;
+}
+
+.ward-hud__progress i {
+  display: block;
+  height: 2px;
+  background: rgba(128, 145, 151, 0.25);
+  box-shadow: 0 0 0 1px rgba(4, 7, 9, 0.55);
+}
+
+.ward-hud__progress i[data-complete="true"] {
+  background: var(--ward-cyan);
+  box-shadow: 0 0 7px rgba(116, 222, 235, 0.38);
+}
+
+.ward-hud__progress i[data-current="true"] {
+  background: var(--ward-red);
+  box-shadow: 0 0 7px rgba(241, 59, 77, 0.46);
+}
+
 .ward-hud__objective span[data-power="true"] {
   color: var(--ward-cyan);
 }
@@ -159,7 +224,7 @@
 .ward-hud__vitals {
   display: grid;
   gap: 6px;
-  padding: 8px 10px;
+  padding: 8px 11px 9px;
   border-top-color: var(--ward-cyan) !important;
 }
 
@@ -262,50 +327,65 @@
 
 .ward-joystick {
   position: absolute;
-  bottom: max(20px, env(safe-area-inset-bottom));
-  left: max(24px, env(safe-area-inset-left));
-  width: 132px;
-  height: 132px;
-  border: 1px solid rgba(193, 209, 214, 0.36);
+  bottom: max(18px, env(safe-area-inset-bottom));
+  left: max(20px, env(safe-area-inset-left));
+  width: 124px;
+  height: 124px;
+  border: 1px solid rgba(193, 209, 214, 0.42);
   border-radius: 50%;
   background:
-    linear-gradient(90deg, transparent 49%, rgba(110, 214, 229, 0.18) 50%, transparent 51%),
-    linear-gradient(0deg, transparent 49%, rgba(110, 214, 229, 0.18) 50%, transparent 51%),
-    rgba(5, 8, 10, 0.52);
-  box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.52);
+    linear-gradient(90deg, transparent 49%, rgba(116, 222, 235, 0.16) 50%, transparent 51%),
+    linear-gradient(0deg, transparent 49%, rgba(116, 222, 235, 0.16) 50%, transparent 51%),
+    rgba(3, 6, 8, 0.66);
+  box-shadow:
+    0 8px 30px rgba(0, 0, 0, 0.46),
+    inset 0 0 30px rgba(0, 0, 0, 0.68),
+    inset 0 0 0 7px rgba(26, 37, 42, 0.16);
   pointer-events: auto;
   touch-action: none;
 }
 
 .ward-joystick::before {
   position: absolute;
-  inset: 17px;
-  border: 1px solid rgba(110, 214, 229, 0.17);
+  inset: 15px;
+  border: 1px dashed rgba(116, 222, 235, 0.24);
   border-radius: 50%;
   content: "";
 }
 
 .ward-joystick > span {
   position: absolute;
-  top: 40px;
-  left: 40px;
-  width: 52px;
-  height: 52px;
-  border: 2px solid rgba(110, 214, 229, 0.72);
+  top: 38px;
+  left: 38px;
+  width: 48px;
+  height: 48px;
+  border: 2px solid rgba(140, 233, 242, 0.8);
   border-radius: 50%;
-  background: rgba(11, 21, 26, 0.92);
-  box-shadow: 0 0 18px rgba(110, 214, 229, 0.2);
+  background:
+    linear-gradient(145deg, rgba(27, 41, 47, 0.98), rgba(6, 10, 13, 0.98));
+  box-shadow:
+    0 5px 13px rgba(0, 0, 0, 0.58),
+    0 0 18px rgba(116, 222, 235, 0.18),
+    inset 0 1px rgba(255, 255, 255, 0.12);
   transition: transform 45ms linear;
+}
+
+.ward-joystick[data-active="true"] {
+  border-color: rgba(116, 222, 235, 0.7);
+  box-shadow:
+    0 8px 30px rgba(0, 0, 0, 0.46),
+    0 0 22px rgba(116, 222, 235, 0.13),
+    inset 0 0 30px rgba(0, 0, 0, 0.68);
 }
 
 .ward-action-cluster {
   position: absolute;
-  right: max(24px, env(safe-area-inset-right));
-  bottom: max(20px, env(safe-area-inset-bottom));
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
   display: grid;
   grid-template-columns: repeat(3, 58px);
   grid-template-rows: repeat(2, 58px);
-  gap: 9px;
+  gap: 8px;
   align-items: center;
   justify-items: center;
   pointer-events: auto;
@@ -313,22 +393,46 @@
 }
 
 .ward-action-button {
+  position: relative;
   display: grid;
   width: 56px;
   height: 56px;
   place-items: center;
-  border: 1px solid rgba(155, 169, 175, 0.48);
+  overflow: hidden;
+  border: 1px solid rgba(155, 169, 175, 0.55);
   border-radius: 50%;
-  background: rgba(5, 9, 11, 0.82);
-  box-shadow: inset 0 0 17px rgba(35, 48, 55, 0.4);
+  background:
+    linear-gradient(145deg, rgba(22, 31, 36, 0.96), rgba(3, 6, 8, 0.94));
+  box-shadow:
+    0 7px 18px rgba(0, 0, 0, 0.5),
+    inset 0 1px rgba(255, 255, 255, 0.09),
+    inset 0 0 16px rgba(25, 38, 43, 0.45);
   cursor: pointer;
   touch-action: none;
+}
+
+.ward-action-button::before {
+  position: absolute;
+  inset: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
 }
 
 .ward-action-button:active {
   border-color: var(--ward-cyan);
   background: rgba(19, 43, 48, 0.9);
   transform: scale(0.95);
+}
+
+.ward-action-button[data-active="true"] {
+  border-color: var(--ward-red);
+  color: #fff;
+  background: rgba(65, 13, 22, 0.94);
+  box-shadow:
+    0 0 20px rgba(241, 59, 77, 0.32),
+    inset 0 0 15px rgba(241, 59, 77, 0.2);
 }
 
 .ward-action-button svg {
@@ -358,14 +462,19 @@
 .ward-action-button--interact {
   grid-column: 3;
   grid-row: 2;
-  width: 64px;
-  height: 64px;
-  border-color: rgba(236, 48, 68, 0.72);
+  width: 66px;
+  height: 66px;
+  border-width: 2px;
+  border-color: rgba(241, 59, 77, 0.82);
+  color: #f4d9dc;
 }
 
 .ward-action-button--interact[data-ready="true"] {
   border-color: var(--ward-cyan);
-  box-shadow: 0 0 19px rgba(110, 214, 229, 0.25);
+  color: #e9feff;
+  box-shadow:
+    0 0 24px rgba(116, 222, 235, 0.34),
+    inset 0 0 18px rgba(116, 222, 235, 0.12);
   animation: ward-ready-pulse 1.4s ease-in-out infinite;
 }
 
@@ -383,10 +492,13 @@
   gap: 9px;
   align-items: center;
   max-width: min(410px, 42vw);
-  padding: 7px 14px 7px 8px;
-  border: 1px solid rgba(110, 214, 229, 0.48);
-  border-radius: 3px;
-  background: rgba(4, 8, 10, 0.9);
+  padding: 7px 17px 7px 8px;
+  border: 1px solid rgba(116, 222, 235, 0.58);
+  border-radius: 4px;
+  background: linear-gradient(110deg, rgba(12, 20, 23, 0.96), rgba(3, 6, 8, 0.94));
+  box-shadow:
+    0 9px 28px rgba(0, 0, 0, 0.52),
+    0 0 18px rgba(116, 222, 235, 0.08);
   transform: translateX(-50%);
   cursor: pointer;
 }
@@ -403,10 +515,15 @@
   height: 30px;
   place-items: center;
   border: 1px solid currentColor;
-  border-radius: 50%;
+  border-radius: 3px;
   color: var(--ward-cyan);
   font-size: 11px;
   font-weight: 900;
+}
+
+.ward-interaction-prompt > span svg {
+  width: 16px;
+  height: 16px;
 }
 
 .ward-interaction-prompt strong {
@@ -450,11 +567,12 @@
     max(12px, env(safe-area-inset-bottom))
     max(18px, env(safe-area-inset-left));
   place-items: center;
-  background: rgba(1, 3, 4, 0.78);
-  backdrop-filter: blur(7px);
+  background: rgba(1, 3, 4, 0.84);
+  backdrop-filter: blur(9px) saturate(0.72);
 }
 
 .ward-puzzle-frame {
+  position: relative;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
@@ -463,9 +581,23 @@
   border: 1px solid rgba(117, 139, 147, 0.55);
   border-top: 2px solid var(--ward-red);
   border-radius: 4px;
-  background: rgba(6, 9, 11, 0.97);
-  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.58);
+  background:
+    linear-gradient(135deg, rgba(17, 24, 28, 0.98), rgba(3, 6, 8, 0.99));
+  box-shadow:
+    0 28px 80px rgba(0, 0, 0, 0.72),
+    inset 0 0 42px rgba(38, 63, 70, 0.08);
   direction: rtl;
+}
+
+.ward-puzzle-frame::before {
+  position: absolute;
+  top: 7px;
+  right: 14px;
+  left: 14px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(241, 59, 77, 0.62), transparent);
+  content: "";
+  pointer-events: none;
 }
 
 .ward-puzzle-frame__header,
@@ -542,6 +674,12 @@
   overflow: auto;
   min-height: 0;
   padding: 18px 22px;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent 0,
+    transparent 31px,
+    rgba(127, 153, 161, 0.025) 32px
+  );
 }
 
 .ward-puzzle-frame__footer {
@@ -606,7 +744,10 @@
   border: 1px solid #343f44;
   border-radius: 2px;
   color: #66757b;
-  background: #0c1215;
+  background: linear-gradient(145deg, #151e22, #080c0e);
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.045),
+    inset 0 -7px 15px rgba(0, 0, 0, 0.34);
   cursor: pointer;
 }
 
@@ -614,7 +755,9 @@
   border-color: var(--ward-cyan);
   color: #9beaf2;
   background: #10262b;
-  box-shadow: inset 0 0 18px rgba(110, 214, 229, 0.13);
+  box-shadow:
+    0 0 13px rgba(116, 222, 235, 0.1),
+    inset 0 0 20px rgba(116, 222, 235, 0.16);
 }
 
 .ward-circuit-tile[data-empty="true"] {
@@ -692,7 +835,12 @@
   place-items: center;
   border: 1px solid #34454b;
   border-radius: 3px;
-  background: #030708;
+  background:
+    linear-gradient(155deg, rgba(13, 32, 37, 0.88), #010304 64%);
+  box-shadow:
+    inset 0 0 48px rgba(0, 0, 0, 0.82),
+    0 0 0 5px rgba(28, 38, 42, 0.72),
+    0 12px 30px rgba(0, 0, 0, 0.38);
 }
 
 .ward-monitor-viewport__noise {
@@ -755,7 +903,8 @@
   padding: 7px 10px;
   border: 1px solid #36434a;
   border-radius: 2px;
-  background: #0b1114;
+  background: linear-gradient(145deg, #121a1e, #070b0d);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.04);
   cursor: pointer;
 }
 
@@ -809,8 +958,12 @@
   place-items: center;
   border: 4px solid #313d42;
   border-radius: 2px;
-  background: #10191d;
-  box-shadow: inset 0 0 50px rgba(93, 153, 164, 0.14);
+  background:
+    linear-gradient(145deg, #1b272c, #080d10 66%);
+  box-shadow:
+    inset 0 0 55px rgba(93, 153, 164, 0.16),
+    0 0 0 4px #101619,
+    0 16px 34px rgba(0, 0, 0, 0.45);
 }
 
 .ward-mirror-glass__raw,
@@ -860,7 +1013,8 @@
   place-items: center;
   border-bottom: 2px solid var(--ward-cyan);
   color: #e4f5f7;
-  background: #091014;
+  background: linear-gradient(180deg, #101a1f, #060a0c);
+  box-shadow: inset 0 0 16px rgba(116, 222, 235, 0.06);
   font-family: "Segoe UI Symbol", sans-serif;
   font-size: 30px;
 }
@@ -880,7 +1034,10 @@
   border: 1px solid #3d4b51;
   border-radius: 2px;
   color: #dff4f6;
-  background: #0c1317;
+  background: linear-gradient(145deg, #182126, #080c0e);
+  box-shadow:
+    0 4px 10px rgba(0, 0, 0, 0.32),
+    inset 0 1px rgba(255, 255, 255, 0.055);
   font-family: "Segoe UI Symbol", sans-serif;
   font-size: 27px;
   cursor: pointer;
@@ -969,7 +1126,7 @@
 .ward-inventory-slot {
   position: relative;
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) auto;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
   grid-template-rows: auto auto;
   gap: 4px 9px;
   align-content: center;
@@ -997,12 +1154,27 @@
   font-size: 9px;
 }
 
-.ward-inventory-slot > svg {
+.ward-item-art {
   grid-row: 1 / span 2;
   align-self: center;
-  width: 30px;
-  height: 30px;
-  color: var(--ward-cyan);
+  width: 50px;
+  height: 50px;
+  background-image: url("/assets/awakening-ward/art-pass-v2/items-atlas.webp");
+  background-repeat: no-repeat;
+  background-size: 200% 200%;
+  filter: drop-shadow(0 5px 6px rgba(0, 0, 0, 0.46));
+}
+
+.ward-item-art[data-item="keycard_a07"] {
+  background-position: 0 0;
+}
+
+.ward-item-art[data-item="medical_patch"] {
+  background-position: 100% 0;
+}
+
+.ward-item-art[data-item="battery"] {
+  background-position: 0 100%;
 }
 
 .ward-inventory-slot > strong,

@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import {
+  readFileSync,
+  statSync,
+} from 'node:fs';
 import { describe, it } from 'node:test';
 import {
   LEGACY_PUZZLE_ARCHIVE_ENABLED,
@@ -12,6 +15,11 @@ import {
   AWAKENING_WARD_INTERACTION_BY_ID,
   AWAKENING_WARD_SPAWN,
 } from '../features/awakening-ward/data/awakeningWardMap';
+import {
+  WARD_ART_FRAMES,
+  WARD_ART_PATHS,
+  WARD_PLAYER_DIRECTION_ROWS,
+} from '../features/awakening-ward/data/awakeningWardArt';
 import {
   AWAKENING_WARD_PUZZLE_REGISTRY,
 } from '../features/awakening-ward/data/roomPuzzleRegistry';
@@ -233,5 +241,37 @@ describe('Puzzle registry and preserved prototypes', () => {
     );
     assert.equal(source.includes('GameWorld'), false);
     assert.equal(source.includes('@react-three/fiber'), false);
+  });
+});
+
+describe('Awakening Ward production art pass', () => {
+  it('ships compressed transparent atlases for every visual layer', () => {
+    for (const assetPath of Object.values(WARD_ART_PATHS)) {
+      const file = new URL(`../../public${assetPath}`, import.meta.url);
+      assert.ok(statSync(file).size > 50_000, `${assetPath} is unexpectedly small`);
+      assert.ok(statSync(file).size < 400_000, `${assetPath} exceeds the mobile budget`);
+    }
+  });
+
+  it('keeps eight directional animation rows with integral frame geometry', () => {
+    assert.equal(WARD_PLAYER_DIRECTION_ROWS.length, 8);
+    assert.equal(WARD_ART_FRAMES.playerWidth, 314);
+    assert.equal(WARD_ART_FRAMES.playerHeight, 157);
+    assert.equal(WARD_ART_FRAMES.playerWidth * 4, 1256);
+    assert.equal(WARD_ART_FRAMES.playerHeight * 8, 1256);
+  });
+
+  it('loads the authored atlases instead of the old floor and wall placeholders', () => {
+    const source = readFileSync(
+      new URL(
+        '../features/awakening-ward/runtime/AwakeningWardScene.ts',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    assert.equal(source.includes('ward-floor-placeholder'), false);
+    assert.equal(source.includes('ward-wall-placeholder'), false);
+    assert.equal(source.includes('createPlayerAnimations'), true);
+    assert.equal(source.includes('WARD_ART_KEYS.props'), true);
   });
 });

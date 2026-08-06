@@ -33,6 +33,7 @@ export function MobileControls({
 }: MobileControlsProps) {
   const joystickPointer = useRef<number | null>(null);
   const [stick, setStick] = useState({ x: 0, y: 0 });
+  const [running, setRunning] = useState(false);
 
   const updateJoystick = (
     event: ReactPointerEvent<HTMLDivElement>,
@@ -62,6 +63,7 @@ export function MobileControls({
     <div className="ward-mobile-controls" data-visible={visible}>
       <div
         className="ward-joystick"
+        data-active={Math.hypot(stick.x, stick.y) > 0.04}
         role="application"
         aria-label="عصا الحركة"
         onPointerDown={(event) => {
@@ -105,14 +107,26 @@ export function MobileControls({
         <button
           type="button"
           className="ward-action-button ward-action-button--run"
+          data-active={running}
           onPointerDown={(event) => {
             onTouchActivity();
             event.currentTarget.setPointerCapture(event.pointerId);
+            setRunning(true);
             onRunChange(true);
           }}
-          onPointerUp={() => onRunChange(false)}
-          onPointerCancel={() => onRunChange(false)}
-          onPointerLeave={() => onRunChange(false)}
+          onPointerUp={() => {
+            setRunning(false);
+            onRunChange(false);
+          }}
+          onPointerCancel={() => {
+            setRunning(false);
+            onRunChange(false);
+          }}
+          onPointerLeave={() => {
+            setRunning(false);
+            onRunChange(false);
+          }}
+          aria-pressed={running}
           aria-label="ركض"
           title="ركض"
         >

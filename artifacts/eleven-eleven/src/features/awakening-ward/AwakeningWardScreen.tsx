@@ -1,5 +1,6 @@
 import {
   DoorOpen,
+  Hand,
   NotebookTabs,
   RotateCcw,
 } from 'lucide-react';
@@ -392,7 +393,9 @@ export default function AwakeningWardScreen() {
           )}
           onClick={() => handleInteraction(nearbyDefinition.id)}
         >
-          <span>{inputMode === 'keyboard' ? 'E' : '11'}</span>
+          <span>
+            {inputMode === 'keyboard' ? 'E' : <Hand aria-hidden="true" />}
+          </span>
           <strong>{nearbyDefinition.prompt}</strong>
         </button>
       )}

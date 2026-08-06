@@ -39,6 +39,16 @@ export function WardHud({
   showTelemetry,
 }: WardHudProps) {
   const powerOn = state.puzzleFlags.power_restored;
+  const progress = [
+    state.puzzleFlags.clock_1111_inspected,
+    state.puzzleFlags.power_restored,
+    state.puzzleFlags.monitor_activated,
+    state.puzzleFlags.mirror_clue_discovered,
+    state.puzzleFlags.hidden_drawer_opened,
+    state.inventory.some((entry) => entry.id === 'keycard_a07'),
+    state.puzzleFlags.awakening_exit_unlocked,
+  ];
+  const completedSteps = progress.filter(Boolean).length;
   return (
     <div className="ward-hud" aria-live="polite">
       <section className="ward-hud__identity">
@@ -57,6 +67,18 @@ export function WardHud({
           <Zap aria-hidden="true" />
           {powerOn ? 'POWER ONLINE' : 'EMERGENCY POWER'}
         </span>
+        <div
+          className="ward-hud__progress"
+          aria-label={`Ward progress ${completedSteps} of ${progress.length}`}
+        >
+          {progress.map((complete, index) => (
+            <i
+              key={index}
+              data-complete={complete}
+              data-current={index === completedSteps && completedSteps < progress.length}
+            />
+          ))}
+        </div>
       </section>
 
       <section className="ward-hud__vitals">

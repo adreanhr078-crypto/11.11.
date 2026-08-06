@@ -34,40 +34,56 @@ The save normalizer removes impossible downstream flags and removes a keycard
 that is not backed by an opened drawer. Completion cannot survive without the
 full sequence and the keycard.
 
-## Placeholder Asset Manifest
+## Art Pass V2 Asset Manifest
 
-### Generated, replaceable WebP textures
+Five original alpha WebP atlases live under
+`public/assets/awakening-ward/art-pass-v2/`. Their combined size is about
+793 KB. They are loaded only with Awakening Ward.
 
-- `public/assets/awakening-ward/ward-floor-placeholder.webp` — 512x512,
-  13 KB, original modular gunmetal floor texture.
-- `public/assets/awakening-ward/ward-wall-placeholder.webp` — 512x512,
-  8 KB, original modular graphite wall texture.
+- `floor-atlas.webp` — four detailed isometric floor variants: access plate,
+  vent, warning plate, and corridor guide light.
+- `wall-atlas.webp` — four modular wall variants: armor, utilities, medical
+  diagnostics, and emergency corridor.
+- `props-atlas.webp` — nine aligned props: capsule, power cabinet, monitoring
+  station, mirror/storage, A-07 door, medical console, side table, cable crate,
+  and chair.
+- `player-atlas.webp` — 32 frames across eight directions, with idle and walk
+  contact poses reused at a faster cadence for running. The subject is still a
+  deliberately anonymous temporary avatar and is not Echo.
+- `items-atlas.webp` — keycard, medical patch, battery, and clue note used in
+  both the world and inventory presentation.
 
-Both were generated as original seamless albedo placeholders, then resized and
-compressed to WebP. Neither is cropped or derived from either reference image.
+The atlases were generated through the built-in image generation workflow on
+a removable chroma background, keyed locally, verified for alpha, and
+compressed to WebP. The supplied concept image was used only for art direction.
+No reference pixels were cropped, and no whole-room image is used as a static
+background.
 
-### Code-drawn placeholders
+### Runtime Presentation Layers
 
-- Neutral player silhouette, idle/walk/run motion only; this is not Echo.
-- Awakening capsule and floor pad.
-- Medical console and side table.
-- Power panel, cables, and routed floor power line.
-- Monitor wall, console screens, and chair.
-- Wall mirror, storage cabinet, and moving drawer.
-- Crate, corridor guide lights, A-07 reader, and moving exit door.
-- Interaction markers, emergency wash, fog, scanlines, and screen flicker.
+- The floor is composed once into a Phaser RenderTexture from real isometric
+  tile art, keeping runtime draw calls low.
+- Modular wall sprites retain independent front-wall occlusion.
+- Props use authored sprites while collisions and interactions remain driven by
+  the unchanged map data.
+- Local light pools, contact shadows, emissive flicker, emergency wash, and
+  corridor guidance remain quality-scalable.
+- The player has eight-direction frame animation, idle breathing, walk/run
+  timing, directional facing, and camera look-ahead.
+- Drawer, keycard, power state, screen state, and A-07 opening remain bound to
+  the existing saved progression flags.
 
 ## Final Art Still Needed
 
-- Authored isometric player sprite sheet with eight-direction idle/walk/run.
-- Final capsule, medical props, power panel, monitor bank, mirror/storage, and
-  A-07 door sprite sets with normal and powered states.
-- Purpose-built floor/wall tile set with edge, corner, damage, cable, and decal
-  variants.
-- Authored UI glyphs for the circuit, monitor, mirror, keypad, inventory, and
-  keycard.
-- Final low-volume room ambience and interaction SFX.
-- Optional optimized light maps and wall-occlusion masks per authored tile.
+- Canon-approved player or Echo-independent playable character art when the
+  final character direction is approved.
+- Dedicated open/closed drawer and multi-frame A-07 door animations instead of
+  layered runtime motion.
+- Additional edge, corner, debris, cable, and wall-damage tile variations for
+  larger future wards.
+- Final low-volume room ambience and authored interaction SFX.
+- Optional normal maps and baked occlusion masks for a future high-quality
+  device tier.
 
 ## Visual Reference Comparison
 
