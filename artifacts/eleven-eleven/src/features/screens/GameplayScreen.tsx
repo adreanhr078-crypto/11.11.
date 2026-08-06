@@ -27,7 +27,7 @@ export default function GameplayScreen() {
 
   useEffect(() => {
     if (!OPENING_ROOM_3D_ENABLED) {
-      navigate('puzzles');
+      navigate('awakening-ward');
       return;
     }
     const game = useGameStore.getState();

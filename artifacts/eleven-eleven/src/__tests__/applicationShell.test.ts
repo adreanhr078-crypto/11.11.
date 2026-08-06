@@ -307,7 +307,7 @@ describe('Application Shell', () => {
     }
   });
 
-  it('keeps the 3D room dormant and routes its entry to puzzles', () => {
+  it('keeps the 3D room dormant and routes its entry to Awakening Ward', () => {
     assert.equal(OPENING_ROOM_3D_ENABLED, false);
     useShellStore.setState({
       currentScreen: 'psychological-state',
@@ -317,7 +317,7 @@ describe('Application Shell', () => {
     });
 
     useShellStore.getState().navigate('play');
-    assert.equal(useShellStore.getState().currentScreen, 'puzzles');
+    assert.equal(useShellStore.getState().currentScreen, 'awakening-ward');
     assert.equal(
       useShellStore.getState().previousScreen,
       'psychological-state',

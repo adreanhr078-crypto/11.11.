@@ -40,6 +40,9 @@ import type {
   HintTierId,
   PuzzleRewardEvent,
 } from '../domain/puzzles/campaignContracts';
+import type {
+  AwakeningWardSaveState,
+} from '../features/awakening-ward/domain/awakeningWardTypes';
 export { type ChapterId, type ChapterState } from './chapterSystem';
 
 // ─── Basic Types ─────────────────────────────────────────────────────
@@ -285,6 +288,8 @@ export interface GameState {
   narrative: NarrativeState;
   /** Persisted cinematic checkpoint; frame-by-frame playback stays in the player. */
   cinematic: CinematicState;
+  /** Durable, account-synced progress for the isolated 2.5D ward slice. */
+  awakeningWard: AwakeningWardSaveState;
   chapters: Record<ChapterId, ChapterState>; currentChapter: ChapterId;
   /** @deprecated Compatibility only; not a progression source of truth. */
   entities: Record<EntityId, LegacyEntityProgress>;

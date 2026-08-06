@@ -50,7 +50,7 @@ export const NAVIGATION_CATEGORIES = [
     description: 'حل العقد وإعادة بناء الأحداث المفقودة.',
     iconId: 'category-puzzles',
     tone: 'memory',
-    landingScreenId: 'puzzles',
+    landingScreenId: 'awakening-ward',
     primary: true,
   },
   {

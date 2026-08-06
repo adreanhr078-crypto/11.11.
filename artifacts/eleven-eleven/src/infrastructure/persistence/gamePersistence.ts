@@ -69,8 +69,11 @@ import {
 import {
   normalizeNarrativeEventProgressState,
 } from '../../domain/narrative/narrativeEventTransaction';
+import {
+  normalizeAwakeningWardState,
+} from '../../features/awakening-ward/domain/awakeningWardState';
 
-export const GAME_SAVE_VERSION = 18;
+export const GAME_SAVE_VERSION = 19;
 
 // Keep the established key so Zustand can migrate existing local saves.
 export const GAME_STORAGE_NAME = '11-11-game-store-v5';
@@ -736,6 +739,7 @@ export function migrateGameState(
       forgivenessPoints: progressionState.echo.forgivenessPoints,
     } as GameState['echo'],
     cinematic: normalizeCinematicState(persisted.cinematic),
+    awakeningWard: normalizeAwakeningWardState(persisted.awakeningWard),
   };
 }
 
@@ -955,6 +959,7 @@ export function partializeGameState(state: GameState): PersistedState {
     progression: state.progression,
     narrative: state.narrative,
     cinematic: state.cinematic,
+    awakeningWard: normalizeAwakeningWardState(state.awakeningWard),
     flower: state.flower,
     memory: state.memory,
     player: state.player,

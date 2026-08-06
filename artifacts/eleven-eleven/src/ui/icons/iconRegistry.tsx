@@ -171,12 +171,12 @@ export const GAME_ICON_REGISTRY = {
   'screen-gameplay': {
     id: 'screen-gameplay',
     systemId: 'story',
-    screenIds: ['play'],
-    actionId: 'gameplay.enter-opening-room',
+    screenIds: ['play', 'awakening-ward'],
+    actionId: 'gameplay.enter-awakening-ward',
     label: { ar: 'ابدأ اللعبة', en: 'Start game' },
     description: {
-      ar: 'الدخول إلى الغرفة الافتتاحية والتحكم بـEcho',
-      en: 'Enter the opening room and control Echo',
+      ar: 'الدخول إلى جناح الاستيقاظ A-01',
+      en: 'Enter Awakening Ward A-01',
     },
     tooltip: { ar: 'ابدأ اللعبة', en: 'Start game' },
     tone: 'memory',

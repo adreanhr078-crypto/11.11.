@@ -6,6 +6,9 @@ import {
 import type { GameTone } from '../../ui/design-system/types';
 import type { GameIconId } from '../../ui/icons';
 import type { NavigationCategoryId } from './navigationTypes';
+import {
+  LEGACY_PUZZLE_ARCHIVE_ENABLED,
+} from '../config/featureFlags';
 
 export type ScreenNavigationPlacement =
   | 'landing'
@@ -111,6 +114,20 @@ export const GAME_SCREEN_DEFINITIONS = [
     )),
   },
   {
+    id: 'awakening-ward',
+    label: 'Awakening Ward — A-01',
+    shortLabel: 'A-01',
+    description: 'أول جناح قابل للعب داخل منشأة 11:11.',
+    code: 'A-01',
+    tone: 'danger',
+    iconId: 'screen-gameplay',
+    categoryId: 'puzzles',
+    navigation: 'landing',
+    component: lazy(() => import(
+      '../../features/awakening-ward/AwakeningWardScreen'
+    )),
+  },
+  {
     id: 'puzzles',
     label: 'إعادة بناء الذاكرة',
     shortLabel: 'الألغاز',
@@ -119,7 +136,7 @@ export const GAME_SCREEN_DEFINITIONS = [
     tone: 'memory',
     iconId: 'screen-puzzles',
     categoryId: 'puzzles',
-    navigation: 'landing',
+    navigation: LEGACY_PUZZLE_ARCHIVE_ENABLED ? 'secondary' : 'hidden',
     component: lazy(() => import(
       '../../features/screens/PuzzleScreen'
     )),

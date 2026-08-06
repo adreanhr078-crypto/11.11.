@@ -64,7 +64,8 @@ export function ApplicationShell() {
   const currentCategoryHasMenu = currentCategoryScreens.length > 1;
   const Screen = definition.component;
   const isMainMenu = shell.currentScreen === 'main-menu';
-  const isGameplay = shell.currentScreen === 'play';
+  const isGameplay = shell.currentScreen === 'play'
+    || shell.currentScreen === 'awakening-ward';
   const isImmersive = isMainMenu
     || isGameplay
     || shell.currentScreen === 'cinematic';
@@ -245,7 +246,7 @@ export function ApplicationShell() {
         open={shell.pauseOpen}
         onClose={shell.closePause}
         eyebrow={isGameplay
-          ? 'OPENING ROOM // AUTO-SAVED'
+          ? 'AWAKENING WARD // AUTO-SAVED'
           : 'GAME STATE // AUTO-SAVED'}
         title="قائمة الإيقاف"
         tone="danger"

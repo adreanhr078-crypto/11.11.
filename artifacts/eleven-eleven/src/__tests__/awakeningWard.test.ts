@@ -1,0 +1,237 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { describe, it } from 'node:test';
+import {
+  LEGACY_PUZZLE_ARCHIVE_ENABLED,
+  OPENING_ROOM_3D_ENABLED,
+  resolveFeatureGatedScreen,
+} from '../app/config/featureFlags';
+import { CHAPTER_01_PUZZLES } from '../content/puzzles/chapter01Campaign';
+import {
+  AWAKENING_WARD_EXIT_APPROACH,
+  AWAKENING_WARD_INTERACTION_BY_ID,
+  AWAKENING_WARD_SPAWN,
+} from '../features/awakening-ward/data/awakeningWardMap';
+import {
+  AWAKENING_WARD_PUZZLE_REGISTRY,
+} from '../features/awakening-ward/data/roomPuzzleRegistry';
+import {
+  applyAwakeningWardProgress,
+  createInitialAwakeningWardState,
+  hasWardItem,
+  normalizeAwakeningWardState,
+} from '../features/awakening-ward/domain/awakeningWardState';
+import {
+  findWardPath,
+  isExitCorridorClear,
+  isWardPositionWalkable,
+  moveWardPlayer,
+  resolveWardCameraZoom,
+} from '../features/awakening-ward/domain/wardNavigation';
+import {
+  CIRCUIT_TILES,
+  INITIAL_CIRCUIT_ROTATIONS,
+  isCircuitSolved,
+} from '../features/awakening-ward/puzzles/circuitPuzzle';
+import {
+  WardSceneBridge,
+  type WardSceneApi,
+} from '../features/awakening-ward/runtime/wardSceneBridge';
+import {
+  GAME_SAVE_VERSION,
+  migrateGameState,
+  partializeGameState,
+} from '../infrastructure/persistence/gamePersistence';
+import { buildInitialState } from '../stores/gameStoreHelpers';
+
+function advanceToDrawer() {
+  let state = createInitialAwakeningWardState();
+  state = applyAwakeningWardProgress(state, 'inspect-clock');
+  state = applyAwakeningWardProgress(state, 'restore-power');
+  state = applyAwakeningWardProgress(state, 'activate-monitor');
+  state = applyAwakeningWardProgress(state, 'record-mirror-clue');
+  state = applyAwakeningWardProgress(state, 'open-hidden-drawer');
+  return state;
+}
+
+describe('Awakening Ward progression authority', () => {
+  it('does not activate the monitor before power is restored', () => {
+    const initial = createInitialAwakeningWardState();
+    const attempted = applyAwakeningWardProgress(
+      initial,
+      'activate-monitor',
+    );
+    assert.equal(attempted.puzzleFlags.monitor_activated, false);
+  });
+
+  it('does not open the drawer before the mirror clue is recorded', () => {
+    let state = createInitialAwakeningWardState();
+    state = applyAwakeningWardProgress(state, 'inspect-clock');
+    state = applyAwakeningWardProgress(state, 'restore-power');
+    state = applyAwakeningWardProgress(state, 'activate-monitor');
+    state = applyAwakeningWardProgress(state, 'open-hidden-drawer');
+    assert.equal(state.puzzleFlags.hidden_drawer_opened, false);
+  });
+
+  it('requires opening the drawer and then taking the keycard explicitly', () => {
+    const initial = createInitialAwakeningWardState();
+    const premature = applyAwakeningWardProgress(initial, 'take-keycard');
+    assert.equal(hasWardItem(premature, 'keycard_a07'), false);
+
+    const drawerOpen = advanceToDrawer();
+    assert.equal(drawerOpen.puzzleFlags.hidden_drawer_opened, true);
+    assert.equal(hasWardItem(drawerOpen, 'keycard_a07'), false);
+
+    const collected = applyAwakeningWardProgress(drawerOpen, 'take-keycard');
+    assert.equal(hasWardItem(collected, 'keycard_a07'), true);
+  });
+
+  it('does not unlock A-07 without the keycard', () => {
+    const drawerOpen = advanceToDrawer();
+    const attempted = applyAwakeningWardProgress(drawerOpen, 'unlock-exit');
+    assert.equal(attempted.puzzleFlags.awakening_exit_unlocked, false);
+    assert.equal(attempted.awakeningWardCompleted, false);
+  });
+
+  it('repairs inconsistent client saves instead of trusting door flags', () => {
+    const normalized = normalizeAwakeningWardState({
+      puzzleFlags: {
+        clock_1111_inspected: false,
+        power_restored: false,
+        monitor_activated: false,
+        mirror_clue_discovered: false,
+        hidden_drawer_opened: false,
+        awakening_exit_unlocked: true,
+      },
+      inventory: [{ id: 'keycard_a07', quantity: 1 }],
+      awakeningWardCompleted: true,
+    });
+    assert.equal(normalized.puzzleFlags.awakening_exit_unlocked, false);
+    assert.equal(normalized.awakeningWardCompleted, false);
+    assert.equal(hasWardItem(normalized, 'keycard_a07'), false);
+  });
+
+  it('survives the same serialization path used by local and cloud saves', () => {
+    const base = buildInitialState();
+    let ward = advanceToDrawer();
+    ward = applyAwakeningWardProgress(ward, 'take-keycard');
+    const payload = partializeGameState({ ...base, awakeningWard: ward });
+    const refreshed = migrateGameState(
+      JSON.parse(JSON.stringify(payload)),
+      GAME_SAVE_VERSION,
+    );
+    assert.equal(refreshed.awakeningWard?.puzzleFlags.hidden_drawer_opened, true);
+    assert.equal(
+      refreshed.awakeningWard?.inventory.some(
+        (entry) => entry.id === 'keycard_a07',
+      ),
+      true,
+    );
+  });
+});
+
+describe('Awakening Ward navigation and mobile runtime', () => {
+  it('spawns in walkable space and finds a route from capsule to A-07', () => {
+    assert.equal(isWardPositionWalkable(AWAKENING_WARD_SPAWN), true);
+    assert.equal(isWardPositionWalkable(AWAKENING_WARD_EXIT_APPROACH), true);
+    const path = findWardPath();
+    assert.ok(path && path.length > 10);
+  });
+
+  it('keeps the mirror and storage outside the clear exit corridor', () => {
+    assert.equal(isExitCorridorClear(), true);
+  });
+
+  it('prevents movement outside the map and into obstacles', () => {
+    const outsideAttempt = moveWardPlayer(
+      AWAKENING_WARD_SPAWN,
+      { x: -80, y: -80 },
+      1,
+    );
+    assert.equal(isWardPositionWalkable(outsideAttempt), true);
+    assert.notDeepEqual(outsideAttempt, { x: -72.8, y: -65.2 });
+  });
+
+  it('forwards independent touch movement, run, and interaction commands', () => {
+    const events: string[] = [];
+    let movement = { x: 0, y: 0 };
+    const api: WardSceneApi = {
+      setTouchMovement: (x, y) => { movement = { x, y }; },
+      setTouchRunning: (running) => events.push(`run:${running}`),
+      requestInteraction: () => events.push('interact'),
+      setLocked: () => {},
+      setPaused: () => {},
+      setProgress: () => {},
+      setQuality: () => {},
+      destroy: () => {},
+    };
+    const bridge = new WardSceneBridge({
+      onNearbyInteraction: () => {},
+      onInteractionRequested: () => {},
+      onRuntimeSnapshot: () => {},
+      onMetrics: () => {},
+      onKeyboardActivity: () => {},
+    });
+    bridge.attach(api);
+    events.length = 0;
+    bridge.setTouchMovement(0.6, -0.4);
+    bridge.setTouchRunning(true);
+    bridge.requestInteraction();
+    assert.deepEqual(movement, { x: 0.6, y: -0.4 });
+    assert.deepEqual(events, ['run:true', 'interact']);
+  });
+
+  it('resolves a stable zoom for every target landscape ratio', () => {
+    const targets = [
+      [1280, 720],
+      [1920, 1080],
+      [2400, 1080],
+      [2340, 1080],
+    ] as const;
+    for (const [width, height] of targets) {
+      const zoom = resolveWardCameraZoom(width, height);
+      assert.ok(Number.isFinite(zoom));
+      assert.ok(zoom >= 0.78 && zoom <= 1.18);
+    }
+  });
+});
+
+describe('Puzzle registry and preserved prototypes', () => {
+  it('uses a real rotatable circuit instead of a one-click completion', () => {
+    assert.equal(isCircuitSolved(INITIAL_CIRCUIT_ROTATIONS), false);
+    assert.equal(
+      isCircuitSolved(CIRCUIT_TILES.map((tile) => tile.solutionRotation)),
+      true,
+    );
+  });
+
+  it('registers only the four room puzzle interfaces for A-01', () => {
+    const entries = Object.values(AWAKENING_WARD_PUZZLE_REGISTRY);
+    assert.equal(entries.length, 4);
+    assert.equal(entries.every((entry) => entry.origin === 'room'), true);
+    assert.equal(
+      AWAKENING_WARD_INTERACTION_BY_ID.awakening_clock.puzzleId,
+      undefined,
+    );
+  });
+
+  it('keeps all 20 legacy puzzles behind their feature flag', () => {
+    assert.equal(CHAPTER_01_PUZZLES.length, 20);
+    assert.equal(LEGACY_PUZZLE_ARCHIVE_ENABLED, false);
+    assert.equal(resolveFeatureGatedScreen('puzzles'), 'awakening-ward');
+  });
+
+  it('keeps the 3D room disabled and out of the new screen module', () => {
+    assert.equal(OPENING_ROOM_3D_ENABLED, false);
+    assert.equal(resolveFeatureGatedScreen('play'), 'awakening-ward');
+    const source = readFileSync(
+      new URL(
+        '../features/awakening-ward/AwakeningWardScreen.tsx',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    assert.equal(source.includes('GameWorld'), false);
+    assert.equal(source.includes('@react-three/fiber'), false);
+  });
+});

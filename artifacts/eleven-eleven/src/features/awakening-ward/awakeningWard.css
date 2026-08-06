@@ -1,0 +1,1269 @@
+.awakening-ward {
+  --ward-red: #ec3044;
+  --ward-red-dark: #8f1f2c;
+  --ward-cyan: #6ed6e5;
+  --ward-white: #e8eef0;
+  --ward-muted: #8f9aa0;
+  --ward-panel: rgba(7, 10, 12, 0.92);
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  overflow: hidden;
+  width: 100%;
+  height: 100dvh;
+  min-width: 320px;
+  color: var(--ward-white);
+  background: #050708;
+  font-family: Rajdhani, "Segoe UI", Arial, sans-serif;
+  letter-spacing: 0;
+  touch-action: none;
+  overscroll-behavior: none;
+  user-select: none;
+}
+
+.awakening-ward button {
+  color: inherit;
+  font: inherit;
+  letter-spacing: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.awakening-ward__canvas,
+.awakening-ward__canvas canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  touch-action: none;
+}
+
+.awakening-ward__scanlines {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0.13;
+  background-image: repeating-linear-gradient(
+    180deg,
+    transparent 0,
+    transparent 3px,
+    rgba(154, 213, 221, 0.055) 4px
+  );
+  mix-blend-mode: screen;
+}
+
+.awakening-ward[data-quality="low"] .awakening-ward__scanlines {
+  opacity: 0.07;
+  mix-blend-mode: normal;
+}
+
+.ward-hud {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: minmax(205px, 0.9fr) minmax(280px, 1.3fr) minmax(210px, 0.9fr);
+  gap: 12px;
+  align-items: start;
+  padding:
+    max(10px, env(safe-area-inset-top))
+    max(14px, env(safe-area-inset-right))
+    0
+    max(14px, env(safe-area-inset-left));
+  direction: ltr;
+  pointer-events: none;
+}
+
+.ward-hud section {
+  min-width: 0;
+  border-top: 2px solid rgba(128, 146, 154, 0.46);
+  border-bottom: 1px solid rgba(78, 91, 98, 0.42);
+  background: rgba(4, 7, 9, 0.78);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(5px);
+}
+
+.ward-hud__identity {
+  display: grid;
+  gap: 2px;
+  padding: 8px 11px;
+  border-top-color: var(--ward-red) !important;
+}
+
+.ward-hud__zone,
+.ward-hud__identity small,
+.ward-hud__objective small,
+.ward-hud__telemetry {
+  color: var(--ward-muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.ward-hud__identity strong {
+  overflow: hidden;
+  color: #f3f7f8;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ward-hud__identity small {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--ward-cyan);
+}
+
+.ward-hud__identity svg,
+.ward-hud__vitals svg {
+  width: 13px;
+  height: 13px;
+}
+
+.ward-hud__objective {
+  justify-self: center;
+  width: min(100%, 520px);
+  padding: 7px 12px 8px;
+  text-align: center;
+}
+
+.ward-hud__objective strong {
+  display: block;
+  overflow: hidden;
+  margin: 2px 0 4px;
+  font-size: 14px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ward-hud__objective span {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  color: var(--ward-red);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.ward-hud__objective span[data-power="true"] {
+  color: var(--ward-cyan);
+}
+
+.ward-hud__objective svg {
+  width: 12px;
+  height: 12px;
+}
+
+.ward-hud__vitals {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  border-top-color: var(--ward-cyan) !important;
+}
+
+.ward-hud__vitals label {
+  display: grid;
+  grid-template-columns: 47px 1fr 28px;
+  gap: 7px;
+  align-items: center;
+  min-width: 0;
+}
+
+.ward-hud__vitals label > span {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  color: #bac4c8;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.ward-hud__vitals label > i {
+  display: block;
+  overflow: hidden;
+  height: 5px;
+  background: #202a2f;
+}
+
+.ward-hud__vitals label > i b {
+  display: block;
+  height: 100%;
+  background: var(--ward-red);
+  transition: width 180ms ease;
+}
+
+.ward-hud__vitals label:nth-child(2) > i b {
+  background: var(--ward-cyan);
+}
+
+.ward-hud__vitals label > strong {
+  font-size: 11px;
+  text-align: right;
+}
+
+.ward-hud__telemetry {
+  position: absolute;
+  top: calc(max(10px, env(safe-area-inset-top)) + 82px);
+  left: max(14px, env(safe-area-inset-left));
+  padding: 5px 8px;
+  border-left: 2px solid var(--ward-cyan);
+  color: #c8d4d7;
+  background: rgba(4, 7, 9, 0.75);
+}
+
+.ward-clue-log-button {
+  position: absolute;
+  top: calc(max(10px, env(safe-area-inset-top)) + 88px);
+  right: max(14px, env(safe-area-inset-right));
+  z-index: 24;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid rgba(110, 214, 229, 0.48);
+  border-radius: 3px;
+  background: rgba(6, 10, 12, 0.83);
+  cursor: pointer;
+}
+
+.ward-clue-log-button svg {
+  width: 21px;
+  height: 21px;
+}
+
+.ward-clue-log-button b {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--ward-red);
+  font-size: 10px;
+}
+
+.ward-mobile-controls {
+  position: absolute;
+  inset: 0;
+  z-index: 22;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+}
+
+.ward-mobile-controls[data-visible="false"] {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.ward-joystick {
+  position: absolute;
+  bottom: max(20px, env(safe-area-inset-bottom));
+  left: max(24px, env(safe-area-inset-left));
+  width: 132px;
+  height: 132px;
+  border: 1px solid rgba(193, 209, 214, 0.36);
+  border-radius: 50%;
+  background:
+    linear-gradient(90deg, transparent 49%, rgba(110, 214, 229, 0.18) 50%, transparent 51%),
+    linear-gradient(0deg, transparent 49%, rgba(110, 214, 229, 0.18) 50%, transparent 51%),
+    rgba(5, 8, 10, 0.52);
+  box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.52);
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.ward-joystick::before {
+  position: absolute;
+  inset: 17px;
+  border: 1px solid rgba(110, 214, 229, 0.17);
+  border-radius: 50%;
+  content: "";
+}
+
+.ward-joystick > span {
+  position: absolute;
+  top: 40px;
+  left: 40px;
+  width: 52px;
+  height: 52px;
+  border: 2px solid rgba(110, 214, 229, 0.72);
+  border-radius: 50%;
+  background: rgba(11, 21, 26, 0.92);
+  box-shadow: 0 0 18px rgba(110, 214, 229, 0.2);
+  transition: transform 45ms linear;
+}
+
+.ward-action-cluster {
+  position: absolute;
+  right: max(24px, env(safe-area-inset-right));
+  bottom: max(20px, env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: repeat(3, 58px);
+  grid-template-rows: repeat(2, 58px);
+  gap: 9px;
+  align-items: center;
+  justify-items: center;
+  pointer-events: auto;
+  direction: ltr;
+}
+
+.ward-action-button {
+  display: grid;
+  width: 56px;
+  height: 56px;
+  place-items: center;
+  border: 1px solid rgba(155, 169, 175, 0.48);
+  border-radius: 50%;
+  background: rgba(5, 9, 11, 0.82);
+  box-shadow: inset 0 0 17px rgba(35, 48, 55, 0.4);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.ward-action-button:active {
+  border-color: var(--ward-cyan);
+  background: rgba(19, 43, 48, 0.9);
+  transform: scale(0.95);
+}
+
+.ward-action-button svg {
+  width: 24px;
+  height: 24px;
+}
+
+.ward-action-button--pause {
+  grid-column: 3;
+  grid-row: 1;
+  width: 45px;
+  height: 45px;
+}
+
+.ward-action-button--inventory {
+  grid-column: 2;
+  grid-row: 1;
+  width: 48px;
+  height: 48px;
+}
+
+.ward-action-button--run {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.ward-action-button--interact {
+  grid-column: 3;
+  grid-row: 2;
+  width: 64px;
+  height: 64px;
+  border-color: rgba(236, 48, 68, 0.72);
+}
+
+.ward-action-button--interact[data-ready="true"] {
+  border-color: var(--ward-cyan);
+  box-shadow: 0 0 19px rgba(110, 214, 229, 0.25);
+  animation: ward-ready-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes ward-ready-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
+.ward-interaction-prompt {
+  position: absolute;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  left: 50%;
+  z-index: 23;
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  max-width: min(410px, 42vw);
+  padding: 7px 14px 7px 8px;
+  border: 1px solid rgba(110, 214, 229, 0.48);
+  border-radius: 3px;
+  background: rgba(4, 8, 10, 0.9);
+  transform: translateX(-50%);
+  cursor: pointer;
+}
+
+.ward-interaction-prompt[data-available="false"] {
+  border-color: rgba(236, 48, 68, 0.58);
+  color: #bdc4c7;
+}
+
+.ward-interaction-prompt > span {
+  display: grid;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  color: var(--ward-cyan);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.ward-interaction-prompt strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ward-system-message {
+  position: absolute;
+  top: calc(max(10px, env(safe-area-inset-top)) + 91px);
+  left: 50%;
+  z-index: 25;
+  max-width: min(620px, 70vw);
+  padding: 7px 18px;
+  border-right: 2px solid var(--ward-red);
+  border-left: 2px solid var(--ward-red);
+  color: #f0f4f5;
+  background: rgba(4, 7, 9, 0.83);
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+  transform: translateX(-50%);
+  animation: ward-message-in 180ms ease-out;
+}
+
+@keyframes ward-message-in {
+  from { opacity: 0; transform: translate(-50%, -7px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.ward-puzzle-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  padding:
+    max(12px, env(safe-area-inset-top))
+    max(18px, env(safe-area-inset-right))
+    max(12px, env(safe-area-inset-bottom))
+    max(18px, env(safe-area-inset-left));
+  place-items: center;
+  background: rgba(1, 3, 4, 0.78);
+  backdrop-filter: blur(7px);
+}
+
+.ward-puzzle-frame {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  width: min(840px, 92vw);
+  max-height: min(610px, calc(100dvh - 28px));
+  border: 1px solid rgba(117, 139, 147, 0.55);
+  border-top: 2px solid var(--ward-red);
+  border-radius: 4px;
+  background: rgba(6, 9, 11, 0.97);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.58);
+  direction: rtl;
+}
+
+.ward-puzzle-frame__header,
+.ward-inventory-panel > header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 64px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(92, 108, 115, 0.35);
+  direction: ltr;
+}
+
+.ward-puzzle-frame__code {
+  display: grid;
+  min-width: 72px;
+  height: 33px;
+  padding: 0 9px;
+  place-items: center;
+  border-left: 2px solid var(--ward-red);
+  color: var(--ward-red);
+  background: rgba(236, 48, 68, 0.08);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ward-puzzle-frame__header > div,
+.ward-inventory-panel > header > h2 {
+  min-width: 0;
+}
+
+.ward-puzzle-frame__header small,
+.ward-inventory-panel > header > span {
+  display: block;
+  color: var(--ward-muted);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.ward-puzzle-frame__header h2,
+.ward-inventory-panel > header h2 {
+  overflow: hidden;
+  margin: 1px 0 0;
+  color: #f1f5f6;
+  font-size: 19px;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ward-icon-button {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid rgba(139, 153, 159, 0.42);
+  border-radius: 3px;
+  background: #0b1013;
+  cursor: pointer;
+}
+
+.ward-icon-button:hover,
+.ward-icon-button:focus-visible {
+  border-color: var(--ward-cyan);
+}
+
+.ward-icon-button svg {
+  width: 19px;
+  height: 19px;
+}
+
+.ward-puzzle-frame__body {
+  overflow: auto;
+  min-height: 0;
+  padding: 18px 22px;
+}
+
+.ward-puzzle-frame__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 14px;
+  border-top: 1px solid rgba(92, 108, 115, 0.35);
+}
+
+.ward-command {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 18px;
+  border: 1px solid rgba(133, 151, 158, 0.48);
+  border-radius: 3px;
+  color: #dbe3e5;
+  background: #10171b;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ward-command--primary {
+  border-color: #df2f42;
+  color: #fff;
+  background: #c72336;
+}
+
+.ward-command:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.ward-command svg {
+  width: 18px;
+  height: 18px;
+}
+
+.ward-circuit-layout {
+  position: relative;
+  width: min(100%, 440px);
+  margin: 0 auto;
+  padding: 0 35px 31px;
+}
+
+.ward-circuit-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 70px);
+  gap: 7px;
+  justify-content: center;
+}
+
+.ward-circuit-tile {
+  position: relative;
+  display: grid;
+  width: 70px;
+  height: 70px;
+  place-items: center;
+  border: 1px solid #343f44;
+  border-radius: 2px;
+  color: #66757b;
+  background: #0c1215;
+  cursor: pointer;
+}
+
+.ward-circuit-tile[data-powered="true"] {
+  border-color: var(--ward-cyan);
+  color: #9beaf2;
+  background: #10262b;
+  box-shadow: inset 0 0 18px rgba(110, 214, 229, 0.13);
+}
+
+.ward-circuit-tile[data-empty="true"] {
+  opacity: 0.28;
+  cursor: default;
+}
+
+.ward-circuit-tile > span {
+  font-family: "Segoe UI Symbol", sans-serif;
+  font-size: 42px;
+  line-height: 1;
+}
+
+.ward-circuit-tile > svg {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 11px;
+  height: 11px;
+  opacity: 0.5;
+}
+
+.ward-circuit-port {
+  position: absolute;
+  display: grid;
+  height: 28px;
+  place-items: center;
+  color: var(--ward-red);
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.ward-circuit-port--source {
+  top: 84px;
+  left: 0;
+  width: 34px;
+  border-right: 2px solid var(--ward-red);
+}
+
+.ward-circuit-port--east {
+  top: 84px;
+  right: 0;
+  width: 34px;
+  border-left: 2px solid var(--ward-cyan);
+  color: var(--ward-cyan);
+}
+
+.ward-circuit-port--south {
+  right: 112px;
+  bottom: 0;
+  width: 54px;
+  border-top: 2px solid var(--ward-cyan);
+  color: var(--ward-cyan);
+}
+
+.ward-puzzle-status {
+  min-height: 34px;
+  margin: 14px auto 0;
+  color: #aab5b9;
+  font-size: 12px;
+  text-align: center;
+}
+
+.ward-puzzle-status[data-error="true"] {
+  color: #ff6374;
+}
+
+.ward-monitor-viewport {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  width: min(100%, 650px);
+  min-height: 170px;
+  margin: 0 auto 15px;
+  place-items: center;
+  border: 1px solid #34454b;
+  border-radius: 3px;
+  background: #030708;
+}
+
+.ward-monitor-viewport__noise {
+  position: absolute;
+  inset: 0;
+  opacity: 0.6;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent 0,
+    transparent 4px,
+    rgba(110, 214, 229, 0.11) 5px
+  );
+  animation: ward-monitor-flicker 1.8s steps(2, end) infinite;
+}
+
+@keyframes ward-monitor-flicker {
+  0%, 88%, 100% { transform: translateY(0); opacity: 0.52; }
+  91% { transform: translateY(3px); opacity: 0.2; }
+  94% { transform: translateY(-2px); opacity: 0.72; }
+}
+
+.ward-monitor-symbols {
+  position: relative;
+  display: flex;
+  gap: 25px;
+  align-items: center;
+  color: #ef4353;
+  font-size: 35px;
+  filter: blur(2px);
+  transform: skewX(-8deg);
+}
+
+.ward-monitor-viewport[data-aligned="true"] .ward-monitor-symbols {
+  color: var(--ward-cyan);
+  filter: blur(0);
+  transform: none;
+}
+
+.ward-monitor-viewport > strong {
+  position: absolute;
+  bottom: 13px;
+  color: #87969c;
+  font-size: 10px;
+}
+
+.ward-channel-bank {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+  width: min(100%, 650px);
+  margin: auto;
+}
+
+.ward-channel-bank > button {
+  display: grid;
+  grid-template-columns: auto minmax(50px, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 56px;
+  padding: 7px 10px;
+  border: 1px solid #36434a;
+  border-radius: 2px;
+  background: #0b1114;
+  cursor: pointer;
+}
+
+.ward-channel-bank small,
+.ward-channel-bank b {
+  color: #96a4a9;
+  font-size: 10px;
+}
+
+.ward-channel-wave {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+  height: 22px;
+  align-items: end;
+}
+
+.ward-channel-wave i {
+  height: 6px;
+  background: #263238;
+}
+
+.ward-channel-wave i:nth-child(2) { height: 12px; }
+.ward-channel-wave i:nth-child(3) { height: 19px; }
+.ward-channel-wave i:nth-child(4) { height: 10px; }
+.ward-channel-wave i[data-active="true"] { background: var(--ward-cyan); }
+
+.ward-mirror-stage {
+  position: relative;
+  display: grid;
+  width: min(100%, 600px);
+  min-height: 270px;
+  margin: auto;
+  place-items: center;
+}
+
+.ward-mirror-stage > svg {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 19px;
+  color: var(--ward-cyan);
+}
+
+.ward-mirror-glass {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  width: min(390px, 80vw);
+  height: 210px;
+  place-items: center;
+  border: 4px solid #313d42;
+  border-radius: 2px;
+  background: #10191d;
+  box-shadow: inset 0 0 50px rgba(93, 153, 164, 0.14);
+}
+
+.ward-mirror-glass__raw,
+.ward-mirror-glass__reflection {
+  position: absolute;
+  font-family: "Segoe UI Symbol", sans-serif;
+  font-size: 39px;
+}
+
+.ward-mirror-glass__raw {
+  color: rgba(236, 48, 68, 0.33);
+  filter: blur(1.5px);
+  transform: scaleX(-1) translateY(-29px);
+}
+
+.ward-mirror-glass__reflection {
+  color: #d8f5f7;
+  transform: translateY(30px);
+  text-shadow: 0 0 15px rgba(110, 214, 229, 0.45);
+}
+
+.ward-mirror-scan {
+  position: absolute;
+  width: 360px;
+  height: 1px;
+  background: rgba(110, 214, 229, 0.56);
+  animation: ward-mirror-scan 2.8s linear infinite;
+}
+
+@keyframes ward-mirror-scan {
+  from { transform: translateY(-90px); }
+  to { transform: translateY(90px); }
+}
+
+.ward-keypad-entry {
+  display: grid;
+  grid-template-columns: repeat(4, 72px);
+  gap: 8px;
+  justify-content: center;
+  margin: 10px auto 20px;
+}
+
+.ward-keypad-entry > span {
+  display: grid;
+  width: 72px;
+  height: 60px;
+  place-items: center;
+  border-bottom: 2px solid var(--ward-cyan);
+  color: #e4f5f7;
+  background: #091014;
+  font-family: "Segoe UI Symbol", sans-serif;
+  font-size: 30px;
+}
+
+.ward-keypad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 70px);
+  gap: 9px;
+  justify-content: center;
+}
+
+.ward-keypad-grid > button {
+  display: grid;
+  width: 70px;
+  height: 58px;
+  place-items: center;
+  border: 1px solid #3d4b51;
+  border-radius: 2px;
+  color: #dff4f6;
+  background: #0c1317;
+  font-family: "Segoe UI Symbol", sans-serif;
+  font-size: 27px;
+  cursor: pointer;
+}
+
+.ward-keypad-grid > button:active {
+  border-color: var(--ward-cyan);
+  background: #163038;
+}
+
+.ward-keypad-grid svg {
+  width: 21px;
+}
+
+.ward-inventory-panel {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  overflow: hidden;
+  width: min(900px, 94vw);
+  max-height: min(610px, calc(100dvh - 28px));
+  border: 1px solid rgba(117, 139, 147, 0.55);
+  border-top: 2px solid var(--ward-cyan);
+  border-radius: 4px;
+  background: rgba(6, 9, 11, 0.98);
+}
+
+.ward-inventory-panel > header h2 {
+  margin-right: 0;
+}
+
+.ward-segmented-control {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  width: min(420px, calc(100% - 28px));
+  margin: 12px auto;
+  border: 1px solid #344047;
+  border-radius: 3px;
+}
+
+.ward-segmented-control > button {
+  position: relative;
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  border: 0;
+  background: #0c1215;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ward-segmented-control > button + button {
+  border-right: 1px solid #344047;
+}
+
+.ward-segmented-control > button[aria-selected="true"] {
+  color: #fff;
+  background: #25353b;
+  box-shadow: inset 0 -2px var(--ward-cyan);
+}
+
+.ward-segmented-control svg {
+  width: 17px;
+}
+
+.ward-segmented-control b {
+  display: grid;
+  min-width: 17px;
+  height: 17px;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--ward-red);
+  font-size: 9px;
+}
+
+.ward-inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  overflow: auto;
+  padding: 3px 18px 18px;
+}
+
+.ward-inventory-slot {
+  position: relative;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  gap: 4px 9px;
+  align-content: center;
+  min-width: 0;
+  min-height: 125px;
+  padding: 13px;
+  border: 1px solid #344147;
+  border-radius: 3px;
+  background: #0b1114;
+}
+
+.ward-inventory-slot[data-empty] {
+  display: grid;
+  place-items: center;
+  border-style: dashed;
+  color: #46545a;
+  background: #080c0e;
+}
+
+.ward-inventory-slot > span {
+  position: absolute;
+  top: 7px;
+  left: 8px;
+  color: #56656b;
+  font-size: 9px;
+}
+
+.ward-inventory-slot > svg {
+  grid-row: 1 / span 2;
+  align-self: center;
+  width: 30px;
+  height: 30px;
+  color: var(--ward-cyan);
+}
+
+.ward-inventory-slot > strong,
+.ward-inventory-slot > small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ward-inventory-slot > strong {
+  align-self: end;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.ward-inventory-slot > small {
+  color: #89969b;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.ward-inventory-slot > b {
+  align-self: end;
+  color: var(--ward-cyan);
+  font-size: 12px;
+}
+
+.ward-inventory-slot > button {
+  align-self: end;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid #4a5e66;
+  border-radius: 2px;
+  background: #152127;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.ward-inventory-slot > button:disabled {
+  opacity: 0.34;
+}
+
+.ward-inventory-slot > em {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  color: var(--ward-red);
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.ward-clue-log {
+  overflow: auto;
+  padding: 0 18px 18px;
+}
+
+.ward-clue-log > article {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 12px;
+  padding: 13px 6px;
+  border-top: 1px solid #2e393e;
+}
+
+.ward-clue-log > article > span {
+  display: grid;
+  height: 36px;
+  place-items: center;
+  border-left: 2px solid var(--ward-red);
+  color: var(--ward-red);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ward-clue-log strong {
+  font-size: 13px;
+}
+
+.ward-clue-log p {
+  margin: 3px 0 0;
+  color: #9eabad;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.ward-completion {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 90;
+  display: grid;
+  width: min(560px, 88vw);
+  min-height: 310px;
+  padding: 30px;
+  place-items: center;
+  border: 1px solid #52676f;
+  border-top: 2px solid var(--ward-cyan);
+  border-radius: 4px;
+  background: rgba(5, 9, 11, 0.98);
+  box-shadow: 0 0 0 100vmax rgba(1, 3, 4, 0.8);
+  text-align: center;
+  transform: translate(-50%, -50%);
+}
+
+.ward-completion > svg {
+  width: 48px;
+  height: 48px;
+  color: var(--ward-cyan);
+}
+
+.ward-completion small {
+  color: var(--ward-cyan);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.ward-completion h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 28px;
+}
+
+.ward-completion p {
+  margin: 0;
+  color: #a8b4b8;
+  font-size: 13px;
+}
+
+.ward-completion > div {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.ward-portrait-warning {
+  display: none;
+}
+
+@media (max-width: 950px) and (orientation: landscape) {
+  .ward-hud {
+    grid-template-columns: 205px minmax(250px, 1fr) 195px;
+    gap: 7px;
+  }
+
+  .ward-hud__identity,
+  .ward-hud__vitals {
+    padding: 6px 8px;
+  }
+
+  .ward-hud__objective {
+    padding: 6px 8px;
+  }
+
+  .ward-joystick {
+    width: 116px;
+    height: 116px;
+  }
+
+  .ward-joystick > span {
+    top: 36px;
+    left: 36px;
+    width: 44px;
+    height: 44px;
+  }
+
+  .ward-action-cluster {
+    grid-template-columns: repeat(3, 52px);
+    grid-template-rows: repeat(2, 52px);
+    gap: 6px;
+  }
+
+  .ward-action-button {
+    width: 50px;
+    height: 50px;
+  }
+
+  .ward-action-button--interact {
+    width: 58px;
+    height: 58px;
+  }
+
+  .ward-puzzle-frame__body {
+    padding: 12px 17px;
+  }
+}
+@media (max-height: 620px) and (orientation: landscape) {
+  .ward-hud__identity small,
+  .ward-hud__objective small,
+  .ward-hud__objective span {
+    display: none;
+  }
+
+  .ward-hud section {
+    min-height: 47px;
+  }
+
+  .ward-clue-log-button {
+    top: calc(max(9px, env(safe-area-inset-top)) + 57px);
+  }
+
+  .ward-system-message {
+    top: calc(max(9px, env(safe-area-inset-top)) + 58px);
+  }
+
+  .ward-puzzle-frame__header,
+  .ward-inventory-panel > header {
+    min-height: 53px;
+    padding: 7px 11px;
+  }
+
+  .ward-puzzle-frame__body {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .ward-monitor-viewport {
+    min-height: 128px;
+  }
+
+  .ward-mirror-stage {
+    min-height: 210px;
+  }
+
+  .ward-mirror-glass {
+    height: 175px;
+  }
+}
+
+@media (orientation: portrait) {
+  .ward-hud,
+  .ward-mobile-controls,
+  .ward-clue-log-button,
+  .ward-interaction-prompt {
+    display: none;
+  }
+
+  .ward-portrait-warning {
+    position: absolute;
+    inset: 0;
+    z-index: 120;
+    display: grid;
+    gap: 14px;
+    place-content: center;
+    color: #e8eef0;
+    background: #050708;
+    text-align: center;
+  }
+
+  .ward-portrait-warning svg {
+    width: 44px;
+    height: 44px;
+    margin: auto;
+    color: var(--ward-red);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ward-action-button--interact[data-ready="true"],
+  .ward-monitor-viewport__noise,
+  .ward-mirror-scan {
+    animation: none;
+  }
+}
