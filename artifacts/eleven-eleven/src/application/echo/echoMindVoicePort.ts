@@ -13,6 +13,7 @@ export interface EchoMindVoicePort {
   speak: (
     text: string,
     voice: EchoMindVoiceEnvelope,
+    volume?: number,
   ) => Promise<void>;
   stop: () => void;
 }

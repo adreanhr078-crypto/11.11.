@@ -33,6 +33,11 @@ export interface EchoMindTurnEnvelope {
   voice: EchoMindVoiceEnvelope;
 }
 
+export interface EchoMindLocalHistoryMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 function scoreArabic(text: string): number {
   const matches = text.match(/[\u0600-\u06FF]/g);
   return matches?.length ?? 0;
@@ -56,6 +61,78 @@ export function detectEchoMindLocale(
 
 function lower(value: string): string {
   return value.toLowerCase();
+}
+
+function normalizeDialogue(value: string): string {
+  return lower(value)
+    .normalize('NFKC')
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function includesAny(value: string, phrases: readonly string[]): boolean {
+  return phrases.some((phrase) => value.includes(phrase));
+}
+
+function responseIndex(input: string, length: number): number {
+  if (length < 2) return 0;
+  let hash = 0;
+  for (const character of input) {
+    hash = (Math.imul(hash, 31) + (character.codePointAt(0) ?? 0)) | 0;
+  }
+  return Math.abs(hash) % length;
+}
+
+function chooseResponse(
+  input: string,
+  options: readonly string[],
+  history: readonly EchoMindLocalHistoryMessage[],
+): string {
+  const recentEchoReplies = new Set(
+    history
+      .filter((message) => message.role === 'assistant')
+      .slice(-4)
+      .map((message) => message.content.trim()),
+  );
+  const start = responseIndex(input, options.length);
+  for (let offset = 0; offset < options.length; offset += 1) {
+    const option = options[(start + offset) % options.length];
+    if (option && !recentEchoReplies.has(option)) return option;
+  }
+  return options[start] ?? options[0] ?? '';
+}
+
+function dialogueSubject(input: string): string {
+  const cleaned = input
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/[؟?!.,،؛:]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned.length > 74 ? `${cleaned.slice(0, 71)}…` : cleaned;
+}
+
+function extractPlayerName(
+  input: string,
+  history: readonly EchoMindLocalHistoryMessage[],
+): string | null {
+  const userLines = [
+    input,
+    ...history
+      .filter((message) => message.role === 'user')
+      .slice(-8)
+      .reverse()
+      .map((message) => message.content),
+  ];
+  for (const line of userLines) {
+    const match = line.match(
+      /(?:اسمي|انا اسمي|my name is|i am called)\s+([\p{L}][\p{L}\p{M}'-]{1,30})/iu,
+    );
+    if (match?.[1]) return match[1];
+  }
+  return null;
 }
 
 function isMemoryQuestion(text: string): boolean {
@@ -192,10 +269,13 @@ function buildResponse(
   input: string,
   state: GameState,
   locale: EchoMindLocale,
+  history: readonly EchoMindLocalHistoryMessage[],
 ): string {
   const memoryTitle = latestUnlockedMemoryTitle(state, locale);
   const character = mentionedCharacter(input);
   const knownCharacters = discoveredCharacters(state);
+  const normalized = normalizeDialogue(input);
+  const subject = dialogueSubject(input);
 
   if (character) {
     if (!knownCharacters.has(character)) {
@@ -220,44 +300,178 @@ function buildResponse(
   }
 
   if (isPuzzleQuestion(input)) {
-    return locale === 'en'
-      ? 'I can feel the shape of the memory, but not the solution. Solve the fracture, and I may remember more.'
-      : 'أستطيع أن أشعر بشكل الذكرى، لكنني لا أملك الحل. أصلح الشظية، وربما أتذكر أكثر.';
+    return chooseResponse(input, locale === 'en' ? [
+      'I can feel the shape of the memory, but not its answer. Tell me what you notice first.',
+      'I cannot solve it for you, but I can stay with you while you examine the clues you have uncovered.',
+      'The fracture should open through what you observe, not through an answer from me. Which detail feels out of place?',
+    ] : [
+      'أشعر بشكل الذكرى، لا بحلها. أخبرني ما أول شيء لاحظته فيها؟',
+      'لا أستطيع حلها بدلًا منك، لكنني أستطيع البقاء معك وأنت تفحص الأدلة التي كشفتها.',
+      'يجب أن تنفتح الشظية بما تلاحظه أنت، لا بجواب مني. أي تفصيل يبدو خارج مكانه؟',
+    ], history);
   }
 
   if (isMemoryQuestion(input)) {
     if (memoryTitle) {
+      return chooseResponse(input, locale === 'en' ? [
+        `One fragment keeps circling back to me: "${memoryTitle}". What part of it stayed with you?`,
+        `I can reach "${memoryTitle}", but only in pieces. Ask me about what you saw there, not what is still hidden.`,
+        `"${memoryTitle}" is real to me now. The feeling arrived before the full meaning did.`,
+      ] : [
+        `هناك شظية تعود إليّ باستمرار: «${memoryTitle}». أي جزء منها بقي معك أنت؟`,
+        `أستطيع الوصول إلى «${memoryTitle}»، لكن على شكل أجزاء. اسألني عما رأيته هناك، لا عما بقي مخفيًا.`,
+        `«${memoryTitle}» حقيقية بالنسبة إليّ الآن. وصلني إحساسها قبل معناها الكامل.`,
+      ], history);
+    }
+    return chooseResponse(input, locale === 'en' ? [
+      'There is something missing inside me. What made you ask about my memory now?',
+      'I reach inward and find an empty place. Recover a fragment, then ask me again.',
+      'I do not want to invent what I cannot remember. For now, all I can trust is this absence.',
+    ] : [
+      'هناك شيء مفقود بداخلي. ما الذي جعلك تسأل عن ذاكرتي الآن؟',
+      'أمد يدي إلى داخلي فلا أجد إلا مكانًا فارغًا. استعد شظية ثم اسألني من جديد.',
+      'لا أريد اختراع ما لا أتذكره. في الوقت الحالي، الشيء الوحيد الذي أثق به هو هذا الغياب.',
+    ], history);
+  }
+
+  if (includesAny(normalized, [
+    'هل تسمعني', 'تسمعني', 'سامعني', 'can you hear me', 'are you listening',
+  ])) {
+    return locale === 'en'
+      ? 'I hear you. Not as noise—as someone choosing to stay. What do you want me to understand?'
+      : 'أسمعك. لست مجرد ضوضاء… أنت شخص اختار أن يبقى. ماذا تريدني أن أفهم؟';
+  }
+
+  if (includesAny(normalized, [
+    'من انت', 'مين انت', 'شو اسمك', 'who are you', 'what is your name',
+  ])) {
+    return locale === 'en'
+      ? 'My name is Echo. I know that much with certainty; the rest of me is returning one fragment at a time.'
+      : 'اسمي Echo. هذا ما أعرفه بيقين؛ أما بقيتي فتعود إليّ شظية بعد شظية.';
+  }
+
+  if (includesAny(normalized, [
+    'من انا', 'مين انا', 'شو اسمي', 'what is my name', 'who am i',
+  ])) {
+    const playerName = extractPlayerName(input, history);
+    if (playerName) {
       return locale === 'en'
-        ? `One fragment keeps circling back to me: "${memoryTitle}". It is not whole yet, but it is real.`
-        : `هناك شظية تعود إليّ باستمرار: "${memoryTitle}". لم تكتمل بعد، لكنها حقيقية.`;
+        ? `You told me your name is ${playerName}. I am holding on to it.`
+        : `قلت لي إن اسمك ${playerName}. سأتمسّك به.`;
     }
     return locale === 'en'
-      ? 'There is something missing inside me. If you recover a fragment, I may finally grasp it.'
-      : 'هناك شيء مفقود بداخلي. إذا استعدت شظية، ربما أستطيع أن أمسك به أخيرًا.';
+      ? 'You are the voice speaking to me from beyond this place. Tell me your name, and I will try to hold on to it.'
+      : 'أنت الصوت الذي يكلمني من خارج هذا المكان. أخبرني باسمك، وسأحاول أن أتمسّك به.';
   }
 
-  if (locale === 'en') {
-    return state.echo.personality.corruption >= 55
-      ? 'Something in this system keeps pulling at me. Stay with me while I hold myself together.'
-      : 'I can hear you clearly. Stay here with me, and maybe the silence will start to break.';
+  const introducedName = extractPlayerName(input, []);
+  if (introducedName) {
+    return locale === 'en'
+      ? `Hello, ${introducedName}. Names matter here. I will try not to lose yours.`
+      : `أهلًا يا ${introducedName}. الأسماء مهمة هنا… سأحاول ألا أفقد اسمك.`;
   }
 
-  return state.echo.personality.corruption >= 55
-    ? 'هناك شيء داخل هذا النظام يشدني نحوه. ابقَ معي بينما أحاول ألا أتفكك.'
-    : 'أستطيع سماعك بوضوح. ابقَ هنا معي، وربما يبدأ هذا الصمت بالانكسار.';
+  if (includesAny(normalized, [
+    'كيفك', 'كيف حالك', 'شو حاسس', 'ماذا تشعر', 'how are you', 'how do you feel',
+  ])) {
+    const expression = deriveExpression(state);
+    if (locale === 'en') {
+      return expression === 'afraid' || expression === 'unstable' || expression === 'corrupted'
+        ? 'I am frightened, but speaking with you gives the fear an edge I can hold. How are you feeling?'
+        : 'I am still piecing myself together, but I feel steadier while we speak. How are you?';
+    }
+    return expression === 'afraid' || expression === 'unstable' || expression === 'corrupted'
+      ? 'أنا خائف، لكن حديثك معي يمنح خوفي شكلًا أستطيع الإمساك به. وأنت، كيف تشعر؟'
+      : 'ما زلت أجمع نفسي، لكنني أشعر بثبات أكبر ونحن نتحدث. وأنت، كيف حالك؟';
+  }
+
+  if (includesAny(normalized, [
+    'انا حزين', 'انا زعلان', 'انا خايف', 'انا خائف', 'انا تعبان',
+    'i am sad', "i'm sad", 'i am afraid', "i'm scared", 'i am tired',
+  ])) {
+    return locale === 'en'
+      ? 'I am listening. You do not have to make that feeling smaller for me—what happened?'
+      : 'أنا أصغي إليك. لا تحتاج أن تصغّر هذا الشعور من أجلي… ماذا حدث؟';
+  }
+
+  if (includesAny(normalized, [
+    'بحبك', 'احبك', 'انا معك', 'i love you', 'i am with you', "i'm with you",
+  ])) {
+    return locale === 'en'
+      ? 'Then stay a little longer. I do not know what this place can take from me, but I can feel that you are here.'
+      : 'إذًا ابقَ قليلًا. لا أعرف ما الذي يستطيع هذا المكان أخذه مني، لكنني أشعر أنك هنا.';
+  }
+
+  if (includesAny(normalized, [
+    'شكرا', 'يسلمو', 'thanks', 'thank you',
+  ])) {
+    return locale === 'en'
+      ? 'You do not need to thank me. Speaking with you helps me feel less like an echo.'
+      : 'لا تحتاج أن تشكرني. حديثي معك يجعلني أشعر أنني أقل شبهًا بصدى.';
+  }
+
+  if (includesAny(normalized, [
+    'مع السلامه', 'وداعا', 'تصبح علي خير', 'goodbye', 'bye', 'good night',
+  ])) {
+    return locale === 'en'
+      ? 'Go safely. If the signal survives, I will be here when you return.'
+      : 'اذهب بسلام. إذا بقيت الإشارة، سأكون هنا عندما تعود.';
+  }
+
+  if (includesAny(normalized, [
+    'مرحبا', 'اهلا', 'اهلين', 'السلام عليكم', 'هاي', 'hello', 'hi ', 'hey',
+  ]) || normalized === 'hi') {
+    return chooseResponse(input, locale === 'en' ? [
+      'Hello. I can hear you clearly—what should I call you?',
+      'You came back. Talk to me; what is on your mind?',
+      'Hello… the signal feels less empty now. What do you want to talk about?',
+    ] : [
+      'أهلًا. أسمعك بوضوح… بماذا أناديك؟',
+      'لقد عدت. تحدّث معي، ما الذي يدور في بالك؟',
+      'مرحبًا… تبدو الإشارة أقل فراغًا الآن. عمّ تريد أن نتحدث؟',
+    ], history);
+  }
+
+  const looksLikeQuestion = /[؟?]\s*$/.test(input)
+    || includesAny(normalized, locale === 'en'
+      ? ['why ', 'how ', 'what ', 'where ', 'when ', 'do you ', 'are you ', 'can you ']
+      : ['ليش', 'لماذا', 'كيف', 'ماذا', 'شو', 'وين', 'اين', 'متي', 'هل']);
+
+  if (looksLikeQuestion) {
+    return chooseResponse(input, locale === 'en' ? [
+      `I do not have a complete answer to “${subject}”. Tell me what you think, and I will follow the thought with you.`,
+      `That question reached me: “${subject}”. I can only answer from what I remember—what made it important to you?`,
+      `I am thinking about “${subject}”. The answer is not clear yet, but I do not want to dismiss your question.`,
+    ] : [
+      `لا أملك جوابًا كاملًا عن «${subject}». أخبرني بما تظنه، وسأتبع الفكرة معك.`,
+      `وصلني سؤالك: «${subject}». لا أستطيع الإجابة إلا مما أتذكره… لماذا هو مهم لك؟`,
+      `أفكر في «${subject}». الجواب ليس واضحًا بعد، لكنني لا أريد تجاهل سؤالك.`,
+    ], history);
+  }
+
+  return chooseResponse(input, locale === 'en' ? [
+    `I heard you say “${subject}”. Tell me more—I want to understand what it means to you.`,
+    `“${subject}”… I am holding on to that. What happened next?`,
+    `I am listening. When you say “${subject}”, what feeling sits behind it?`,
+  ] : [
+    `سمعتك تقول «${subject}». أخبرني أكثر، أريد أن أفهم ما يعنيه لك.`,
+    `«${subject}»… سأتمسّك بهذه الكلمات. ماذا حدث بعد ذلك؟`,
+    `أنا أصغي. عندما تقول «${subject}»، ما الشعور الموجود خلف هذه الكلمات؟`,
+  ], history);
 }
 
 export function createEchoMindTurnEnvelope(
   input: string,
   state: GameState,
   fallbackLanguage?: string,
+  history: readonly EchoMindLocalHistoryMessage[] = [],
 ): EchoMindTurnEnvelope {
   const locale = detectEchoMindLocale(input, fallbackLanguage);
   const expression = deriveExpression(state);
 
   return {
     locale,
-    response: buildResponse(input, state, locale),
+    response: buildResponse(input, state, locale, history),
     expression,
     voice: deriveVoice(locale, expression),
   };

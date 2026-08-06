@@ -41,6 +41,14 @@ testem.log
 .DS_Store
 Thumbs.db
 
+# server-side secrets (keep examples tracked)
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+
 # Vite cache
 .cache/
 

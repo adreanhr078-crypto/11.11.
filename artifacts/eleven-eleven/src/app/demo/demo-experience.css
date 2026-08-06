@@ -1,0 +1,75 @@
+.demo-experience__badge {
+  position: fixed;
+  z-index: 64;
+  inset-block-start: max(0.8rem, env(safe-area-inset-top));
+  inset-inline-start: max(0.8rem, env(safe-area-inset-left));
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2rem;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--game-danger, #ff475f) 62%, transparent);
+  border-radius: 999px;
+  color: #fff;
+  background: color-mix(in srgb, #100b13 86%, transparent);
+  box-shadow: 0 0 1.5rem color-mix(in srgb, var(--game-danger, #ff475f) 18%, transparent);
+  backdrop-filter: blur(14px);
+  font: inherit;
+  cursor: pointer;
+}
+
+.demo-experience__badge strong {
+  color: var(--game-danger, #ff6677);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+}
+
+.demo-experience__badge span {
+  font-size: 0.7rem;
+  opacity: 0.78;
+}
+
+.demo-experience__progress {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.25rem 0;
+}
+
+.demo-experience__progress > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.demo-experience__progress span,
+.demo-experience__progress small {
+  color: var(--game-text-muted, #aaa1ae);
+}
+
+.demo-experience__full-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.65rem 1rem;
+  border: 1px solid var(--game-danger, #ff475f);
+  border-radius: var(--game-radius-control, 0.75rem);
+  color: #fff;
+  background: color-mix(in srgb, var(--game-danger, #ff475f) 78%, #140a10);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.demo-experience__badge:focus-visible,
+.demo-experience__full-link:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .demo-experience__badge,
+  .demo-experience__full-link {
+    transition: none;
+  }
+}

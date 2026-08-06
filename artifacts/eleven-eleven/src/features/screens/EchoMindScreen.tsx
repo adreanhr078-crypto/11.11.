@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Mic, Send } from 'lucide-react';
+import { Brain, Mic, Send, Trash2 } from 'lucide-react';
 import { useGameStore } from '../../stores/gameStore';
 import {
   GameButton,
@@ -25,6 +25,14 @@ import {
   createBrowserEchoMindVoice,
 } from '../../infrastructure/voice/browserEchoMindVoice';
 import { EchoPresence } from '../../ui/presentation';
+import {
+  createEchoMindPlayerContext,
+  useEchoMindLivingStore,
+  type EchoMindTheoryStatus,
+} from '../../application/echo/echoMindLivingStore';
+import {
+  playEchoMindSignal,
+} from '../../infrastructure/audio/echoMindSignalAudio';
 
 interface ChatMessage {
   id: string;
@@ -82,14 +90,41 @@ function recoveredSignalText(
   return locale === 'ar' ? recoveredSignalArabic[value] ?? value : value;
 }
 
-function createInitialMessage(openingLine: string): ChatMessage {
-  return {
+function createInitialMessages(openingLine: string): ChatMessage[] {
+  const savedTurns = useEchoMindLivingStore.getState().turns.slice(-12);
+  if (savedTurns.length > 0) {
+    return savedTurns.flatMap((turn) => [
+      {
+        id: `${turn.id}-player`,
+        speaker: 'player' as const,
+        text: turn.userText,
+        locale: turn.locale,
+      },
+      {
+        id: `${turn.id}-echo`,
+        speaker: 'echo' as const,
+        text: turn.echoText,
+        locale: turn.locale,
+      },
+    ]);
+  }
+  return [{
     id: 'boot-echo',
     speaker: 'echo',
     text: openingLine,
     locale: detectEchoMindLocale(openingLine, 'ar'),
-  };
+  }];
 }
+
+const THEORY_STATUS_LABELS: Record<
+  EchoMindTheoryStatus,
+  { ar: string; en: string }
+> = {
+  open: { ar: 'مفتوحة', en: 'Open' },
+  supported: { ar: 'مدعومة', en: 'Supported' },
+  challenged: { ar: 'موضع شك', en: 'Challenged' },
+  withdrawn: { ar: 'تراجعت عنها', en: 'Withdrawn' },
+};
 
 function expressionLine(envelope: EchoMindTurnEnvelope): string {
   if (envelope.locale === 'en') {
@@ -134,11 +169,14 @@ function expressionLine(envelope: EchoMindTurnEnvelope): string {
 export default function EchoMindScreen() {
   const state = useGameStore();
   const model = useMemo(() => createEchoMindScreenReadModel(state), [state]);
+  const living = useEchoMindLivingStore();
   const [draft, setDraft] = useState('');
+  const [theoryDraft, setTheoryDraft] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
-    createInitialMessage(model.openingLine),
+    ...createInitialMessages(model.openingLine),
   ]);
   const [voiceHint, setVoiceHint] = useState<string | null>(null);
+  const [soundCaption, setSoundCaption] = useState<string | null>(null);
   const [latestEnvelope, setLatestEnvelope] = useState<EchoMindTurnEnvelope | null>(null);
   const [isResponding, setIsResponding] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -214,10 +252,12 @@ export default function EchoMindScreen() {
 
     state.actions.chat();
     const freshState = useGameStore.getState();
+    const livingSnapshot = useEchoMindLivingStore.getState();
     const localEnvelope = createEchoMindTurnEnvelope(
       text,
       freshState,
       typeof document !== 'undefined' ? document.documentElement.lang : locale,
+      history,
     );
     setLatestEnvelope(localEnvelope);
 
@@ -240,7 +280,11 @@ export default function EchoMindScreen() {
         message: text,
         locale,
         history,
-        context: createEchoMindKnowledgeContext(freshState, locale),
+        context: createEchoMindKnowledgeContext(
+          freshState,
+          locale,
+          createEchoMindPlayerContext(livingSnapshot),
+        ),
         safetyIdentifier: getEchoMindSafetyIdentifier(),
         signal: controller.signal,
         onDelta: appendDelta,
@@ -251,6 +295,12 @@ export default function EchoMindScreen() {
         && error.name === 'AbortError'
       ) {
         return;
+      }
+      if (import.meta.env.DEV) {
+        console.warn(
+          '[Echo Mind] AI gateway unavailable; using the local narrative response.',
+          error,
+        );
       }
       output = '';
       setMessages((current) => current.map((message) => (
@@ -288,9 +338,49 @@ export default function EchoMindScreen() {
     )));
     setIsResponding(false);
 
-    if (respondWithVoice && voiceRef.current.canSpeak) {
-      await voiceRef.current.speak(output, completedEnvelope.voice);
+    const currentLiving = useEchoMindLivingStore.getState();
+    currentLiving.recordTurn({
+      userText: text,
+      echoText: output,
+      locale,
+      usedVoice: respondWithVoice,
+    });
+    const preferences = useEchoMindLivingStore.getState().preferences;
+    if (preferences.signalSoundsEnabled) {
+      playEchoMindSignal('reply', preferences.signalVolume);
+      if (preferences.captionsEnabled) {
+        setSoundCaption(locale === 'en'
+          ? 'A soft confirmation tone passes through the channel.'
+          : 'نغمة تأكيد خافتة تمر عبر القناة.');
+        globalThis.setTimeout(() => setSoundCaption(null), 2_400);
+      }
     }
+
+    if (
+      (respondWithVoice || preferences.autoSpeakReplies)
+      && voiceRef.current.canSpeak
+    ) {
+      await voiceRef.current.speak(
+        output,
+        completedEnvelope.voice,
+        preferences.voiceVolume,
+      );
+    }
+  };
+
+  const saveTheory = () => {
+    if (!living.addTheory(theoryDraft)) return;
+    setTheoryDraft('');
+  };
+
+  const clearLivingMemory = () => {
+    const confirmed = window.confirm(activeLocale === 'en'
+      ? 'Delete Echo\'s personal memory of this player and the saved chat?'
+      : 'حذف ذاكرة Echo الشخصية عن هذا اللاعب وسجل المحادثة؟');
+    if (!confirmed) return;
+    living.clearPersonalMemory();
+    setMessages(createInitialMessages(model.openingLine));
+    setLatestEnvelope(null);
   };
 
   const startVoiceConversation = async () => {
@@ -362,6 +452,59 @@ export default function EchoMindScreen() {
               <p>{presenceLine}</p>
             </div>
           </div>
+          <section
+            className="echo-living-profile"
+            aria-label={activeLocale === 'en'
+              ? 'Echo relationship memory'
+              : 'ذاكرة علاقة Echo'}
+          >
+            <header>
+              <small>PLAYER MEMORY // LOCAL</small>
+              <GameButton
+                size="sm"
+                variant="ghost"
+                leadingIcon={<Trash2 size={12} />}
+                onClick={clearLivingMemory}
+              >
+                {activeLocale === 'en' ? 'Forget' : 'نسيان'}
+              </GameButton>
+            </header>
+            <div className="echo-living-profile__metrics">
+              {([
+                ['bond', activeLocale === 'en' ? 'Bond' : 'الرابطة', living.relationship.bond],
+                ['openness', activeLocale === 'en' ? 'Openness' : 'الانفتاح', living.relationship.openness],
+                ['tension', activeLocale === 'en' ? 'Tension' : 'التوتر', living.relationship.tension],
+              ] as const).map(([tone, label, value]) => (
+                <div
+                  key={tone}
+                  className="echo-living-profile__metric"
+                  data-tone={tone}
+                >
+                  <span>{label}</span>
+                  <span className="echo-living-profile__track">
+                    <i style={{ width: `${value}%` }} />
+                  </span>
+                  <b>{value}</b>
+                </div>
+              ))}
+            </div>
+            <div className="echo-living-memory-list">
+              {living.playerName && (
+                <span>{activeLocale === 'en' ? 'Name' : 'الاسم'}: {living.playerName}</span>
+              )}
+              {living.memories
+                .filter((memory) => memory.kind !== 'name')
+                .slice(0, 3)
+                .map((memory) => (
+                  <span key={memory.id}>{memory.text}</span>
+                ))}
+              {!living.playerName && living.memories.length === 0 && (
+                <span>{activeLocale === 'en'
+                  ? 'Echo has not learned anything personal yet.'
+                  : 'لم يتعلم Echo شيئًا شخصيًا بعد.'}</span>
+              )}
+            </div>
+          </section>
         </aside>
 
         <GlassPanel
@@ -474,6 +617,138 @@ export default function EchoMindScreen() {
                   )}
                 </div>
               </section>
+            )}
+
+            <section className="echo-living-theories">
+              <header>
+                <small>PLAYER THEORIES</small>
+                <span>{living.theories.length}</span>
+              </header>
+              <div className="echo-living-theories__composer">
+                <Brain size={15} aria-hidden="true" />
+                <input
+                  value={theoryDraft}
+                  onChange={(event) => setTheoryDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') saveTheory();
+                  }}
+                  placeholder={activeLocale === 'en'
+                    ? 'Record your theory without confirming it…'
+                    : 'سجّل نظريتك دون اعتبارها حقيقة…'}
+                  maxLength={240}
+                />
+                <GameButton
+                  size="sm"
+                  variant="secondary"
+                  onClick={saveTheory}
+                  disabled={theoryDraft.trim().length < 4}
+                >
+                  {activeLocale === 'en' ? 'Record' : 'تسجيل'}
+                </GameButton>
+              </div>
+              {living.theories.length > 0 && (
+                <div className="echo-living-theories__list">
+                  {living.theories.slice(0, 4).map((theory) => (
+                    <article key={theory.id} className="echo-living-theory">
+                      <p>{theory.text}</p>
+                      <select
+                        value={theory.status}
+                        onChange={(event) => living.setTheoryStatus(
+                          theory.id,
+                          event.target.value as EchoMindTheoryStatus,
+                        )}
+                        aria-label={activeLocale === 'en'
+                          ? 'Theory status'
+                          : 'حالة النظرية'}
+                      >
+                        {(Object.keys(THEORY_STATUS_LABELS) as EchoMindTheoryStatus[])
+                          .map((status) => (
+                            <option key={status} value={status}>
+                              {THEORY_STATUS_LABELS[status][activeLocale]}
+                            </option>
+                          ))}
+                      </select>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section
+              className="echo-living-preferences"
+              aria-label={activeLocale === 'en'
+                ? 'Echo voice and accessibility'
+                : 'صوت Echo وإمكانية الوصول'}
+            >
+              <label>
+                <input
+                  type="checkbox"
+                  checked={living.preferences.autoSpeakReplies}
+                  onChange={(event) => living.setPreferences({
+                    autoSpeakReplies: event.target.checked,
+                  })}
+                />
+                {activeLocale === 'en' ? 'Auto voice' : 'صوت تلقائي'}
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={living.preferences.signalSoundsEnabled}
+                  onChange={(event) => living.setPreferences({
+                    signalSoundsEnabled: event.target.checked,
+                  })}
+                />
+                {activeLocale === 'en' ? 'Signal sounds' : 'أصوات الإشارة'}
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={living.preferences.captionsEnabled}
+                  onChange={(event) => living.setPreferences({
+                    captionsEnabled: event.target.checked,
+                  })}
+                />
+                {activeLocale === 'en' ? 'Sound captions' : 'وصف الأصوات'}
+              </label>
+              <label>
+                {activeLocale === 'en' ? 'Voice' : 'الصوت'}
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={living.preferences.voiceVolume}
+                  onChange={(event) => living.setPreferences({
+                    voiceVolume: Number(event.target.value),
+                  })}
+                  aria-label={activeLocale === 'en'
+                    ? 'Echo voice volume'
+                    : 'مستوى صوت Echo'}
+                />
+              </label>
+              <label>
+                {activeLocale === 'en' ? 'Signals' : 'الإشارات'}
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={living.preferences.signalVolume}
+                  disabled={!living.preferences.signalSoundsEnabled}
+                  onChange={(event) => living.setPreferences({
+                    signalVolume: Number(event.target.value),
+                  })}
+                  aria-label={activeLocale === 'en'
+                    ? 'Echo signal volume'
+                    : 'مستوى صوت إشارات Echo'}
+                />
+              </label>
+            </section>
+
+            {soundCaption && living.preferences.captionsEnabled && (
+              <p className="echo-living-sound-caption" role="status">
+                [{soundCaption}]
+              </p>
             )}
 
             <div className="shell-echo-mind-screen__composer">

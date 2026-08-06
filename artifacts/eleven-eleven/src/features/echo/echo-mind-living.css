@@ -1,0 +1,253 @@
+.echo-intrusion {
+  position: fixed;
+  z-index: 1200;
+  inset-inline-end: max(20px, env(safe-area-inset-right));
+  inset-block-end: max(24px, env(safe-area-inset-bottom));
+  inline-size: min(390px, calc(100vw - 40px));
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--gds-color-memory, #7ec8d6) 54%, transparent);
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(4, 10, 17, 0.96), rgba(10, 21, 28, 0.94));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.62), 0 0 28px rgba(66, 173, 193, 0.15);
+  color: #effcff;
+  padding: 14px 16px 15px;
+  animation: echo-intrusion-enter 420ms cubic-bezier(.2, .85, .2, 1) both;
+}
+
+.echo-intrusion[data-tone="warning"] {
+  border-color: rgba(205, 74, 74, 0.62);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.62), 0 0 30px rgba(180, 38, 38, 0.18);
+}
+
+.echo-intrusion__scan {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 3px,
+    rgba(150, 231, 242, 0.045) 4px
+  );
+  mix-blend-mode: screen;
+}
+
+.echo-intrusion header,
+.echo-intrusion header span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.echo-intrusion header span {
+  justify-content: flex-start;
+  color: #8de4ed;
+  font: 700 10px/1.2 ui-monospace, monospace;
+  letter-spacing: .14em;
+}
+
+.echo-intrusion header button,
+.echo-intrusion__open {
+  position: relative;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+}
+
+.echo-intrusion header button {
+  display: grid;
+  place-items: center;
+  inline-size: 30px;
+  block-size: 30px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.echo-intrusion p {
+  position: relative;
+  margin: 10px 0 6px;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.echo-intrusion small {
+  position: relative;
+  display: block;
+  color: rgba(220, 240, 244, 0.58);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.echo-intrusion__open {
+  margin-block-start: 12px;
+  border: 1px solid rgba(120, 218, 230, 0.3);
+  border-radius: 8px;
+  background: rgba(75, 180, 196, 0.1);
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 12px;
+}
+
+.echo-living-profile {
+  position: relative;
+  z-index: 3;
+  margin: 12px 14px 14px;
+  padding: 12px;
+  border: 1px solid rgba(126, 200, 214, 0.15);
+  border-radius: 12px;
+  background: rgba(3, 11, 18, 0.62);
+}
+
+.echo-living-profile > header,
+.echo-living-profile__metric,
+.echo-living-theories__composer,
+.echo-living-preferences,
+.echo-living-theory,
+.echo-living-memory-list {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.echo-living-profile > header {
+  justify-content: space-between;
+  margin-block-end: 10px;
+}
+
+.echo-living-profile > header small,
+.echo-living-theories > header small {
+  color: rgba(157, 226, 235, 0.72);
+  font: 700 9px/1.2 ui-monospace, monospace;
+  letter-spacing: .12em;
+}
+
+.echo-living-profile__metrics {
+  display: grid;
+  gap: 7px;
+}
+
+.echo-living-profile__metric {
+  display: grid;
+  grid-template-columns: 52px 1fr 28px;
+  font-size: 10px;
+}
+
+.echo-living-profile__track {
+  block-size: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.echo-living-profile__track i {
+  display: block;
+  block-size: 100%;
+  border-radius: inherit;
+  background: #74ced9;
+}
+
+.echo-living-profile__metric[data-tone="tension"] i {
+  background: #bd5353;
+}
+
+.echo-living-memory-list {
+  flex-wrap: wrap;
+  margin-block-start: 10px;
+}
+
+.echo-living-memory-list span,
+.echo-living-theory {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 5px 8px;
+  color: rgba(235, 248, 250, 0.75);
+  font-size: 9px;
+}
+
+.echo-living-theories {
+  border-block-start: 1px solid rgba(126, 200, 214, 0.12);
+  padding: 12px 14px;
+}
+
+.echo-living-theories > header {
+  display: flex;
+  justify-content: space-between;
+  margin-block-end: 8px;
+}
+
+.echo-living-theories__composer input {
+  flex: 1;
+  min-inline-size: 0;
+  border: 1px solid rgba(126, 200, 214, 0.18);
+  border-radius: 8px;
+  background: rgba(1, 8, 13, 0.72);
+  color: #e9fbfd;
+  padding: 9px 10px;
+}
+
+.echo-living-theories__list {
+  display: grid;
+  gap: 6px;
+  margin-block-start: 9px;
+}
+
+.echo-living-theory {
+  justify-content: space-between;
+  border-radius: 8px;
+}
+
+.echo-living-theory p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.echo-living-theory select {
+  border: 0;
+  background: #101c22;
+  color: #dff8fa;
+  font-size: 9px;
+}
+
+.echo-living-preferences {
+  flex-wrap: wrap;
+  border-block-start: 1px solid rgba(126, 200, 214, 0.12);
+  padding: 10px 14px 12px;
+}
+
+.echo-living-preferences label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: rgba(230, 247, 249, 0.68);
+  font-size: 10px;
+}
+
+.echo-living-preferences input[type="range"] {
+  inline-size: 84px;
+}
+
+.echo-living-sound-caption {
+  margin: 0;
+  padding: 6px 14px;
+  color: rgba(220, 240, 244, 0.58);
+  font-size: 10px;
+  text-align: center;
+}
+
+@keyframes echo-intrusion-enter {
+  from { opacity: 0; transform: translateY(18px) scale(.98); filter: blur(4px); }
+  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .echo-intrusion,
+  .echo-intrusion__scan {
+    animation: none !important;
+  }
+}
+
+.echo-intrusion[data-motion="reduced"] {
+  animation: none;
+}

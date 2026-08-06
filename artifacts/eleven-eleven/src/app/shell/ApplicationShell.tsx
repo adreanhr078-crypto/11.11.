@@ -36,6 +36,8 @@ import {
   useUiPreferencesStore,
 } from './shellStore';
 import { PlayerResourceCounters } from './PlayerResourceCounters';
+import { EchoIntrusionOverlay } from '../../features/echo/EchoIntrusionOverlay';
+import { DemoExperienceLayer } from '../demo/DemoExperienceLayer';
 
 export function ApplicationShell() {
   const shell = useShellStore();
@@ -311,6 +313,8 @@ export function ApplicationShell() {
           </GameButton>
         </div>
       </GameModal>
+      <EchoIntrusionOverlay />
+      <DemoExperienceLayer />
     </GameViewport>
   );
 }

@@ -113,7 +113,7 @@ export function createBrowserEchoMindVoice(): EchoMindVoicePort {
         recognition.start();
       });
     },
-    speak(text, voice) {
+    speak(text, voice, volume = 1) {
       if (
         typeof window === 'undefined'
         || !('speechSynthesis' in window)
@@ -136,6 +136,7 @@ export function createBrowserEchoMindVoice(): EchoMindVoicePort {
           : voice.mood === 'fragile'
             ? 0.9
             : 0.82;
+        utterance.volume = Math.min(1, Math.max(0, volume));
 
         const languagePrefix = voice.locale.slice(0, 2).toLowerCase();
         utterance.voice = window.speechSynthesis

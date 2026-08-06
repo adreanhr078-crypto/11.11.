@@ -7,7 +7,11 @@ import type {
 } from './echoMindExperience';
 import {
   CHAPTER_01_MANHWA_PAGE_BY_ID,
+  CHAPTER_01_PUZZLE_BY_ID,
 } from '../../content/puzzles/chapter01Campaign';
+import type {
+  EchoMindPlayerContext,
+} from './echoMindLivingStore';
 
 export interface EchoMindHistoryMessage {
   role: 'user' | 'assistant';
@@ -34,7 +38,17 @@ export interface EchoMindKnowledgeContext {
   restoredManhwaPages: Array<{
     id: string;
     title: string;
+    description: string;
+    transcript: string[];
   }>;
+  revealedStoryBeats: Array<{
+    puzzleId: string;
+    echoReflection: string;
+    beliefs: string[];
+    questions: string[];
+    knowledge: string[];
+  }>;
+  playerRelationship?: EchoMindPlayerContext;
 }
 
 export interface StreamEchoMindAiInput {
@@ -70,6 +84,7 @@ function getAiEndpoint(): string {
 export function createEchoMindKnowledgeContext(
   state: GameState,
   locale: EchoMindLocale,
+  playerRelationship?: EchoMindPlayerContext,
 ): EchoMindKnowledgeContext {
   const unlockedMemoryIds = new Set(state.narrative.unlockedMemoryIds);
   const unlockedFragmentIds = new Set(
@@ -105,8 +120,30 @@ export function createEchoMindKnowledgeContext(
         return page ? [{
           id: page.id,
           title: locale === 'en' ? page.title.en : page.title.ar,
+          description: locale === 'en'
+            ? page.accessibleDescription.en
+            : page.accessibleDescription.ar,
+          transcript: page.transcript.map((line) => (
+            locale === 'en' ? line.en : line.ar
+          )),
         }] : [];
       }),
+    revealedStoryBeats: state.progression.completedPuzzleIds
+      .slice(-30)
+      .flatMap((puzzleId) => {
+        const puzzle = CHAPTER_01_PUZZLE_BY_ID[puzzleId];
+        if (!puzzle) return [];
+        return [{
+          puzzleId: puzzle.id,
+          echoReflection: locale === 'en'
+            ? puzzle.dialogue.en
+            : puzzle.dialogue.ar,
+          beliefs: [...puzzle.echoMindDelta.beliefsAdded],
+          questions: [...puzzle.echoMindDelta.questionsAdded],
+          knowledge: [...puzzle.echoMindDelta.knowledgeNodesAdded],
+        }];
+      }),
+    ...(playerRelationship ? { playerRelationship } : {}),
   };
 }
 

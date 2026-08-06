@@ -21,6 +21,9 @@ import {
 import type { GameStateGetter, GameStateSetter } from './statePorts';
 import { GAME_STORAGE_NAME } from '../../infrastructure/persistence/gamePersistence';
 import { ExpandedEndingSystem } from '../../domain/endings/endingCatalog';
+import {
+  ECHO_MIND_LIVING_STORAGE_KEY,
+} from '../echo/echoMindLivingStore';
 
 type WorldActions = Pick<
   GameActions,
@@ -203,6 +206,7 @@ export function createWorldActions(
       localStorage.removeItem('eleven_full_save');
       localStorage.removeItem('eleven_echo_state');
       localStorage.removeItem('eleven_last_insert');
+      localStorage.removeItem(ECHO_MIND_LIVING_STORAGE_KEY);
       window.location.reload();
     },
 

@@ -1,0 +1,25 @@
+# Copy this file to .dev.vars for local Cloudflare Pages development.
+# Never commit .dev.vars or real provider keys.
+
+ECHO_PROVIDER_ORDER=cloudflare,gemini,openrouter,groq,huggingface
+ECHO_MAX_PROVIDER_ATTEMPTS=10
+ECHO_PROVIDER_TIMEOUT_MS=12000
+ECHO_PROVIDER_DEADLINE_MS=32000
+
+# Gemini Developer API free-tier models. Keep this key server-side.
+GEMINI_API_KEY=
+GEMINI_MODELS=gemini-3.6-flash,gemini-3.5-flash-lite,gemini-3.1-flash-lite
+
+# Recommended zero-cost router for available free models.
+OPENROUTER_API_KEY=
+OPENROUTER_MODELS=openrouter/free
+
+# Optional open-weight model fallbacks.
+GROQ_API_KEY=
+GROQ_MODELS=openai/gpt-oss-120b,openai/gpt-oss-20b
+
+HF_TOKEN=
+HF_MODELS=openai/gpt-oss-120b:fastest,Qwen/Qwen2.5-7B-Instruct-1M:fastest
+
+# Allow the native Android origin or another trusted frontend when needed.
+ECHO_ALLOWED_ORIGINS=
