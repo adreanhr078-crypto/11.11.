@@ -3,6 +3,8 @@
 // Custom env vars the app reads at runtime.
 // All AI API keys are managed server-side — the frontend never handles them.
 interface ImportMetaEnv {
+  readonly VITE_AWAKENING_WARD_ENABLED?: string;
+  readonly VITE_LEGACY_PUZZLE_ARCHIVE_ENABLED?: string;
   readonly VITE_VAPID_PUBLIC_KEY?: string;
   readonly VITE_ECHO_AI_ENDPOINT?: string;
   readonly VITE_DEMO_MODE?: string;
@@ -14,6 +16,7 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_STORAGE_BUCKET?: string;
   readonly VITE_FIREBASE_MESSAGING_SENDER_ID?: string;
   readonly VITE_FIREBASE_MEASUREMENT_ID?: string;
+  readonly VITE_PLAYER_API_URL?: string;
 }
 
 interface ImportMeta {

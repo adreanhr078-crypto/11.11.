@@ -1,0 +1,48 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /players/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.uid == userId
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'displayName',
+          'email',
+          'photoURL',
+          'providerId',
+          'isAnonymous',
+          'schemaVersion',
+          'createdAt',
+          'lastLoginAt',
+          'updatedAt'
+        ]);
+      allow delete: if false;
+
+      match /saves/{saveId} {
+        allow read: if request.auth != null
+          && request.auth.uid == userId
+          && saveId == 'main';
+        allow create, update: if request.auth != null
+          && request.auth.uid == userId
+          && saveId == 'main'
+          && request.resource.data.ownerUid == userId
+          && request.resource.data.payloadJson is string
+          && request.resource.data.payloadJson.size() <= 480000
+          && request.resource.data.saveVersion is int
+          && request.resource.data.revision is int
+          && request.resource.data.revision > 0
+          && request.resource.data.keys().hasOnly([
+            'ownerUid',
+            'saveVersion',
+            'revision',
+            'payloadJson',
+            'updatedAt'
+          ]);
+        allow delete: if false;
+      }
+    }
+  }
+}

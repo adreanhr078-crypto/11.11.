@@ -39,6 +39,9 @@ import {
   createAchievementViews,
   synchronizeAchievementProgress,
 } from '../domain/achievements/achievementProgression';
+import {
+  createInitialAwakeningWardState,
+} from '../features/awakening-ward/domain/awakeningWardState';
 
 const CONFIGURED_PUZZLE_COUNT = (
   CHAPTER_DEFINITIONS.at(-1)?.puzzleRange[1] ?? 0
@@ -129,6 +132,7 @@ export function buildInitialState(): GameState {
     progression,
     narrative,
     cinematic: createInitialCinematicState(),
+    awakeningWard: createInitialAwakeningWardState(),
     finalChoice: null,
     unlockedEndings: [],
     seenEndings: [],

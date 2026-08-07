@@ -75,12 +75,12 @@ export const NAVIGATION_CATEGORIES = [
   },
   {
     id: 'progress',
-    label: 'التقدم',
-    shortLabel: 'التقدم',
-    description: 'تقدم الرحلة والإنجازات والنهايات المؤهلة.',
+    label: 'الترتيب العالمي',
+    shortLabel: 'الترتيب',
+    description: 'ترتيب اللاعبين عالميًا حسب إجمالي نقاط الخبرة.',
     iconId: 'category-progress',
     tone: 'progression',
-    landingScreenId: 'progress',
+    landingScreenId: 'leaderboard',
     primary: true,
   },
   {

@@ -90,7 +90,7 @@ export default function MainMenuScreen() {
             size="lg"
             fullWidth
             leadingIcon={<GameIcon id="screen-psychological-state" />}
-            onClick={() => navigate('psychological-state')}
+            onClick={() => navigate('puzzles')}
           >
             {model.hasJourneyProgress ? 'متابعة الرحلة' : 'ابدأ الرحلة'}
           </GameButton>

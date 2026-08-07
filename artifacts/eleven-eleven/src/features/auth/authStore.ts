@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import {
   continueAsGuest,
   createAccountWithEmail,
+  resetPassword,
   signInWithEmail,
   signInWithGoogle,
   signOutCurrentUser,
@@ -24,6 +25,7 @@ interface AuthActions {
     displayName: string,
   ) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   continueAsGuest: () => Promise<void>;
   signOut: () => Promise<void>;
   clearError: () => void;
@@ -48,6 +50,21 @@ function friendlyError(error: unknown): string {
 
   if (error.message.includes('Firebase Auth is not configured')) {
     return 'إعدادات Firebase غير مكتملة. أضف مفاتيح VITE_FIREBASE داخل ملف البيئة.';
+  }
+
+  const authCode = (error as { code?: unknown }).code;
+  if (typeof authCode === 'string') {
+    const messages: Record<string, string> = {
+      'auth/email-already-in-use': 'هذا البريد مرتبط بحساب موجود بالفعل.',
+      'auth/invalid-credential': 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
+      'auth/invalid-email': 'صيغة البريد الإلكتروني غير صحيحة.',
+      'auth/network-request-failed': 'تعذر الاتصال بالشبكة. تحقق من اتصالك وحاول مجدداً.',
+      'auth/operation-not-allowed': 'طريقة تسجيل الدخول هذه غير مفعلة في Firebase.',
+      'auth/popup-closed-by-user': 'أُغلقت نافذة Google قبل اكتمال تسجيل الدخول.',
+      'auth/too-many-requests': 'محاولات كثيرة خلال وقت قصير. انتظر قليلاً ثم حاول مجدداً.',
+      'auth/weak-password': 'استخدم كلمة مرور أقوى تتكون من 6 أحرف على الأقل.',
+    };
+    if (messages[authCode]) return messages[authCode];
   }
 
   return error.message
@@ -101,6 +118,10 @@ export const useAuthStore = create<AuthStoreState>((set) => ({
       () => createAccountWithEmail(email, password, displayName),
     ),
     signInWithGoogle: () => runAuthAction(set, signInWithGoogle),
+    resetPassword: (email) => runAuthAction(
+      set,
+      () => resetPassword(email),
+    ),
     continueAsGuest: () => runAuthAction(set, continueAsGuest),
     signOut: () => runAuthAction(set, signOutCurrentUser),
     clearError: () => set({ error: null }),

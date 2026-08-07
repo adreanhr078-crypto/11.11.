@@ -21,6 +21,7 @@ import {
 } from '../app/shell/screenRegistry';
 import { useShellStore } from '../app/shell/shellStore';
 import {
+  AWAKENING_WARD_ENABLED,
   OPENING_ROOM_3D_ENABLED,
 } from '../app/config/featureFlags';
 import {
@@ -91,6 +92,13 @@ describe('Application Shell', () => {
       GAME_SCREEN_REGISTRY.memories.description,
       /Manhwa/,
     );
+    assert.equal(
+      NAVIGATION_CATEGORIES.find(({ id }) => id === 'progress')
+        ?.landingScreenId,
+      'leaderboard',
+    );
+    assert.equal(GAME_SCREEN_REGISTRY.leaderboard.navigation, 'landing');
+    assert.equal(GAME_SCREEN_REGISTRY.progress.navigation, 'hidden');
   });
 
   it('reads Manhwa badges and player counters from canonical progression', () => {
@@ -307,8 +315,9 @@ describe('Application Shell', () => {
     }
   });
 
-  it('keeps the 3D room dormant and routes its entry to puzzles', () => {
+  it('keeps both room prototypes dormant and routes play to puzzles', () => {
     assert.equal(OPENING_ROOM_3D_ENABLED, false);
+    assert.equal(AWAKENING_WARD_ENABLED, false);
     useShellStore.setState({
       currentScreen: 'psychological-state',
       previousScreen: null,
