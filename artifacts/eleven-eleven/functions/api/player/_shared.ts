@@ -2,6 +2,7 @@ export interface PlayerApiEnv {
   FIREBASE_PROJECT_ID?: string;
   FIREBASE_WEB_API_KEY?: string;
   PLAYER_ALLOWED_ORIGINS?: string;
+  PLAYER_DB?: import('./_database').PlayerDatabase;
 }
 
 export interface PlayerApiContext {
@@ -116,7 +117,7 @@ export function corsHeaders(
       ? { 'Access-Control-Allow-Origin': allowedOrigin }
       : {}),
     'Access-Control-Allow-Headers': 'Authorization, Content-Type',
-    'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
     'Cache-Control': 'no-store',
     Vary: 'Origin',
   };

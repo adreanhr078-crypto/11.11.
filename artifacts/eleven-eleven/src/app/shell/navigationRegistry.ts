@@ -50,7 +50,7 @@ export const NAVIGATION_CATEGORIES = [
     description: 'حل العقد وإعادة بناء الأحداث المفقودة.',
     iconId: 'category-puzzles',
     tone: 'memory',
-    landingScreenId: 'awakening-ward',
+    landingScreenId: 'puzzles',
     primary: true,
   },
   {
@@ -75,12 +75,12 @@ export const NAVIGATION_CATEGORIES = [
   },
   {
     id: 'progress',
-    label: 'التقدم',
-    shortLabel: 'التقدم',
-    description: 'تقدم الرحلة والإنجازات والنهايات المؤهلة.',
+    label: 'الترتيب العالمي',
+    shortLabel: 'الترتيب',
+    description: 'ترتيب اللاعبين عالميًا حسب إجمالي نقاط الخبرة.',
     iconId: 'category-progress',
     tone: 'progression',
-    landingScreenId: 'progress',
+    landingScreenId: 'leaderboard',
     primary: true,
   },
   {

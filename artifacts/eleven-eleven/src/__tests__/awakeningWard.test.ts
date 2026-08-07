@@ -5,6 +5,7 @@ import {
 } from 'node:fs';
 import { describe, it } from 'node:test';
 import {
+  AWAKENING_WARD_ENABLED,
   LEGACY_PUZZLE_ARCHIVE_ENABLED,
   OPENING_ROOM_3D_ENABLED,
   resolveFeatureGatedScreen,
@@ -250,15 +251,17 @@ describe('Puzzle registry and preserved prototypes', () => {
     );
   });
 
-  it('keeps all 20 legacy puzzles behind their feature flag', () => {
+  it('restores all 20 legacy puzzles as the active gameplay route', () => {
     assert.equal(CHAPTER_01_PUZZLES.length, 20);
-    assert.equal(LEGACY_PUZZLE_ARCHIVE_ENABLED, false);
-    assert.equal(resolveFeatureGatedScreen('puzzles'), 'awakening-ward');
+    assert.equal(LEGACY_PUZZLE_ARCHIVE_ENABLED, true);
+    assert.equal(resolveFeatureGatedScreen('puzzles'), 'puzzles');
   });
 
-  it('keeps the 3D room disabled and out of the new screen module', () => {
+  it('keeps both room prototypes dormant without deleting their modules', () => {
     assert.equal(OPENING_ROOM_3D_ENABLED, false);
-    assert.equal(resolveFeatureGatedScreen('play'), 'awakening-ward');
+    assert.equal(AWAKENING_WARD_ENABLED, false);
+    assert.equal(resolveFeatureGatedScreen('play'), 'puzzles');
+    assert.equal(resolveFeatureGatedScreen('awakening-ward'), 'puzzles');
     const source = readFileSync(
       new URL(
         '../features/awakening-ward/AwakeningWardScreen.tsx',

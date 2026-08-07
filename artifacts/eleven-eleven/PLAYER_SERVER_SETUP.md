@@ -2,6 +2,10 @@
 
 Phase 2 adds an authenticated player API and account-linked cloud saves.
 
+The global leaderboard keeps Firebase Auth as the account authority and stores
+server-owned Level/XP data in a private Cloudflare D1 binding. The browser never
+receives write access to that database.
+
 ## Firebase
 
 1. Open the Firebase project `eleveneleven-16435`.
@@ -48,6 +52,29 @@ npm run dev
 The local `.env` points the client to `http://127.0.0.1:8788/api/player`.
 Server variables are read from the ignored `.dev.vars` file.
 
+## Global Level, XP, and leaderboard
+
+Create one D1 database and bind it to the Pages project with the exact variable
+name `PLAYER_DB`:
+
+```bash
+npx wrangler d1 create eleven-eleven-player
+```
+
+Add the returned database binding to the Cloudflare Pages project, then apply
+the tracked migration. Use `--local` for local development and `--remote` only
+when the production database is ready:
+
+```bash
+npx wrangler d1 migrations apply eleven-eleven-player --local
+npx wrangler d1 migrations apply eleven-eleven-player --remote
+```
+
+The first migration is `migrations/0001_player_progression.sql`. XP is derived
+from the append-only `xp_reward_events` ledger. Each player/source reward key is
+unique, and `player_progression.total_xp` is rebuilt from that ledger inside one
+D1 batch. Do not expose `PLAYER_DB` to the Vite client.
+
 ## API routes
 
 - `GET /api/player/bootstrap`: verifies the Firebase ID token, updates the
@@ -55,3 +82,7 @@ Server variables are read from the ignored `.dev.vars` file.
 - `GET /api/player/save`: returns the authenticated player's save.
 - `PUT /api/player/save`: writes a new atomic revision or returns `409` when
   another device changed the save first.
+- `GET /api/player/leaderboard`: returns the top players and always includes the
+  authenticated player's own global position.
+- `POST /api/player/xp/claim`: validates a known server reward and grants it at
+  most once. Client-provided XP amounts are rejected.

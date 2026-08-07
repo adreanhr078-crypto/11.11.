@@ -11,3 +11,6 @@ output_dir = "dist"
 # Cloudflare Pages Functions (for API routes)
 [functions]
 directory = "functions"
+
+# The global progression API expects a private D1 binding named PLAYER_DB.
+# Create/bind the database in Cloudflare, then apply migrations/ before deploy.

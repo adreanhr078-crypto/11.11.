@@ -290,12 +290,12 @@ export function ApplicationShell() {
           {!isGameplay && <GameButton
             variant="ghost"
             fullWidth
-            leadingIcon={<GameIcon id="screen-progress" />}
-            onClick={() => shell.navigate('progress')}
+            leadingIcon={<GameIcon id="screen-leaderboard" />}
+            onClick={() => shell.navigate('leaderboard')}
           >
             <span className="application-shell__pause-copy">
-              <strong>التقدم</strong>
-              <small>مراجعة الإنجازات والذكريات والنهايات</small>
+              <strong>الترتيب العالمي</strong>
+              <small>عرض ترتيبك ومستواك وإجمالي نقاط الخبرة</small>
               </span>
             </GameButton>
           }

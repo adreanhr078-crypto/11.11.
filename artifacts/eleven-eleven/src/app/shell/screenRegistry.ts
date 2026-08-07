@@ -7,6 +7,7 @@ import type { GameTone } from '../../ui/design-system/types';
 import type { GameIconId } from '../../ui/icons';
 import type { NavigationCategoryId } from './navigationTypes';
 import {
+  AWAKENING_WARD_ENABLED,
   LEGACY_PUZZLE_ARCHIVE_ENABLED,
 } from '../config/featureFlags';
 
@@ -122,7 +123,7 @@ export const GAME_SCREEN_DEFINITIONS = [
     tone: 'danger',
     iconId: 'screen-gameplay',
     categoryId: 'puzzles',
-    navigation: 'landing',
+    navigation: AWAKENING_WARD_ENABLED ? 'landing' : 'hidden',
     component: lazy(() => import(
       '../../features/awakening-ward/AwakeningWardScreen'
     )),
@@ -136,7 +137,7 @@ export const GAME_SCREEN_DEFINITIONS = [
     tone: 'memory',
     iconId: 'screen-puzzles',
     categoryId: 'puzzles',
-    navigation: LEGACY_PUZZLE_ARCHIVE_ENABLED ? 'secondary' : 'hidden',
+    navigation: LEGACY_PUZZLE_ARCHIVE_ENABLED ? 'landing' : 'hidden',
     component: lazy(() => import(
       '../../features/screens/PuzzleScreen'
     )),
@@ -184,6 +185,20 @@ export const GAME_SCREEN_DEFINITIONS = [
     )),
   },
   {
+    id: 'leaderboard',
+    label: 'الترتيب العالمي',
+    shortLabel: 'الترتيب',
+    description: 'ترتيب اللاعبين عالميًا حسب إجمالي نقاط الخبرة.',
+    code: '08',
+    tone: 'progression',
+    iconId: 'screen-leaderboard',
+    categoryId: 'progress',
+    navigation: 'landing',
+    component: lazy(() => import(
+      '../../features/player-progression/LeaderboardScreen'
+    )),
+  },
+  {
     id: 'progress',
     label: 'تقدم الرحلة',
     shortLabel: 'التقدم',
@@ -192,7 +207,7 @@ export const GAME_SCREEN_DEFINITIONS = [
     tone: 'progression',
     iconId: 'screen-progress',
     categoryId: 'progress',
-    navigation: 'landing',
+    navigation: 'hidden',
     component: lazy(() => import(
       '../../features/screens/ProgressScreen'
     )),
