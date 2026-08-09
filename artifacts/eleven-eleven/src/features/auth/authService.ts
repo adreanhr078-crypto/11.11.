@@ -158,6 +158,44 @@ export async function continueAsGuest(): Promise<void> {
   await signInAnonymously(auth);
 }
 
+export async function linkAnonymousAccountWithEmail(
+  email: string,
+  password: string,
+  displayName: string,
+): Promise<void> {
+  requireAuthConfigured();
+  const auth = await prepareFirebaseAuth();
+  if (!auth?.currentUser?.isAnonymous) {
+    throw new Error('Only a guest account can be linked.');
+  }
+  const {
+    EmailAuthProvider,
+    linkWithCredential,
+    updateProfile,
+  } = await import('firebase/auth');
+  const credential = EmailAuthProvider.credential(email, password);
+  await linkWithCredential(auth.currentUser, credential);
+  const safeName = displayName.trim();
+  if (safeName) {
+    await updateProfile(auth.currentUser, { displayName: safeName });
+  }
+}
+
+export async function linkAnonymousAccountWithGoogle(): Promise<void> {
+  requireAuthConfigured();
+  const auth = await prepareFirebaseAuth();
+  if (!auth?.currentUser?.isAnonymous) {
+    throw new Error('Only a guest account can be linked.');
+  }
+  const {
+    GoogleAuthProvider,
+    linkWithPopup,
+  } = await import('firebase/auth');
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  await linkWithPopup(auth.currentUser, provider);
+}
+
 export async function signOutCurrentUser(): Promise<void> {
   const firebase = await getFirebaseClient();
   if (!firebase) return;

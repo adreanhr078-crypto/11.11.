@@ -1,8 +1,13 @@
 import { getCurrentAuthToken } from '../../features/auth/authService';
+import { playerApiRoot } from '../player-api/apiRoot';
 import type { CampaignPuzzleProgress } from '../../domain/puzzles/campaignContracts';
 import type {
   LeaderboardPlayer,
 } from '../../domain/player-progression/playerProgression';
+import type {
+  PlayerAvatarId,
+  PlayerProfile,
+} from '../../domain/player-profile/playerProfile';
 
 export interface LeaderboardApiSnapshot {
   entries: LeaderboardPlayer[];
@@ -27,6 +32,10 @@ export interface XpClaimApiResponse {
   progression: LeaderboardPlayer;
 }
 
+interface PlayerProfileApiResponse {
+  profile: PlayerProfile;
+}
+
 interface ApiErrorBody {
   error?: unknown;
   code?: unknown;
@@ -47,7 +56,7 @@ function apiRoot(): string {
     env?: ImportMetaEnv;
   }).env;
   const configured = runtimeEnv?.VITE_PLAYER_API_URL?.trim();
-  return (configured || '/api/player').replace(/\/$/, '');
+  return playerApiRoot(configured);
 }
 
 async function parseResponse<T>(response: Response): Promise<T> {
@@ -113,4 +122,20 @@ export function claimPuzzleXpReward(
       proof,
     }),
   });
+}
+
+export function fetchPlayerProfile(): Promise<PlayerProfile> {
+  return authorizedRequest<PlayerProfileApiResponse>('/profile')
+    .then((response) => response.profile);
+}
+
+export function updatePlayerProfile(input: {
+  username: string;
+  bio: string;
+  avatarId: PlayerAvatarId;
+}): Promise<PlayerProfile> {
+  return authorizedRequest<PlayerProfileApiResponse>('/profile', {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  }).then((response) => response.profile);
 }

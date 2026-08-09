@@ -1,10 +1,13 @@
 # Player Server Setup
 
-Phase 2 adds an authenticated player API and account-linked cloud saves.
+Phase 2 adds an authenticated player API, account-linked cloud saves, and the
+Profile + Level/XP foundation.
 
 The global leaderboard keeps Firebase Auth as the account authority and stores
-server-owned Level/XP data in a private Cloudflare D1 binding. The browser never
-receives write access to that database.
+server-owned Level/XP, username reservations, verified Memory Fragment events,
+and derived profile statistics in a private Cloudflare D1 binding. The browser
+never receives write access to that database. Rank is always calculated from
+the leaderboard; it is not stored in a profile.
 
 ## Firebase
 
@@ -21,6 +24,10 @@ The rules allow a signed-in player to read and update only:
 
 - `players/{theirUid}`
 - `players/{theirUid}/saves/main`
+
+`subjectId`, `createdAt`, and `uid` are immutable. Avatar values are fixed IDs
+(`echo`, `silver_signal`, or `red_rift`); image uploads and external avatar URLs
+are not supported.
 
 ## Cloudflare Pages
 
@@ -70,19 +77,25 @@ npx wrangler d1 migrations apply eleven-eleven-player --local
 npx wrangler d1 migrations apply eleven-eleven-player --remote
 ```
 
-The first migration is `migrations/0001_player_progression.sql`. XP is derived
-from the append-only `xp_reward_events` ledger. Each player/source reward key is
-unique, and `player_progression.total_xp` is rebuilt from that ledger inside one
-D1 batch. Do not expose `PLAYER_DB` to the Vite client.
+Apply both tracked migrations. `0001_player_progression.sql` creates the XP
+ledger; `0002_player_profile.sql` adds username reservations, the append-only
+Memory Fragment ledger, derived profile stats, and append-only protection
+triggers. XP and `Secrets Found` are derived only from verified server events.
+Do not expose `PLAYER_DB` to the Vite client.
 
 ## API routes
 
 - `GET /api/player/bootstrap`: verifies the Firebase ID token, updates the
-  player profile, and returns the current cloud save.
+  player profile (including a stable Subject ID), and returns the current cloud
+  save.
+- `GET /api/player/profile`: returns the authenticated profile, server-derived
+  level/XP/rank, and verified stats.
+- `PUT /api/player/profile`: changes only username, bio, or a fixed Avatar ID.
 - `GET /api/player/save`: returns the authenticated player's save.
 - `PUT /api/player/save`: writes a new atomic revision or returns `409` when
   another device changed the save first.
 - `GET /api/player/leaderboard`: returns the top players and always includes the
   authenticated player's own global position.
 - `POST /api/player/xp/claim`: validates a known server reward and grants it at
-  most once. Client-provided XP amounts are rejected.
+  most once. Client-provided XP amounts and Memory Fragment IDs are rejected;
+  a fragment is extracted from the canonical server puzzle definition.

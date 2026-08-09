@@ -187,6 +187,49 @@
   white-space: nowrap;
 }
 
+.application-shell__utility .application-shell__player-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 8rem;
+  padding-inline: 0.5rem 0.72rem;
+  text-align: start;
+}
+
+.application-shell__player-avatar {
+  width: 1.8rem;
+  height: 1.8rem;
+  flex: 0 0 auto;
+  border: 1px solid rgb(87 231 255 / 42%);
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0.8rem rgb(87 231 255 / 18%);
+}
+
+.application-shell__player-card-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.08rem;
+}
+
+.application-shell__player-card-copy strong,
+.application-shell__player-card-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.application-shell__player-card-copy strong {
+  max-width: 7rem;
+  color: var(--gds-text-primary);
+  font-size: var(--gds-type-xs);
+}
+
+.application-shell__player-card-copy small {
+  color: var(--gds-gold-400);
+  font: 700 var(--gds-type-2xs) var(--gds-font-mono);
+}
+
 .application-shell__resources {
   display: inline-flex;
   align-items: center;

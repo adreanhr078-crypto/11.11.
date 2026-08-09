@@ -1,7 +1,8 @@
 # Echo Mind AI gateway
 
-Echo Mind calls one private server endpoint: `/api/echo/chat`. API keys never
-reach the browser or Android bundle. The gateway silently tries configured
+Echo Mind calls two private server endpoints: `/api/echo/chat` for replies and
+`/api/echo/transcribe` for the voice button. API keys never reach the browser
+or Android bundle. The gateway silently tries configured
 open-weight/free-tier sources in this order:
 
 1. Cloudflare Workers AI binding (`AI`)
@@ -40,6 +41,12 @@ GEMINI_MODELS=gemini-3.6-flash,gemini-3.5-flash-lite,gemini-3.1-flash-lite
 Multiple authorized project keys can be supplied through `GEMINI_API_KEYS`.
 Free-tier quotas and model availability are controlled by Google and may
 change, so keep the model list configurable in the deployment environment.
+
+The voice button records a short microphone clip, sends it to the transcription
+endpoint, and then sends the returned text through the same Echo chat gateway.
+Gemini's audio-capable request is used only from the server; the browser never
+receives `GEMINI_API_KEY`. The recording is converted to WAV when the browser
+uses a format that Gemini does not accept directly.
 
 ### 3. OpenRouter Free Router
 
@@ -87,7 +94,12 @@ Set only the public gateway URL at build time:
 
 ```text
 VITE_ECHO_AI_ENDPOINT=https://game-api.example.com/api/echo/chat
+# Optional when the voice route is hosted at a different path:
+VITE_ECHO_TRANSCRIBE_ENDPOINT=https://game-api.example.com/api/echo/transcribe
 ```
+
+If the second variable is omitted, the client changes the final `/chat` part
+of `VITE_ECHO_AI_ENDPOINT` to `/transcribe` automatically.
 
 Never use a `VITE_` prefix for an AI provider key because Vite embeds those
 values into the client bundle.

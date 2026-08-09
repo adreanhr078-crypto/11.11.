@@ -285,7 +285,7 @@ export const GAME_ICON_REGISTRY = {
   'screen-characters': {
     id: 'screen-characters',
     systemId: 'characters',
-    screenIds: ['characters'],
+    screenIds: ['characters', 'profile'],
     actionId: 'navigation.open-characters',
     label: { ar: 'الشخصيات', en: 'Characters' },
     description: {

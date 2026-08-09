@@ -199,6 +199,20 @@ export const GAME_SCREEN_DEFINITIONS = [
     )),
   },
   {
+    id: 'profile',
+    label: 'PLAYER PROFILE',
+    shortLabel: 'Profile',
+    description: 'Identity, level, XP, and verified player statistics.',
+    code: 'P01',
+    tone: 'progression',
+    iconId: 'screen-characters',
+    categoryId: 'settings',
+    navigation: 'hidden',
+    component: lazy(() => import(
+      '../../features/player-progression/ProfileScreen'
+    )),
+  },
+  {
     id: 'progress',
     label: 'تقدم الرحلة',
     shortLabel: 'التقدم',

@@ -5,6 +5,9 @@ import {
   type GameButtonVariant,
 } from '../../ui/design-system';
 import { GameIcon } from '../../ui/icons';
+import { playerAvatarSrc } from '../../ui/presentation/playerAvatarCatalog';
+import { useShellStore } from '../../app/shell/shellStore';
+import { usePlayerProgressionStore } from '../player-progression/playerProgressionStore';
 import { useAuthStore } from './authStore';
 import { AuthPanel } from './AuthPanel';
 
@@ -32,21 +35,50 @@ export function AuthStatusButton({
   const [open, setOpen] = useState(false);
   const status = useAuthStore((state) => state.status);
   const user = useAuthStore((state) => state.user);
+  const shell = useShellStore();
+  const profile = usePlayerProgressionStore((state) => state.profile);
+  const currentPlayer = usePlayerProgressionStore((state) => state.currentPlayer);
   const label = getButtonLabel(status, user);
   const tooltip = user
     ? 'إدارة حساب اللاعب'
     : 'تسجيل الدخول وتجهيز الحفظ السحابي';
 
+  const signedInLabel = profile?.username
+    ?? currentPlayer?.username
+    ?? user?.displayName
+    ?? user?.email
+    ?? 'PLAYER';
+  const signedInLevel = profile?.progression.level
+    ?? currentPlayer?.level
+    ?? 1;
+
   return (
     <>
       <GameTooltip label={tooltip}>
         <GameButton
-          className={className}
+          className={user ? `application-shell__player-card ${className ?? ''}` : className}
           variant={variant}
-          leadingIcon={<GameIcon id="category-characters" />}
-          onClick={() => setOpen(true)}
+          leadingIcon={user ? (
+            <img
+              className="application-shell__player-avatar"
+              src={playerAvatarSrc(profile?.avatarId ?? 'echo')}
+              alt=""
+            />
+          ) : <GameIcon id="category-characters" />}
+          onClick={() => {
+            if (user) {
+              shell.navigate('profile');
+            } else {
+              setOpen(true);
+            }
+          }}
         >
-          {label}
+          {user ? (
+            <span className="application-shell__player-card-copy">
+              <strong>{signedInLabel}</strong>
+              <small>LVL {signedInLevel}</small>
+            </span>
+          ) : label}
         </GameButton>
       </GameTooltip>
       <AuthPanel open={open} onClose={() => setOpen(false)} />

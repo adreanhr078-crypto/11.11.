@@ -18,6 +18,9 @@ export function PlayerProgressionBootstrap() {
   const loadLeaderboard = usePlayerProgressionStore(
     (state) => state.actions.loadLeaderboard,
   );
+  const loadProfile = usePlayerProgressionStore(
+    (state) => state.actions.loadProfile,
+  );
   const claimPuzzleReward = usePlayerProgressionStore(
     (state) => state.actions.claimPuzzleReward,
   );
@@ -28,8 +31,11 @@ export function PlayerProgressionBootstrap() {
       reset();
       return;
     }
-    void loadLeaderboard(true);
-  }, [authStatus, loadLeaderboard, reset, uid]);
+    void Promise.all([
+      loadLeaderboard(true),
+      loadProfile(),
+    ]);
+  }, [authStatus, loadLeaderboard, loadProfile, reset, uid]);
 
   useEffect(() => {
     if (authStatus !== 'signed-in' || !uid) return;
@@ -38,6 +44,7 @@ export function PlayerProgressionBootstrap() {
       (CHAPTER_01_PUZZLE_BY_ID[left]?.order ?? Number.MAX_SAFE_INTEGER)
       - (CHAPTER_01_PUZZLE_BY_ID[right]?.order ?? Number.MAX_SAFE_INTEGER)
     ));
+    if (orderedPuzzleIds.length === 0) return;
     void (async () => {
       for (const puzzleId of orderedPuzzleIds) {
         if (cancelled) return;
@@ -46,6 +53,7 @@ export function PlayerProgressionBootstrap() {
         const synced = await claimPuzzleReward(puzzleId, proof);
         if (!synced) return;
       }
+      if (!cancelled) await loadProfile();
     })();
     return () => {
       cancelled = true;
@@ -54,6 +62,7 @@ export function PlayerProgressionBootstrap() {
     authStatus,
     claimPuzzleReward,
     completedPuzzleIds,
+    loadProfile,
     progressByPuzzleId,
     uid,
   ]);

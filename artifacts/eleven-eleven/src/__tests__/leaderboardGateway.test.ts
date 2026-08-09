@@ -66,6 +66,7 @@ class FakeStatement implements PlayerDatabaseStatement {
 class FakePlayerDatabase implements PlayerDatabase {
   readonly players = new Map<string, FakePlayerRow>();
   readonly rewards = new Map<string, FakeRewardRow>();
+  readonly memoryFragments = new Set<string>();
 
   prepare(query: string): PlayerDatabaseStatement {
     return new FakeStatement(this, query);
@@ -119,6 +120,15 @@ class FakePlayerDatabase implements PlayerDatabase {
         rewardKey: String(rewardKey),
         xpAmount: Number(xpAmount),
       });
+      return { success: true, meta: { changes: 1 } };
+    }
+    if (query.startsWith('INSERT OR IGNORE INTO player_memory_fragment_events')) {
+      const [userId, fragmentId] = statement.values;
+      const key = `${String(userId)}:${String(fragmentId)}`;
+      if (this.memoryFragments.has(key)) {
+        return { success: true, meta: { changes: 0 } };
+      }
+      this.memoryFragments.add(key);
       return { success: true, meta: { changes: 1 } };
     }
     if (query.startsWith('UPDATE player_progression')) {
@@ -282,6 +292,7 @@ describe('global leaderboard gateway', () => {
     assert.equal(duplicatePayload.reward.xpGranted, 0);
     assert.equal(duplicatePayload.progression.totalXp, 75);
     assert.equal(database.rewards.size, 1);
+    assert.equal(database.memoryFragments.size, 1);
   });
 
   it('rejects client-authored XP before touching the database', async () => {

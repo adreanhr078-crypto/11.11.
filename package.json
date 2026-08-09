@@ -5,6 +5,7 @@
   "scripts": {
     "build": "npm --prefix artifacts/eleven-eleven run build",
     "dev": "npm --prefix artifacts/eleven-eleven run dev",
+    "dev:api": "npm --prefix artifacts/eleven-eleven run dev:api",
     "typecheck:libs": "tsc --build",
     "typecheck": "npm --prefix artifacts/eleven-eleven run typecheck",
     "test": "npm --prefix artifacts/eleven-eleven test",
@@ -63,7 +64,7 @@
     "@radix-ui/react-tooltip": "^1.2.14",
     "cmdk": "^1.1.1",
     "embla-carousel-react": "^8.6.0",
-    "firebase": "^12.15.0",
+    "firebase": "^12.17.1",
     "framer-motion": "^12.40.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^1.20.0",

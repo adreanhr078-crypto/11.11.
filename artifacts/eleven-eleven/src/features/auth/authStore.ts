@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import {
   continueAsGuest,
   createAccountWithEmail,
+  linkAnonymousAccountWithEmail,
+  linkAnonymousAccountWithGoogle,
   resetPassword,
   signInWithEmail,
   signInWithGoogle,
@@ -27,6 +29,12 @@ interface AuthActions {
   signInWithGoogle: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   continueAsGuest: () => Promise<void>;
+  linkAnonymousAccountWithEmail: (
+    email: string,
+    password: string,
+    displayName: string,
+  ) => Promise<void>;
+  linkAnonymousAccountWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   clearError: () => void;
 }
@@ -56,6 +64,8 @@ function friendlyError(error: unknown): string {
   if (typeof authCode === 'string') {
     const messages: Record<string, string> = {
       'auth/email-already-in-use': 'هذا البريد مرتبط بحساب موجود بالفعل.',
+      'auth/credential-already-in-use': 'هذه البيانات مرتبطة بحساب آخر. بقي ملف الضيف كما هو.',
+      'auth/provider-already-linked': 'طريقة الدخول هذه مرتبطة بالفعل بهذا الحساب.',
       'auth/invalid-credential': 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
       'auth/invalid-email': 'صيغة البريد الإلكتروني غير صحيحة.',
       'auth/network-request-failed': 'تعذر الاتصال بالشبكة. تحقق من اتصالك وحاول مجدداً.',
@@ -123,6 +133,14 @@ export const useAuthStore = create<AuthStoreState>((set) => ({
       () => resetPassword(email),
     ),
     continueAsGuest: () => runAuthAction(set, continueAsGuest),
+    linkAnonymousAccountWithEmail: (email, password, displayName) => runAuthAction(
+      set,
+      () => linkAnonymousAccountWithEmail(email, password, displayName),
+    ),
+    linkAnonymousAccountWithGoogle: () => runAuthAction(
+      set,
+      linkAnonymousAccountWithGoogle,
+    ),
     signOut: () => runAuthAction(set, signOutCurrentUser),
     clearError: () => set({ error: null }),
   },

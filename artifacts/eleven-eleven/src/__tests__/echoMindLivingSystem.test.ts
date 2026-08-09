@@ -87,7 +87,7 @@ describe('living Echo Mind relationship', () => {
     }]);
   });
 
-  it('ships the relationship, theory, audio, caption, and intrusion UI hooks', () => {
+  it('keeps Echo Mind focused on the conversation and preserves intrusion UI', () => {
     const screen = readFileSync(
       new URL('../features/screens/EchoMindScreen.tsx', import.meta.url),
       'utf8',
@@ -96,11 +96,25 @@ describe('living Echo Mind relationship', () => {
       new URL('../app/shell/ApplicationShell.tsx', import.meta.url),
       'utf8',
     );
+    const voice = readFileSync(
+      new URL('../infrastructure/voice/browserEchoMindVoice.ts', import.meta.url),
+      'utf8',
+    );
+    const transcribeEndpoint = readFileSync(
+      new URL('../../functions/api/echo/transcribe.ts', import.meta.url),
+      'utf8',
+    );
 
-    assert.match(screen, /PLAYER THEORIES/);
-    assert.match(screen, /autoSpeakReplies/);
-    assert.match(screen, /captionsEnabled/);
-    assert.match(screen, /signalVolume/);
+    assert.doesNotMatch(screen, /PLAYER THEORIES/);
+    assert.doesNotMatch(screen, /echo-living-preferences/);
+    assert.match(screen, /shell-echo-mind-screen__messages/);
+    assert.match(screen, /Write to Echo/);
+    assert.match(screen, /Talk to Echo/);
+    assert.match(screen, /Send/);
     assert.match(shell, /EchoIntrusionOverlay/);
+    assert.match(voice, /\/api\/echo\/transcribe/);
+    assert.match(voice, /MediaRecorder/);
+    assert.match(transcribeEndpoint, /GEMINI_API_KEY/);
+    assert.match(transcribeEndpoint, /inlineData/);
   });
 });

@@ -1,4 +1,8 @@
 import {
+  CHAPTER_01_PUZZLE_BY_ID,
+  CHAPTER_01_PUZZLES,
+} from '../../../src/content/puzzles/chapter01Campaign';
+import {
   getPlayerLevelProgress,
   normalizeTotalXp,
   type LeaderboardPlayer,
@@ -22,6 +26,12 @@ interface ProgressionRow {
 
 interface CountRow {
   total: number | string;
+}
+
+export interface PlayerProfileStatsRow {
+  chaptersCompleted: number;
+  puzzlesSolved: number;
+  secretsFound: number;
 }
 
 export interface LeaderboardSnapshot {
@@ -80,7 +90,6 @@ function upsertPlayerStatement(
       updated_at
     ) VALUES (?, ?, 0, ?, ?)
     ON CONFLICT(user_id) DO UPDATE SET
-      username = excluded.username,
       updated_at = excluded.updated_at
   `).bind(account.uid, publicUsername(account), now, now);
 }
@@ -138,6 +147,17 @@ export async function readLeaderboard(
 ): Promise<LeaderboardSnapshot> {
   const now = new Date().toISOString();
   await upsertPlayerStatement(db, account, now).run();
+  await db.prepare(`
+    UPDATE player_progression
+    SET
+      total_xp = (
+        SELECT COALESCE(SUM(xp_amount), 0)
+        FROM xp_reward_events
+        WHERE user_id = ?
+      ),
+      updated_at = ?
+    WHERE user_id = ?
+  `).bind(account.uid, now, account.uid).run();
 
   const [topResult, currentRow, countRow] = await Promise.all([
     db.prepare(`
@@ -197,6 +217,22 @@ export async function claimXpReward(
       reward.xpAmount,
       now,
     ),
+    ...(reward.memoryFragmentId
+      ? [db.prepare(`
+        INSERT OR IGNORE INTO player_memory_fragment_events (
+          user_id,
+          fragment_id,
+          source_type,
+          source_id,
+          found_at
+        ) VALUES (?, ?, 'puzzle', ?, ?)
+      `).bind(
+        account.uid,
+        reward.memoryFragmentId,
+        reward.sourceId,
+        now,
+      )]
+      : []),
     db.prepare(`
       UPDATE player_progression
       SET
@@ -218,4 +254,67 @@ export async function claimXpReward(
     xpGranted: awarded ? normalizeTotalXp(reward.xpAmount) : 0,
     progression: mapPlayerRow(current, account.uid),
   };
+}
+
+function chapterIdForPuzzle(sourceId: string): string | null {
+  const definition = CHAPTER_01_PUZZLE_BY_ID[sourceId];
+  if (!definition) return null;
+  const match = definition.targetPageId.match(/^manhwa_ch(\d+)_/);
+  return match ? `chapter_${Number(match[1])}` : null;
+}
+
+export async function readPlayerProfileStats(
+  db: PlayerDatabase,
+  uid: string,
+): Promise<PlayerProfileStatsRow> {
+  const puzzleResult = await db.prepare(`
+    SELECT source_id
+    FROM xp_reward_events
+    WHERE user_id = ? AND source_type = 'puzzle'
+  `).bind(uid).all<{ source_id: string }>();
+  const verifiedPuzzleIds = new Set(
+    (puzzleResult.results ?? [])
+      .map((row) => row.source_id)
+      .filter((sourceId) => Boolean(CHAPTER_01_PUZZLE_BY_ID[sourceId])),
+  );
+  const puzzlesSolved = verifiedPuzzleIds.size;
+  const requiredPuzzleIdsByChapter = new Map<string, string[]>();
+  for (const puzzle of CHAPTER_01_PUZZLES) {
+    const chapterId = chapterIdForPuzzle(puzzle.id);
+    if (!chapterId) continue;
+    const puzzleIds = requiredPuzzleIdsByChapter.get(chapterId) ?? [];
+    puzzleIds.push(puzzle.id);
+    requiredPuzzleIdsByChapter.set(chapterId, puzzleIds);
+  }
+  const chaptersCompleted = [...requiredPuzzleIdsByChapter.values()]
+    .filter((requiredIds) => requiredIds.every((id) => verifiedPuzzleIds.has(id)))
+    .length;
+  const secretRow = await db.prepare(`
+    SELECT COUNT(*) AS total
+    FROM player_memory_fragment_events
+    WHERE user_id = ?
+  `).bind(uid).first<CountRow>();
+  const secretsFound = toPositiveInteger(secretRow?.total, 0);
+  const now = new Date().toISOString();
+  await db.prepare(`
+    INSERT INTO player_profile_stats (
+      user_id,
+      chapters_completed,
+      puzzles_solved,
+      secrets_found,
+      updated_at
+    ) VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET
+      chapters_completed = excluded.chapters_completed,
+      puzzles_solved = excluded.puzzles_solved,
+      secrets_found = excluded.secrets_found,
+      updated_at = excluded.updated_at
+  `).bind(
+    uid,
+    chaptersCompleted,
+    puzzlesSolved,
+    secretsFound,
+    now,
+  ).run();
+  return { chaptersCompleted, puzzlesSolved, secretsFound };
 }

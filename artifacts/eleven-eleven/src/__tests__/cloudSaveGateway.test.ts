@@ -63,12 +63,15 @@ describe('cloud player gateway', () => {
       requestedUrls.push(url);
       if (url.includes('accounts:lookup')) return lookupResponse();
       if (init?.method === 'PATCH') {
-        assert.match(url, /documents\/players\/player-123$/);
+        assert.match(url, /documents\/players\/player-123(?:\?|$)/);
         assert.equal(
           new Headers(init.headers).get('Authorization'),
           'Bearer valid-id-token',
         );
         return Response.json({ updateTime: '2026-08-06T12:00:00.000Z' });
+      }
+      if (url.endsWith('/documents/players/player-123')) {
+        return Response.json({}, { status: 404 });
       }
       assert.match(url, /documents\/players\/player-123\/saves\/main$/);
       return Response.json({}, { status: 404 });
@@ -86,7 +89,7 @@ describe('cloud player gateway', () => {
     assert.equal(response.status, 200);
     assert.equal(payload.profile.uid, 'player-123');
     assert.equal(payload.save, null);
-    assert.equal(requestedUrls.length, 3);
+    assert.equal(requestedUrls.length, 4);
   });
 
   it('creates the first cloud save at revision one', async () => {

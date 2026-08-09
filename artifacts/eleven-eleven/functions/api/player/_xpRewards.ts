@@ -30,6 +30,7 @@ export interface VerifiedXpReward {
   rewardKey: string;
   xpAmount: number;
   requiredRewardKeys: string[];
+  memoryFragmentId?: string;
 }
 
 interface XpClaimBody {
@@ -39,6 +40,8 @@ interface XpClaimBody {
   amount?: unknown;
   xp?: unknown;
   totalXp?: unknown;
+  fragmentId?: unknown;
+  secretId?: unknown;
 }
 
 function cleanSourceId(value: unknown): string {
@@ -152,6 +155,7 @@ function verifyPuzzleReward(
     rewardKey: createXpRewardKey('puzzle', definition.id),
     xpAmount: PUZZLE_XP_BY_DIFFICULTY[definition.difficulty],
     requiredRewardKeys,
+    memoryFragmentId: definition.rewards.shardId,
   };
 }
 
@@ -164,6 +168,8 @@ export function verifyXpRewardClaim(body: unknown): VerifiedXpReward {
     input.amount !== undefined
     || input.xp !== undefined
     || input.totalXp !== undefined
+    || input.fragmentId !== undefined
+    || input.secretId !== undefined
   ) {
     throw new PlayerApiError(
       400,

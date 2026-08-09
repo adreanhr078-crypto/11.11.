@@ -7,8 +7,26 @@ service cloud.firestore {
       allow create, update: if request.auth != null
         && request.auth.uid == userId
         && request.resource.data.uid == userId
+        && request.resource.data.subjectId is string
+        && request.resource.data.username is string
+        && request.resource.data.username.size() >= 3
+        && request.resource.data.username.size() <= 28
+        && request.resource.data.bio is string
+        && request.resource.data.bio.size() <= 160
+        && request.resource.data.avatarId in [
+          'echo',
+          'silver_signal',
+          'red_rift'
+        ]
+        && request.resource.data.featuredAchievementIds is list
+        && request.resource.data.featuredAchievementIds.size() <= 3
         && request.resource.data.keys().hasOnly([
           'uid',
+          'subjectId',
+          'username',
+          'bio',
+          'avatarId',
+          'featuredAchievementIds',
           'displayName',
           'email',
           'photoURL',
@@ -18,7 +36,18 @@ service cloud.firestore {
           'createdAt',
           'lastLoginAt',
           'updatedAt'
-        ]);
+        ])
+        && (
+          !exists(/databases/$(database)/documents/players/$(userId))
+          || (
+            request.resource.data.uid == resource.data.uid
+            && (
+              request.resource.data.subjectId == resource.data.subjectId
+              || !resource.data.keys().hasAll(['subjectId'])
+            )
+            && request.resource.data.createdAt == resource.data.createdAt
+          )
+        );
       allow delete: if false;
 
       match /saves/{saveId} {

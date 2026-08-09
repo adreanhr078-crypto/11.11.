@@ -1,22 +1,16 @@
 import {
   authenticatePlayer,
-  booleanField,
   corsHeaders,
   errorResponse,
-  integerField,
   jsonResponse,
   optionsResponse,
   readFirestoreDocument,
   readIntegerField,
   readStringField,
   readTimestampField,
-  stringField,
-  timestampField,
-  writeFirestoreDocument,
   type PlayerApiContext,
 } from './_shared';
-
-const PROFILE_SCHEMA_VERSION = 1;
+import { ensurePlayerProfile } from './_profile';
 
 function saveResponse(
   document: Awaited<ReturnType<typeof readFirestoreDocument>>,
@@ -51,24 +45,7 @@ export async function onRequestGet({
   const headers = corsHeaders(request, env);
   try {
     const { account, idToken } = await authenticatePlayer(request, env);
-    const now = new Date().toISOString();
-    await writeFirestoreDocument(
-      env,
-      idToken,
-      `players/${account.uid}`,
-      {
-        uid: stringField(account.uid),
-        displayName: stringField(account.displayName ?? ''),
-        email: stringField(account.email ?? ''),
-        photoURL: stringField(account.photoURL ?? ''),
-        providerId: stringField(account.providerId),
-        isAnonymous: booleanField(account.providerId === 'anonymous'),
-        schemaVersion: integerField(PROFILE_SCHEMA_VERSION),
-        createdAt: timestampField(account.createdAt),
-        lastLoginAt: timestampField(account.lastLoginAt),
-        updatedAt: timestampField(now),
-      },
-    );
+    const profile = await ensurePlayerProfile(env, idToken, account);
 
     const saveDocument = await readFirestoreDocument(
       env,
@@ -78,12 +55,18 @@ export async function onRequestGet({
 
     return jsonResponse({
       profile: {
-        uid: account.uid,
+        uid: profile.uid,
+        subjectId: profile.subjectId,
+        username: profile.username,
+        bio: profile.bio,
+        avatarId: profile.avatarId,
+        email: profile.email,
         displayName: account.displayName,
-        email: account.email,
         photoURL: account.photoURL,
-        providerId: account.providerId,
-        createdAt: account.createdAt,
+        providerId: profile.providerId,
+        isAnonymous: profile.isAnonymous,
+        createdAt: profile.joinDate,
+        featuredAchievementIds: profile.featuredAchievementIds,
       },
       save: saveResponse(saveDocument),
     }, 200, headers);

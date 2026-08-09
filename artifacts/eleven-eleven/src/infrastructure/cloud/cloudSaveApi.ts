@@ -1,8 +1,15 @@
 import { getCurrentAuthToken } from '../../features/auth/authService';
 import type { PersistedGameState } from '../persistence/gamePersistence';
+import { playerApiRoot } from '../player-api/apiRoot';
 
 export interface CloudPlayerProfile {
   uid: string;
+  subjectId?: string;
+  username?: string;
+  bio?: string;
+  avatarId?: 'echo' | 'silver_signal' | 'red_rift';
+  isAnonymous?: boolean;
+  featuredAchievementIds?: string[];
   displayName: string | null;
   email: string | null;
   photoURL: string | null;
@@ -47,7 +54,7 @@ export class CloudSaveApiError extends Error {
 
 function apiRoot(): string {
   const configured = import.meta.env.VITE_PLAYER_API_URL?.trim();
-  return (configured || '/api/player').replace(/\/$/, '');
+  return playerApiRoot(configured);
 }
 
 async function parseResponse<T>(response: Response): Promise<T> {

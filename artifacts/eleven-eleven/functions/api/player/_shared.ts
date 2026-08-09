@@ -35,7 +35,10 @@ interface FirestoreValue {
   integerValue?: string;
   booleanValue?: boolean;
   timestampValue?: string;
+  arrayValue?: { values?: FirestoreValue[] };
 }
+
+export type FirestoreFieldValue = FirestoreValue;
 
 export interface FirestoreDocument {
   name?: string;
@@ -98,6 +101,11 @@ function bearerToken(request: Request): string {
   return match[1].trim();
 }
 
+function isLoopbackDevelopmentOrigin(origin: string): boolean {
+  return /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/i.test(origin)
+    || /^http:\/\/\[::1\](?::\d+)?$/i.test(origin);
+}
+
 export function corsHeaders(
   request: Request,
   env: PlayerApiEnv,
@@ -108,7 +116,9 @@ export function corsHeaders(
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
-  const allowedOrigin = sameOrigin || allowedOrigins.includes(requestOrigin)
+  const allowedOrigin = sameOrigin
+    || allowedOrigins.includes(requestOrigin)
+    || isLoopbackDevelopmentOrigin(requestOrigin)
     ? requestOrigin
     : '';
 
@@ -291,6 +301,14 @@ export function timestampField(value: string): FirestoreValue {
   return { timestampValue: value };
 }
 
+export function stringArrayField(values: readonly string[]): FirestoreValue {
+  return {
+    arrayValue: {
+      values: values.map((value) => stringField(value)),
+    },
+  };
+}
+
 export function readStringField(
   document: FirestoreDocument,
   key: string,
@@ -313,6 +331,17 @@ export function readTimestampField(
 ): string | null {
   const value = document.fields?.[key]?.timestampValue;
   return typeof value === 'string' ? value : null;
+}
+
+export function readStringArrayField(
+  document: FirestoreDocument,
+  key: string,
+): string[] {
+  const values = document.fields?.[key]?.arrayValue?.values;
+  if (!Array.isArray(values)) return [];
+  return values.flatMap((value) => (
+    typeof value.stringValue === 'string' ? [value.stringValue] : []
+  ));
 }
 
 export function optionsResponse(
