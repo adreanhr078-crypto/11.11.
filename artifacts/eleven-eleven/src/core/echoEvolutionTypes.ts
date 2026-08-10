@@ -55,6 +55,8 @@ export interface EchoEvolutionProgressState {
   currentStageId: EchoEvolutionStageId;
   reachedStageIds: EchoEvolutionStageId[];
   stageReachedAt: Record<EchoEvolutionStageId, string>;
+  /** Local presentation receipts; never unlock or advance a Canon stage. */
+  transformationIntroSeen?: EchoEvolutionStageId[];
 }
 
 export type EchoEvolutionTransitionFailureReason =

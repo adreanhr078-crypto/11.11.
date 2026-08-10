@@ -120,9 +120,9 @@ export const FINAL_MANHWA_SERVER_ECHO_KNOWLEDGE_NODE_IDS = Object.freeze(
 );
 
 /**
- * No visual asset is claimed for a transformed stage until a canon-approved
- * asset is supplied. The current presentation uses a lightweight atmosphere
- * slot while retaining the existing safe Echo portrait/body asset.
+ * Visual state slots are mapped to the already-published Manhwa checkpoints.
+ * No new Canon event is created here: the existing Lina Protocol checkpoint
+ * is the verified bridge between Black Coronation and Black Echo Protocol.
  */
 export const FINAL_MANHWA_ECHO_EVOLUTION_STAGES = Object.freeze([
   Object.freeze({
@@ -152,12 +152,25 @@ export const FINAL_MANHWA_ECHO_EVOLUTION_STAGES = Object.freeze([
     knowledgeBoundary: 'story-event-revealed',
   }),
   Object.freeze({
-    stageId: 'black_echo_protocol',
+    stageId: 'second_contract_marked',
     order: 3,
     chapterId: 'chapter_4',
-    requiredStoryEventId: 'manhwa_chapter_04_black_echo_protocol',
+    requiredStoryEventId: 'manhwa_chapter_04_lina_protocol',
     previousStageId: 'black_coronation',
-    visualFormId: 'echo_black_echo_protocol_slot',
+    visualFormId: 'echo_second_contract_marked',
+    isPermanent: false,
+    published: true,
+    playerVisible: true,
+    safePlayerLabel: { ar: 'Second Contract Marked', en: 'Second Contract Marked' },
+    knowledgeBoundary: 'story-event-revealed',
+  } as const),
+  Object.freeze({
+    stageId: 'black_echo_protocol',
+    order: 4,
+    chapterId: 'chapter_4',
+    requiredStoryEventId: 'manhwa_chapter_04_black_echo_protocol',
+    previousStageId: 'second_contract_marked',
+    visualFormId: 'echo_black_echo_protocol',
     isPermanent: false,
     published: true,
     playerVisible: true,

@@ -18,6 +18,10 @@ import type {
   StoryPuzzleRewardReceipt,
   StoryPuzzleSnapshot,
 } from '../../domain/story-puzzles/storyPuzzleContracts';
+import type {
+  LiveChallengesSnapshot,
+  LiveCompletionReceipt,
+} from '../../domain/live-challenges/liveChallengeContracts';
 
 export interface LeaderboardApiSnapshot {
   entries: LeaderboardPlayer[];
@@ -257,4 +261,69 @@ export function equipPlayerCosmetic(
     method: 'POST',
     body: JSON.stringify({ cosmeticId }),
   }).then((response) => response.collection);
+}
+
+interface LiveApiResponse {
+  live: LiveChallengesSnapshot;
+}
+
+interface LiveReceiptResponse {
+  receipt: LiveCompletionReceipt;
+}
+
+export function fetchLiveChallenges(): Promise<LiveChallengesSnapshot> {
+  return authorizedRequest<LiveApiResponse>('/live')
+    .then((response) => response.live);
+}
+
+function liveAction<T>(action: string, body: Record<string, unknown> = {}): Promise<T> {
+  return authorizedRequest<T>('/live/action', {
+    method: 'POST',
+    body: JSON.stringify({ action, ...body }),
+  });
+}
+
+export function startDailySignal(): Promise<LiveChallengesSnapshot> {
+  return liveAction<LiveApiResponse>('start-daily').then((response) => response.live);
+}
+
+export function saveDailySignalDraft(draft: { answer?: string }): Promise<LiveChallengesSnapshot> {
+  return liveAction<LiveApiResponse>('save-daily', { draft }).then((response) => response.live);
+}
+
+export function useDailySignalHint(hintIndex: number): Promise<{
+  alreadyUnlocked: boolean;
+  hint: string;
+  live: LiveChallengesSnapshot;
+}> {
+  return liveAction('use-daily-hint', { hintIndex });
+}
+
+export function completeDailySignal(answer: string): Promise<LiveCompletionReceipt> {
+  return liveAction<LiveReceiptResponse>('complete-daily', { answer })
+    .then((response) => response.receipt);
+}
+
+export function startWeeklySystemTrial(): Promise<LiveChallengesSnapshot> {
+  return liveAction<LiveApiResponse>('start-weekly').then((response) => response.live);
+}
+
+export function saveWeeklySystemTrialDraft(draft: { answer?: string }): Promise<LiveChallengesSnapshot> {
+  return liveAction<LiveApiResponse>('save-weekly', { draft }).then((response) => response.live);
+}
+
+export function completeWeeklySystemTrialStage(
+  stageIndex: number,
+  answer: string,
+): Promise<LiveCompletionReceipt> {
+  return liveAction<LiveReceiptResponse>('complete-weekly-stage', { stageIndex, answer })
+    .then((response) => response.receipt);
+}
+
+export function useWeeklySystemTrialHint(hintIndex: number): Promise<{
+  alreadyUnlocked: boolean;
+  hint: string;
+  live: LiveChallengesSnapshot;
+}> {
+  return liveAction('use-weekly-hint', { hintIndex });
 }

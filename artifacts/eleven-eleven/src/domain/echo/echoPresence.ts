@@ -28,7 +28,8 @@ export type EchoPresenceTrigger =
   | 'major_canon_event'
   | 'echo_transformation'
   | 'story_completed'
-  | 'all_20_shards_found';
+  | 'all_20_shards_found'
+  | 'live_challenge_completed';
 
 export type EchoReactionRepeatPolicy =
   | 'once-per-event'
@@ -168,6 +169,15 @@ export const ECHO_REACTIONS: readonly EchoReactionDefinition[] = Object.freeze([
     dialogueRef: null,
     visualEffect: 'transform',
   },
+  {
+    id: 'echo-live-challenge-completed',
+    trigger: 'live_challenge_completed',
+    priority: 50,
+    repeatPolicy: 'cooldown',
+    acknowledgement: 'LIVE SIGNAL VERIFIED',
+    dialogueRef: null,
+    visualEffect: 'signal',
+  },
 ] as const satisfies readonly EchoReactionDefinition[]);
 
 export interface EchoStateDefinition {
@@ -261,6 +271,7 @@ function triggerForActivity(activity: StoryPuzzleActivity): EchoPresenceTrigger 
     case 'perfect-solve': return 'perfect_solve';
     case 'hint-used': return 'hint_used';
     case 'all-20-shards-found': return 'all_20_shards_found';
+    case 'live-challenge-completed': return 'live_challenge_completed';
     case 'all-chapter-shards-found': return 'all_chapter_shards_found';
     case 'chapter-completed': return 'chapter_completed';
     case 'memory-shard-acquired': return 'memory_shard_acquired';

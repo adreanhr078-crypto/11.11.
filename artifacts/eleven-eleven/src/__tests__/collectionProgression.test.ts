@@ -24,6 +24,14 @@ describe('Phase 5 memory collection definitions', () => {
 });
 
 describe('Phase 5 collection progression', () => {
+  it('keeps the initial achievement catalog within the planned 20–30 range', () => {
+    assert.ok(PHASE5_ACHIEVEMENT_DEFINITIONS.length >= 20);
+    assert.ok(PHASE5_ACHIEVEMENT_DEFINITIONS.length <= 30);
+    assert.ok(PHASE5_ACHIEVEMENT_DEFINITIONS.some((definition) => (
+      definition.id === 'story_chapter_04_complete'
+    )));
+  });
+
   it('opens reconstruction only after a complete chapter shard set', () => {
     const set = MEMORY_SHARD_SETS[0]!;
     const signals = createDefaultCollectionSignals();
@@ -88,4 +96,3 @@ describe('Phase 5 collection progression', () => {
     assert.equal(createSystemRecovery(signals).percent, 100);
   });
 });
-

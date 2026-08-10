@@ -80,6 +80,7 @@ EchoEvolutionProgressState {
     currentStageId: INITIAL_ECHO_EVOLUTION_STAGE_ID,
     reachedStageIds: [INITIAL_ECHO_EVOLUTION_STAGE_ID],
     stageReachedAt: {},
+    transformationIntroSeen: [],
   };
 }
 

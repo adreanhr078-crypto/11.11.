@@ -33,6 +33,7 @@ import { useAuthStore } from '../auth/authStore';
 import { useShellStore } from '../../app/shell/shellStore';
 import { usePlayerProgressionStore } from './playerProgressionStore';
 import { useCollectionStore } from '../collection/collectionStore';
+import { useLiveChallengeStore } from '../live-challenges/liveChallengeStore';
 
 const numberFormatter = new Intl.NumberFormat('en-US');
 const joinDateFormatter = new Intl.DateTimeFormat('en-GB', {
@@ -55,6 +56,9 @@ export default function ProfileScreen() {
   const updateProfile = usePlayerProgressionStore((state) => state.actions.updateProfile);
   const collection = useCollectionStore((state) => state.snapshot);
   const collectionActions = useCollectionStore((state) => state.actions);
+  const liveSnapshot = useLiveChallengeStore((state) => state.snapshot);
+  const liveStatus = useLiveChallengeStore((state) => state.status);
+  const loadLive = useLiveChallengeStore((state) => state.actions.load);
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
   const [avatarId, setAvatarId] = useState<PlayerAvatarId>('echo');
@@ -68,6 +72,10 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (authStatus === 'signed-in') void loadProfile();
   }, [authStatus, loadProfile]);
+
+  useEffect(() => {
+    if (authStatus === 'signed-in' && liveStatus === 'idle') void loadLive();
+  }, [authStatus, loadLive, liveStatus]);
 
   useEffect(() => {
     if (!profile) return;
@@ -255,6 +263,21 @@ export default function ProfileScreen() {
                 <small>SECRETS FOUND</small>
               </article>
             </section>
+
+            {liveSnapshot && (
+              <section className="player-profile-live-stats" aria-label="Live system mastery">
+                <div>
+                  <span>LIVE SIGNALS RECOVERED</span>
+                  <strong>{numberFormatter.format(liveSnapshot.mastery.dailySignalsRecovered)}</strong>
+                  <small>DAILY 11:11 RECORDS</small>
+                </div>
+                <div>
+                  <span>WEEKLY TRIALS COMPLETED</span>
+                  <strong>{numberFormatter.format(liveSnapshot.mastery.weeklyTrialsCompleted)}</strong>
+                  <small>SYSTEM MASTERY // SEPARATE FROM RECOVERY</small>
+                </div>
+              </section>
+            )}
 
             <section className="player-profile-lower-grid">
               <div className="player-profile-editor">

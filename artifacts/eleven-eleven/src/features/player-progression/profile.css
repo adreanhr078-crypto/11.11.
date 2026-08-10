@@ -591,6 +591,39 @@
   letter-spacing: 0.08em;
 }
 
+.player-profile-live-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-block-start: 0.75rem;
+}
+
+.player-profile-live-stats > div {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgb(var(--profile-cyan) / 22%);
+  background:
+    linear-gradient(135deg, rgb(var(--profile-cyan) / 8%), transparent 62%),
+    rgb(2 7 12 / 82%);
+}
+
+.player-profile-live-stats span,
+.player-profile-live-stats small {
+  overflow: hidden;
+  color: var(--gds-text-muted);
+  font: 700 0.52rem var(--gds-font-mono);
+  letter-spacing: 0.07em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-profile-live-stats strong {
+  color: var(--gds-cyan-300);
+  font: 800 1.35rem var(--gds-font-display);
+}
+
 .player-profile-lower-grid {
   display: grid;
   grid-template-columns: minmax(18rem, 1.1fr) minmax(14rem, 0.9fr);

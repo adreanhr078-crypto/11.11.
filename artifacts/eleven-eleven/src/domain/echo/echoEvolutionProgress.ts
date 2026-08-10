@@ -58,9 +58,13 @@ export function normalizeEchoEvolutionProgressState(
     }
   }
 
+  const transformationIntroSeen = uniqueIds(value.transformationIntroSeen)
+    .filter((stageId) => reachedStageIds.includes(stageId));
+
   return {
     currentStageId,
     reachedStageIds,
     stageReachedAt,
+    transformationIntroSeen,
   };
 }

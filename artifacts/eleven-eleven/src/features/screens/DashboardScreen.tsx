@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useGameStore } from '../../stores/gameStore';
 import {
   GameButton,
@@ -15,11 +15,18 @@ import { useShellStore } from '../../app/shell/shellStore';
 import { EchoPresence } from '../../ui/presentation';
 import { EchoStatusPanel } from '../../components/echo/EchoStatusPanel';
 import { useStoryPuzzleStore } from '../story-puzzles/storyPuzzleStore';
+import { useLiveChallengeStore } from '../live-challenges/liveChallengeStore';
 
 export default function DashboardScreen() {
   const state = useGameStore();
   const navigate = useShellStore((shell) => shell.navigate);
   const storyPuzzleSnapshot = useStoryPuzzleStore((store) => store.snapshot);
+  const liveSnapshot = useLiveChallengeStore((store) => store.snapshot);
+  const liveStatus = useLiveChallengeStore((store) => store.status);
+  const loadLive = useLiveChallengeStore((store) => store.actions.load);
+  useEffect(() => {
+    if (liveStatus === 'idle') void loadLive();
+  }, [liveStatus, loadLive]);
   const model = useMemo(
     () => createDashboardReadModel(state, storyPuzzleSnapshot),
     [state, storyPuzzleSnapshot],
@@ -180,6 +187,20 @@ export default function DashboardScreen() {
           </span>
         </div>
         <div className="shell-dashboard__primary-actions">
+          <GameButton
+            variant="danger"
+            fullWidth
+            onClick={() => navigate('live-challenges')}
+          >
+            <GameIconLabel
+              iconId="screen-puzzles"
+              label="NEW 11:11 SIGNAL"
+              description={liveSnapshot
+                ? `${liveSnapshot.daily.status.replace('_', ' ').toUpperCase()} // WEEKLY ${liveSnapshot.weekly.completedStages}/${liveSnapshot.weekly.totalStages}`
+                : 'فتح قناة الإشارات اليومية والتجربة الأسبوعية'}
+              compact
+            />
+          </GameButton>
           <GameButton
             variant="secondary"
             fullWidth

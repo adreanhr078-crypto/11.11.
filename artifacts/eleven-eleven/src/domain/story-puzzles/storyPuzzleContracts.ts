@@ -120,7 +120,8 @@ export type StoryPuzzleActivityKind =
   | 'memory-shard-acquired'
   | 'all-chapter-shards-found'
   | 'all-20-shards-found'
-  | 'chapter-completed';
+  | 'chapter-completed'
+  | 'live-challenge-completed';
 
 /** Session activity derived from verified server responses; never a reward claim. */
 export interface StoryPuzzleActivity {

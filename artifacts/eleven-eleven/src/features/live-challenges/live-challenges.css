@@ -1,0 +1,37 @@
+.live-challenges { display: grid; gap: 0.8rem; min-height: 100%; padding: 0.8rem; }
+.live-challenges--loading { place-items: center; color: var(--gds-cyan-400); font: 700 0.75rem var(--gds-font-mono); letter-spacing: 0.08em; }
+.live-challenges__heading { margin: 0; }
+.live-challenges__clock { align-self: center; color: var(--gds-cyan-400); font: 700 0.62rem var(--gds-font-mono); }
+.live-challenges__tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; }
+.live-challenges__tabs button { display: grid; gap: 0.35rem; min-height: 3.4rem; padding: 0.6rem; border: 1px solid rgb(255 255 255 / 10%); background: rgb(3 10 17 / 72%); color: var(--gds-text-muted); text-align: start; cursor: pointer; }
+.live-challenges__tabs button[aria-selected="true"] { border-color: var(--gds-cyan-400); box-shadow: inset 0 -2px var(--gds-cyan-400); color: var(--gds-text-primary); }
+.live-challenges__tabs small, .live-challenges__stage-label { font: 700 0.56rem var(--gds-font-mono); letter-spacing: 0.08em; }
+.live-challenges__tabs strong { font-size: 0.95rem; }
+.live-challenges__grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(14rem, 0.7fr); gap: 0.8rem; min-height: 0; }
+.live-challenges__main, .live-challenges__side { min-width: 0; }
+.live-challenges__instructions { color: var(--gds-text-secondary); line-height: 1.55; }
+.live-challenges__prompt { display: grid; place-items: center; min-height: 6rem; margin: 0.8rem 0; border: 1px solid rgb(72 220 247 / 24%); background: radial-gradient(circle at center, rgb(72 220 247 / 12%), transparent 70%), rgb(0 3 8 / 70%); color: var(--gds-cyan-400); font: 800 clamp(1rem, 3vw, 1.8rem) var(--gds-font-mono); text-align: center; letter-spacing: 0.08em; }
+.live-challenges__options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.45rem; }
+.live-challenges__options button { min-height: 2.8rem; border: 1px solid rgb(255 255 255 / 14%); background: rgb(255 255 255 / 4%); color: var(--gds-text-secondary); font: 700 0.7rem var(--gds-font-mono); cursor: pointer; }
+.live-challenges__options button[data-selected="true"] { border-color: var(--gds-red-400); background: rgb(255 52 72 / 15%); color: var(--gds-text-primary); box-shadow: 0 0 1rem rgb(255 52 72 / 18%); }
+.live-challenges__actions { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.8rem; }
+.live-challenges__hint { margin-top: 0.7rem; color: var(--gds-cyan-400); font: 600 0.68rem var(--gds-font-mono); }
+.live-challenges__status { display: block; color: var(--gds-red-400); font: 800 1.3rem var(--gds-font-mono); }
+.live-challenges__side p { color: var(--gds-text-secondary); line-height: 1.55; }
+.live-challenges__side small { color: var(--gds-text-muted); font: 600 0.58rem var(--gds-font-mono); }
+.live-challenges__history { display: flex; gap: 0.45rem; margin-top: 1rem; color: rgb(255 255 255 / 20%); font-size: 1.2rem; }
+.live-challenges__history span[data-complete="true"] { color: var(--gds-cyan-400); text-shadow: 0 0 0.7rem rgb(72 220 247 / 40%); }
+.live-challenges__stage-meter { margin-bottom: 1rem; }
+.live-challenges__stage-meter > strong { color: var(--gds-cyan-400); font: 800 1.7rem var(--gds-font-mono); }
+.live-challenges__main h2 { margin: 0.4rem 0; }
+.live-challenges__complete { color: var(--gds-cyan-400); font: 800 1rem var(--gds-font-mono); }
+.live-challenges__receipt { position: fixed; inset: auto 1rem 4.5rem auto; z-index: 20; display: grid; gap: 0.35rem; max-width: min(24rem, calc(100vw - 2rem)); padding: 0.8rem 1rem; border: 1px solid var(--gds-red-400); background: rgb(3 8 14 / 94%); box-shadow: 0 0 2rem rgb(255 52 72 / 22%); }
+.live-challenges__receipt strong { color: var(--gds-text-primary); font: 800 0.8rem var(--gds-font-mono); }
+.live-challenges__receipt span { color: var(--gds-cyan-400); font: 700 0.65rem var(--gds-font-mono); }
+.live-challenges__receipt button { justify-self: start; border: 0; background: transparent; color: var(--gds-text-muted); font: 700 0.58rem var(--gds-font-mono); cursor: pointer; }
+.live-challenges__error { color: var(--gds-red-400); font: 700 0.7rem var(--gds-font-mono); }
+@media (max-width: 760px) {
+  .live-challenges__grid { grid-template-columns: 1fr; }
+  .live-challenges__options { grid-template-columns: 1fr; }
+  .live-challenges__clock { display: none; }
+}

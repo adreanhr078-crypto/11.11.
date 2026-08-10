@@ -227,6 +227,20 @@ export const GAME_SCREEN_DEFINITIONS = [
     )),
   },
   {
+    id: 'live-challenges',
+    label: 'LIVE SIGNALS // 11:11',
+    shortLabel: 'LIVE',
+    description: 'Daily 11:11 Signal and Weekly System Trial.',
+    code: 'LIVE',
+    tone: 'danger',
+    iconId: 'screen-live-challenges',
+    categoryId: 'progress',
+    navigation: 'hidden',
+    component: lazy(() => import(
+      '../../features/live-challenges/LiveChallengesScreen'
+    )),
+  },
+  {
     id: 'settings',
     label: 'الإعدادات',
     shortLabel: 'الإعدادات',

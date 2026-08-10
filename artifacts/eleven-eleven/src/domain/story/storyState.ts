@@ -269,6 +269,7 @@ export function createStoryStateReadModel(
         reached.has(event.eventId)
         && (
           event.eventId === 'manhwa_chapter_04_black_coronation'
+          || event.eventId === 'manhwa_chapter_04_lina_protocol'
           || event.eventId === 'manhwa_chapter_04_black_echo_protocol'
         )
       ))

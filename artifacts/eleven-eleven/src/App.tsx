@@ -8,6 +8,7 @@ import './features/player-progression/profile.css';
 import './features/onboarding/first-time-onboarding.css';
 import './ui/presentation/achievement-presentation.css';
 import './features/screens/collection-hub.css';
+import './features/live-challenges/live-challenges.css';
 import { ApplicationShell } from './app/shell/ApplicationShell';
 import { GameRuntimeBridge } from './app/shell/GameRuntimeBridge';
 import { AuthBootstrap } from './features/auth/AuthBootstrap';

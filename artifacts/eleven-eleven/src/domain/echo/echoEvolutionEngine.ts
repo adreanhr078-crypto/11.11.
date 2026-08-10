@@ -196,6 +196,7 @@ export function evaluateEchoEvolution(
       ...progress.stageReachedAt,
       [next.stageId]: proof.timestamp,
     },
+    transformationIntroSeen: [...(progress.transformationIntroSeen ?? [])],
   };
   return {
     success: true,

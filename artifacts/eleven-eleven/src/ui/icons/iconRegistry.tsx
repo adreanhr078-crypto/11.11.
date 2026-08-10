@@ -254,6 +254,20 @@ export const GAME_ICON_REGISTRY = {
     tone: 'memory',
     glyph: Puzzle,
   },
+  'screen-live-challenges': {
+    id: 'screen-live-challenges',
+    systemId: 'progress',
+    screenIds: ['live-challenges'],
+    actionId: 'navigation.open-live-challenges',
+    label: { ar: 'الإشارات الحية', en: 'Live Signals' },
+    description: {
+      ar: 'إشارة 11:11 اليومية وتجربة النظام الأسبوعية',
+      en: 'Daily 11:11 signal and weekly system trial',
+    },
+    tooltip: { ar: 'الإشارات الحية', en: 'Live Signals' },
+    tone: 'danger',
+    glyph: Puzzle,
+  },
   'screen-echo-mind': {
     id: 'screen-echo-mind',
     systemId: 'echo-mind',

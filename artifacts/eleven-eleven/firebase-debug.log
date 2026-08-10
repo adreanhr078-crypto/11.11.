@@ -241,3 +241,191 @@
 [debug] [2026-08-09T08:36:26.800Z] Checked if tokens are valid: true, expires at: 1786267914111
 [debug] [2026-08-09T08:36:26.800Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/operations/workflows/NzRiN2Y2ZjEtZjMyYy00ODAxLTk5YzAtZmJjN2YyZjNjMGQ2 [none]
 [debug] [2026-08-09T08:36:27.422Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/operations/workflows/NzRiN2Y2ZjEtZjMyYy00ODAxLTk5YzAtZmJjN2YyZjNjMGQ2 200
+[debug] [2026-08-10T07:58:28.237Z] ----------------------------------------------------------------------
+[debug] [2026-08-10T07:58:28.260Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\yasmo\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js projects:list --json
+[debug] [2026-08-10T07:58:28.261Z] CLI Version:   15.26.0
+[debug] [2026-08-10T07:58:28.262Z] Platform:      win32
+[debug] [2026-08-10T07:58:28.262Z] Node Version:  v24.16.0
+[debug] [2026-08-10T07:58:28.262Z] Detected Agent: codex_cli
+[debug] [2026-08-10T07:58:28.263Z] Time:          Mon Aug 10 2026 10:58:28 GMT+0300 (GMT+03:00)
+[debug] [2026-08-10T07:58:28.263Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-08-10T07:58:28.324Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-08-10T07:58:29.526Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-08-10T07:58:29.527Z] > authorizing via signed-in user (adreanhr078@gmail.com)
+[debug] [2026-08-10T07:58:29.541Z] Checked if tokens are valid: false, expires at: 1786267914111
+[debug] [2026-08-10T07:58:29.541Z] Checked if tokens are valid: false, expires at: 1786267914111
+[debug] [2026-08-10T07:58:29.542Z] > refreshing access token with scopes: []
+[debug] [2026-08-10T07:58:29.549Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-08-10T07:58:29.549Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-08-10T07:58:29.882Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-08-10T07:58:29.883Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-08-10T07:58:29.927Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects pageSize=1000
+[debug] [2026-08-10T07:58:30.025Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
+[debug] [2026-08-10T07:58:30.026Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
+[debug] [2026-08-10T07:58:30.515Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects 200
+[debug] [2026-08-10T07:59:03.342Z] ----------------------------------------------------------------------
+[debug] [2026-08-10T07:59:03.380Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\yasmo\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only firestore:rules --project eleveneleven-16435 --json
+[debug] [2026-08-10T07:59:03.383Z] CLI Version:   15.26.0
+[debug] [2026-08-10T07:59:03.383Z] Platform:      win32
+[debug] [2026-08-10T07:59:03.384Z] Node Version:  v24.16.0
+[debug] [2026-08-10T07:59:03.384Z] Detected Agent: codex_cli
+[debug] [2026-08-10T07:59:03.385Z] Time:          Mon Aug 10 2026 10:59:03 GMT+0300 (GMT+03:00)
+[debug] [2026-08-10T07:59:03.385Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-08-10T08:00:24.866Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-08-10T08:00:24.869Z] > authorizing via signed-in user (adreanhr078@gmail.com)
+[debug] [2026-08-10T08:00:24.869Z] [iam] checking project eleveneleven-16435 for permissions ["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]
+[debug] [2026-08-10T08:00:24.970Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:00:24.971Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:00:24.977Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/eleveneleven-16435:testIamPermissions [none]
+[debug] [2026-08-10T08:00:24.978Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/eleveneleven-16435:testIamPermissions  x-goog-user-project=eleveneleven-16435
+[debug] [2026-08-10T08:00:24.978Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/eleveneleven-16435:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[debug] [2026-08-10T08:00:25.684Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/eleveneleven-16435:testIamPermissions 200
+[debug] [2026-08-10T08:00:25.685Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/eleveneleven-16435:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[info] 
+[info] === Deploying to 'eleveneleven-16435'...
+[info] 
+[info] i  deploying firestore 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[debug] [2026-08-10T08:00:25.703Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:00:25.704Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:00:25.704Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/eleveneleven-16435/databases/(default) [none]
+[debug] [2026-08-10T08:00:26.841Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/eleveneleven-16435/databases/(default) 200
+[debug] [2026-08-10T08:00:26.841Z] <<< [apiv2][body] GET https://firestore.googleapis.com/v1/projects/eleveneleven-16435/databases/(default) {"name":"projects/eleveneleven-16435/databases/(default)","uid":"bf418626-fa99-483c-854c-012ec08288b3","createTime":"2026-08-08T17:42:18.342909Z","updateTime":"2026-08-08T17:42:18.342909Z","locationId":"nam5","type":"FIRESTORE_NATIVE","concurrencyMode":"PESSIMISTIC","versionRetentionPeriod":"3600s","earliestVersionTime":"2026-08-10T07:00:27.431857Z","appEngineIntegrationMode":"DISABLED","keyPrefix":"s","pointInTimeRecoveryEnablement":"POINT_IN_TIME_RECOVERY_DISABLED","deleteProtectionState":"DELETE_PROTECTION_DISABLED","databaseEdition":"STANDARD","freeTier":true,"realtimeUpdatesMode":"REALTIME_UPDATES_MODE_ENABLED","etag":"IOOQt/rLlZYDMPfB/eWSk5YD"}
+[info] i  cloud.firestore: checking firestore.rules for compilation errors... 
+[debug] [2026-08-10T08:00:26.844Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:00:26.844Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:00:26.845Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435:test [none]
+[debug] [2026-08-10T08:00:26.845Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435:test [omitted]
+[debug] [2026-08-10T08:00:27.414Z] <<< [apiv2][status] POST https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435:test 200
+[debug] [2026-08-10T08:00:27.414Z] <<< [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435:test {}
+[info] +  cloud.firestore: rules file firestore.rules compiled successfully 
+[debug] [2026-08-10T08:00:27.416Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:00:27.416Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:00:27.417Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/releases pageSize=10&pageToken=
+[debug] [2026-08-10T08:00:27.657Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/releases 200
+[debug] [2026-08-10T08:00:27.657Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/releases {"releases":[{"name":"projects/eleveneleven-16435/releases/cloud.firestore","rulesetName":"projects/eleveneleven-16435/rulesets/bcb6927e-5d11-40b6-a783-2497630791f9","createTime":"2026-08-08T17:42:21.886838Z","updateTime":"2026-08-08T17:42:21.886838Z"}]}
+[debug] [2026-08-10T08:00:27.659Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:00:27.659Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:00:27.659Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/rulesets/bcb6927e-5d11-40b6-a783-2497630791f9 [none]
+[debug] [2026-08-10T08:00:28.412Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/rulesets/bcb6927e-5d11-40b6-a783-2497630791f9 200
+[debug] [2026-08-10T08:00:28.413Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/rulesets/bcb6927e-5d11-40b6-a783-2497630791f9 [omitted]
+[info] i  firestore: latest version of firestore.rules already up to date, skipping upload... 
+[debug] [2026-08-10T08:00:28.419Z] [rules] releasing cloud.firestore with ruleset projects/eleveneleven-16435/rulesets/bcb6927e-5d11-40b6-a783-2497630791f9
+[debug] [2026-08-10T08:00:28.420Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:00:28.420Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:00:28.420Z] >>> [apiv2][query] PATCH https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/releases/cloud.firestore [none]
+[debug] [2026-08-10T08:00:28.421Z] >>> [apiv2][body] PATCH https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/releases/cloud.firestore {"release":{"name":"projects/eleveneleven-16435/releases/cloud.firestore","rulesetName":"projects/eleveneleven-16435/rulesets/bcb6927e-5d11-40b6-a783-2497630791f9"}}
+[debug] [2026-08-10T08:00:28.951Z] <<< [apiv2][status] PATCH https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/releases/cloud.firestore 200
+[debug] [2026-08-10T08:00:47.479Z] ----------------------------------------------------------------------
+[debug] [2026-08-10T08:00:47.494Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\yasmo\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only firestore:rules --project eleveneleven-16435 --debug
+[debug] [2026-08-10T08:00:47.495Z] CLI Version:   15.26.0
+[debug] [2026-08-10T08:00:47.495Z] Platform:      win32
+[debug] [2026-08-10T08:00:47.496Z] Node Version:  v24.16.0
+[debug] [2026-08-10T08:00:47.496Z] Detected Agent: codex_cli
+[debug] [2026-08-10T08:00:47.496Z] Time:          Mon Aug 10 2026 11:00:47 GMT+0300 (GMT+03:00)
+[debug] [2026-08-10T08:00:47.496Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-08-10T08:00:53.096Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-08-10T08:00:53.098Z] > authorizing via signed-in user (adreanhr078@gmail.com)
+[debug] [2026-08-10T08:00:53.099Z] [iam] checking project eleveneleven-16435 for permissions ["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]
+[debug] [2026-08-10T08:00:53.171Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:00:53.172Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:00:53.184Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/eleveneleven-16435:testIamPermissions [none]
+[debug] [2026-08-10T08:00:53.185Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/eleveneleven-16435:testIamPermissions  x-goog-user-project=eleveneleven-16435
+[debug] [2026-08-10T08:00:53.186Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/eleveneleven-16435:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[debug] [2026-08-10T08:00:53.669Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/eleveneleven-16435:testIamPermissions 200
+[debug] [2026-08-10T08:00:53.670Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/eleveneleven-16435:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[info] 
+[info] === Deploying to 'eleveneleven-16435'...
+[info] 
+[info] i  deploying firestore 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[debug] [2026-08-10T08:00:53.708Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:00:53.708Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:00:53.714Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/eleveneleven-16435/databases/(default) [none]
+[debug] [2026-08-10T08:00:54.750Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/eleveneleven-16435/databases/(default) 200
+[debug] [2026-08-10T08:00:54.751Z] <<< [apiv2][body] GET https://firestore.googleapis.com/v1/projects/eleveneleven-16435/databases/(default) {"name":"projects/eleveneleven-16435/databases/(default)","uid":"bf418626-fa99-483c-854c-012ec08288b3","createTime":"2026-08-08T17:42:18.342909Z","updateTime":"2026-08-08T17:42:18.342909Z","locationId":"nam5","type":"FIRESTORE_NATIVE","concurrencyMode":"PESSIMISTIC","versionRetentionPeriod":"3600s","earliestVersionTime":"2026-08-10T07:00:55.387767Z","appEngineIntegrationMode":"DISABLED","keyPrefix":"s","pointInTimeRecoveryEnablement":"POINT_IN_TIME_RECOVERY_DISABLED","deleteProtectionState":"DELETE_PROTECTION_DISABLED","databaseEdition":"STANDARD","freeTier":true,"realtimeUpdatesMode":"REALTIME_UPDATES_MODE_ENABLED","etag":"ILGm4YfMlZYDMPfB/eWSk5YD"}
+[info] i  cloud.firestore: checking firestore.rules for compilation errors... 
+[debug] [2026-08-10T08:00:54.756Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:00:54.756Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:00:54.757Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435:test [none]
+[debug] [2026-08-10T08:00:54.758Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435:test [omitted]
+[debug] [2026-08-10T08:00:55.137Z] <<< [apiv2][status] POST https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435:test 200
+[debug] [2026-08-10T08:00:55.138Z] <<< [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435:test {}
+[info] +  cloud.firestore: rules file firestore.rules compiled successfully 
+[debug] [2026-08-10T08:00:55.148Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:00:55.148Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:00:55.150Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/releases pageSize=10&pageToken=
+[debug] [2026-08-10T08:00:55.920Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/releases 200
+[debug] [2026-08-10T08:00:55.922Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/releases {"releases":[{"name":"projects/eleveneleven-16435/releases/cloud.firestore","rulesetName":"projects/eleveneleven-16435/rulesets/bcb6927e-5d11-40b6-a783-2497630791f9","createTime":"2026-08-08T17:42:21.886838Z","updateTime":"2026-08-10T08:00:29.664766Z"}]}
+[debug] [2026-08-10T08:00:55.929Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:00:55.930Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:00:55.931Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/rulesets/bcb6927e-5d11-40b6-a783-2497630791f9 [none]
+[debug] [2026-08-10T08:00:56.250Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/rulesets/bcb6927e-5d11-40b6-a783-2497630791f9 200
+[debug] [2026-08-10T08:00:56.250Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/rulesets/bcb6927e-5d11-40b6-a783-2497630791f9 [omitted]
+[info] i  firestore: latest version of firestore.rules already up to date, skipping upload... 
+[debug] [2026-08-10T08:00:56.255Z] [rules] releasing cloud.firestore with ruleset projects/eleveneleven-16435/rulesets/bcb6927e-5d11-40b6-a783-2497630791f9
+[debug] [2026-08-10T08:00:56.257Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:00:56.258Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:00:56.261Z] >>> [apiv2][query] PATCH https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/releases/cloud.firestore [none]
+[debug] [2026-08-10T08:00:56.263Z] >>> [apiv2][body] PATCH https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/releases/cloud.firestore {"release":{"name":"projects/eleveneleven-16435/releases/cloud.firestore","rulesetName":"projects/eleveneleven-16435/rulesets/bcb6927e-5d11-40b6-a783-2497630791f9"}}
+[debug] [2026-08-10T08:00:56.757Z] <<< [apiv2][status] PATCH https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/releases/cloud.firestore 200
+[debug] [2026-08-10T08:27:40.570Z] ----------------------------------------------------------------------
+[debug] [2026-08-10T08:27:40.591Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\yasmo\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only firestore:rules --project eleveneleven-16435
+[debug] [2026-08-10T08:27:40.599Z] CLI Version:   15.26.0
+[debug] [2026-08-10T08:27:40.602Z] Platform:      win32
+[debug] [2026-08-10T08:27:40.608Z] Node Version:  v24.16.0
+[debug] [2026-08-10T08:27:40.613Z] Detected Agent: codex_cli
+[debug] [2026-08-10T08:27:40.615Z] Time:          Mon Aug 10 2026 11:27:40 GMT+0300 (GMT+03:00)
+[debug] [2026-08-10T08:27:40.618Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-08-10T08:27:49.633Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-08-10T08:27:49.634Z] > authorizing via signed-in user (adreanhr078@gmail.com)
+[debug] [2026-08-10T08:27:49.635Z] [iam] checking project eleveneleven-16435 for permissions ["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]
+[debug] [2026-08-10T08:27:49.702Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:27:49.703Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:27:49.713Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/eleveneleven-16435:testIamPermissions [none]
+[debug] [2026-08-10T08:27:49.713Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/eleveneleven-16435:testIamPermissions  x-goog-user-project=eleveneleven-16435
+[debug] [2026-08-10T08:27:49.714Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/eleveneleven-16435:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[debug] [2026-08-10T08:27:50.225Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/eleveneleven-16435:testIamPermissions 200
+[debug] [2026-08-10T08:27:50.226Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/eleveneleven-16435:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[info] 
+[info] === Deploying to 'eleveneleven-16435'...
+[info] 
+[info] i  deploying firestore 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[debug] [2026-08-10T08:27:50.267Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:27:50.268Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:27:50.270Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/eleveneleven-16435/databases/(default) [none]
+[debug] [2026-08-10T08:27:51.237Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/eleveneleven-16435/databases/(default) 200
+[debug] [2026-08-10T08:27:51.238Z] <<< [apiv2][body] GET https://firestore.googleapis.com/v1/projects/eleveneleven-16435/databases/(default) {"name":"projects/eleveneleven-16435/databases/(default)","uid":"bf418626-fa99-483c-854c-012ec08288b3","createTime":"2026-08-08T17:42:18.342909Z","updateTime":"2026-08-08T17:42:18.342909Z","locationId":"nam5","type":"FIRESTORE_NATIVE","concurrencyMode":"PESSIMISTIC","versionRetentionPeriod":"3600s","earliestVersionTime":"2026-08-10T07:27:51.940693Z","appEngineIntegrationMode":"DISABLED","keyPrefix":"s","pointInTimeRecoveryEnablement":"POINT_IN_TIME_RECOVERY_DISABLED","deleteProtectionState":"DELETE_PROTECTION_DISABLED","databaseEdition":"STANDARD","freeTier":true,"realtimeUpdatesMode":"REALTIME_UPDATES_MODE_ENABLED","etag":"IJaQzIrSlZYDMPfB/eWSk5YD"}
+[info] i  cloud.firestore: checking firestore.rules for compilation errors... 
+[debug] [2026-08-10T08:27:51.245Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:27:51.246Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:27:51.246Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435:test [none]
+[debug] [2026-08-10T08:27:51.247Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435:test [omitted]
+[debug] [2026-08-10T08:27:51.953Z] <<< [apiv2][status] POST https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435:test 200
+[debug] [2026-08-10T08:27:51.954Z] <<< [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435:test {}
+[info] +  cloud.firestore: rules file firestore.rules compiled successfully 
+[debug] [2026-08-10T08:27:51.964Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:27:51.964Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:27:51.966Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/releases pageSize=10&pageToken=
+[debug] [2026-08-10T08:27:52.183Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/releases 200
+[debug] [2026-08-10T08:27:52.183Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/releases {"releases":[{"name":"projects/eleveneleven-16435/releases/cloud.firestore","rulesetName":"projects/eleveneleven-16435/rulesets/bcb6927e-5d11-40b6-a783-2497630791f9","createTime":"2026-08-08T17:42:21.886838Z","updateTime":"2026-08-10T08:00:57.469904Z"}]}
+[debug] [2026-08-10T08:27:52.185Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:27:52.186Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:27:52.186Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/rulesets/bcb6927e-5d11-40b6-a783-2497630791f9 [none]
+[debug] [2026-08-10T08:27:52.965Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/rulesets/bcb6927e-5d11-40b6-a783-2497630791f9 200
+[debug] [2026-08-10T08:27:52.965Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/rulesets/bcb6927e-5d11-40b6-a783-2497630791f9 [omitted]
+[info] i  firestore: latest version of firestore.rules already up to date, skipping upload... 
+[debug] [2026-08-10T08:27:52.978Z] [rules] releasing cloud.firestore with ruleset projects/eleveneleven-16435/rulesets/bcb6927e-5d11-40b6-a783-2497630791f9
+[debug] [2026-08-10T08:27:52.980Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:27:52.981Z] Checked if tokens are valid: true, expires at: 1786352308883
+[debug] [2026-08-10T08:27:52.981Z] >>> [apiv2][query] PATCH https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/releases/cloud.firestore [none]
+[debug] [2026-08-10T08:27:52.982Z] >>> [apiv2][body] PATCH https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/releases/cloud.firestore {"release":{"name":"projects/eleveneleven-16435/releases/cloud.firestore","rulesetName":"projects/eleveneleven-16435/rulesets/bcb6927e-5d11-40b6-a783-2497630791f9"}}
+[debug] [2026-08-10T08:27:53.430Z] <<< [apiv2][status] PATCH https://firebaserules.googleapis.com/v1/projects/eleveneleven-16435/releases/cloud.firestore 200
