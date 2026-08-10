@@ -5,6 +5,7 @@ import {
   jsonResponse,
   optionsResponse,
   PlayerApiError,
+  readJsonBody,
   type PlayerApiContext,
 } from '../_shared';
 import { requirePlayerDatabase } from '../_database';
@@ -34,14 +35,13 @@ export async function onRequestOptions({ request, env }: PlayerApiContext): Prom
 export async function onRequestPost({ request, env }: PlayerApiContext): Promise<Response> {
   const headers = corsHeaders(request, env);
   try {
-    if (Number(request.headers.get('Content-Length') ?? 0) > MAX_BODY_BYTES) {
-      throw new PlayerApiError(413, 'puzzle_state_too_large', 'Puzzle state is too large.');
-    }
     const { account } = await authenticatePlayer(request, env);
-    const body = parseBody(await request.json());
-    if (new TextEncoder().encode(JSON.stringify(body)).byteLength > MAX_BODY_BYTES) {
-      throw new PlayerApiError(413, 'puzzle_state_too_large', 'Puzzle state is too large.');
-    }
+    const body = parseBody(await readJsonBody<unknown>(request, {
+      maxBytes: MAX_BODY_BYTES,
+      tooLargeCode: 'puzzle_state_too_large',
+      tooLargeMessage: 'Puzzle state is too large.',
+      invalidMessage: 'Puzzle progress is invalid.',
+    }));
     return jsonResponse({
       puzzleState: await saveStoryPuzzleDraft(requirePlayerDatabase(env), account, body.puzzleId, body.draft),
     }, 200, headers);

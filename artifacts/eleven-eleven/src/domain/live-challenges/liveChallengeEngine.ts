@@ -30,7 +30,7 @@ export interface LiveTemplate {
 }
 
 /** Small, authored system templates. They are not Canon, story content, or AI output. */
-export const LIVE_TEMPLATE_POOL: readonly LiveTemplate[] = Object.freeze([
+const LIVE_TEMPLATE_BASE: readonly LiveTemplate[] = Object.freeze([
   {
     mechanic: 'signal',
     title: 'SIGNAL CALIBRATION',
@@ -78,6 +78,21 @@ export const LIVE_TEMPLATE_POOL: readonly LiveTemplate[] = Object.freeze([
   },
 ]);
 
+const LIVE_TEMPLATE_THIRD_HINTS: Record<LiveChallengeMechanic, string> = {
+  signal: 'The active middle marker is the 11:11 signal.',
+  sequence: 'Continue the doubling once: 8 becomes 16.',
+  cipher: 'With SHIFT +0, the system key is SIGNAL.',
+  wiring: 'The stable gate is the only non-void destination.',
+  matrix: 'The diagonal advances both the letter and number by one.',
+};
+
+export const LIVE_TEMPLATE_POOL: readonly LiveTemplate[] = Object.freeze(
+  LIVE_TEMPLATE_BASE.map((template) => ({
+    ...template,
+    hints: [...template.hints, LIVE_TEMPLATE_THIRD_HINTS[template.mechanic]],
+  })),
+);
+
 export function stableHash(input: string): number {
   let hash = 2166136261;
   for (let index = 0; index < input.length; index += 1) {
@@ -104,7 +119,7 @@ export function isLiveAnswerCorrect(answer: string, expected: string): boolean {
 export function validateLiveTemplate(template: LiveTemplate): boolean {
   return template.options.length >= 2
     && template.options.includes(template.answer)
-    && template.hints.length === 2
+    && template.hints.length === 3
     && template.hints.every((hint) => hint.length > 0);
 }
 

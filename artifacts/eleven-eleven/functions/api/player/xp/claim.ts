@@ -5,6 +5,7 @@ import {
   errorResponse,
   jsonResponse,
   optionsResponse,
+  readJsonBody,
   type PlayerApiContext,
 } from '../_shared';
 import { requirePlayerDatabase } from '../_database';
@@ -26,21 +27,13 @@ export async function onRequestPost({
 }: PlayerApiContext): Promise<Response> {
   const headers = corsHeaders(request, env);
   try {
-    const declaredLength = Number(request.headers.get('Content-Length') ?? 0);
-    if (declaredLength > MAX_CLAIM_BYTES) {
-      throw new PlayerApiError(413, 'claim_too_large', 'XP claim is too large.');
-    }
     const { account } = await authenticatePlayer(request, env);
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      throw new PlayerApiError(400, 'invalid_request', 'XP claim is invalid.');
-    }
-    const encodedSize = new TextEncoder().encode(JSON.stringify(body)).byteLength;
-    if (encodedSize > MAX_CLAIM_BYTES) {
-      throw new PlayerApiError(413, 'claim_too_large', 'XP claim is too large.');
-    }
+    const body = await readJsonBody<unknown>(request, {
+      maxBytes: MAX_CLAIM_BYTES,
+      tooLargeCode: 'claim_too_large',
+      tooLargeMessage: 'XP claim is too large.',
+      invalidMessage: 'XP claim is invalid.',
+    });
 
     const reward = verifyXpRewardClaim(body);
     const database = requirePlayerDatabase(env);

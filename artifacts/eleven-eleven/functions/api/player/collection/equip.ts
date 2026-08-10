@@ -5,6 +5,7 @@ import {
   jsonResponse,
   optionsResponse,
   PlayerApiError,
+  readJsonBody,
   type PlayerApiContext,
 } from '../_shared';
 import { requirePlayerDatabase } from '../_database';
@@ -34,11 +35,15 @@ export async function onRequestPost({ request, env }: PlayerApiContext): Promise
       account,
       idToken,
       env,
-      parseCosmeticId(await request.json()),
+      parseCosmeticId(await readJsonBody<unknown>(request, {
+        maxBytes: 2 * 1024,
+        tooLargeCode: 'request_too_large',
+        tooLargeMessage: 'Cosmetic selection request is too large.',
+        invalidMessage: 'Cosmetic selection is invalid.',
+      })),
     );
     return jsonResponse({ collection }, 200, headers);
   } catch (error) {
     return errorResponse(error, headers);
   }
 }
-

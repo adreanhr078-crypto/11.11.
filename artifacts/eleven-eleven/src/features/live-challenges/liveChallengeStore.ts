@@ -39,6 +39,9 @@ function message(error: unknown): string {
   return 'تعذر الوصول إلى قناة الإشارة. حاول مرة أخرى.';
 }
 
+let dailyDraftQueue: Promise<void> = Promise.resolve();
+let weeklyDraftQueue: Promise<void> = Promise.resolve();
+
 export const useLiveChallengeStore = create<LiveChallengeState>((set, get) => ({
   status: 'idle',
   snapshot: null,
@@ -58,14 +61,18 @@ export const useLiveChallengeStore = create<LiveChallengeState>((set, get) => ({
       }
     },
     async saveDailyDraft(answer) {
-      try {
-        const snapshot = await saveDailySignalDraft(answer ? { answer } : {});
-        set({ status: 'ready', snapshot, error: null });
-        return snapshot;
-      } catch (error) {
-        set({ error: message(error) });
-        return null;
-      }
+      const request = dailyDraftQueue.then(async () => {
+        try {
+          const snapshot = await saveDailySignalDraft(answer ? { answer } : {});
+          set({ status: 'ready', snapshot, error: null });
+          return snapshot;
+        } catch (error) {
+          set({ error: message(error) });
+          return null;
+        }
+      });
+      dailyDraftQueue = request.then(() => undefined, () => undefined);
+      return request;
     },
     async useDailyHint(hintIndex) {
       try {
@@ -92,14 +99,18 @@ export const useLiveChallengeStore = create<LiveChallengeState>((set, get) => ({
       }
     },
     async saveWeeklyDraft(answer) {
-      try {
-        const snapshot = await saveWeeklySystemTrialDraft(answer ? { answer } : {});
-        set({ status: 'ready', snapshot, error: null });
-        return snapshot;
-      } catch (error) {
-        set({ error: message(error) });
-        return null;
-      }
+      const request = weeklyDraftQueue.then(async () => {
+        try {
+          const snapshot = await saveWeeklySystemTrialDraft(answer ? { answer } : {});
+          set({ status: 'ready', snapshot, error: null });
+          return snapshot;
+        } catch (error) {
+          set({ error: message(error) });
+          return null;
+        }
+      });
+      weeklyDraftQueue = request.then(() => undefined, () => undefined);
+      return request;
     },
     async completeWeeklyStage(stageIndex, answer) {
       try {
@@ -131,6 +142,8 @@ export const useLiveChallengeStore = create<LiveChallengeState>((set, get) => ({
       set({ latestReceipt: null });
     },
     reset() {
+      dailyDraftQueue = Promise.resolve();
+      weeklyDraftQueue = Promise.resolve();
       set({ status: 'idle', snapshot: null, error: null, latestReceipt: null });
     },
   },

@@ -5,6 +5,7 @@ import {
   jsonResponse,
   optionsResponse,
   PlayerApiError,
+  readJsonBody,
   type PlayerApiContext,
 } from '../_shared';
 import { requirePlayerDatabase } from '../_database';
@@ -29,7 +30,12 @@ export async function onRequestPost({ request, env }: PlayerApiContext): Promise
   const headers = corsHeaders(request, env);
   try {
     const { account } = await authenticatePlayer(request, env);
-    const puzzleId = parseBody(await request.json());
+    const puzzleId = parseBody(await readJsonBody<unknown>(request, {
+      maxBytes: 4 * 1024,
+      tooLargeCode: 'request_too_large',
+      tooLargeMessage: 'Secret signal request is too large.',
+      invalidMessage: 'Secret signal is invalid.',
+    }));
     return jsonResponse({
       puzzleState: await discoverStoryPuzzle(requirePlayerDatabase(env), account, puzzleId),
     }, 200, headers);

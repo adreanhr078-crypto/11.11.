@@ -4,6 +4,7 @@ import {
   LIVE_HINT_COSTS,
   LIVE_REWARD_CONFIG,
   LIVE_RESET_LABEL,
+  LIVE_TIMEZONE,
   LIVE_TEMPLATE_POOL,
   chooseRotatingTemplate,
   isLiveAnswerCorrect,
@@ -22,6 +23,8 @@ import { PlayerApiError, type FirebaseAccount } from './_shared';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const RESET_MINUTES = 11 * 60 + 11;
+const RESET_HOUR = Math.floor(RESET_MINUTES / 60);
+const RESET_MINUTE = RESET_MINUTES % 60;
 const WEEKLY_STAGE_COUNT = 4;
 
 interface DefinitionRow {
@@ -81,13 +84,14 @@ function shiftDate(periodKey: string, days: number): string {
 }
 
 function periodKeyFor(nowMs: number): string {
+  // UTC is the server-canonical clock. Client timezone and device time never affect this key.
   const date = new Date(nowMs);
   const resetAt = Date.UTC(
     date.getUTCFullYear(),
     date.getUTCMonth(),
     date.getUTCDate(),
-    11,
-    11,
+    RESET_HOUR,
+    RESET_MINUTE,
   );
   return isoDate(nowMs < resetAt ? resetAt - DAY_MS : resetAt);
 }
@@ -98,7 +102,7 @@ export function liveDailyPeriodKeyFor(nowMs: number): string {
 
 function resetAtFor(periodKey: string): number {
   const day = new Date(dateMs(periodKey));
-  return Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 11, 11);
+  return Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), RESET_HOUR, RESET_MINUTE);
 }
 
 function weekIdFor(periodKey: string): string {
@@ -435,7 +439,7 @@ export async function readLiveSnapshot(
       perfectWeek: Boolean(weeklyRow?.status === 'completed' && integer(weeklyRow?.hints_used) === 0),
     },
     dailyHistory: await readDailyHistory(db, account.uid),
-    timezone: 'UTC',
+    timezone: LIVE_TIMEZONE,
     resetLabel: LIVE_RESET_LABEL,
     balanceVersion: LIVE_BALANCE_VERSION,
     mastery: {
@@ -450,6 +454,7 @@ export async function startDaily(db: PlayerDatabase, account: FirebaseAccount): 
 }
 
 export async function saveDailyDraft(db: PlayerDatabase, account: FirebaseAccount, draft: unknown): Promise<LiveChallengesSnapshot> {
+  await ensurePlayerProgressionRow(db, account);
   const definitions = await ensureDefinitions(db, Date.now());
   await ensureDailyAttempt(db, account.uid, definitions.daily, new Date().toISOString());
   const serialized = parseDraft(draft);
@@ -462,6 +467,7 @@ export async function saveDailyDraft(db: PlayerDatabase, account: FirebaseAccoun
 
 export async function useDailyHint(db: PlayerDatabase, account: FirebaseAccount, hintIndex: number): Promise<{ alreadyUnlocked: boolean; hint: string; live: LiveChallengesSnapshot }> {
   if (!Number.isInteger(hintIndex) || hintIndex < 0 || hintIndex > 2) throw new PlayerApiError(400, 'invalid_hint', 'Hint index is invalid.');
+  await ensurePlayerProgressionRow(db, account);
   const definitions = await ensureDefinitions(db, Date.now());
   await ensureDailyAttempt(db, account.uid, definitions.daily, new Date().toISOString());
   const existing = await db.prepare(`SELECT hint_index FROM live_challenge_hint_events WHERE user_id = ? AND challenge_id = ? AND hint_index = ?`).bind(account.uid, definitions.daily.challenge_id, hintIndex).first<{ hint_index: number }>();
@@ -478,11 +484,13 @@ export async function useDailyHint(db: PlayerDatabase, account: FirebaseAccount,
     }
   }
   const live = await readLiveSnapshot(db, account);
-  const hint = solutionFromRow(definitions.daily).hints[hintIndex] ?? 'SYSTEM HINT UNAVAILABLE';
+  const hint = solutionFromRow(definitions.daily).hints[hintIndex];
+  if (!hint) throw new Error('Live daily hint definition is missing.');
   return { alreadyUnlocked: Boolean(existing), hint, live };
 }
 
 export async function completeDaily(db: PlayerDatabase, account: FirebaseAccount, answerValue: unknown): Promise<LiveCompletionReceipt> {
+  await ensurePlayerProgressionRow(db, account);
   const definitions = await ensureDefinitions(db, Date.now());
   await ensureDailyAttempt(db, account.uid, definitions.daily, new Date().toISOString());
   const existing = await db.prepare(`SELECT challenge_id, period_key, status, draft_json, hints_used, perfect_solve, started_at, completed_at FROM live_player_daily_attempts WHERE user_id = ? AND challenge_id = ?`).bind(account.uid, definitions.daily.challenge_id).first<DailyAttemptRow>();
@@ -509,6 +517,7 @@ export async function startWeekly(db: PlayerDatabase, account: FirebaseAccount):
 }
 
 export async function saveWeeklyDraft(db: PlayerDatabase, account: FirebaseAccount, draft: unknown): Promise<LiveChallengesSnapshot> {
+  await ensurePlayerProgressionRow(db, account);
   const definitions = await ensureDefinitions(db, Date.now());
   await ensureWeeklyProgress(db, account.uid, definitions.weekId, new Date().toISOString());
   const serialized = parseDraft(draft);
@@ -519,6 +528,7 @@ export async function saveWeeklyDraft(db: PlayerDatabase, account: FirebaseAccou
 
 export async function useWeeklyHint(db: PlayerDatabase, account: FirebaseAccount, hintIndex: number): Promise<{ alreadyUnlocked: boolean; hint: string; live: LiveChallengesSnapshot }> {
   if (!Number.isInteger(hintIndex) || hintIndex < 0 || hintIndex > 2) throw new PlayerApiError(400, 'invalid_hint', 'Hint index is invalid.');
+  await ensurePlayerProgressionRow(db, account);
   const definitions = await ensureDefinitions(db, Date.now());
   await ensureWeeklyProgress(db, account.uid, definitions.weekId, new Date().toISOString());
   const row = await db.prepare(`SELECT current_stage, status FROM live_player_weekly_progress WHERE user_id = ? AND week_id = ?`).bind(account.uid, definitions.weekId).first<{ current_stage: number | string; status: LiveChallengeStatus }>();
@@ -538,15 +548,18 @@ export async function useWeeklyHint(db: PlayerDatabase, account: FirebaseAccount
       throw error;
     }
   }
+  const hint = solutionFromRow(stage).hints[hintIndex];
+  if (!hint) throw new Error('Live weekly hint definition is missing.');
   return {
     alreadyUnlocked: Boolean(existing),
-    hint: solutionFromRow(stage).hints[hintIndex] ?? 'SYSTEM HINT UNAVAILABLE',
+    hint,
     live: await readLiveSnapshot(db, account),
   };
 }
 
 export async function completeWeeklyStage(db: PlayerDatabase, account: FirebaseAccount, stageValue: unknown, answerValue: unknown): Promise<LiveCompletionReceipt> {
   if (typeof stageValue !== 'number' || !Number.isInteger(stageValue) || stageValue < 0 || stageValue >= WEEKLY_STAGE_COUNT) throw new PlayerApiError(400, 'invalid_weekly_stage', 'Weekly stage is invalid.');
+  await ensurePlayerProgressionRow(db, account);
   const definitions = await ensureDefinitions(db, Date.now());
   await ensureWeeklyProgress(db, account.uid, definitions.weekId, new Date().toISOString());
   const row = await db.prepare(`SELECT week_id, status, current_stage, completed_stages, draft_json, hints_used, score, started_at, completed_at FROM live_player_weekly_progress WHERE user_id = ? AND week_id = ?`).bind(account.uid, definitions.weekId).first<WeeklyRow>();
@@ -557,7 +570,11 @@ export async function completeWeeklyStage(db: PlayerDatabase, account: FirebaseA
   const nextStage = stageValue + 1;
   const completed = nextStage >= WEEKLY_STAGE_COUNT;
   const now = new Date().toISOString();
-  await db.prepare(`UPDATE live_player_weekly_progress SET current_stage = ?, completed_stages = ?, status = ?, score = score + ?, completed_at = CASE WHEN ? = 1 THEN COALESCE(completed_at, ?) ELSE completed_at END, started_at = COALESCE(started_at, ?), updated_at = ? WHERE user_id = ? AND week_id = ? AND status <> 'completed'`).bind(nextStage, nextStage, completed ? 'completed' : 'in_progress', 25, completed ? 1 : 0, now, now, now, account.uid, definitions.weekId).run();
+  const update = await db.prepare(`UPDATE live_player_weekly_progress SET current_stage = ?, completed_stages = ?, status = ?, score = score + ?, completed_at = CASE WHEN ? = 1 THEN COALESCE(completed_at, ?) ELSE completed_at END, started_at = COALESCE(started_at, ?), updated_at = ? WHERE user_id = ? AND week_id = ? AND current_stage = ? AND status <> 'completed'`).bind(nextStage, nextStage, completed ? 'completed' : 'in_progress', 25, completed ? 1 : 0, now, now, now, account.uid, definitions.weekId, stageValue).run();
+  if (Number(update.meta?.changes ?? 0) < 1) {
+    const latest = await db.prepare(`SELECT status, hints_used FROM live_player_weekly_progress WHERE user_id = ? AND week_id = ?`).bind(account.uid, definitions.weekId).first<Pick<WeeklyRow, 'status' | 'hints_used'>>();
+    return { kind: 'weekly', challengeId: definitions.weekly.challenge_id, awarded: false, perfectSolve: integer(latest?.hints_used) === 0, xpGranted: 0, coinsGranted: 0, live: await readLiveSnapshot(db, account) };
+  }
   const perfect = !integer(row?.hints_used);
   const reward = completed ? await rewardLiveEvent(db, account, {
     rewardKey: `weekly:${definitions.weekId}:v1`, rewardType: 'weekly', sourceId: definitions.weekly.challenge_id, xp: LIVE_REWARD_CONFIG.weeklyTrialXp, coins: LIVE_REWARD_CONFIG.weeklyTrialCoins + (perfect ? LIVE_REWARD_CONFIG.weeklyPerfectBonusCoins : 0), perfect,

@@ -57,6 +57,62 @@ export class PlayerApiError extends Error {
   }
 }
 
+export async function readJsonBody<T>(
+  request: Request,
+  options: {
+    maxBytes: number;
+    tooLargeCode: string;
+    tooLargeMessage: string;
+    invalidCode?: string;
+    invalidMessage?: string;
+  },
+): Promise<T> {
+  const declaredLength = Number(request.headers.get('Content-Length') ?? 0);
+  if (Number.isFinite(declaredLength) && declaredLength > options.maxBytes) {
+    throw new PlayerApiError(413, options.tooLargeCode, options.tooLargeMessage);
+  }
+  const reader = request.body?.getReader();
+  if (!reader) {
+    throw new PlayerApiError(
+      400,
+      options.invalidCode ?? 'invalid_request',
+      options.invalidMessage ?? 'Request body is invalid.',
+    );
+  }
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > options.maxBytes) {
+        await reader.cancel();
+        throw new PlayerApiError(413, options.tooLargeCode, options.tooLargeMessage);
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  const rawBody = new TextDecoder().decode(bytes);
+  try {
+    return JSON.parse(rawBody) as T;
+  } catch {
+    throw new PlayerApiError(
+      400,
+      options.invalidCode ?? 'invalid_request',
+      options.invalidMessage ?? 'Request body is invalid.',
+    );
+  }
+}
+
 function cleanOptionalText(value: unknown, maximumLength: number): string | null {
   if (typeof value !== 'string') return null;
   const cleaned = value

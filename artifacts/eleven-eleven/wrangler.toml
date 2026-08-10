@@ -1,26 +1,16 @@
-# 11.11 — Cloudflare Pages Configuration
-# This file tells Cloudflare Pages how to build and deploy
+# 11.11 - Cloudflare Pages Configuration
+# This file is the Pages Functions and binding configuration.
 
 name = "eleven-eleven"
 compatibility_date = "2026-08-08"
+pages_build_output_dir = "./dist"
 
 # Local Vite development runs the player API on a separate loopback origin.
 # Production same-origin requests are still allowed by the API automatically.
 [vars]
 PLAYER_ALLOWED_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173"
 
-# Build configuration
-[build]
-command = "npm run build"
-output_dir = "dist"
-
-# Cloudflare Pages Functions (for API routes)
-[functions]
-directory = "functions"
-
 # The global progression API expects a private D1 binding named PLAYER_DB.
-# Create/bind the database in Cloudflare, then apply migrations/ before deploy.
-
 [[d1_databases]]
 binding = "PLAYER_DB"
 database_name = "eleven-eleven-player"

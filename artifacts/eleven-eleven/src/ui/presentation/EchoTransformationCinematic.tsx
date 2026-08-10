@@ -47,6 +47,7 @@ export function EchoTransformationCinematic() {
   );
   const motion = useUiPreferencesStore((state) => state.motion);
   const [activeStageId, setActiveStageId] = useState<string | null>(null);
+  const [videoFailed, setVideoFailed] = useState(false);
 
   const stage = useMemo(
     () => getStage(activeStageId ?? ''),
@@ -67,6 +68,10 @@ export function EchoTransformationCinematic() {
     }
     setActiveStageId(stageId);
   }, [seen, stageId]);
+
+  useEffect(() => {
+    setVideoFailed(false);
+  }, [activeStageId]);
 
   useEffect(() => {
     if (!activeStageId) return undefined;
@@ -96,7 +101,9 @@ export function EchoTransformationCinematic() {
   if (!stage || !assets) return null;
 
   const reducedMotion = motion === 'reduced';
-  const useApprovedVideo = Boolean(assets.transitionVideo) && !reducedMotion;
+  const useApprovedVideo = Boolean(assets.transitionVideo)
+    && !reducedMotion
+    && !videoFailed;
 
   return (
     <section
@@ -112,9 +119,11 @@ export function EchoTransformationCinematic() {
           <video
             className="echo-transformation-cinematic__video"
             src={assets.transitionVideo}
+            poster={assets.portrait}
             autoPlay
             muted
             playsInline
+            onError={() => setVideoFailed(true)}
             onEnded={() => {
               markSeen(stage.stageId);
               setActiveStageId(null);

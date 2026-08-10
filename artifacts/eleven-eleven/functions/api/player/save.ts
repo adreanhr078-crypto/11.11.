@@ -8,6 +8,7 @@ import {
   optionsResponse,
   readFirestoreDocument,
   readIntegerField,
+  readJsonBody,
   readStringField,
   readTimestampField,
   stringField,
@@ -92,18 +93,13 @@ export async function onRequestPut({
 }: PlayerApiContext): Promise<Response> {
   const headers = corsHeaders(request, env);
   try {
-    const declaredLength = Number(request.headers.get('Content-Length') ?? 0);
-    if (declaredLength > MAX_SAVE_BYTES + 20_000) {
-      throw new PlayerApiError(413, 'save_too_large', 'The save is too large.');
-    }
-
     const { account, idToken } = await authenticatePlayer(request, env);
-    let body: SaveRequestBody;
-    try {
-      body = await request.json() as SaveRequestBody;
-    } catch {
-      throw new PlayerApiError(400, 'invalid_request', 'The save request is invalid.');
-    }
+    const body = await readJsonBody<SaveRequestBody>(request, {
+      maxBytes: MAX_SAVE_BYTES + 20_000,
+      tooLargeCode: 'save_too_large',
+      tooLargeMessage: 'The save is too large.',
+      invalidMessage: 'The save request is invalid.',
+    });
 
     const saveVersion = requireInteger(body.saveVersion, 'saveVersion', 1, 10_000);
     const baseRevision = requireInteger(body.baseRevision, 'baseRevision', 0, 1_000_000_000);

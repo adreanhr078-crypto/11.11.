@@ -56,6 +56,15 @@ export default function LiveChallengesScreen() {
     setAnswer('');
   }
 
+  if (status === 'error' && !snapshot) {
+    return (
+      <div className="shell-screen live-challenges live-challenges--loading" role="alert">
+        <p>{error ?? 'LIVE SYSTEM SYNC FAILED.'}</p>
+        <GameButton variant="ghost" onClick={() => void actions.load(true)}>RETRY SYNC</GameButton>
+      </div>
+    );
+  }
+
   if (status === 'loading' || !snapshot) {
     return <div className="shell-screen live-challenges live-challenges--loading">SYNCING LIVE SYSTEM...</div>;
   }

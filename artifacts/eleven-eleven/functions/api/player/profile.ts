@@ -5,6 +5,7 @@ import {
   jsonResponse,
   optionsResponse,
   PlayerApiError,
+  readJsonBody,
   type PlayerApiContext,
 } from './_shared';
 import { requirePlayerDatabase, type PlayerDatabase } from './_database';
@@ -259,7 +260,12 @@ export async function onRequestPut({
   try {
     const { account, idToken } = await authenticatePlayer(request, env);
     const db = requirePlayerDatabase(env);
-    const body = validateUpdateBody(await request.json());
+    const body = validateUpdateBody(await readJsonBody<ProfileUpdateBody>(request, {
+      maxBytes: 8 * 1024,
+      tooLargeCode: 'profile_too_large',
+      tooLargeMessage: 'Profile update is too large.',
+      invalidMessage: 'Profile update is invalid.',
+    }));
     const stored = await ensurePlayerProfile(env, idToken, account);
     const username = cleanUsername(body.username);
     if (!username || username.length > PROFILE_USERNAME_MAX_LENGTH) {

@@ -148,6 +148,31 @@ async function assertRewardPrerequisites(
   }
 }
 
+async function hasCompletedManhwaReading(
+  db: PlayerDatabase,
+  uid: string,
+  chapterId: string,
+): Promise<boolean> {
+  const chapter = FINAL_MANHWA_CHAPTERS.find(({ chapterId: candidate }) => (
+    candidate === chapterId
+  ));
+  if (!chapter) return false;
+  const row = await db.prepare(`
+    SELECT COUNT(*) AS total
+    FROM player_manhwa_page_records
+    WHERE user_id = ?
+      AND chapter_id = ?
+      AND global_page_number >= ?
+      AND global_page_number <= ?
+  `).bind(
+    uid,
+    chapter.chapterId,
+    chapter.startPage,
+    chapter.endPage,
+  ).first<CountRow>();
+  return toPositiveInteger(row?.total, 0) === chapter.pageCount;
+}
+
 export async function readLeaderboard(
   db: PlayerDatabase,
   account: FirebaseAccount,
@@ -205,6 +230,27 @@ export async function claimXpReward(
     account.uid,
     reward.requiredRewardKeys,
   );
+  if (reward.sourceType === 'manhwa') {
+    const existing = await db.prepare(`
+      SELECT COUNT(*) AS total
+      FROM xp_reward_events
+      WHERE user_id = ? AND reward_key = ?
+    `).bind(account.uid, reward.rewardKey).first<CountRow>();
+    if (
+      toPositiveInteger(existing?.total, 0) === 0
+      && !await hasCompletedManhwaReading(
+      db,
+      account.uid,
+      reward.sourceId,
+      )
+    ) {
+      throw new PlayerApiError(
+        409,
+        'reading_evidence_missing',
+        'The complete verified reading sequence is required first.',
+      );
+    }
+  }
   const now = new Date().toISOString();
   const results = await db.batch([
     upsertPlayerStatement(db, account, now),

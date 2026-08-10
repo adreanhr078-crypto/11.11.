@@ -13,6 +13,8 @@ describe('live challenge engine', () => {
     assert.ok(LIVE_TEMPLATE_POOL.length >= 5);
     assert.equal(LIVE_TEMPLATE_POOL.every(validateLiveTemplate), true);
     assert.equal(LIVE_TEMPLATE_POOL.every((template) => template.options.includes(template.answer)), true);
+    assert.equal(LIVE_TEMPLATE_POOL.every((template) => template.hints.length === 3), true);
+    assert.equal(LIVE_TEMPLATE_POOL.every((template) => template.hints.every((hint) => !/UNAVAILABLE/i.test(hint))), true);
   });
 
   it('is deterministic and rotates consecutive mechanics', () => {

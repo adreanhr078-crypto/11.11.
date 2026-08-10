@@ -5,6 +5,7 @@ import {
   jsonResponse,
   optionsResponse,
   PlayerApiError,
+  readJsonBody,
   type PlayerApiContext,
 } from '../_shared';
 import { requirePlayerDatabase } from '../_database';
@@ -33,7 +34,12 @@ export async function onRequestPost({ request, env }: PlayerApiContext): Promise
       requirePlayerDatabase(env),
       account,
       idToken,
-      parseChapterId(await request.json()),
+      parseChapterId(await readJsonBody<unknown>(request, {
+        maxBytes: 2 * 1024,
+        tooLargeCode: 'request_too_large',
+        tooLargeMessage: 'Memory reconstruction request is too large.',
+        invalidMessage: 'Memory reconstruction is invalid.',
+      })),
       env,
     );
     return jsonResponse({ collection: result.snapshot, reconstruction: { alreadyReconstructed: result.alreadyReconstructed } }, 200, headers);
@@ -41,4 +47,3 @@ export async function onRequestPost({ request, env }: PlayerApiContext): Promise
     return errorResponse(error, headers);
   }
 }
-

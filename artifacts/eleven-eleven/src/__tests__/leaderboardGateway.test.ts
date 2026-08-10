@@ -60,6 +60,7 @@ class FakePlayerDatabase implements PlayerDatabase {
   readonly players = new Map<string, FakePlayerRow>();
   readonly rewards = new Map<string, FakeRewardRow>();
   readonly memoryFragments = new Set<string>();
+  readonly pageRecords = new Set<string>();
 
   prepare(query: string): PlayerDatabaseStatement {
     return new FakeStatement(this, query);
@@ -82,6 +83,12 @@ class FakePlayerDatabase implements PlayerDatabase {
       createdAt: timestamp,
       updatedAt: timestamp,
     });
+  }
+
+  seedManhwaChapter(userId: string, chapterId: string, startPage: number, endPage: number): void {
+    for (let page = startPage; page <= endPage; page += 1) {
+      this.pageRecords.add(`${userId}:${chapterId}:${page}`);
+    }
   }
 
   private normalized(statement: FakeStatement): string {
@@ -139,6 +146,18 @@ class FakePlayerDatabase implements PlayerDatabase {
 
   first(statement: FakeStatement): Record<string, unknown> | null {
     const query = this.normalized(statement);
+    if (query.includes('FROM player_manhwa_page_records')) {
+      const [userId, chapterId, startPage, endPage] = statement.values;
+      const total = [...this.pageRecords].filter((key) => {
+        const [recordUserId, recordChapterId, page] = key.split(':');
+        const pageNumber = Number(page);
+        return recordUserId === String(userId)
+          && recordChapterId === String(chapterId)
+          && pageNumber >= Number(startPage)
+          && pageNumber <= Number(endPage);
+      }).length;
+      return { total };
+    }
     if (query.includes('SELECT COUNT(*) AS total')) {
       if (query.includes('FROM xp_reward_events')) {
         const [userId, ...rewardKeys] = statement.values.map(String);
@@ -235,6 +254,7 @@ describe('global leaderboard gateway', () => {
     installFirebaseLookup();
     const database = new FakePlayerDatabase();
     const env = testEnv(database);
+    database.seedManhwaChapter('player-current', 'chapter_1', 3, 11);
     const body = JSON.stringify({
       sourceType: 'manhwa',
       sourceId: 'chapter_1',
@@ -274,6 +294,28 @@ describe('global leaderboard gateway', () => {
     assert.equal(duplicatePayload.progression.totalXp, 100);
     assert.equal(database.rewards.size, 1);
     assert.equal(database.memoryFragments.size, 0);
+  });
+
+  it('rejects a final-page claim without the server-side reading sequence', async () => {
+    installFirebaseLookup();
+    const database = new FakePlayerDatabase();
+    const response = await claimXp({
+      request: authenticatedRequest('/api/player/xp/claim', {
+        method: 'POST',
+        body: JSON.stringify({
+          sourceType: 'manhwa',
+          sourceId: 'chapter_1',
+          proof: { finalPageNumber: 11 },
+        }),
+      }),
+      env: testEnv(database),
+    });
+    assert.equal(response.status, 409);
+    assert.equal(
+      (await response.json() as { code: string }).code,
+      'reading_evidence_missing',
+    );
+    assert.equal(database.rewards.size, 0);
   });
 
   it('rejects client-authored XP before touching the database', async () => {

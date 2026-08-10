@@ -40,6 +40,21 @@ describe('Phase 6.5 Echo transformation presentation', () => {
     );
   });
 
+  it('keeps the visual progression monotonic without publishing a fifth state', () => {
+    const [base, coronation, contract, protocol] = ECHO_STATES;
+    assert.ok(base && coronation && contract && protocol);
+    assert.ok(base.redEnergy < coronation.redEnergy);
+    assert.ok(coronation.redEnergy < contract.redEnergy);
+    assert.ok(contract.redEnergy < protocol.redEnergy);
+    assert.ok(base.glitchIntensity < coronation.glitchIntensity);
+    assert.ok(coronation.glitchIntensity < contract.glitchIntensity);
+    assert.ok(contract.glitchIntensity < protocol.glitchIntensity);
+    assert.ok(base.scanIntensity < coronation.scanIntensity);
+    assert.ok(coronation.scanIntensity < contract.scanIntensity);
+    assert.ok(contract.scanIntensity < protocol.scanIntensity);
+    assert.equal(ECHO_STATES.length, 4);
+  });
+
   it('records presentation acknowledgement without unlocking a stage', () => {
     let state: GameState = buildInitialState();
     const get: GameStateGetter = () => state;

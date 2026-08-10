@@ -15,6 +15,8 @@ import {
 } from '../player/_storyState';
 import {
   authenticatePlayer,
+  PlayerApiError,
+  readJsonBody,
 } from '../player/_shared';
 import type {
   PlayerDatabase,
@@ -380,15 +382,19 @@ export async function onRequestPost({
     return jsonResponse({ error: 'Echo AI is not configured.' }, 503, headers);
   }
 
-  const contentLength = Number(request.headers.get('Content-Length') ?? 0);
-  if (contentLength > 64_000) {
-    return jsonResponse({ error: 'Request too large.' }, 413, headers);
-  }
-
   let body: EchoGatewayRequest;
   try {
-    body = await request.json() as EchoGatewayRequest;
-  } catch {
+    body = await readJsonBody<EchoGatewayRequest>(request, {
+      maxBytes: 64_000,
+      tooLargeCode: 'echo_request_too_large',
+      tooLargeMessage: 'Request too large.',
+      invalidCode: 'invalid_echo_request',
+      invalidMessage: 'Invalid request.',
+    });
+  } catch (error) {
+    if (error instanceof PlayerApiError) {
+      return jsonResponse({ error: error.message }, error.status, headers);
+    }
     return jsonResponse({ error: 'Invalid request.' }, 400, headers);
   }
 

@@ -4,6 +4,7 @@ import {
   errorResponse,
   jsonResponse,
   optionsResponse,
+  readJsonBody,
   type PlayerApiContext,
 } from '../_shared';
 import { requirePlayerDatabase } from '../_database';
@@ -29,7 +30,13 @@ export async function onRequestPost({ request, env }: PlayerApiContext): Promise
   try {
     const { account } = await authenticatePlayer(request, env);
     const database = requirePlayerDatabase(env);
-    const body = await parseLiveAction(await request.json());
+    const body = await parseLiveAction(await readJsonBody<unknown>(request, {
+      maxBytes: 8 * 1024,
+      tooLargeCode: 'live_action_too_large',
+      tooLargeMessage: 'Live action payload is too large.',
+      invalidCode: 'invalid_live_action',
+      invalidMessage: 'Live action is invalid.',
+    }));
     switch (body.action) {
       case 'start-daily':
         return jsonResponse({ live: await startDaily(database, account) }, 200, headers);

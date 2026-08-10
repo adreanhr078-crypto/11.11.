@@ -5,6 +5,7 @@ import {
   jsonResponse,
   optionsResponse,
   PlayerApiError,
+  readJsonBody,
   type PlayerApiContext,
 } from '../_shared';
 import { requirePlayerDatabase } from '../_database';
@@ -28,20 +29,13 @@ export async function onRequestPost({
 }: PlayerApiContext): Promise<Response> {
   const headers = corsHeaders(request, env);
   try {
-    const declaredLength = Number(request.headers.get('Content-Length') ?? 0);
-    if (declaredLength > MAX_CHECKPOINT_BYTES) {
-      throw new PlayerApiError(413, 'checkpoint_too_large', 'Story checkpoint is too large.');
-    }
     const { account } = await authenticatePlayer(request, env);
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      throw new PlayerApiError(400, 'invalid_request', 'Story checkpoint is invalid.');
-    }
-    if (new TextEncoder().encode(JSON.stringify(body)).byteLength > MAX_CHECKPOINT_BYTES) {
-      throw new PlayerApiError(413, 'checkpoint_too_large', 'Story checkpoint is too large.');
-    }
+    const body = await readJsonBody<unknown>(request, {
+      maxBytes: MAX_CHECKPOINT_BYTES,
+      tooLargeCode: 'checkpoint_too_large',
+      tooLargeMessage: 'Story checkpoint is too large.',
+      invalidMessage: 'Story checkpoint is invalid.',
+    });
     const result = await claimManhwaStoryCheckpoint(
       requirePlayerDatabase(env),
       account,

@@ -115,8 +115,8 @@ export default function MemoryScreen() {
       page.globalPageNumber,
       page.chapterId === 'chapter_0' ? null : page.chapterId,
     );
-    if (authStatus === 'signed-in') {
-      void claimManhwaStoryCheckpoint({
+    const storyCheckpointPromise = authStatus === 'signed-in'
+      ? claimManhwaStoryCheckpoint({
         chapterId: page.chapterId,
         pageId: page.id,
         globalPageNumber: page.globalPageNumber,
@@ -125,8 +125,9 @@ export default function MemoryScreen() {
           syncAuthoritativeStoryState(storyState);
           void refreshStoryPuzzles(true);
         }
-      });
-    }
+        return storyState;
+      })
+      : undefined;
     if (
       !pageChapter
       || page.globalPageNumber !== pageChapter.endPage
@@ -140,10 +141,13 @@ export default function MemoryScreen() {
     }
 
     completionClaims.current.add(pageChapter.chapterId);
-    void claimManhwaChapterReward(
-      pageChapter.chapterId,
-      pageChapter.endPage,
-    ).then(async (success) => {
+    void (storyCheckpointPromise ?? Promise.resolve(null)).then((storyState) => {
+      if (authStatus === 'signed-in' && !storyState) return false;
+      return claimManhwaChapterReward(
+        pageChapter.chapterId,
+        pageChapter.endPage,
+      );
+    }).then(async (success) => {
       if (!success) {
         completionClaims.current.delete(pageChapter.chapterId);
         return;
