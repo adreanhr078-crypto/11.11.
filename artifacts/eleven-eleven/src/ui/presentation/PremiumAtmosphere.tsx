@@ -45,6 +45,7 @@ export function PremiumAtmosphere() {
       data-signature={profile.signature}
       data-story-state={storyStageId}
       data-echo-form={presence.stage.form}
+      data-echo-intensity={presence.stage.redEnergy}
       data-echo-reaction={presence.reaction?.visualEffect ?? 'idle'}
       aria-hidden="true"
     >

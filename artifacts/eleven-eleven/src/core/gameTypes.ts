@@ -221,6 +221,8 @@ export interface GameActions {
   markManhwaChapterCompleted: (chapterId: string) => boolean;
   /** Rebuilds published Canon state exclusively from a server snapshot. */
   syncAuthoritativeStoryState: (snapshot: AuthoritativeStoryState) => boolean;
+  /** Records only that a verified transformation presentation was viewed. */
+  markEchoTransformationIntroSeen: (stageId: string) => boolean;
   clearPuzzleRewardEvent: () => void;
   chat: () => { dialogue: string; effects: Partial<EchoState>; };
   solve: (puzzleId: string, answer: string) => { success: boolean; message: string; achievement?: Achievement; };

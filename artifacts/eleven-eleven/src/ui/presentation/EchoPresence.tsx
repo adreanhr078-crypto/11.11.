@@ -9,7 +9,9 @@ import {
 } from '../../domain/echo/echoPresence';
 import { useStoryPuzzleStore } from '../../features/story-puzzles/storyPuzzleStore';
 import { useEchoPresenceActivityStore } from '../../application/ui/echoPresenceActivityStore';
-import { ECHO_PRESENTATION_ASSETS } from './visualAssets';
+import {
+  getEchoStatePresentationAssets,
+} from './visualAssets';
 import { cx } from '../design-system';
 
 interface EchoPresenceStyle extends CSSProperties {
@@ -63,6 +65,7 @@ export function EchoPresence({
     storyStageId === 'awakening_fragile' ? 'echo_default' : `echo_${storyStageId}_slot`,
     presence.stage.assetStatus,
   );
+  const stateAssets = getEchoStatePresentationAssets(storyStageId);
 
   useEffect(() => {
     if (!presence.reaction) return undefined;
@@ -72,7 +75,7 @@ export function EchoPresence({
   }, [presence.reaction]);
 
   const style: EchoPresenceStyle = {
-    '--echo-portrait': `url("${ECHO_PRESENTATION_ASSETS.portrait}")`,
+    '--echo-portrait': `url("${stateAssets.portrait}")`,
     '--echo-corruption': String(personality.corruption / 100),
     '--echo-fear': String(personality.fear / 100),
     '--echo-trust': String(personality.trust / 100),
@@ -110,7 +113,7 @@ export function EchoPresence({
       <div className="echo-presence__body">
         <img
           className="echo-presence__image"
-          src={ECHO_PRESENTATION_ASSETS.portrait}
+          src={stateAssets.portrait}
           alt=""
           draggable={false}
           decoding="async"
@@ -119,7 +122,7 @@ export function EchoPresence({
         />
         <img
           className="echo-presence__glitch-layer"
-          src={ECHO_PRESENTATION_ASSETS.portrait}
+          src={stateAssets.portrait}
           alt=""
           draggable={false}
           decoding="async"

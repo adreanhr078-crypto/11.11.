@@ -22,6 +22,7 @@ import {
   PremiumAtmosphere,
   ScreenTransition,
   AchievementPresentationOverlay,
+  EchoTransformationCinematic,
 } from '../../ui/presentation';
 import {
   GAME_SCREEN_REGISTRY,
@@ -247,6 +248,8 @@ export function ApplicationShell() {
           ))}
         </div>
       </GameDrawer>
+
+      <EchoTransformationCinematic />
 
       <GameModal
         open={shell.pauseOpen}

@@ -13,6 +13,7 @@ import { normalizeAuthoritativeStoryState } from '../story/storyState';
 export type EchoPresenceStageId =
   | 'awakening_fragile'
   | 'black_coronation'
+  | 'second_contract_marked'
   | 'black_echo_protocol';
 
 export type EchoPresenceTrigger =
@@ -182,7 +183,11 @@ export const ECHO_REACTIONS: readonly EchoReactionDefinition[] = Object.freeze([
 
 export interface EchoStateDefinition {
   stageId: EchoPresenceStageId;
-  form: 'normal' | 'black-coronation' | 'black-echo-protocol';
+  form:
+    | 'normal'
+    | 'black-coronation'
+    | 'second-contract-marked'
+    | 'black-echo-protocol';
   idleVariant: 'steady' | 'watchful' | 'unstable';
   breathingSeconds: number;
   glanceAmount: number;
@@ -214,7 +219,18 @@ export const ECHO_STATES: readonly EchoStateDefinition[] = Object.freeze([
     redEnergy: 0.46,
     glitchIntensity: 0.2,
     scanIntensity: 0.32,
-    assetStatus: 'visual-slot',
+    assetStatus: 'existing-safe-asset',
+  },
+  {
+    stageId: 'second_contract_marked',
+    form: 'second-contract-marked',
+    idleVariant: 'watchful',
+    breathingSeconds: 6.2,
+    glanceAmount: 0.12,
+    redEnergy: 0.68,
+    glitchIntensity: 0.3,
+    scanIntensity: 0.44,
+    assetStatus: 'existing-safe-asset',
   },
   {
     stageId: 'black_echo_protocol',
@@ -225,7 +241,7 @@ export const ECHO_STATES: readonly EchoStateDefinition[] = Object.freeze([
     redEnergy: 0.72,
     glitchIntensity: 0.36,
     scanIntensity: 0.52,
-    assetStatus: 'visual-slot',
+    assetStatus: 'existing-safe-asset',
   },
 ] as const satisfies readonly EchoStateDefinition[]);
 

@@ -19,6 +19,7 @@ describe('Echo evolution persistence and migration', () => {
       currentStageId: INITIAL_ECHO_EVOLUTION_STAGE_ID,
       reachedStageIds: [INITIAL_ECHO_EVOLUTION_STAGE_ID],
       stageReachedAt: {},
+      transformationIntroSeen: [],
     });
   });
 
@@ -36,6 +37,7 @@ describe('Echo evolution persistence and migration', () => {
       currentStageId: INITIAL_ECHO_EVOLUTION_STAGE_ID,
       reachedStageIds: [INITIAL_ECHO_EVOLUTION_STAGE_ID],
       stageReachedAt: {},
+      transformationIntroSeen: [],
     });
   });
 
@@ -64,6 +66,7 @@ describe('Echo evolution persistence and migration', () => {
       stageReachedAt: {
         [FUTURE_STAGE_ID]: FUTURE_STAGE_AT,
       },
+      transformationIntroSeen: [],
     });
   });
 
@@ -108,6 +111,7 @@ describe('Echo evolution persistence and migration', () => {
       stageReachedAt: {
         [FUTURE_STAGE_ID]: FUTURE_STAGE_AT,
       },
+      transformationIntroSeen: [],
     };
 
     const firstPersist = partializeGameState(evolved);

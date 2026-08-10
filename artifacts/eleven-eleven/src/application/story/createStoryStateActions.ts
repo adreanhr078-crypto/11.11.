@@ -40,7 +40,8 @@ import type {
 
 type StoryStateActions = Pick<
   GameActions,
-  'syncAuthoritativeStoryState'
+  | 'syncAuthoritativeStoryState'
+  | 'markEchoTransformationIntroSeen'
 >;
 
 const NARRATIVE_TRANSACTION_CONTEXT = {
@@ -120,7 +121,12 @@ function withoutKnownStoryProjection(
           .filter(([key]) => keepReceipt(key)),
       ),
     },
-    evolution: createInitialEchoEvolutionProgressState(),
+    evolution: {
+      ...createInitialEchoEvolutionProgressState(),
+      transformationIntroSeen: [
+        ...(state.progressionState.evolution.transformationIntroSeen ?? []),
+      ],
+    },
     story: {
       ...state.story,
       authoritative,
@@ -168,6 +174,27 @@ export function createStoryStateActions(
       }
 
       set((state) => projectGameProgressionCompatibility(state, next));
+      return true;
+    },
+
+    markEchoTransformationIntroSeen(stageId) {
+      const normalized = stageId.trim();
+      if (!normalized) return false;
+      const current = get().progressionState.evolution;
+      if (!current.reachedStageIds.includes(normalized)) return false;
+      if (current.transformationIntroSeen?.includes(normalized)) return true;
+      set((state) => ({
+        progressionState: {
+          ...state.progressionState,
+          evolution: {
+            ...state.progressionState.evolution,
+            transformationIntroSeen: [
+              ...(state.progressionState.evolution.transformationIntroSeen ?? []),
+              normalized,
+            ],
+          },
+        },
+      }));
       return true;
     },
   };

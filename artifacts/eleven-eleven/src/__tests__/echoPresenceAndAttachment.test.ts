@@ -62,7 +62,12 @@ describe('Phase 4 Echo presence and attachment boundaries', () => {
   it('uses only the approved base and three published Echo states', () => {
     assert.deepEqual(
       ECHO_STATES.map((state) => state.stageId),
-      ['awakening_fragile', 'black_coronation', 'black_echo_protocol'],
+      [
+        'awakening_fragile',
+        'black_coronation',
+        'second_contract_marked',
+        'black_echo_protocol',
+      ],
     );
     assert.equal(ECHO_STATES.some((state) => state.stageId.includes('final')), false);
     assert.equal(ECHO_REACTIONS.every((reaction) => reaction.dialogueRef === null), true);

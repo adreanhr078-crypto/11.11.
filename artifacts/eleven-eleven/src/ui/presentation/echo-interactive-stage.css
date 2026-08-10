@@ -55,6 +55,7 @@
 }
 
 .echo-interactive-stage[data-form="black-coronation"] .echo-interactive-stage__halo,
+.echo-interactive-stage[data-form="second-contract-marked"] .echo-interactive-stage__halo,
 .echo-interactive-stage[data-form="black-echo-protocol"] .echo-interactive-stage__halo {
   background:
     radial-gradient(circle, transparent 0 35%, rgb(255 31 48 / 13%) 36% 39%, transparent 41%),
@@ -62,6 +63,14 @@
   box-shadow:
     0 0 9rem rgb(255 24 42 / 18%),
     inset 0 0 5rem rgb(255 25 42 / 12%);
+}
+
+.echo-interactive-stage[data-form="second-contract-marked"] .echo-interactive-stage__halo {
+  animation-duration: 11s;
+  filter: saturate(1.12) contrast(1.06);
+  box-shadow:
+    0 0 11rem rgb(255 24 42 / 24%),
+    inset 0 0 6rem rgb(255 25 42 / 16%);
 }
 
 .echo-interactive-stage[data-form="black-echo-protocol"] .echo-interactive-stage__halo {
@@ -113,12 +122,18 @@
 }
 
 .echo-interactive-stage[data-form="black-coronation"] .echo-interactive-stage__floor,
+.echo-interactive-stage[data-form="second-contract-marked"] .echo-interactive-stage__floor,
 .echo-interactive-stage[data-form="black-echo-protocol"] .echo-interactive-stage__floor {
   border-color: rgb(255 35 54 / 24%);
   background:
     repeating-radial-gradient(ellipse, transparent 0 12%, rgb(255 38 55 / 11%) 13% 13.5%, transparent 14% 23%),
     radial-gradient(ellipse, rgb(255 28 47 / 15%), transparent 65%);
   box-shadow: 0 0 4rem rgb(255 25 43 / 20%);
+}
+
+.echo-interactive-stage[data-form="second-contract-marked"] .echo-interactive-stage__floor {
+  border-color: rgb(255 35 54 / 30%);
+  box-shadow: 0 0 5rem rgb(255 25 43 / 25%);
 }
 
 .echo-interactive-stage__character {
@@ -183,6 +198,7 @@
 }
 
 .echo-interactive-stage[data-form="black-coronation"] .echo-interactive-stage__image,
+.echo-interactive-stage[data-form="second-contract-marked"] .echo-interactive-stage__image,
 .echo-interactive-stage[data-form="black-echo-protocol"] .echo-interactive-stage__image {
   filter:
     drop-shadow(0 1.6rem 1.6rem rgb(0 0 0 / 78%))
@@ -191,6 +207,11 @@
 
 .echo-interactive-stage[data-form="black-coronation"] .echo-interactive-stage__signal {
   opacity: 0.12;
+}
+
+.echo-interactive-stage[data-form="second-contract-marked"] .echo-interactive-stage__signal {
+  opacity: 0.17;
+  animation: echo-stage-glitch 5.4s steps(1, end) infinite;
 }
 
 .echo-interactive-stage[data-form="black-echo-protocol"] .echo-interactive-stage__signal {

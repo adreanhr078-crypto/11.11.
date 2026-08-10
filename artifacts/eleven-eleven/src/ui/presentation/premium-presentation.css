@@ -36,11 +36,19 @@
 }
 
 .premium-atmosphere[data-story-state="black_coronation"] .premium-atmosphere__nebula,
+.premium-atmosphere[data-story-state="second_contract_marked"] .premium-atmosphere__nebula,
 .premium-atmosphere[data-story-state="black_echo_protocol"] .premium-atmosphere__nebula {
   background:
     radial-gradient(ellipse at 25% 52%, rgb(255 35 54 / 16%), transparent 35%),
     radial-gradient(ellipse at 74% 26%, rgb(31 205 239 / 9%), transparent 30%),
     radial-gradient(ellipse at 52% 88%, rgb(127 10 30 / 12%), transparent 42%);
+}
+
+.premium-atmosphere[data-story-state="second_contract_marked"] .premium-atmosphere__nebula {
+  background:
+    radial-gradient(ellipse at 25% 50%, rgb(255 35 54 / 22%), transparent 38%),
+    radial-gradient(ellipse at 73% 28%, rgb(31 205 239 / 11%), transparent 31%),
+    radial-gradient(ellipse at 52% 88%, rgb(127 10 30 / 18%), transparent 45%);
 }
 
 .premium-atmosphere[data-story-state="black_echo_protocol"] .premium-atmosphere__particles i:nth-child(3n + 1) {
@@ -498,6 +506,17 @@
 
 .echo-presence[data-story-state="black_coronation"] .echo-presence__image {
   filter: brightness(0.88) contrast(1.1) saturate(0.78) hue-rotate(-4deg);
+}
+
+.echo-presence[data-story-state="second_contract_marked"] .echo-presence__ring,
+.echo-presence[data-story-state="second_contract_marked"] .echo-presence__reticle {
+  border-color: rgb(255 45 61 / 64%);
+  box-shadow: 0 0 1.6rem rgb(255 32 49 / 18%);
+  animation-duration: 10.5s;
+}
+
+.echo-presence[data-story-state="second_contract_marked"] .echo-presence__image {
+  filter: brightness(0.84) contrast(1.14) saturate(0.76) hue-rotate(-6deg);
 }
 
 .echo-presence[data-story-state="black_echo_protocol"] .echo-presence__ring {

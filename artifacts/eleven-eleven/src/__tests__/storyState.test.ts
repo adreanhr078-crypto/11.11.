@@ -121,7 +121,7 @@ describe('authoritative Story State projection', () => {
     assert.equal(
       createStoryStateReadModel(harness.getState().progressionState)
         .echoState.stageId,
-      'black_coronation',
+      'second_contract_marked',
     );
 
     harness.actions.syncAuthoritativeStoryState(snapshot([
@@ -133,6 +133,7 @@ describe('authoritative Story State projection', () => {
     assert.equal(story.echoState.stageId, 'black_echo_protocol');
     assert.deepEqual(story.majorTransformationFlags, [
       'manhwa_chapter_04_black_coronation',
+      'manhwa_chapter_04_lina_protocol',
       'manhwa_chapter_04_black_echo_protocol',
     ]);
   });

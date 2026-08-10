@@ -107,6 +107,7 @@ describe('runtime final Manhwa publication boundary', () => {
       [
         INITIAL_ECHO_EVOLUTION_STAGE_ID,
         'black_coronation',
+        'second_contract_marked',
         'black_echo_protocol',
       ],
     );
@@ -141,7 +142,6 @@ describe('runtime final Manhwa publication boundary', () => {
 
     for (const forbidden of [
       'chapter_5',
-      'second_contract',
       'zero',
       'full_transformation',
     ]) {
@@ -233,6 +233,7 @@ describe('pure Long Fall evolution engine', () => {
       stageReachedAt: {
         stage_test_revealed: FIRST_TRANSITION_AT,
       },
+      transformationIntroSeen: [],
     });
   });
 
@@ -267,6 +268,7 @@ describe('pure Long Fall evolution engine', () => {
       stageReachedAt: {
         stage_test_revealed: FIRST_TRANSITION_AT,
       },
+      transformationIntroSeen: [],
     };
     const result = evaluateEchoEvolution(
       progress,

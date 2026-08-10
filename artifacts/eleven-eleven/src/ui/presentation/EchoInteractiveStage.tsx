@@ -8,7 +8,7 @@ import {
 } from 'react';
 import type { EchoPresentationForm } from '../../application/ui/echoPresentationReadModel';
 import { cx } from '../design-system';
-import { ECHO_PRESENTATION_ASSETS } from './visualAssets';
+import { getEchoStatePresentationAssetsForForm } from './visualAssets';
 import './echo-interactive-stage.css';
 
 interface InteractiveStageStyle extends CSSProperties {
@@ -33,12 +33,9 @@ export function EchoInteractiveStage({
   const rootRef = useRef<HTMLElement>(null);
   const reactionTimerRef = useRef<number | null>(null);
   const [isReacting, setIsReacting] = useState(false);
-  // The final Manhwa transformations have no separately approved game asset
-  // yet. Keep the established safe body asset and expose form-specific VFX
-  // through data-form instead of substituting an invented character design.
   const source = form === 'corrupted'
-    ? ECHO_PRESENTATION_ASSETS.fullBodyCorrupted
-    : ECHO_PRESENTATION_ASSETS.fullBodyNormal;
+    ? getEchoStatePresentationAssetsForForm('black-echo-protocol').fullBody
+    : getEchoStatePresentationAssetsForForm(form).fullBody;
 
   useEffect(() => () => {
     if (reactionTimerRef.current !== null) {

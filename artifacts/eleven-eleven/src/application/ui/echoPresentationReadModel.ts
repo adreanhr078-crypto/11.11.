@@ -10,6 +10,7 @@ import {
 export type EchoPresentationForm =
   | 'normal'
   | 'black-coronation'
+  | 'second-contract-marked'
   | 'black-echo-protocol'
   /** Legacy-only form retained for existing asset compatibility. */
   | 'corrupted';
