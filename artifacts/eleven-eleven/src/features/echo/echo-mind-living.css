@@ -166,6 +166,73 @@
   font-size: 9px;
 }
 
+.echo-knowledge-gates {
+  position: relative;
+  z-index: 3;
+  margin: 0 14px 14px;
+  padding: 10px 12px;
+  border-block-start: 1px solid rgba(126, 200, 214, 0.14);
+  background: rgba(3, 11, 18, 0.42);
+}
+
+.echo-knowledge-gates > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-block-end: 8px;
+}
+
+.echo-knowledge-gates > header small,
+.echo-knowledge-gates > header span,
+.echo-knowledge-gates > div span {
+  color: rgba(157, 226, 235, 0.72);
+  font: 700 9px/1.2 ui-monospace, monospace;
+  letter-spacing: .1em;
+}
+
+.echo-knowledge-gates > header span {
+  color: #74ced9;
+}
+
+.echo-knowledge-gates > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.echo-knowledge-gates > div span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-inline-size: 0;
+  padding: 6px 5px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(235, 248, 250, 0.7);
+  font-size: 8px;
+  letter-spacing: .06em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.echo-knowledge-gates > div span[data-status="locked"] {
+  color: rgba(235, 248, 250, 0.38);
+}
+
+.echo-knowledge-gates > div span[data-status="locked"] i {
+  background: #89949b;
+  box-shadow: none;
+}
+
+.echo-knowledge-gates > div i {
+  flex: 0 0 auto;
+  inline-size: 5px;
+  block-size: 5px;
+  border-radius: 50%;
+  background: #74ced9;
+  box-shadow: 0 0 8px #74ced9;
+}
+
 .echo-living-theories {
   border-block-start: 1px solid rgba(126, 200, 214, 0.12);
   padding: 12px 14px;

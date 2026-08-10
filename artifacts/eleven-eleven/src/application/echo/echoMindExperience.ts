@@ -3,8 +3,8 @@ import {
   MEMORY_DEFINITIONS,
 } from '../../infrastructure/content/contentRegistry';
 import {
-  CHAPTER_01_MANHWA_PAGE_BY_ID,
-} from '../../content/puzzles/chapter01Campaign';
+  FINAL_MANHWA_PAGE_BY_ID,
+} from '../../content/manhwa/finalManhwa';
 
 export type EchoMindLocale = 'ar' | 'en';
 
@@ -211,7 +211,7 @@ function latestUnlockedMemoryTitle(
 ): string | null {
   const latestPageId = state.unlockedManhwaPageIds.at(-1);
   const page = latestPageId
-    ? CHAPTER_01_MANHWA_PAGE_BY_ID[latestPageId]
+    ? FINAL_MANHWA_PAGE_BY_ID[latestPageId]
     : undefined;
   if (page) {
     return locale === 'en' ? page.title.en : page.title.ar;

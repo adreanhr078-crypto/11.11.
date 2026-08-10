@@ -7,67 +7,56 @@ function source(relativePath: string): string {
   return readFileSync(resolve(process.cwd(), relativePath), 'utf8');
 }
 
-describe('campaign interaction accessibility', () => {
-  it('keeps every puzzle interaction available without drag or audio', () => {
-    const interaction = source(
-      'src/features/puzzles/PuzzleInteractionBoard.tsx',
-    );
+describe('story puzzle interaction accessibility', () => {
+  it('keeps every official interaction available without audio-only controls', () => {
     const puzzleScreen = source('src/features/screens/PuzzleScreen.tsx');
 
-    assert.ok(interaction.includes('type="button"'));
-    assert.ok(interaction.includes('<select'));
-    assert.ok(interaction.includes('onClick'));
-    assert.equal(interaction.includes('onDrag'), false);
+    assert.ok(puzzleScreen.includes('type="button"'));
+    assert.ok(puzzleScreen.includes('onClick'));
+    assert.ok(puzzleScreen.includes('onDrop'));
+    assert.ok(puzzleScreen.includes('swapPieces'));
+    assert.ok(puzzleScreen.includes('type="range"'));
     assert.equal(puzzleScreen.includes('<audio'), false);
     assert.equal(puzzleScreen.includes('setInterval'), false);
     assert.ok(puzzleScreen.includes('aria-modal="true"'));
-    assert.ok(puzzleScreen.includes('inert={Boolean(rewardEvent)}'));
+    assert.ok(puzzleScreen.includes('aria-label="تركيب الصورة / Image reconstruction"'));
   });
 
-  it('keeps locked images out of the UI and uses the canonical unlock action', () => {
+  it('uses the final publication reader and does not keep a legacy unlock UI', () => {
     const memoryScreen = source('src/features/screens/MemoryScreen.tsx');
+    const viewer = source('src/features/manhwa/ManhwaFullscreenViewer.tsx');
     const readModel = source(
       'src/application/ui/manhwaArchiveReadModel.ts',
     );
 
-    assert.ok(memoryScreen.includes('page.unlockedContent ? ('));
-    assert.ok(memoryScreen.includes('loading="lazy"'));
-    assert.ok(memoryScreen.includes('unlockManhwaPage(pendingPage.id)'));
-    assert.ok(memoryScreen.includes('<GameModal'));
-    assert.ok(readModel.includes('...(unlocked'));
+    assert.ok(memoryScreen.includes('FINAL_MANHWA_PAGES'));
+    assert.ok(viewer.includes('onTouchStart'));
+    assert.ok(memoryScreen.includes('claimManhwaChapterReward'));
+    assert.equal(memoryScreen.includes('<GameModal'), false);
     assert.ok(readModel.includes('thumbnailSrc: page.imageSrc'));
-    assert.ok(readModel.includes(': {})'));
-    assert.equal(memoryScreen.includes('CHAPTER_01_MANHWA_PAGES'), false);
-    assert.equal(memoryScreen.includes('markManhwaPageViewed'), false);
-    assert.equal(memoryScreen.includes('viewedPageIds'), false);
-    assert.equal(memoryScreen.includes('pageViewedAt'), false);
-    assert.equal(memoryScreen.includes('claimedPageEffectIds'), false);
-    assert.equal(memoryScreen.includes('applyEchoEffects'), false);
-    assert.equal(memoryScreen.includes('requestFullscreen'), false);
+    assert.ok(readModel.includes('thumbnailSrc: page.imageSrc'));
+    assert.equal(memoryScreen.includes('/manhwa/chapter-01/'), false);
+    assert.equal(memoryScreen.includes('unlockManhwaPage'), false);
   });
 
   it('supports keyboard, ARIA, focus restoration, and live feedback', () => {
     const memoryScreen = source('src/features/screens/MemoryScreen.tsx');
+    const viewer = source('src/features/manhwa/ManhwaFullscreenViewer.tsx');
     const overlays = source('src/ui/design-system/overlays.tsx');
 
-    assert.ok(memoryScreen.includes('onKeyDown'));
-    assert.ok(memoryScreen.includes('ArrowLeft'));
-    assert.ok(memoryScreen.includes('ArrowRight'));
-    assert.ok(memoryScreen.includes('Home'));
-    assert.ok(memoryScreen.includes('End'));
-    assert.ok(memoryScreen.includes('tabIndex='));
+    assert.ok(viewer.includes('onTouchStart'));
     assert.ok(memoryScreen.includes('aria-live="polite"'));
     assert.ok(memoryScreen.includes('aria-atomic="true"'));
-    assert.ok(memoryScreen.includes('aria-current='));
     assert.ok(memoryScreen.includes('aria-label='));
+    assert.ok(viewer.includes("event.key === 'ArrowLeft'"));
+    assert.ok(viewer.includes("event.key === 'ArrowRight'"));
+    assert.ok(viewer.includes('role="dialog"'));
     assert.ok(overlays.includes('previousFocus?.focus()'));
     assert.ok(overlays.includes('event.key === \'Escape\''));
   });
 
   it('honors reduced motion for rewards, shards, and the manhwa viewer', () => {
-    const puzzleStyles = source(
-      'src/features/screens/puzzle-campaign.css',
-    );
+    const puzzleStyles = source('src/features/screens/story-puzzle-experience.css');
     const memoryStyles = source(
       'src/features/screens/manhwa-archive.css',
     );

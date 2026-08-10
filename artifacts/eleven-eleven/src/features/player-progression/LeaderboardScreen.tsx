@@ -9,10 +9,12 @@ import { GameIcon } from '../../ui/icons';
 import { AuthStatusButton } from '../auth/AuthStatusButton';
 import { useAuthStore } from '../auth/authStore';
 import { usePlayerProgressionStore } from './playerProgressionStore';
+import { useShellStore } from '../../app/shell/shellStore';
 
 const numberFormatter = new Intl.NumberFormat('en-US');
 
 export default function LeaderboardScreen() {
+  const navigate = useShellStore((state) => state.navigate);
   const authStatus = useAuthStore((state) => state.status);
   const progression = usePlayerProgressionStore();
   const loadLeaderboard = progression.actions.loadLeaderboard;
@@ -104,6 +106,13 @@ export default function LeaderboardScreen() {
             eyebrow="WORLDWIDE PLAYERS"
             title="أعلى اللاعبين"
             actions={(
+              <div className="leaderboard-board__actions">
+                <GameButton
+                  variant="secondary"
+                  onClick={() => navigate('progress')}
+                >
+                  SYSTEM RECOVERY
+                </GameButton>
               <GameTooltip label="تحديث الترتيب">
                 <GameButton
                   size="icon"
@@ -116,6 +125,7 @@ export default function LeaderboardScreen() {
                   <GameIcon id="utility-refresh" />
                 </GameButton>
               </GameTooltip>
+              </div>
             )}
           >
             {progression.status === 'error' ? (

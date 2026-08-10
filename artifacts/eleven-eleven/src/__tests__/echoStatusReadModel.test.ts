@@ -128,36 +128,36 @@ describe('canon-safe Echo status read model', () => {
     assert.equal(serialized.includes('hidden_visual_form'), false);
   });
 
-  it('keeps published Player and Echo knowledge counts separate', () => {
+  it('counts Echo knowledge only when a server-issued Canon receipt exists', () => {
     const state = buildInitialState();
     state.progressionState.story.narrative.knowledgeNodeIds = [
-      'player_visible',
-      'echo_visible',
-      'unknown_player_secret',
+      'echo_knowledge_black_coronation',
+      'echo_knowledge_black_echo_protocol',
     ];
-    state.progressionState.story.narrative.echoKnowledgeNodeIds = [
-      'echo_visible',
-      'player_visible',
-      'echo_hidden',
+    state.progressionState.story.authoritative.completedChapterIds = [
+      'chapter_3',
     ];
+    state.progressionState.story.authoritative.canonEventReceipts = [{
+      eventId: 'manhwa_chapter_04_black_coronation',
+      eventVersion: 1,
+      sourceType: 'manhwa',
+      sourceId: 'chapter_4',
+      sourcePageId: 'manhwa_ch04_page_02',
+      sourcePageNumber: 56,
+      reachedAt: '2026-08-09T11:11:00.000Z',
+    }];
     const definitions: RuntimeKnowledgeNodeDefinition[] = [
       {
-        nodeId: 'player_visible',
-        audience: 'player',
-        published: true,
-        playerVisible: true,
-      },
-      {
-        nodeId: 'echo_visible',
+        nodeId: 'echo_knowledge_black_coronation',
         audience: 'echo',
         published: true,
         playerVisible: true,
       },
       {
-        nodeId: 'echo_hidden',
+        nodeId: 'echo_knowledge_black_echo_protocol',
         audience: 'echo',
-        published: false,
-        playerVisible: false,
+        published: true,
+        playerVisible: true,
       },
     ];
 
@@ -167,12 +167,10 @@ describe('canon-safe Echo status read model', () => {
     });
     const serialized = JSON.stringify(model);
 
-    assert.equal(model.knowledge.player.visibleCount, 1);
+    assert.equal(model.knowledge.player.visibleCount, 0);
     assert.equal(model.knowledge.echo.visibleCount, 1);
-    assert.equal(serialized.includes('player_visible'), false);
-    assert.equal(serialized.includes('echo_visible'), false);
-    assert.equal(serialized.includes('unknown_player_secret'), false);
-    assert.equal(serialized.includes('echo_hidden'), false);
+    assert.equal(serialized.includes('echo_knowledge_black_coronation'), false);
+    assert.equal(serialized.includes('echo_knowledge_black_echo_protocol'), false);
   });
 
   it('renders an accessible, keyboard-focusable, spoiler-safe panel', () => {
@@ -190,7 +188,7 @@ describe('canon-safe Echo status read model', () => {
     assert.ok(markup.includes('role="progressbar"'));
     assert.ok(markup.includes('Player knowledge'));
     assert.ok(markup.includes('Echo knowledge'));
-    assert.ok(markup.includes('Unknown'));
+    assert.ok(markup.includes('Echo'));
     assert.equal(markup.includes(HIDDEN_STAGE_ID), false);
     assert.equal(markup.includes('hope'), false);
     assert.equal(markup.includes('ragePoints'), false);

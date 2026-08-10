@@ -1,8 +1,8 @@
 import {
   CHAPTER_01_MEMORY_SHARDS,
-  CHAPTER_01_MANHWA_PAGES,
   CHAPTER_01_PUZZLES,
 } from '../../content/puzzles/chapter01Campaign';
+import { FINAL_MANHWA_PAGES } from '../../content/manhwa/finalManhwa';
 import type {
   CampaignInteractionStage,
   CampaignPuzzleDefinition,
@@ -215,7 +215,7 @@ function getCampaignPageStatusInternal(
 export function getCampaignPageStatus(
   page: ManhwaMemoryPageDefinition,
   collectedShardIds: readonly string[],
-  pages: readonly ManhwaMemoryPageDefinition[] = CHAPTER_01_MANHWA_PAGES,
+  pages: readonly ManhwaMemoryPageDefinition[] = FINAL_MANHWA_PAGES,
   registeredShardIds: ReadonlySet<string> = REGISTERED_CAMPAIGN_SHARD_IDS,
 ): CampaignPageStatus {
   return getCampaignPageStatusInternal(
@@ -249,7 +249,7 @@ export function getCampaignPuzzleStatus(
   definition: CampaignPuzzleDefinition,
   snapshot: CampaignRuntimeSnapshot,
   definitions: readonly CampaignPuzzleDefinition[] = CHAPTER_01_PUZZLES,
-  pages: readonly ManhwaMemoryPageDefinition[] = CHAPTER_01_MANHWA_PAGES,
+  pages: readonly ManhwaMemoryPageDefinition[] = FINAL_MANHWA_PAGES,
 ): CampaignPuzzleStatus {
   const completedPuzzleIds = new Set(snapshot.completedPuzzleIds);
   if (completedPuzzleIds.has(definition.id)) return 'completed';
@@ -289,7 +289,7 @@ export function getCampaignPuzzleStatus(
 export function deriveCampaignAvailability(
   snapshot: CampaignRuntimeSnapshot,
   definitions: readonly CampaignPuzzleDefinition[] = CHAPTER_01_PUZZLES,
-  pages: readonly ManhwaMemoryPageDefinition[] = CHAPTER_01_MANHWA_PAGES,
+  pages: readonly ManhwaMemoryPageDefinition[] = FINAL_MANHWA_PAGES,
 ): CampaignAvailability {
   const orderedDefinitions = [...definitions].sort(
     (left, right) => left.order - right.order,
@@ -335,7 +335,7 @@ export const deriveCurrentAvailability = deriveCampaignAvailability;
 export function getCurrentAvailablePuzzle(
   snapshot: CampaignRuntimeSnapshot,
   definitions: readonly CampaignPuzzleDefinition[] = CHAPTER_01_PUZZLES,
-  pages: readonly ManhwaMemoryPageDefinition[] = CHAPTER_01_MANHWA_PAGES,
+  pages: readonly ManhwaMemoryPageDefinition[] = FINAL_MANHWA_PAGES,
 ): CampaignPuzzleDefinition | null {
   const currentPuzzleId = deriveCampaignAvailability(
     snapshot,

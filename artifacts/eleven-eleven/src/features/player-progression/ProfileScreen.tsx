@@ -32,6 +32,7 @@ import { AuthStatusButton } from '../auth/AuthStatusButton';
 import { useAuthStore } from '../auth/authStore';
 import { useShellStore } from '../../app/shell/shellStore';
 import { usePlayerProgressionStore } from './playerProgressionStore';
+import { useCollectionStore } from '../collection/collectionStore';
 
 const numberFormatter = new Intl.NumberFormat('en-US');
 const joinDateFormatter = new Intl.DateTimeFormat('en-GB', {
@@ -52,6 +53,8 @@ export default function ProfileScreen() {
   const profileError = usePlayerProgressionStore((state) => state.profileError);
   const loadProfile = usePlayerProgressionStore((state) => state.actions.loadProfile);
   const updateProfile = usePlayerProgressionStore((state) => state.actions.updateProfile);
+  const collection = useCollectionStore((state) => state.snapshot);
+  const collectionActions = useCollectionStore((state) => state.actions);
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
   const [avatarId, setAvatarId] = useState<PlayerAvatarId>('echo');
@@ -59,6 +62,7 @@ export default function ProfileScreen() {
   const [guestPassword, setGuestPassword] = useState('');
   const [guestName, setGuestName] = useState('');
   const [saved, setSaved] = useState(false);
+  const [showcaseIds, setShowcaseIds] = useState<string[]>([]);
   const [copiedSubject, setCopiedSubject] = useState(false);
 
   useEffect(() => {
@@ -70,6 +74,7 @@ export default function ProfileScreen() {
     setUsername(profile.username);
     setBio(profile.bio);
     setAvatarId(profile.avatarId);
+    setShowcaseIds(profile.featuredAchievementIds.slice(0, 3));
   }, [profile]);
 
   if (authStatus !== 'signed-in' || !authUser) {
@@ -89,7 +94,7 @@ export default function ProfileScreen() {
 
   const save = async () => {
     setSaved(false);
-    const didSave = await updateProfile({ username, bio, avatarId });
+    const didSave = await updateProfile({ username, bio, avatarId, featuredAchievementIds: showcaseIds });
     setSaved(didSave);
   };
 
@@ -293,6 +298,42 @@ export default function ProfileScreen() {
               </div>
 
               <div className="player-profile-achievements-panel">
+                {collection && (
+                  <div className="player-profile-showcase-picker">
+                    <small>SHOWCASE // SELECT UP TO 3 VERIFIED RECORDS</small>
+                    <div>
+                      {collection.achievements.filter((achievement) => achievement.unlocked).map((achievement) => {
+                        const selected = showcaseIds.includes(achievement.id);
+                        return (
+                          <button
+                            key={achievement.id}
+                            type="button"
+                            data-selected={selected}
+                            disabled={!selected && showcaseIds.length >= 3}
+                            onClick={() => setShowcaseIds((ids) => selected
+                              ? ids.filter((id) => id !== achievement.id)
+                              : [...ids, achievement.id].slice(0, 3))}
+                          >
+                            {achievement.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {collection && (
+                  <div className="player-profile-cosmetics">
+                    <small>EQUIPPED COSMETICS // SERVER VERIFIED</small>
+                    <p>{collection.equipped.titleId ?? 'NO TITLE'} · {collection.equipped.frameId ?? 'NO FRAME'} · {collection.equipped.badgeId ?? 'NO BADGE'}</p>
+                    <div>
+                      {collection.cosmetics.filter((cosmetic) => cosmetic.owned).map((cosmetic) => (
+                        <button key={cosmetic.id} type="button" data-equipped={cosmetic.equipped} onClick={() => void collectionActions.equip(cosmetic.id)}>
+                          {cosmetic.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="player-profile-section-heading">
                   <div><span className="profile-ui-label">ACHIEVEMENT DISPLAY</span><h2>الإنجازات</h2></div>
                   <Sparkles aria-hidden="true" />

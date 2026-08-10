@@ -100,35 +100,48 @@ function fixtures() {
   return { stages, events, progress };
 }
 
-describe('runtime Long Fall publication boundary', () => {
-  it('publishes only the safe initial stage and no story events', () => {
+describe('runtime final Manhwa publication boundary', () => {
+  it('publishes only approved final-Manhwa stages and Canon events', () => {
     assert.deepEqual(
       RUNTIME_ECHO_EVOLUTION_STAGES.map(({ stageId }) => stageId),
-      [INITIAL_ECHO_EVOLUTION_STAGE_ID],
+      [
+        INITIAL_ECHO_EVOLUTION_STAGE_ID,
+        'black_coronation',
+        'black_echo_protocol',
+      ],
     );
-    assert.deepEqual(RUNTIME_ECHO_STORY_EVENTS, []);
+    assert.deepEqual(
+      RUNTIME_ECHO_STORY_EVENTS.map(({ eventId }) => eventId),
+      [
+        'manhwa_chapter_04_black_coronation',
+        'manhwa_chapter_04_lina_protocol',
+        'manhwa_chapter_04_black_echo_protocol',
+      ],
+    );
     assert.deepEqual(CANON_REGISTRY.runtimePublishedChapterIds, [
       'chapter_1',
+      'chapter_2',
+      'chapter_3',
+      'chapter_4',
     ]);
     assert.ok(RUNTIME_ECHO_EVOLUTION_STAGES.every(
       ({ chapterId, published, playerVisible }) => (
-        chapterId === 'chapter_1' && published && playerVisible
+        ['chapter_1', 'chapter_4'].includes(chapterId)
+        && published
+        && playerVisible
       ),
     ));
   });
 
-  it('contains no future or full-transformation contract in Runtime data', () => {
+  it('contains no unapproved future or final transformation in Runtime data', () => {
     const runtimePayload = JSON.stringify({
       stages: RUNTIME_ECHO_EVOLUTION_STAGES,
       events: RUNTIME_ECHO_STORY_EVENTS,
     }).toLowerCase();
 
     for (const forbidden of [
-      'chapter_2',
-      'chapter_3',
-      'chapter_4',
       'chapter_5',
-      'contract',
+      'second_contract',
       'zero',
       'full_transformation',
     ]) {
@@ -164,7 +177,7 @@ describe('runtime Long Fall publication boundary', () => {
     );
 
     assert.equal(result.transitionAvailable, false);
-    assert.equal(result.failureReason, 'no-next-stage');
+    assert.equal(result.failureReason, 'story-event-not-proven');
     assert.equal(result.progress, progress);
   });
 });

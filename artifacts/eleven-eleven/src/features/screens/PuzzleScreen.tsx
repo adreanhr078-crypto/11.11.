@@ -1,566 +1,884 @@
 import {
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
+  type DragEvent,
 } from 'react';
 import {
-  CheckCircle2,
+  Activity,
+  Check,
   ChevronLeft,
+  CircleHelp,
   Coins,
-  Diamond,
-  Lightbulb,
+  Crosshair,
   LockKeyhole,
   RotateCcw,
+  ScanLine,
+  Sparkles,
+  TriangleAlert,
+  Zap,
 } from 'lucide-react';
 import {
-  CHAPTER_01_PUZZLES,
-} from '../../content/puzzles/chapter01Campaign';
+  STORY_PUZZLE_BY_ID,
+  STORY_PUZZLES,
+} from '../../content/puzzles/storyPuzzleCatalog';
 import type {
-  CampaignInteractionStage,
-  CampaignPuzzleDefinition,
-  CampaignPuzzleProgress,
-  HintTierId,
-} from '../../domain/puzzles/campaignContracts';
-import {
-  deriveCampaignAvailability,
-  isCampaignStageCorrect,
-} from '../../domain/puzzles/campaignEngine';
-import {
-  PUZZLE_TEMPLATE_REGISTRY,
-} from '../../domain/puzzles/puzzleTemplateRegistry';
-import { useGameStore } from '../../stores/gameStore';
-import {
-  GameButton,
-  GlassPanel,
-  HudPanel,
-} from '../../ui/design-system';
-import {
-  PuzzleInteractionBoard,
-} from '../puzzles/PuzzleInteractionBoard';
-import './puzzle-campaign.css';
+  StoryPuzzleDefinition,
+  StoryPuzzleDraft,
+  StoryPuzzleMechanic,
+  StoryPuzzleOption,
+  StoryPuzzleSnapshotEntry,
+} from '../../domain/story-puzzles/storyPuzzleContracts';
+import { useAuthStore } from '../auth/authStore';
+import { usePlayerProgressionStore } from '../player-progression/playerProgressionStore';
+import { useCollectionStore } from '../collection/collectionStore';
+import { useStoryPuzzleStore } from '../story-puzzles/storyPuzzleStore';
+import './story-puzzle-experience.css';
 
-type CardStatus = 'locked' | 'available' | 'in_progress' | 'completed';
+const emptyDraft = (): StoryPuzzleDraft => ({
+  stageIndex: 0,
+  tokens: [],
+  assignments: {},
+  imageOrder: [],
+  rotations: {},
+});
 
-const difficultyLabels = {
-  tutorial: 'تعليمي',
-  easy: 'سهل',
-  medium: 'متوسط',
-  hard: 'صعب',
-  page_finale: 'خاتمة الصفحة',
-} as const;
+function shuffledPieces(count: number): string[] {
+  const pieces = Array.from({ length: count }, (_, index) => `piece-${index}`);
+  // Deterministic enough to persist sensibly on reload, while never beginning
+  // already solved for the images used by this campaign.
+  return pieces.map((_, index) => pieces[(index * 5 + 2) % count]!);
+}
 
-function blankProgress(
-  stage: CampaignInteractionStage,
-  stageIndex: number,
-): CampaignPuzzleProgress {
+function defaultDraft(puzzle: StoryPuzzleDefinition): StoryPuzzleDraft {
+  if (puzzle.mechanic === 'matrix') {
+    return {
+      ...emptyDraft(),
+      rotations: { tile1: 1, tile2: 2, tile3: 3, tile4: 0 },
+    };
+  }
+  if (!puzzle.image) return emptyDraft();
+  const count = puzzle.image.rows * puzzle.image.columns;
   return {
-    stageIndex,
-    values: stage.mode === 'rings'
-      ? stage.rings.map((ring) => ring.values[0] ?? '')
-      : [],
-    matches: {},
+    ...emptyDraft(),
+    imageOrder: shuffledPieces(count),
+    rotations: Object.fromEntries(
+      Array.from({ length: count }, (_, index) => [`piece-${index}`, 0]),
+    ),
   };
 }
 
-function createBlankPuzzleProgress(
-  stages: readonly CampaignInteractionStage[],
-): CampaignPuzzleProgress[] {
-  return stages.map(blankProgress);
+function cloneDraft(draft: StoryPuzzleDraft): StoryPuzzleDraft {
+  return {
+    stageIndex: draft.stageIndex,
+    tokens: [...draft.tokens],
+    assignments: { ...draft.assignments },
+    imageOrder: [...draft.imageOrder],
+    rotations: { ...draft.rotations },
+  };
 }
 
-function stageCorrect(
-  stage: CampaignInteractionStage,
-  progress: CampaignPuzzleProgress,
-) {
-  return isCampaignStageCorrect(
-    stage,
-    progress.values,
-    progress.matches,
-  );
-}
-
-function applyAssistanceStep(
-  stage: CampaignInteractionStage,
-  progress: CampaignPuzzleProgress,
-): CampaignPuzzleProgress {
-  if (stage.mode === 'match') {
-    const nextPair = Object.entries(stage.solution).find(
-      ([source, target]) => progress.matches[source] !== target,
-    );
-    return nextPair
-      ? {
-          ...progress,
-          matches: {
-            ...progress.matches,
-            [nextPair[0]]: nextPair[1],
-          },
-        }
-      : progress;
-  }
-  if (stage.mode === 'rings') {
-    const values = stage.rings.map((ring, index) => (
-      progress.values[index] ?? ring.values[0] ?? ''
-    ));
-    const nextRing = values.findIndex(
-      (value, index) => value !== stage.solution[index],
-    );
-    if (nextRing < 0) return progress;
-    const nextValues = [...values];
-    nextValues[nextRing] = stage.solution[nextRing] ?? nextValues[nextRing]!;
-    return { ...progress, values: nextValues };
-  }
-  if (stage.mode === 'single') {
-    // A one-option solution would reveal the whole puzzle, so the board
-    // removes only some decoys instead.
-    return progress;
-  }
-  if (stage.mode === 'sequence' || stage.mode === 'path') {
-    let correctPrefixLength = 0;
-    while (
-      correctPrefixLength < progress.values.length
-      && progress.values[correctPrefixLength]
-        === stage.solution[correctPrefixLength]
-    ) {
-      correctPrefixLength += 1;
+function parseStages(
+  puzzle: StoryPuzzleDefinition,
+  draft: StoryPuzzleDraft,
+): StoryPuzzleDraft[] {
+  const count = puzzle.stages?.length ?? 0;
+  if (count === 0) return [];
+  try {
+    const parsed = JSON.parse(draft.assignments.__stages ?? '[]') as unknown;
+    if (Array.isArray(parsed) && parsed.length === count) {
+      return parsed.map((entry) => {
+        if (!entry || typeof entry !== 'object') return emptyDraft();
+        const candidate = entry as Partial<StoryPuzzleDraft>;
+        return {
+          stageIndex: 0,
+          tokens: Array.isArray(candidate.tokens) ? candidate.tokens.filter((value): value is string => typeof value === 'string') : [],
+          assignments: candidate.assignments && typeof candidate.assignments === 'object' && !Array.isArray(candidate.assignments)
+            ? Object.fromEntries(Object.entries(candidate.assignments).filter(([, value]) => typeof value === 'string')) as Record<string, string>
+            : {},
+          imageOrder: Array.isArray(candidate.imageOrder) ? candidate.imageOrder.filter((value): value is string => typeof value === 'string') : [],
+          rotations: candidate.rotations && typeof candidate.rotations === 'object' && !Array.isArray(candidate.rotations)
+            ? Object.fromEntries(Object.entries(candidate.rotations).filter(([, value]) => typeof value === 'number')) as Record<string, number>
+            : {},
+        };
+      });
     }
-    const assistedLength = Math.min(
-      stage.solution.length,
-      correctPrefixLength + 1,
-    );
-    return {
-      ...progress,
-      values: stage.solution.slice(0, assistedLength),
-    };
+  } catch {
+    // A malformed temporary save is safely replaced with an empty local draft.
   }
-  const nextCorrect = stage.solution.find(
-    (optionId) => !progress.values.includes(optionId),
-  );
-  return nextCorrect
-    ? { ...progress, values: [...progress.values, nextCorrect] }
-    : progress;
+  return Array.from({ length: count }, () => emptyDraft());
 }
 
-function statusLabel(status: CardStatus): string {
+function composeStageDraft(
+  draft: StoryPuzzleDraft,
+  stageIndex: number,
+  stages: StoryPuzzleDraft[],
+): StoryPuzzleDraft {
+  return {
+    ...emptyDraft(),
+    stageIndex,
+    assignments: { __stages: JSON.stringify(stages) },
+  };
+}
+
+function selectedTokens(
+  current: readonly string[],
+  optionId: string,
+  maximum: number,
+  allowRepeated = false,
+): string[] {
+  if (!allowRepeated && current.includes(optionId)) {
+    return current.filter((token) => token !== optionId);
+  }
+  if (current.length >= maximum) return [...current.slice(1), optionId];
+  return [...current, optionId];
+}
+
+function sequenceLimit(mechanic: StoryPuzzleMechanic): number {
+  switch (mechanic) {
+    case 'cipher':
+    case 'mirror-code': return 3;
+    case 'evidence':
+    case 'pattern-scan':
+    case 'contradiction': return 1;
+    case 'visual-forensics': return 2;
+    case 'deduction': return 3;
+    default: return 4;
+  }
+}
+
+function sourceOptions(puzzle: StoryPuzzleDefinition): readonly StoryPuzzleOption[] {
+  return puzzle.options ?? [
+    { id: 'signal', label: { ar: 'إشارة', en: 'Signal' }, symbol: '⌁' },
+    { id: 'memory', label: { ar: 'ذاكرة', en: 'Memory' }, symbol: '◇' },
+    { id: 'access', label: { ar: 'وصول', en: 'Access' }, symbol: '⌘' },
+    { id: 'echo', label: { ar: 'Echo', en: 'Echo' }, symbol: '◉' },
+  ];
+}
+
+function statusLabel(status: StoryPuzzleSnapshotEntry['status']): string {
   switch (status) {
     case 'available': return 'متاح';
     case 'in_progress': return 'قيد الاستعادة';
     case 'completed': return 'مكتمل';
-    default: return 'مقفل';
+    case 'locked': return 'مقفل';
+    default: return 'إشارة مخفية';
   }
 }
 
-interface CampaignHintsPanelProps {
-  puzzle: CampaignPuzzleDefinition;
-  status: CardStatus;
-  unlockedHintIds: HintTierId[];
-  onPurchase: (tierId: HintTierId) => void;
+function assignmentSources(mechanic: StoryPuzzleMechanic): string[] {
+  if (mechanic === 'color-routing') return ['triangle', 'square', 'circle'];
+  if (mechanic === 'wiring') return ['power', 'data', 'memory'];
+  return ['access'];
 }
 
-function CampaignHintsPanel({
+function assignmentTargets(mechanic: StoryPuzzleMechanic): StoryPuzzleOption[] {
+  if (mechanic === 'color-routing') return [
+    { id: 'triangle', label: { ar: 'مثلث △', en: 'Triangle △' } },
+    { id: 'square', label: { ar: 'مربع □', en: 'Square □' } },
+    { id: 'circle', label: { ar: 'دائرة ○', en: 'Circle ○' } },
+  ];
+  if (mechanic === 'wiring') return [
+    { id: 'terminal-wave', label: { ar: 'طرف ⌁', en: '⌁ terminal' } },
+    { id: 'terminal-access', label: { ar: 'طرف ⌘', en: '⌘ terminal' } },
+    { id: 'terminal-memory', label: { ar: 'طرف ◇', en: '◇ terminal' } },
+  ];
+  return [
+    { id: 'echo', label: { ar: 'عقدة Echo', en: 'Echo node' } },
+    { id: 'memory', label: { ar: 'عقدة الذاكرة', en: 'Memory node' } },
+    { id: 'access', label: { ar: 'عقدة الوصول', en: 'Access node' } },
+  ];
+}
+
+function recordSignal(optionId: string): string {
+  const signals: Record<string, string> = {
+    cam07: 'CAMERA SYNC // TIMESTAMP CONSISTENT',
+    cam03: 'CAMERA SYNC // OFFSET DETECTED',
+    cam11: 'CAMERA SYNC // DUPLICATE RECORD',
+    r01: 'RECORD ORDER // WITHIN PROTOCOL',
+    r02: 'RECORD ORDER // PARTIAL MATCH',
+    r03: 'RECORD ORDER // TEMPORAL CONFLICT',
+    '1111': 'TIME MARK // VERIFIED',
+  };
+  return signals[optionId] ?? `EVIDENCE NODE // ${optionId.toUpperCase()}`;
+}
+
+function EvidenceBoard({
+  mechanic,
+  options,
+  draft,
+  onChange,
+  disabled,
+}: {
+  mechanic: Extract<StoryPuzzleMechanic, 'evidence' | 'contradiction' | 'deduction'>;
+  options: readonly StoryPuzzleOption[];
+  draft: StoryPuzzleDraft;
+  onChange: (next: StoryPuzzleDraft) => void;
+  disabled: boolean;
+}) {
+  const selected = draft.tokens;
+  const maximum = mechanic === 'deduction' ? 3 : 1;
+  return (
+    <section
+      className="story-evidence-board"
+      data-mode={mechanic}
+      aria-label="Verified evidence board"
+    >
+      <header>
+        <ScanLine aria-hidden="true" />
+        <span>{mechanic === 'deduction' ? 'EVIDENCE SYNTHESIS' : 'RECORD COMPARISON'}</span>
+      </header>
+      <div>
+        {options.map((option, index) => (
+          <button
+            key={option.id}
+            type="button"
+            disabled={disabled}
+            data-selected={selected.includes(option.id)}
+            onClick={() => onChange({
+              ...draft,
+              tokens: selectedTokens(selected, option.id, maximum),
+            })}
+          >
+            <small>NODE {String(index + 1).padStart(2, '0')}</small>
+            <strong>{option.label.ar}</strong>
+            <span>{recordSignal(option.id)}</span>
+          </button>
+        ))}
+      </div>
+      <p>{mechanic === 'deduction'
+        ? 'حدد الأدلة المتوافقة ثم ثبّت تسلسلها داخل السجل.'
+        : 'قارن السجل مع الإشارة قبل تثبيت النتيجة.'}</p>
+    </section>
+  );
+}
+
+function PatternScanBoard({
+  draft,
+  onChange,
+  disabled,
+}: Pick<PuzzleMechanicProps, 'draft' | 'onChange' | 'disabled'>) {
+  const cells = Array.from({ length: 12 }, (_, index) => {
+    const row = String.fromCharCode(65 + Math.floor(index / 3));
+    return `${row}${(index % 3) + 1}`.toLowerCase();
+  });
+  return (
+    <section className="story-pattern-scan" aria-label="Anomaly pattern scanner">
+      <header><ScanLine aria-hidden="true" /> PATTERN SCAN // FIND THE DIRECTIONAL BREACH</header>
+      <div>
+        {cells.map((cell) => {
+          const display = cell.toUpperCase();
+          const direction = cell === 'd3' ? '↘' : '↗';
+          return (
+            <button
+              key={cell}
+              type="button"
+              disabled={disabled}
+              data-selected={draft.tokens.includes(cell)}
+              onClick={() => onChange({
+                ...draft,
+                tokens: selectedTokens(draft.tokens, cell, 1),
+              })}
+            >
+              <i>{direction}</i><span>{display}</span>
+            </button>
+          );
+        })}
+      </div>
+      <p>لا تعتمد على اللون فقط؛ افحص اتجاه كل عقدة.</p>
+    </section>
+  );
+}
+
+function DataRouteBoard({
+  options,
+  draft,
+  onChange,
+  disabled,
+}: {
+  options: readonly StoryPuzzleOption[];
+  draft: StoryPuzzleDraft;
+  onChange: (next: StoryPuzzleDraft) => void;
+  disabled: boolean;
+}) {
+  return (
+    <section className="story-data-route" aria-label="Data routing graph">
+      <header><Crosshair aria-hidden="true" /> ROUTE PACKET // SELECT A SAFE ORDER</header>
+      <div className="story-data-route__path" aria-live="polite">
+        {draft.tokens.length > 0
+          ? draft.tokens.map((token) => token.toUpperCase()).join(' → ')
+          : 'AWAITING ROUTE'}
+      </div>
+      <div className="story-data-route__nodes">
+        {options.map((option, index) => (
+          <button
+            key={option.id}
+            type="button"
+            disabled={disabled}
+            data-selected={draft.tokens.includes(option.id)}
+            style={{ '--node': index } as CSSProperties}
+            onClick={() => onChange({
+              ...draft,
+              tokens: selectedTokens(draft.tokens, option.id, 4),
+            })}
+          >
+            {option.label.ar}
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        className="story-data-route__clear"
+        disabled={disabled || draft.tokens.length === 0}
+        onClick={() => onChange({ ...draft, tokens: [] })}
+      >
+        إعادة المسار
+      </button>
+    </section>
+  );
+}
+
+interface ImageReconstructionBoardProps {
+  puzzle: StoryPuzzleDefinition;
+  draft: StoryPuzzleDraft;
+  onChange: (next: StoryPuzzleDraft) => void;
+  disabled: boolean;
+}
+
+function ImageReconstructionBoard({
   puzzle,
-  status,
-  unlockedHintIds,
-  onPurchase,
-}: CampaignHintsPanelProps) {
-  const currency = useGameStore((state) => state.currency);
+  draft,
+  onChange,
+  disabled,
+}: ImageReconstructionBoardProps) {
+  const image = puzzle.image!;
+  const count = image.rows * image.columns;
+  const pieces = draft.imageOrder.length === count ? draft.imageOrder : shuffledPieces(count);
+  const [selectedPiece, setSelectedPiece] = useState<string | null>(null);
+
+  const swapPieces = (fromPiece: string, toPiece: string) => {
+    if (disabled || fromPiece === toPiece) return;
+    const next = [...pieces];
+    const from = next.indexOf(fromPiece);
+    const to = next.indexOf(toPiece);
+    if (from < 0 || to < 0) return;
+    [next[from], next[to]] = [next[to]!, next[from]!];
+    onChange({ ...draft, imageOrder: next });
+    setSelectedPiece(null);
+  };
+
+  const rotatePiece = (pieceId: string) => {
+    if (disabled || !image.allowRotation) return;
+    onChange({
+      ...draft,
+      rotations: {
+        ...draft.rotations,
+        [pieceId]: ((draft.rotations[pieceId] ?? 0) + 1) % 4,
+      },
+    });
+  };
 
   return (
-    <GlassPanel
-      className="campaign-hints"
-      tone="memory"
-      eyebrow="ASSISTANCE CHANNEL"
-      title="التلميحات"
-    >
-      {puzzle.hints.map((hint, index) => {
-        const unlocked = unlockedHintIds.includes(hint.id);
-        const previousUnlocked = index === 0
-          || unlockedHintIds.includes(puzzle.hints[index - 1]!.id);
-        const missingCurrency = Math.max(0, hint.cost - currency);
-        return (
-          <article key={hint.id} data-unlocked={unlocked}>
-            <header>
-              <span><Lightbulb aria-hidden="true" /> المستوى {index + 1}</span>
-              <strong>{hint.cost === 0 ? 'FREE' : `${hint.cost} ◉`}</strong>
-            </header>
-            {unlocked ? (
-              <p>{hint.text.ar}</p>
-            ) : (
-              <GameButton
-                variant="ghost"
-                size="sm"
-                onClick={() => onPurchase(hint.id)}
-                disabled={
-                  status === 'locked'
-                  || status === 'completed'
-                  || !previousUnlocked
-                  || missingCurrency > 0
-                }
-              >
-                فتح التلميح
-              </GameButton>
-            )}
-            {!unlocked
-              && previousUnlocked
-              && missingCurrency > 0
-              && status !== 'locked' && (
-                <small className="campaign-hint-balance">
-                  تحتاج {missingCurrency} عملات إضافية
-                </small>
+    <section className="story-image-puzzle" aria-label="تركيب الصورة / Image reconstruction">
+      <div
+        className="story-image-puzzle__grid"
+        style={{
+          '--rows': image.rows,
+          '--columns': image.columns,
+          aspectRatio: image.aspectRatio ?? (2 / 3),
+        } as CSSProperties}
+      >
+        {pieces.map((pieceId) => {
+          const sourceIndex = Number(pieceId.replace('piece-', ''));
+          const column = sourceIndex % image.columns;
+          const row = Math.floor(sourceIndex / image.columns);
+          const rotation = draft.rotations[pieceId] ?? 0;
+          return (
+            <article
+              key={pieceId}
+              className="story-image-puzzle__piece"
+              draggable={!disabled}
+              data-selected={selectedPiece === pieceId}
+              data-rotation={rotation}
+              onDragStart={(event: DragEvent<HTMLElement>) => {
+                event.dataTransfer.setData('text/plain', pieceId);
+                event.dataTransfer.effectAllowed = 'move';
+              }}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault();
+                swapPieces(event.dataTransfer.getData('text/plain'), pieceId);
+              }}
+              onClick={() => {
+                if (disabled) return;
+                if (!selectedPiece) setSelectedPiece(pieceId);
+                else swapPieces(selectedPiece, pieceId);
+              }}
+            >
+              <button
+                type="button"
+                className="story-image-puzzle__art"
+                disabled={disabled}
+                aria-label={`قطعة ${sourceIndex + 1}`}
+                style={{
+                  backgroundImage: `url(${image.src})`,
+                  backgroundSize: `${image.columns * 100}% ${image.rows * 100}%`,
+                  backgroundPosition: `${(column / Math.max(1, image.columns - 1)) * 100}% ${(row / Math.max(1, image.rows - 1)) * 100}%`,
+                  transform: `rotate(${rotation * 90}deg)`,
+                }}
+              />
+              {image.allowRotation && (
+                <button
+                  type="button"
+                  className="story-image-puzzle__rotate"
+                  disabled={disabled}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    rotatePiece(pieceId);
+                  }}
+                  aria-label={`تدوير القطعة ${sourceIndex + 1}`}
+                >
+                  <RotateCcw aria-hidden="true" />
+                </button>
               )}
+            </article>
+          );
+        })}
+      </div>
+      <p>اسحب القطع أو اضغط قطعتين لتبديلهما. {image.allowRotation ? 'استخدم رمز التدوير عند الحاجة.' : ''}</p>
+    </section>
+  );
+}
+
+interface PuzzleMechanicProps {
+  puzzle: StoryPuzzleDefinition;
+  mechanic: Exclude<StoryPuzzleMechanic, 'multi-stage'>;
+  options?: readonly StoryPuzzleOption[];
+  draft: StoryPuzzleDraft;
+  onChange: (next: StoryPuzzleDraft) => void;
+  disabled: boolean;
+}
+
+function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, draft, onChange, disabled }: PuzzleMechanicProps) {
+  const options = stageOptions ?? sourceOptions(puzzle);
+  const [memoryPreview, setMemoryPreview] = useState(mechanic === 'memory-grid');
+  useEffect(() => {
+    if (mechanic !== 'memory-grid') return undefined;
+    const timer = window.setTimeout(() => setMemoryPreview(false), 1700);
+    return () => window.clearTimeout(timer);
+  }, [mechanic]);
+
+  if (mechanic === 'image-reconstruction') {
+    return <ImageReconstructionBoard puzzle={puzzle} draft={draft} onChange={onChange} disabled={disabled} />;
+  }
+
+  if (mechanic === 'signal') {
+    const frequency = Number(draft.tokens[0] ?? 35);
+    const channel = draft.tokens[1] ?? 'channel-07';
+    return (
+      <section className="story-signal-board" aria-label="Signal tuning board">
+        <div className="story-signal-board__scope" style={{ '--signal': `${frequency}%` } as CSSProperties}>
+          <i /><i /><i /><b />
+        </div>
+        <label>
+          <span>FREQUENCY <strong>{frequency}</strong></span>
+          <input
+            type="range" min="0" max="100" value={frequency} disabled={disabled}
+            onChange={(event) => onChange({ ...draft, tokens: [event.target.value, channel] })}
+          />
+        </label>
+        <div className="story-choice-row" role="group" aria-label="قناة الإشارة">
+          {['07', '11', '13'].map((value) => {
+            const id = `channel-${value}`;
+            return <button key={id} type="button" disabled={disabled} data-selected={channel === id} onClick={() => onChange({ ...draft, tokens: [String(frequency), id] })}>CH-{value}</button>;
+          })}
+        </div>
+      </section>
+    );
+  }
+
+  if (mechanic === 'wiring' || mechanic === 'color-routing') {
+    const accessNodeLock = (
+      mechanic === 'wiring'
+      && stageOptions?.some((option) => option.id === 'echo')
+    );
+    const sources = accessNodeLock ? ['access'] : assignmentSources(mechanic);
+    const targets = accessNodeLock ? stageOptions! : assignmentTargets(mechanic);
+    return (
+      <section className="story-wiring-board" data-mode={mechanic} aria-label="لوحة التوصيل">
+        {sources.map((source) => (
+          <article key={source}>
+            <strong>{source.toUpperCase()}</strong>
+            <span className="story-wiring-board__line" data-active={Boolean(draft.assignments[source])} />
+            <div>
+              {targets.map((target) => (
+                <button
+                  key={target.id} type="button" disabled={disabled}
+                  data-selected={draft.assignments[source] === target.id}
+                  onClick={() => onChange({ ...draft, assignments: { ...draft.assignments, [source]: target.id } })}
+                >{target.label.ar}</button>
+              ))}
+            </div>
           </article>
-        );
-      })}
-    </GlassPanel>
+        ))}
+      </section>
+    );
+  }
+
+  if (mechanic === 'matrix') {
+    const tiles = ['tile1', 'tile2', 'tile3', 'tile4'];
+    return (
+      <section className="story-matrix-board" aria-label="System matrix">
+        {tiles.map((tile, index) => {
+          const rotation = draft.rotations[tile] ?? ((index + 1) % 4);
+          return (
+            <button
+              key={tile} type="button" disabled={disabled} data-rotation={rotation}
+              onClick={() => onChange({ ...draft, rotations: { ...draft.rotations, [tile]: (rotation + 1) % 4 } })}
+              aria-label={`تدوير عقدة ${index + 1}`}
+            ><i /><i /></button>
+          );
+        })}
+      </section>
+    );
+  }
+
+  if (mechanic === 'visual-forensics') {
+    const selected = draft.tokens;
+    const source = puzzle.image?.src;
+    return (
+      <section className="story-forensics-board" aria-label="Visual forensics scanner">
+        <div className="story-forensics-board__record">
+          {source && <img src={source} alt={puzzle.image?.alt.ar} loading="lazy" />}
+          <ScanLine aria-hidden="true" />
+          {options.map((option, index) => (
+            <button
+              key={option.id} type="button" disabled={disabled}
+              data-selected={selected.includes(option.id)}
+              style={{ '--point': index } as CSSProperties}
+              onClick={() => onChange({ ...draft, tokens: selectedTokens(selected, option.id, 2) })}
+            >{option.id.toUpperCase()}</button>
+          ))}
+        </div>
+        <p>حرّك الماسح عبر السجل وحدد موضعي الشذوذ. التحكم لا يعتمد على اللون وحده.</p>
+      </section>
+    );
+  }
+
+  if (mechanic === 'memory-grid') {
+    const grid = ['a1', 'a2', 'a3', 'b1', 'b2', 'b3', 'c1', 'c2', 'c3'];
+    return (
+      <section className="story-memory-grid" data-preview={memoryPreview} aria-label="Memory grid">
+        <header>{memoryPreview ? 'PATTERN BUFFER // OBSERVE' : 'PATTERN BUFFER // RESTORE'}</header>
+        <div>
+          {grid.map((id) => (
+            <button
+              key={id} type="button" disabled={disabled || memoryPreview}
+              data-preview={memoryPreview && ['a1', 'b2', 'c3'].includes(id)}
+              data-selected={draft.tokens.includes(id)}
+              onClick={() => onChange({ ...draft, tokens: selectedTokens(draft.tokens, id, 4, true) })}
+            >{id.toUpperCase()}</button>
+          ))}
+        </div>
+        <p>{memoryPreview ? 'احفظ النمط قبل أن يختفي.' : 'أعد النمط بالنقر على العقد بالترتيب.'}</p>
+      </section>
+    );
+  }
+
+  if (mechanic === 'pattern-scan') {
+    return <PatternScanBoard draft={draft} onChange={onChange} disabled={disabled} />;
+  }
+
+  if (mechanic === 'data-route') {
+    return <DataRouteBoard options={options} draft={draft} onChange={onChange} disabled={disabled} />;
+  }
+
+  if (mechanic === 'evidence' || mechanic === 'contradiction' || mechanic === 'deduction') {
+    return <EvidenceBoard mechanic={mechanic} options={options} draft={draft} onChange={onChange} disabled={disabled} />;
+  }
+
+  const selected = draft.tokens;
+  const limit = sequenceLimit(mechanic);
+  const ordered = ['sequence', 'timeline', 'cipher', 'mirror-code', 'data-route'].includes(mechanic);
+  const repeatable = ['cipher', 'mirror-code', 'memory-grid'].includes(mechanic);
+  return (
+    <section className="story-token-board" data-mode={mechanic} aria-label="لوحة حل النظام">
+      <div className="story-token-board__buffer" aria-live="polite">
+        {selected.length === 0 ? <span>AWAITING INPUT</span> : selected.map((token, index) => (
+          <button key={`${token}-${index}`} type="button" disabled={disabled} onClick={() => onChange({ ...draft, tokens: selected.filter((_, itemIndex) => itemIndex !== index) })}>
+            {ordered && <small>{index + 1}</small>}{token.toUpperCase()}
+          </button>
+        ))}
+      </div>
+      <div className="story-token-board__choices">
+        {options.map((option) => (
+          <button
+            key={option.id} type="button" disabled={disabled}
+            data-selected={!repeatable && selected.includes(option.id)}
+            onClick={() => onChange({ ...draft, tokens: selectedTokens(selected, option.id, limit, repeatable) })}
+          >
+            {option.symbol && <i>{option.symbol}</i>}
+            <strong>{option.label.ar}</strong>
+            <small>{option.label.en}</small>
+          </button>
+        ))}
+      </div>
+      <button type="button" className="story-token-board__clear" disabled={disabled || selected.length === 0} onClick={() => onChange({ ...draft, tokens: [] })}>إعادة الإدخال</button>
+    </section>
+  );
+}
+
+function RewardMoment({ onDismiss }: { onDismiss: () => void }) {
+  const reward = useStoryPuzzleStore((state) => state.latestReward);
+  if (!reward?.awarded) return null;
+  const puzzle = STORY_PUZZLE_BY_ID[reward.puzzleId];
+  return (
+    <div className="story-reward-moment" role="dialog" aria-modal="true" aria-labelledby="story-reward-title">
+      <div className="story-reward-moment__shard"><Sparkles aria-hidden="true" /></div>
+      <section>
+        <small>SYSTEM MEMORY FRAGMENT DETECTED</small>
+        <h2 id="story-reward-title">تم اكتساب شظية ذاكرة</h2>
+        <p>{puzzle?.completionMessage.ar ?? 'تمت الاستعادة.'}</p>
+        <dl>
+          <div><dt>XP</dt><dd>+{reward.xpGranted}</dd></div>
+          <div><dt>COINS</dt><dd>+{reward.coinsGranted + reward.perfectBonusCoins}</dd></div>
+          <div><dt>SHARD</dt><dd>{reward.snapshot.shardCount} / 20</dd></div>
+        </dl>
+        {reward.perfectBonusCoins > 0 && <strong className="story-reward-moment__perfect">PERFECT SOLVE +{reward.perfectBonusCoins} COINS</strong>}
+        <button type="button" onClick={onDismiss}>متابعة</button>
+      </section>
+    </div>
   );
 }
 
 export default function PuzzleScreen() {
-  const completedPuzzleIds = useGameStore(
-    (state) => state.progression.completedPuzzleIds,
-  );
-  const puzzleProgress = useGameStore((state) => state.puzzleProgress);
-  const collectedMemoryFragments = useGameStore(
-    (state) => state.collectedMemoryFragments,
-  );
-  const lastAvailablePuzzleId = useGameStore(
-    (state) => state.lastAvailablePuzzleId,
-  );
-  const unlockedHints = useGameStore(
-    (state) => state.unlockedHintTiersByPuzzle,
-  );
-  const rewardEvent = useGameStore((state) => state.lastPuzzleReward);
-  const actions = useGameStore((state) => state.actions);
-  const [selectedPuzzleId, setSelectedPuzzleId] = useState(
-    lastAvailablePuzzleId,
-  );
-  const [stageIndex, setStageIndex] = useState(0);
-  const [draftProgress, setDraftProgress] = useState<
-    CampaignPuzzleProgress[]
-  >([]);
-  const [feedback, setFeedback] = useState<string | null>(null);
-  const rewardDialogRef = useRef<HTMLDivElement>(null);
-
-  const statusById = useMemo(() => {
-    const availability = deriveCampaignAvailability({
-      completedPuzzleIds,
-      collectedShardIds: collectedMemoryFragments,
-      progressByPuzzleId: puzzleProgress,
-    });
-    return new Map<string, CardStatus>(
-      Object.entries(availability.puzzleStatuses),
-    );
-  }, [collectedMemoryFragments, completedPuzzleIds, puzzleProgress]);
-
-  const selectedPuzzle = CHAPTER_01_PUZZLES.find(
-    (puzzle) => puzzle.id === selectedPuzzleId,
-  ) ?? CHAPTER_01_PUZZLES[0]!;
-  const selectedStatus = statusById.get(selectedPuzzle.id) ?? 'locked';
-  const currentStage = selectedPuzzle.stages[stageIndex]
-    ?? selectedPuzzle.stages[0]!;
-  const currentProgress = draftProgress[stageIndex]
-    ?? blankProgress(currentStage, stageIndex);
-  const puzzleHints = unlockedHints[selectedPuzzle.id] ?? [];
-  const assistanceHint = selectedPuzzle.hints.find(
-    (hint) => (
-      hint.id === 'assistance'
-      && puzzleHints.includes(hint.id)
-    ),
-  );
+  const authStatus = useAuthStore((state) => state.status);
+  const storeStatus = useStoryPuzzleStore((state) => state.status);
+  const snapshot = useStoryPuzzleStore((state) => state.snapshot);
+  const error = useStoryPuzzleStore((state) => state.error);
+  const latestReward = useStoryPuzzleStore((state) => state.latestReward);
+  const actions = useStoryPuzzleStore((state) => state.actions);
+  const loadCollection = useCollectionStore((state) => state.actions.load);
+  const loadProfile = usePlayerProgressionStore((state) => state.actions.loadProfile);
+  const loadLeaderboard = usePlayerProgressionStore((state) => state.actions.loadLeaderboard);
+  const [selectedPuzzleId, setSelectedPuzzleId] = useState<string>('story_puzzle_01_signal_calibration');
+  const [draft, setDraft] = useState<StoryPuzzleDraft>(() => defaultDraft(STORY_PUZZLE_BY_ID.story_puzzle_01_signal_calibration!));
+  const [busy, setBusy] = useState(false);
+  const saveTimer = useRef<number | null>(null);
 
   useEffect(() => {
-    const saved = puzzleProgress[selectedPuzzle.id];
-    const next = saved?.length === selectedPuzzle.stages.length
-      ? saved
-      : createBlankPuzzleProgress(selectedPuzzle.stages);
-    setDraftProgress(next);
-    const firstIncomplete = selectedPuzzle.stages.findIndex(
-      (stage, index) => !stageCorrect(stage, next[index] ?? blankProgress(stage, index)),
-    );
-    setStageIndex(firstIncomplete < 0 ? selectedPuzzle.stages.length - 1 : firstIncomplete);
-    setFeedback(null);
-    // Store updates while interacting are mirrored locally. Reload saved
-    // progress only when the player selects another puzzle.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPuzzle.id]);
+    if (authStatus === 'signed-in') void actions.load();
+  }, [actions, authStatus]);
 
-  useLayoutEffect(() => {
-    if (!rewardEvent) return undefined;
-    const previousFocus = document.activeElement as HTMLElement | null;
-    const dialog = rewardDialogRef.current;
-    const memoryTarget = document.querySelector<HTMLElement>(
-      '[data-navigation-category="memory"]',
-    );
-    const currencyTarget = document.querySelector<HTMLElement>(
-      '[data-resource="currency"]',
-    );
-    const setTarget = (
-      target: HTMLElement | null,
-      prefix: 'memory' | 'currency',
-    ) => {
-      if (!dialog || !target) return;
-      const rect = target.getBoundingClientRect();
-      dialog.style.setProperty(
-        `--campaign-${prefix}-target-x`,
-        `${rect.left + rect.width / 2}px`,
-      );
-      dialog.style.setProperty(
-        `--campaign-${prefix}-target-y`,
-        `${rect.top + rect.height / 2}px`,
-      );
-    };
-    setTarget(memoryTarget, 'memory');
-    setTarget(currencyTarget, 'currency');
-    const firstButton = dialog?.querySelector<HTMLButtonElement>('button');
-    firstButton?.focus();
-    return () => previousFocus?.focus();
-  }, [rewardEvent]);
+  useEffect(() => {
+    if (latestReward?.awarded) void loadCollection(true);
+  }, [latestReward, loadCollection]);
 
-  const updateCurrentProgress = (next: CampaignPuzzleProgress) => {
-    const updated = selectedPuzzle.stages.map((stage, index) => (
-      index === stageIndex
-        ? next
-        : draftProgress[index] ?? blankProgress(stage, index)
-    ));
-    setDraftProgress(updated);
-    actions.saveCampaignPuzzleProgress(selectedPuzzle.id, updated);
-    setFeedback(null);
+  const entries = snapshot?.entries ?? [];
+  const entryById = useMemo(() => new Map(entries.map((entry) => [entry.puzzleId, entry])), [entries]);
+  const visiblePuzzles = useMemo(() => STORY_PUZZLES.filter((puzzle) => (
+    puzzle.classification === 'main' || entryById.get(puzzle.id)?.status !== 'hidden'
+  )), [entryById]);
+  const selectedPuzzle = STORY_PUZZLE_BY_ID[selectedPuzzleId] ?? STORY_PUZZLES[0]!;
+  const selectedEntry = entryById.get(selectedPuzzle.id) ?? {
+    puzzleId: selectedPuzzle.id, status: 'locked' as const, discovered: selectedPuzzle.classification === 'main', completedAt: null,
+    perfectSolve: false, unlockedHintIndexes: [], hintCosts: [0, 12, 24] as [number, number, number], draft: null,
+  };
+  const stageDrafts = selectedPuzzle.mechanic === 'multi-stage' ? parseStages(selectedPuzzle, draft) : [];
+  const stageIndex = Math.min(draft.stageIndex, Math.max(0, stageDrafts.length - 1));
+  const currentStage = selectedPuzzle.stages?.[stageIndex];
+  const activeDraft = currentStage ? stageDrafts[stageIndex]! : draft;
+
+  useEffect(() => {
+    if (!visiblePuzzles.some((puzzle) => puzzle.id === selectedPuzzleId)) {
+      const next = visiblePuzzles.find((puzzle) => entryById.get(puzzle.id)?.status === 'in_progress')
+        ?? visiblePuzzles.find((puzzle) => entryById.get(puzzle.id)?.status === 'available')
+        ?? visiblePuzzles[0];
+      if (next) setSelectedPuzzleId(next.id);
+    }
+  }, [entryById, selectedPuzzleId, visiblePuzzles]);
+
+  useEffect(() => {
+    const entry = entryById.get(selectedPuzzle.id);
+    setDraft(entry?.draft ? cloneDraft(entry.draft) : defaultDraft(selectedPuzzle));
+  }, [entryById, selectedPuzzle]);
+
+  useEffect(() => () => {
+    if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
+  }, []);
+
+  const queueSave = (next: StoryPuzzleDraft) => {
+    setDraft(next);
+    if (selectedEntry.status === 'locked' || selectedEntry.status === 'completed') return;
+    if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => { void actions.saveDraft(selectedPuzzle.id, next); }, 550);
+  };
+
+  const selectPuzzle = (puzzle: StoryPuzzleDefinition) => {
+    if (entryById.get(puzzle.id)?.status === 'locked') return;
+    setSelectedPuzzleId(puzzle.id);
+  };
+
+  const updateActiveDraft = (next: StoryPuzzleDraft) => {
+    if (!currentStage) {
+      queueSave(next);
+      return;
+    }
+    const nextStages = [...stageDrafts];
+    nextStages[stageIndex] = next;
+    queueSave(composeStageDraft(draft, stageIndex, nextStages));
+  };
+
+  const saveNow = async (nextDraft = draft) => {
+    if (selectedEntry.status === 'locked' || selectedEntry.status === 'completed') return;
+    setBusy(true);
+    await actions.saveDraft(selectedPuzzle.id, nextDraft);
+    setBusy(false);
+  };
+
+  const complete = async () => {
+    setBusy(true);
+    const receipt = await actions.complete(selectedPuzzle.id, draft);
+    if (receipt?.awarded) {
+      void loadProfile();
+      void loadLeaderboard(true);
+    }
+    setBusy(false);
+  };
+
+  const advanceStage = async () => {
+    if (!currentStage) return;
+    const nextIndex = Math.min(stageIndex + 1, stageDrafts.length - 1);
+    const next = composeStageDraft(draft, nextIndex, stageDrafts);
+    queueSave(next);
+    await saveNow(next);
   };
 
   const resetPuzzle = () => {
-    const reset = createBlankPuzzleProgress(selectedPuzzle.stages);
-    setDraftProgress(reset);
-    setStageIndex(0);
-    actions.saveCampaignPuzzleProgress(selectedPuzzle.id, reset);
-    setFeedback('تمت إعادة مساحة اللغز إلى البداية.');
+    const next = defaultDraft(selectedPuzzle);
+    queueSave(next);
   };
 
-  const verifyStage = () => {
-    if (!stageCorrect(currentStage, currentProgress)) {
-      setFeedback('الإشارة غير مستقرة بعد. راجع الأدلة وحاول ترتيبها من جديد.');
-      return;
-    }
-    if (stageIndex < selectedPuzzle.stages.length - 1) {
-      setStageIndex((current) => current + 1);
-      setFeedback('اكتملت هذه المرحلة. انتقل إلى الجزء التالي من الذاكرة.');
-      return;
-    }
-    const result = actions.completeCampaignPuzzle(
-      selectedPuzzle.id,
-      draftProgress,
+  const discover = async (secretId: string) => {
+    setBusy(true);
+    const next = await actions.discover(secretId);
+    setBusy(false);
+    if (next) setSelectedPuzzleId(secretId);
+  };
+
+  if (authStatus !== 'signed-in') {
+    return (
+      <section className="story-puzzle-gate">
+        <LockKeyhole aria-hidden="true" />
+        <h1>قناة الألغاز محمية</h1>
+        <p>سجّل الدخول لربط أدلة المانهوا وسجل الاستعادة بحسابك.</p>
+      </section>
     );
-    setFeedback(result.message);
-  };
-
-  const buyHint = (tierId: HintTierId) => {
-    const result = actions.purchaseCampaignHint(selectedPuzzle.id, tierId);
-    if (
-      result.success
-      && !result.alreadyUnlocked
-      && (
-        result.hint?.effect === 'lock_correct_element'
-        || result.hint?.effect === 'complete_one_step'
-      )
-    ) {
-      const assisted = applyAssistanceStep(currentStage, currentProgress);
-      if (assisted !== currentProgress) updateCurrentProgress(assisted);
-    }
-    setFeedback(result.message);
-  };
+  }
 
   return (
-    <div className="shell-screen campaign-puzzle-screen">
-      <header
-        className="shell-screen-heading"
-        aria-hidden={rewardEvent ? 'true' : undefined}
-        inert={Boolean(rewardEvent)}
-      >
-        <span className="shell-screen-code">04</span>
-        <span>
-          <small>PUZZLE ARCHIVE // CHAPTER 01</small>
-          <h1>الألغاز</h1>
-        </span>
-        <div className="campaign-puzzle-screen__summary">
-          <strong>{completedPuzzleIds.filter((id) => id.startsWith('puzzle_')).length}/20</strong>
-          <span>ذاكرة مستعادة</span>
-        </div>
+    <div className="story-puzzle-screen" data-mechanic={selectedPuzzle.mechanic}>
+      <header className="story-puzzle-screen__header">
+        <div><small>11.11 // STORY INTERFERENCE</small><h1>استعادة الذاكرة</h1></div>
+        <dl>
+          <div><dt>MAIN PATH</dt><dd>{snapshot?.mainCompletedCount ?? 0} / 14</dd></div>
+          <div><dt>MEMORY SHARDS</dt><dd>{snapshot?.shardCount ?? 0} / 20</dd></div>
+          <div><dt><Coins aria-hidden="true" /> COINS</dt><dd>{snapshot?.coinBalance ?? 0}</dd></div>
+        </dl>
       </header>
 
-      <aside
-        className="campaign-puzzle-index"
-        aria-label="قائمة الألغاز"
-        aria-hidden={rewardEvent ? 'true' : undefined}
-        inert={Boolean(rewardEvent)}
-      >
-        {CHAPTER_01_PUZZLES.map((puzzle) => {
-          const status = statusById.get(puzzle.id) ?? 'locked';
-          const active = puzzle.id === selectedPuzzle.id;
+      <aside className="story-puzzle-index" aria-label="قائمة ألغاز القصة">
+        {visiblePuzzles.map((puzzle) => {
+          const entry = entryById.get(puzzle.id);
+          const status = entry?.status ?? 'locked';
           return (
             <button
-              key={puzzle.id}
-              type="button"
-              data-status={status}
-              data-active={active}
-              disabled={status === 'locked'}
-              onClick={() => setSelectedPuzzleId(puzzle.id)}
-              aria-label={`${puzzle.order}. ${puzzle.title.ar} - ${statusLabel(status)}`}
+              key={puzzle.id} type="button" data-active={puzzle.id === selectedPuzzle.id}
+              data-status={status} disabled={status === 'locked'} onClick={() => selectPuzzle(puzzle)}
             >
-              <span className="campaign-puzzle-index__number">
-                {status === 'completed'
-                  ? <CheckCircle2 aria-hidden="true" />
-                  : status === 'locked'
-                    ? <LockKeyhole aria-hidden="true" />
-                    : String(puzzle.order).padStart(2, '0')}
-              </span>
-              <span>
-                <strong>{puzzle.title.ar}</strong>
-                <small>
-                  {PUZZLE_TEMPLATE_REGISTRY[puzzle.template].label.ar} · {difficultyLabels[puzzle.difficulty]}
-                </small>
-              </span>
-              <ChevronLeft aria-hidden="true" />
+              <span>{status === 'completed' ? <Check aria-hidden="true" /> : puzzle.classification === 'secret' ? <Crosshair aria-hidden="true" /> : String(puzzle.order).padStart(2, '0')}</span>
+              <i><strong>{puzzle.classification === 'secret' && status === 'hidden' ? '///' : puzzle.title.ar}</strong><small>{puzzle.classification === 'secret' ? 'SECRET SIGNAL' : `CHAPTER ${puzzle.chapterId.slice(-1)}`}</small></i>
+              {status === 'locked' && <LockKeyhole aria-hidden="true" />}
             </button>
           );
         })}
       </aside>
 
-      <main
-        className="campaign-puzzle-workspace"
-        aria-hidden={rewardEvent ? 'true' : undefined}
-        inert={Boolean(rewardEvent)}
-      >
-        <HudPanel
-          tone={selectedStatus === 'completed' ? 'memory' : 'danger'}
-          eyebrow={`PUZZLE ${String(selectedPuzzle.order).padStart(3, '0')} // ${statusLabel(selectedStatus)}`}
-          title={selectedPuzzle.title.ar}
-        >
-          <div className="campaign-puzzle-workspace__meta">
-            <span>{PUZZLE_TEMPLATE_REGISTRY[selectedPuzzle.template].label.ar}</span>
-            <span>{difficultyLabels[selectedPuzzle.difficulty]}</span>
-            <span><Coins aria-hidden="true" /> {selectedPuzzle.rewards.coins}</span>
-            <span><Diamond aria-hidden="true" /> شظية {String(selectedPuzzle.order).padStart(2, '0')}</span>
+      <main className="story-puzzle-workspace">
+        <section className="story-puzzle-console">
+          <header>
+            <span><Activity aria-hidden="true" /> {selectedPuzzle.classification === 'secret' ? 'ANOMALY CHANNEL' : 'SYSTEM CHANNEL'}</span>
+            <small>PUZZLE {String(selectedPuzzle.order).padStart(2, '0')} // {statusLabel(selectedEntry.status)}</small>
+          </header>
+          <div className="story-puzzle-console__title">
+            <div><small>{selectedPuzzle.mechanic.replace('-', ' ').toUpperCase()}</small><h2>{selectedPuzzle.title.ar}</h2><p>{selectedPuzzle.objective.ar}</p></div>
+            <span className="story-puzzle-console__page">SOURCE // {String(selectedPuzzle.source.globalPageNumber).padStart(2, '0')}</span>
           </div>
-          <p className="campaign-puzzle-workspace__description">
-            {selectedPuzzle.description.ar}
-          </p>
 
-          {selectedStatus === 'locked' ? (
-            <div className="campaign-puzzle-locked">
-              <LockKeyhole aria-hidden="true" />
-              <strong>الإشارة مقفلة</strong>
-              <p>استعد اللغز السابق لفتح هذه الذاكرة.</p>
+          {selectedEntry.status === 'locked' ? (
+            <div className="story-puzzle-console__locked"><LockKeyhole aria-hidden="true" /><strong>الدليل غير متاح بعد</strong><p>تابع قراءة المانهوا بالترتيب، ثم أكمل مسار الاستعادة السابق.</p></div>
+          ) : selectedEntry.status === 'completed' ? (
+            <div className="story-puzzle-console__completed">
+              <Check aria-hidden="true" /><h3>{selectedPuzzle.completionMessage.ar}</h3><p>{selectedEntry.perfectSolve ? 'تمت الاستعادة دون استخدام تلميحات.' : 'تم حفظ الاستعادة في السجل الخادمي.'}</p>
+              {selectedPuzzle.image && <img src={selectedPuzzle.image.src} alt={selectedPuzzle.image.alt.ar} loading="lazy" />}
             </div>
           ) : (
             <>
-              <div className="campaign-stage-heading">
-                <span>
-                  المرحلة {stageIndex + 1} من {selectedPuzzle.stages.length}
-                </span>
-                <i>
-                  {selectedPuzzle.stages.map((stage, index) => (
-                    <b
-                      key={stage.id}
-                      data-active={index === stageIndex}
-                      data-complete={
-                        stageCorrect(
-                          stage,
-                          draftProgress[index] ?? blankProgress(stage, index),
-                        )
-                      }
-                    />
-                  ))}
-                </i>
-              </div>
-              <h2 className="campaign-stage-prompt">{currentStage.prompt.ar}</h2>
-              <PuzzleInteractionBoard
-                stage={currentStage}
-                progress={currentProgress}
-                onChange={updateCurrentProgress}
-                assistanceLevel={puzzleHints.length}
-                assistanceEffect={assistanceHint?.effect}
-                disabled={selectedStatus === 'completed'}
-              />
-              {feedback && (
-                <p className="campaign-puzzle-feedback" aria-live="polite">
-                  {feedback}
-                </p>
+              {currentStage && (
+                <div className="story-puzzle-stages">
+                  <span>STAGE {stageIndex + 1} / {stageDrafts.length}</span>
+                  <div>{stageDrafts.map((_, index) => <i key={index} data-active={index === stageIndex} data-complete={index < stageIndex} />)}</div>
+                  <strong>{currentStage.objective.ar}</strong>
+                </div>
               )}
-              <div className="campaign-puzzle-actions">
-                <GameButton
-                  size="lg"
-                  onClick={verifyStage}
-                  disabled={selectedStatus === 'completed'}
-                >
-                  {stageIndex < selectedPuzzle.stages.length - 1
-                    ? 'تثبيت المرحلة'
-                    : 'تحقق من الاستعادة'}
-                </GameButton>
-                <GameButton
-                  variant="ghost"
-                  leadingIcon={<RotateCcw aria-hidden="true" />}
-                  onClick={resetPuzzle}
-                  disabled={selectedStatus === 'completed'}
-                >
-                  إعادة اللغز
-                </GameButton>
-                {selectedStatus === 'completed' && (
-                  <span className="campaign-puzzle-completed">
-                    <CheckCircle2 aria-hidden="true" />
-                    تم حفظ المكافأة
-                  </span>
+              <PuzzleMechanic
+                puzzle={selectedPuzzle}
+                mechanic={(currentStage?.mechanic ?? selectedPuzzle.mechanic) as Exclude<StoryPuzzleMechanic, 'multi-stage'>}
+                options={currentStage?.options}
+                draft={activeDraft}
+                onChange={updateActiveDraft}
+                disabled={busy}
+              />
+              <div className="story-puzzle-console__actions">
+                {currentStage && stageIndex < stageDrafts.length - 1 ? (
+                  <button type="button" disabled={busy} onClick={() => void advanceStage()}>تثبيت المرحلة <ChevronLeft aria-hidden="true" /></button>
+                ) : (
+                  <button type="button" disabled={busy} onClick={() => void complete()}><Zap aria-hidden="true" /> تحقق من الاستعادة</button>
                 )}
+                <button type="button" className="story-puzzle-console__quiet" disabled={busy} onClick={() => void saveNow()}>حفظ الآن</button>
+                <button type="button" className="story-puzzle-console__quiet" disabled={busy} onClick={resetPuzzle}><RotateCcw aria-hidden="true" /> إعادة المحاولة</button>
               </div>
+              {snapshot?.discoverableSecretPuzzleIds.filter((secretId) => STORY_PUZZLE_BY_ID[secretId]?.anomalyHostPuzzleId === selectedPuzzle.id).map((secretId) => (
+                <button key={secretId} type="button" className="story-puzzle-anomaly" disabled={busy} onClick={() => void discover(secretId)} aria-label="إشارة غير مستقرة">
+                  <span>///</span><small>UNSTABLE SUBCHANNEL DETECTED</small>
+                </button>
+              ))}
             </>
           )}
-        </HudPanel>
+          {error && <p className="story-puzzle-console__error"><TriangleAlert aria-hidden="true" /> {error}</p>}
+        </section>
 
-        <CampaignHintsPanel
-          puzzle={selectedPuzzle}
-          status={selectedStatus}
-          unlockedHintIds={puzzleHints}
-          onPurchase={buyHint}
-        />
+        <aside className="story-puzzle-hints" aria-label="تلميحات اللغز">
+          <header><CircleHelp aria-hidden="true" /><span>ASSISTANCE CHANNEL</span></header>
+          {selectedPuzzle.hints.map((hint, index) => {
+            const unlocked = selectedEntry.unlockedHintIndexes.includes(index);
+            const preceding = index === 0 || selectedEntry.unlockedHintIndexes.includes(index - 1);
+            const cost = selectedEntry.hintCosts[index];
+            return (
+              <article key={index} data-unlocked={unlocked}>
+                <small>HINT {String(index + 1).padStart(2, '0')} <strong>{cost === 0 ? 'FREE' : `${cost} ◉`}</strong></small>
+                {unlocked ? <p>{hint.ar}</p> : <button type="button" disabled={busy || !preceding || selectedEntry.status === 'locked'} onClick={() => void actions.unlockHint(selectedPuzzle.id, index)}>فتح التلميح</button>}
+              </article>
+            );
+          })}
+          <footer><ScanLine aria-hidden="true" /> استخدام التلميح لا يلغي XP أو الشظية؛ يلغي فقط مكافأة الحل المثالي.</footer>
+        </aside>
       </main>
 
-      {rewardEvent && (
-        <div
-          ref={rewardDialogRef}
-          className="campaign-reward"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="campaign-reward-title"
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') {
-              actions.clearPuzzleRewardEvent();
-              return;
-            }
-            if (event.key === 'Tab') {
-              event.preventDefault();
-              rewardDialogRef.current
-                ?.querySelector<HTMLButtonElement>('button')
-                ?.focus();
-            }
-          }}
-        >
-          <span className="campaign-reward__coin"><Coins aria-hidden="true" /></span>
-          <span className="campaign-reward__shard"><Diamond aria-hidden="true" /></span>
-          <GlassPanel tone="memory" eyebrow="MEMORY RECOVERED">
-            <h2 id="campaign-reward-title">تمت استعادة الشظية</h2>
-            <p>
-              <strong>+{rewardEvent.coins}</strong> عملة
-              <span> · </span>
-              <strong>+1</strong> شظية ذاكرة
-            </p>
-            {rewardEvent.restoredPageId && (
-              <small>اكتملت صفحة جديدة داخل أرشيف الذكريات.</small>
-            )}
-            <GameButton onClick={actions.clearPuzzleRewardEvent}>
-              متابعة
-            </GameButton>
-          </GlassPanel>
-        </div>
-      )}
+      {storeStatus === 'loading' && !snapshot && <div className="story-puzzle-loading">SYNCHRONIZING VERIFIED RECORDS…</div>}
+      {latestReward && <RewardMoment onDismiss={actions.dismissReward} />}
     </div>
   );
 }

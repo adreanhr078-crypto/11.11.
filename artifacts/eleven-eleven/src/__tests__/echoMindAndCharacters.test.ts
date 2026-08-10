@@ -101,28 +101,48 @@ describe('Echo Mind and Character Archive', () => {
     assert.equal(context.beliefs.includes('الصوت قد يكون فخًا'), false);
   });
 
-  it('adds rich story beats only after their canonical puzzle is solved', () => {
+  it('does not inject retired puzzle dialogue into Echo knowledge', () => {
     const state = buildInitialState();
     state.progression.completedPuzzleIds.push('puzzle_001_broken_pulse');
     state.unlockedManhwaPageIds.push('manhwa_ch01_page_01');
 
     const context = createEchoMindKnowledgeContext(state, 'en');
 
-    assert.equal(context.revealedStoryBeats.length, 1);
+    assert.equal(context.revealedStoryBeats.length, 0);
+    assert.equal(context.restoredManhwaPages[0]?.transcript.length, 0);
     assert.equal(
-      context.revealedStoryBeats[0]?.puzzleId,
-      'puzzle_001_broken_pulse',
-    );
-    assert.equal(
-      context.revealedStoryBeats[0]?.beliefs.includes(
-        'My awakening began with a failing heartbeat.',
-      ),
+      context.restoredManhwaPages[0]?.description.includes('Final approved Manhwa page'),
       true,
     );
-    assert.equal(context.restoredManhwaPages[0]?.transcript.length, 3);
+  });
+
+  it('gates Canon Echo knowledge by authoritative story receipts', () => {
+    const state = buildInitialState();
+    state.narrative.knowledgeNodeIds.push(
+      'echo_knowledge_black_echo_protocol',
+    );
+    state.progressionState.story.authoritative.completedChapterIds = [
+      'chapter_3',
+    ];
+    state.progressionState.story.authoritative.canonEventReceipts = [{
+      eventId: 'manhwa_chapter_04_black_coronation',
+      eventVersion: 1,
+      sourceType: 'manhwa',
+      sourceId: 'chapter_4',
+      sourcePageId: 'manhwa_ch04_page_02',
+      sourcePageNumber: 56,
+      reachedAt: '2026-08-09T11:11:00.000Z',
+    }];
+
+    const context = createEchoMindKnowledgeContext(state, 'en');
+
     assert.equal(
-      context.restoredManhwaPages[0]?.description.includes('laboratory glass'),
+      context.knowledgeNodeIds.includes('echo_knowledge_black_coronation'),
       true,
+    );
+    assert.equal(
+      context.knowledgeNodeIds.includes('echo_knowledge_black_echo_protocol'),
+      false,
     );
   });
 
@@ -136,6 +156,43 @@ describe('Echo Mind and Character Archive', () => {
     assert.equal(echo?.displayName, 'Echo');
     assert.equal(yuki?.unlocked, false);
     assert.equal(yuki?.displayName, 'Unknown');
+  });
+
+  it('opens only a spoiler-safe partial Lina file from LINA PROTOCOL', () => {
+    const state = buildInitialState();
+    state.progressionState.story.authoritative.completedChapterIds = [
+      'chapter_3',
+    ];
+    state.progressionState.story.authoritative.canonEventReceipts = [
+      {
+        eventId: 'manhwa_chapter_04_black_coronation',
+        eventVersion: 1,
+        sourceType: 'manhwa',
+        sourceId: 'chapter_4',
+        sourcePageId: 'manhwa_ch04_page_02',
+        sourcePageNumber: 56,
+        reachedAt: '2026-08-09T11:11:00.000Z',
+      },
+      {
+        eventId: 'manhwa_chapter_04_lina_protocol',
+        eventVersion: 1,
+        sourceType: 'manhwa',
+        sourceId: 'chapter_4',
+        sourcePageId: 'manhwa_ch04_page_04',
+        sourcePageNumber: 58,
+        reachedAt: '2026-08-09T11:12:00.000Z',
+      },
+    ];
+
+    const lina = createCharactersScreenReadModel(state).entries.find(
+      (entry) => entry.id === 'character_lina',
+    );
+
+    assert.equal(lina?.unlocked, true);
+    assert.equal(lina?.accessLevel, 'partial');
+    assert.equal(lina?.codename, 'LINA PROTOCOL');
+    assert.equal(lina?.role, 'PARTIAL IDENTITY CONFIRMED');
+    assert.equal(lina?.relationship, 'No additional relationship data has been verified.');
   });
 
   it('reveals discovered characters through canonical narrative signals', () => {

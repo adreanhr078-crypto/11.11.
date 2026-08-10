@@ -33,6 +33,9 @@ export function EchoInteractiveStage({
   const rootRef = useRef<HTMLElement>(null);
   const reactionTimerRef = useRef<number | null>(null);
   const [isReacting, setIsReacting] = useState(false);
+  // The final Manhwa transformations have no separately approved game asset
+  // yet. Keep the established safe body asset and expose form-specific VFX
+  // through data-form instead of substituting an invented character design.
   const source = form === 'corrupted'
     ? ECHO_PRESENTATION_ASSETS.fullBodyCorrupted
     : ECHO_PRESENTATION_ASSETS.fullBodyNormal;

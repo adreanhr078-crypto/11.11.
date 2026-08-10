@@ -1,17 +1,17 @@
 import {
-  CHAPTER_01_MANHWA_PAGES,
-  CHAPTER_01_MEMORY_SHARDS,
-} from '../../content/puzzles/chapter01Campaign';
+  STORY_PUZZLE_COUNTS,
+} from '../../content/puzzles/storyPuzzleCatalog';
+import { FINAL_MANHWA_PAGES } from '../../content/manhwa/finalManhwa';
 import {
   createManhwaPageAccessDefinition,
   createManhwaReachabilityReport,
 } from '../../domain/manhwa/manhwaArchiveProgression';
 
-export const CHAPTER_01_MANHWA_ACCESS_DEFINITIONS =
-  CHAPTER_01_MANHWA_PAGES.map((page) => (
+export const FINAL_MANHWA_ACCESS_DEFINITIONS =
+  FINAL_MANHWA_PAGES.map((page) => (
     createManhwaPageAccessDefinition({
       pageId: page.id,
-      pageNumber: page.pageNumber,
+      pageNumber: page.globalPageNumber,
       ...(page.prerequisitePageId
         ? { prerequisitePageId: page.prerequisitePageId }
         : {}),
@@ -19,11 +19,11 @@ export const CHAPTER_01_MANHWA_ACCESS_DEFINITIONS =
   ));
 
 /**
- * The current Chapter 01 economy contains 20 earnable shard rewards. Buying
- * every paid page costs 134 shards, so the current ceiling is Page 06.
+ * Static QA reachability remains based on the active Story Puzzle campaign's
+ * finite fragment pool. It never grants or unlocks content at runtime.
  */
-export const CHAPTER_01_MANHWA_REACHABILITY =
+export const FINAL_MANHWA_REACHABILITY =
   createManhwaReachabilityReport(
-    CHAPTER_01_MANHWA_ACCESS_DEFINITIONS,
-    CHAPTER_01_MEMORY_SHARDS.length,
+    FINAL_MANHWA_ACCESS_DEFINITIONS,
+    STORY_PUZZLE_COUNTS.total,
   );

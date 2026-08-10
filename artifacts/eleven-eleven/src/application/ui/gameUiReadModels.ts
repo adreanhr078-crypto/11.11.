@@ -14,9 +14,12 @@ import {
 } from '../../infrastructure/content/cinematicContentRegistry';
 import { conditionsPass } from '../../domain/narrative/ruleEngine';
 import {
-  CHAPTER_01_MANHWA_PAGES,
-  CHAPTER_01_PUZZLES,
-} from '../../content/puzzles/chapter01Campaign';
+  STORY_PUZZLE_COUNTS,
+} from '../../content/puzzles/storyPuzzleCatalog';
+import type {
+  StoryPuzzleSnapshot,
+} from '../../domain/story-puzzles/storyPuzzleContracts';
+import { FINAL_MANHWA_PAGES } from '../../content/manhwa/finalManhwa';
 import {
   createAchievementViews,
   type AchievementView,
@@ -25,6 +28,13 @@ import {
   createEchoStatusReadModel,
   type EchoStatusReadModel,
 } from './echoStatusReadModel';
+import {
+  getStoryCharacterAccess,
+} from '../../domain/story/storyState';
+import {
+  getCharacterMomentReadModels,
+  type CharacterMomentReadModel,
+} from '../../domain/characters/characterAttachment';
 
 export interface DashboardReadModel {
   chapter: {
@@ -70,20 +80,30 @@ function percentage(value: number, total: number): number {
   return total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 0;
 }
 
+function createStoryPuzzleProgress(
+  snapshot: StoryPuzzleSnapshot | null | undefined,
+): DashboardReadModel['puzzleProgress'] {
+  const total = STORY_PUZZLE_COUNTS.total;
+  const resolved = Math.min(
+    total,
+    Math.max(0, snapshot?.totalCompletedCount ?? 0),
+  );
+  return {
+    resolved,
+    total,
+    progress: percentage(resolved, total),
+  };
+}
+
 export function createDashboardReadModel(
   state: GameState,
+  storyPuzzleSnapshot: StoryPuzzleSnapshot | null = null,
 ): DashboardReadModel {
   const chapter = CHAPTER_DEFINITIONS.find(
     (item) => item.id === state.progression.currentChapterId,
   ) ?? CHAPTER_DEFINITIONS[0];
-  const campaignPuzzleIds = new Set(
-    CHAPTER_01_PUZZLES.map((puzzle) => puzzle.id),
-  );
-  const resolved = new Set([
-    ...state.progression.completedPuzzleIds,
-    ...state.progression.skippedPuzzleIds,
-  ].filter((puzzleId) => campaignPuzzleIds.has(puzzleId))).size;
-  const fragmentTotal = CHAPTER_01_MANHWA_PAGES.reduce(
+  const puzzleProgress = createStoryPuzzleProgress(storyPuzzleSnapshot);
+  const fragmentTotal = FINAL_MANHWA_PAGES.reduce(
     (total, page) => total + page.requiredShardIds.length,
     0,
   );
@@ -94,13 +114,13 @@ export function createDashboardReadModel(
       id: chapter?.id ?? state.progression.currentChapterId,
       title: chapter?.title.ar ?? 'فصل غير معنْون',
       description: chapter?.description.ar ?? 'بانتظار بيانات الفصل.',
-      progress: percentage(resolved, CHAPTER_01_PUZZLES.length),
+      progress: puzzleProgress.progress,
     },
     echoStatus: createEchoStatusReadModel(state.progressionState),
     memory: {
       unlocked: state.unlockedManhwaPageIds.length,
       fragments: fragmentCount,
-      totalDefinitions: CHAPTER_01_MANHWA_PAGES.length,
+      totalDefinitions: FINAL_MANHWA_PAGES.length,
       legacyCollected: state.memory.fragmentsCollected,
       legacyTotal: state.memory.totalFragments,
       progress: percentage(fragmentCount, fragmentTotal),
@@ -121,18 +141,14 @@ export function createDashboardReadModel(
       crystals: state.echo.crystals,
       shards: state.collectedMemoryFragments.length,
     },
-    puzzleProgress: {
-      resolved,
-      total: CHAPTER_01_PUZZLES.length,
-      progress: percentage(resolved, CHAPTER_01_PUZZLES.length),
-    },
+    puzzleProgress,
     cinematic: {
       authoredEpisodes: CINEMATIC_EPISODE_DEFINITIONS.length,
       completedEpisodes: state.cinematic.completedEpisodeIds.length,
       active: state.cinematic.activeEpisodeId !== null,
     },
     hasJourneyProgress: (
-      resolved > 0
+      puzzleProgress.resolved > 0
       || state.narrative.decisionHistory.length > 0
       || state.narrative.unlockedMemoryIds.length > 0
       || state.collectedMemoryFragments.length > 0
@@ -432,6 +448,8 @@ export interface CharacterArchiveEntryReadModel {
   relatedMemories: string[];
   relatedScenes: string[];
   discoveredFiles: string[];
+  accessLevel: 'unknown' | 'partial' | 'identified' | 'full';
+  moments: CharacterMomentReadModel[];
 }
 
 export interface CharactersScreenReadModel {
@@ -441,8 +459,40 @@ export interface CharactersScreenReadModel {
 export function createCharactersScreenReadModel(
   state: GameState,
 ): CharactersScreenReadModel {
-  return {
-    entries: [
+  const linaStoryAccess = getStoryCharacterAccess(
+    state.progressionState,
+    'lina',
+  );
+  const linaLegacyDiscovered = discoverCharacter(state, ['lina']);
+  const linaIsCanonPartial = (
+    linaStoryAccess === 'partial'
+    && !linaLegacyDiscovered
+  );
+  const characterMoments = getCharacterMomentReadModels(state.progressionState);
+  const momentsFor = (characterId: CharacterMomentReadModel['characterId']) => (
+    characterMoments.filter((moment) => moment.characterId === characterId)
+  );
+  const linaCanonPartialFields: Partial<Pick<
+    CharacterArchiveEntryReadModel,
+    | 'displayName'
+    | 'codename'
+    | 'role'
+    | 'relationship'
+    | 'unlocked'
+    | 'portraitMode'
+    | 'summary'
+  >> = linaIsCanonPartial
+    ? {
+      displayName: 'Lina',
+      codename: 'LINA PROTOCOL',
+      role: 'PARTIAL IDENTITY CONFIRMED',
+      relationship: 'No additional relationship data has been verified.',
+      unlocked: true,
+      portraitMode: 'partial',
+      summary: 'A partial file is available from the verified LINA PROTOCOL signal.',
+    }
+    : {};
+  const rawEntries: CharacterArchiveEntryReadModel[] = [
       {
         id: 'character_echo',
         name: 'Echo',
@@ -456,6 +506,8 @@ export function createCharactersScreenReadModel(
         relatedMemories: getRelatedMemoryTitles(state, ['echo']),
         relatedScenes: getRelatedSceneLabels(state, ['echo']),
         discoveredFiles: getRelatedFileLabels(state, ['echo']),
+        accessLevel: 'full',
+        moments: momentsFor('echo'),
       },
       {
         id: 'character_kinja',
@@ -481,6 +533,10 @@ export function createCharactersScreenReadModel(
           state,
           ['kinja', 'kenja', 'architect'],
         ),
+        accessLevel: discoverCharacter(state, ['kinja', 'kenja', 'architect'])
+          ? 'full'
+          : 'unknown',
+        moments: momentsFor('kenja'),
       },
       {
         id: 'character_lina',
@@ -497,6 +553,13 @@ export function createCharactersScreenReadModel(
         relatedMemories: getRelatedMemoryTitles(state, ['lina']),
         relatedScenes: getRelatedSceneLabels(state, ['lina']),
         discoveredFiles: getRelatedFileLabels(state, ['lina']),
+        ...linaCanonPartialFields,
+        accessLevel: linaIsCanonPartial
+          ? 'partial'
+          : linaLegacyDiscovered
+            ? 'full'
+            : 'unknown',
+        moments: momentsFor('lina'),
       },
       {
         id: 'character_yuki',
@@ -513,8 +576,11 @@ export function createCharactersScreenReadModel(
         relatedMemories: getRelatedMemoryTitles(state, ['yuki']),
         relatedScenes: getRelatedSceneLabels(state, ['yuki']),
         discoveredFiles: getRelatedFileLabels(state, ['yuki']),
+        accessLevel: discoverCharacter(state, ['yuki']) ? 'full' : 'unknown',
+        moments: momentsFor('yuki'),
       },
-    ].map((entry) => ({
+    ];
+  const entries = rawEntries.map((entry): CharacterArchiveEntryReadModel => ({
       ...entry,
       relatedMemories: entry.unlocked ? entry.relatedMemories : [],
       relatedScenes: entry.unlocked ? entry.relatedScenes : [],
@@ -525,8 +591,8 @@ export function createCharactersScreenReadModel(
       displayName: entry.unlocked ? entry.displayName : 'Unknown',
       role: entry.unlocked ? entry.role : 'مجهول',
       portraitMode: entry.unlocked ? entry.portraitMode : 'locked',
-    })),
-  };
+  }));
+  return { entries };
 }
 
 export interface ProgressEventReadModel {
@@ -570,15 +636,10 @@ export interface ProgressScreenReadModel {
 
 export function createProgressScreenReadModel(
   state: GameState,
+  storyPuzzleSnapshot: StoryPuzzleSnapshot | null = null,
 ): ProgressScreenReadModel {
   const achievements = createAchievementsReadModel(state);
-  const campaignPuzzleIds = new Set(
-    CHAPTER_01_PUZZLES.map((puzzle) => puzzle.id),
-  );
-  const resolvedPuzzles = new Set([
-    ...state.progression.completedPuzzleIds,
-    ...state.progression.skippedPuzzleIds,
-  ].filter((puzzleId) => campaignPuzzleIds.has(puzzleId))).size;
+  const puzzleProgress = createStoryPuzzleProgress(storyPuzzleSnapshot);
   const timelineEvents = state.memory.timelineEvents
     .slice(-3)
     .reverse()
@@ -610,8 +671,8 @@ export function createProgressScreenReadModel(
       + state.unlockedManhwaPageIds.length
     ),
     fragmentsUnlocked: state.collectedMemoryFragments.length,
-    resolvedPuzzles,
-    totalPuzzles: CHAPTER_01_PUZZLES.length,
+    resolvedPuzzles: puzzleProgress.resolved,
+    totalPuzzles: puzzleProgress.total,
     recentEvents: [...decisions, ...timelineEvents].slice(0, 6),
   };
 }

@@ -362,7 +362,6 @@ describe('isolated active Echo sources', () => {
 
   it('keeps Puzzle source adapters free of compatibility Echo writes', () => {
     const puzzleSources = [
-      'src/application/game/chapter01RewardAdapter.ts',
       'src/application/game/createPuzzleActions.ts',
       'src/application/game/createPuzzleCampaignActions.ts',
     ].map((file) => readFileSync(file, 'utf8'));
@@ -374,7 +373,7 @@ describe('isolated active Echo sources', () => {
       assert.doesNotMatch(source, /applyStandaloneEchoEvent/);
     }
     assert.match(
-      puzzleSources[1] ?? '',
+      puzzleSources[0] ?? '',
       /applyCanonicalEchoSourceTransition/,
     );
   });

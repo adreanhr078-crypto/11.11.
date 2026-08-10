@@ -4083,6 +4083,23 @@
   border-inline-start: 1px solid rgb(255 255 255 / 10%);
 }
 
+.shell-character-archive__moments li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.shell-character-archive__moments li strong {
+  color: var(--gds-text-primary);
+  font: 700 var(--gds-type-2xs) var(--gds-font-mono);
+}
+
+.shell-character-archive__moments li small {
+  color: var(--gds-cyan-400);
+  font: 600 var(--gds-type-2xs) var(--gds-font-mono);
+}
+
 .shell-character-archive__actions {
   display: flex;
   flex-wrap: wrap;

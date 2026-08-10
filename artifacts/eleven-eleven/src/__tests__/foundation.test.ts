@@ -29,7 +29,7 @@ describe('Phase 1 foundation', () => {
     assert.doesNotThrow(validateContentRegistry);
     assert.equal(CONTENT_COUNTS.chapters, 7);
     assert.equal(CONTENT_COUNTS.puzzles, 20);
-    assert.equal(CONTENT_COUNTS.memories, 29);
+    assert.equal(CONTENT_COUNTS.memories, 71);
     assert.ok(CONTENT_MANIFEST.capacity.puzzles >= 2000);
     assert.ok(CONTENT_MANIFEST.capacity.memories >= 2000);
   });
@@ -87,23 +87,25 @@ describe('Phase 1 foundation', () => {
     const state = useGameStore.getState();
     assert.equal(Object.keys(state.chapters).length, 7);
     assert.equal(state.currentChapter, 'chapter_1');
-    assert.equal(state.totalPuzzles, 1000);
+    assert.equal(state.totalPuzzles, 20);
     assert.equal(state.puzzles.length, 0);
-    assert.equal(state.memory.totalFragments, 280);
+    assert.equal(state.memory.totalFragments, 20);
     assert.equal(state.currency, 0);
     assert.deepEqual(state.collectedMemoryFragments, []);
     assert.deepEqual(state.claimedPuzzleRewards, []);
     assert.deepEqual(state.unlockedManhwaPageIds, []);
     assert.deepEqual(state.viewedManhwaPageIds, []);
-    assert.deepEqual(
-      state.progressionState.manhwa.unlockedPageIds,
-      ['manhwa_ch01_page_01'],
-    );
+    assert.equal(state.progressionState.manhwa.unlockedPageIds.length, 71);
+    assert.equal(state.progressionState.manhwa.unlockedPageIds[0], 'manhwa_ch00_page_01');
+    assert.equal(state.progressionState.manhwa.unlockedPageIds.at(-1), 'manhwa_ch00_page_04');
     assert.equal(state.progressionState.echo.memoryStability, 5);
     assert.equal(state.progressionState.echo.memoriesRecovered, 0);
     assert.equal(state.progressionState.echo.humanity, 35);
     assert.equal(state.progressionState.echo.hope, 20);
-    assert.equal(state.lastAvailablePuzzleId, 'puzzle_001_broken_pulse');
+    assert.equal(
+      state.lastAvailablePuzzleId,
+      'story_puzzle_01_signal_calibration',
+    );
     assert.equal(state.echo.personality.trust, state.echo.trust);
     assert.equal(typeof state.actions.solve, 'function');
   });

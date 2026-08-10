@@ -256,6 +256,7 @@ export function applyManhwaPageViewTransaction(
     },
     story: shouldApplyEffect
       ? {
+          ...state.story,
           narrative: {
             ...narrative,
             beliefs: unique([

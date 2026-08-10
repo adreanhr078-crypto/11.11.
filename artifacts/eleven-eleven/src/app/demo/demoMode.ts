@@ -1,9 +1,9 @@
-import { CHAPTER_01_PUZZLES } from '../../content/puzzles/chapter01Campaign';
+import { STORY_PUZZLES } from '../../content/puzzles/storyPuzzleCatalog';
 
-export const DEMO_CAMPAIGN_SIZE = CHAPTER_01_PUZZLES.length;
+export const DEMO_CAMPAIGN_SIZE = STORY_PUZZLES.length;
 
 const DEMO_PUZZLE_IDS = new Set(
-  CHAPTER_01_PUZZLES.map((puzzle) => puzzle.id),
+  STORY_PUZZLES.map((puzzle) => puzzle.id),
 );
 
 export interface DemoModeConfig {

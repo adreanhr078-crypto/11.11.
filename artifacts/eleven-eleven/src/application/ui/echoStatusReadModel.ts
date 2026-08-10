@@ -11,6 +11,9 @@ import {
   RUNTIME_NARRATIVE_KNOWLEDGE_NODES,
   type RuntimeKnowledgeNodeDefinition,
 } from '../../domain/narrative/knowledgeRegistry';
+import {
+  createStoryStateReadModel,
+} from '../../domain/story/storyState';
 
 export type EchoStatusLocale = 'ar' | 'en';
 
@@ -157,8 +160,9 @@ export function createEchoStatusReadModel(
     ?? RUNTIME_ECHO_EVOLUTION_STAGES;
   const knowledgeDefinitions = options.knowledgeDefinitions
     ?? RUNTIME_NARRATIVE_KNOWLEDGE_NODES;
+  const authoritativeStory = createStoryStateReadModel(progressionState);
   const currentStage = stageDefinitions.find((definition) => (
-    definition.stageId === progressionState.evolution.currentStageId
+    definition.stageId === authoritativeStory.echoState.stageId
     && definition.published
     && definition.playerVisible
   ));
@@ -178,12 +182,12 @@ export function createEchoStatusReadModel(
     corruption: clampMetric(progressionState.echo.corruption),
   };
   const playerKnowledgeCount = visibleKnowledgeCount(
-    progressionState.story.narrative.knowledgeNodeIds,
+    authoritativeStory.unlockedKnowledge.player,
     'player',
     knowledgeDefinitions,
   );
   const echoKnowledgeCount = visibleKnowledgeCount(
-    progressionState.story.narrative.echoKnowledgeNodeIds,
+    authoritativeStory.unlockedKnowledge.echo,
     'echo',
     knowledgeDefinitions,
   );

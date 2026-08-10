@@ -10,7 +10,7 @@ import {
   OPENING_ROOM_3D_ENABLED,
   resolveFeatureGatedScreen,
 } from '../app/config/featureFlags';
-import { CHAPTER_01_PUZZLES } from '../content/puzzles/chapter01Campaign';
+import { STORY_PUZZLE_COUNTS } from '../content/puzzles/storyPuzzleCatalog';
 import {
   AWAKENING_WARD_EXIT_APPROACH,
   AWAKENING_WARD_INTERACTION_BY_ID,
@@ -251,8 +251,8 @@ describe('Puzzle registry and preserved prototypes', () => {
     );
   });
 
-  it('restores all 20 legacy puzzles as the active gameplay route', () => {
-    assert.equal(CHAPTER_01_PUZZLES.length, 20);
+  it('routes the active Story Puzzle experience through the puzzle screen', () => {
+    assert.equal(STORY_PUZZLE_COUNTS.total, 20);
     assert.equal(LEGACY_PUZZLE_ARCHIVE_ENABLED, true);
     assert.equal(resolveFeatureGatedScreen('puzzles'), 'puzzles');
   });

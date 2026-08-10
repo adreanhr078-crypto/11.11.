@@ -604,6 +604,7 @@ export function applyPuzzleRewardTransaction(
     },
     echo: echoTransition.echo,
     story: {
+      ...state.story,
       narrative: {
         ...state.story.narrative,
         activeFlags: {

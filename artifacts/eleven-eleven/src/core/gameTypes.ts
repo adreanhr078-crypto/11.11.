@@ -43,6 +43,9 @@ import type {
 import type {
   AwakeningWardSaveState,
 } from '../features/awakening-ward/domain/awakeningWardTypes';
+import type {
+  AuthoritativeStoryState,
+} from '../domain/story/storyState';
 export { type ChapterId, type ChapterState } from './chapterSystem';
 
 // ─── Basic Types ─────────────────────────────────────────────────────
@@ -209,6 +212,15 @@ export interface GameActions {
     tierId: HintTierId,
   ) => HintPurchaseResult;
   markManhwaPageViewed: (pageId: string) => void;
+  recordManhwaReadingProgress: (
+    pageId: string,
+    globalPageNumber: number,
+    chapterId: string | null,
+    timestamp?: string,
+  ) => boolean;
+  markManhwaChapterCompleted: (chapterId: string) => boolean;
+  /** Rebuilds published Canon state exclusively from a server snapshot. */
+  syncAuthoritativeStoryState: (snapshot: AuthoritativeStoryState) => boolean;
   clearPuzzleRewardEvent: () => void;
   chat: () => { dialogue: string; effects: Partial<EchoState>; };
   solve: (puzzleId: string, answer: string) => { success: boolean; message: string; achievement?: Achievement; };

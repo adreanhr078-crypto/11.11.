@@ -1,5 +1,12 @@
 import type { CSSProperties } from 'react';
 import { useEmotionVisualProfile } from '../../features/emotion/useEmotionVisualSystem';
+import { useGameStore } from '../../stores/gameStore';
+import {
+  createStoryStateReadModel,
+} from '../../domain/story/storyState';
+import { createEchoPresenceReadModel } from '../../domain/echo/echoPresence';
+import { useStoryPuzzleStore } from '../../features/story-puzzles/storyPuzzleStore';
+import { useEchoPresenceActivityStore } from '../../application/ui/echoPresenceActivityStore';
 
 const PARTICLES = Array.from({ length: 18 }, (_, index) => ({
   id: index,
@@ -17,12 +24,28 @@ const STREAMS = Array.from({ length: 6 }, (_, index) => ({
 
 export function PremiumAtmosphere() {
   const profile = useEmotionVisualProfile();
+  const progressionState = useGameStore((state) => state.progressionState);
+  const puzzleSnapshot = useStoryPuzzleStore((state) => state.snapshot);
+  const latestActivity = useStoryPuzzleStore((state) => state.latestActivity);
+  const sessionActivity = useEchoPresenceActivityStore((state) => state.latestActivity);
+  const activity = [latestActivity, sessionActivity]
+    .filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null)
+    .sort((left, right) => right.occurredAt - left.occurredAt)[0] ?? null;
+  const storyStageId = createStoryStateReadModel(progressionState).echoState.stageId;
+  const presence = createEchoPresenceReadModel({
+    progressionState,
+    puzzleSnapshot,
+    activity,
+  });
 
   return (
     <div
       className="premium-atmosphere"
       data-emotion={profile.dominantEmotion ?? 'balanced'}
       data-signature={profile.signature}
+      data-story-state={storyStageId}
+      data-echo-form={presence.stage.form}
+      data-echo-reaction={presence.reaction?.visualEffect ?? 'idle'}
       aria-hidden="true"
     >
       <span className="premium-atmosphere__nebula" />

@@ -1,6 +1,7 @@
 import {
-  CHAPTER_01_MANHWA_PAGES,
-} from '../../content/puzzles/chapter01Campaign';
+  FINAL_MANHWA_PAGES,
+  type FinalManhwaPage,
+} from '../../content/manhwa/finalManhwa';
 import type {
   GameProgressionState,
 } from '../../core/gameProgressionTypes';
@@ -8,7 +9,7 @@ import type {
   ManhwaMemoryPageDefinition,
 } from '../../domain/puzzles/campaignContracts';
 import {
-  CHAPTER_01_MANHWA_ACCESS_DEFINITIONS,
+  FINAL_MANHWA_ACCESS_DEFINITIONS,
 } from '../game/manhwaArchiveReachability';
 
 export type ManhwaArchivePageStatus =
@@ -113,12 +114,18 @@ function createReason(
 
 function getStatus(
   progressionState: GameProgressionState,
-  pageId: string,
+  page: FinalManhwaPage,
   shardCost: number,
   prerequisitePageId?: string,
 ): ManhwaArchivePageStatus {
   const unlockedPageIds = progressionState.manhwa.unlockedPageIds;
-  if (unlockedPageIds.includes(pageId)) return 'unlocked';
+  if (
+    unlockedPageIds.includes(page.id)
+    || page.pageKind === 'cover'
+    || page.pageKind === 'credits'
+    || page.pageKind === 'teaser'
+    || page.pageKind === 'back-cover'
+  ) return 'unlocked';
   if (
     prerequisitePageId
     && !unlockedPageIds.includes(prerequisitePageId)
@@ -141,27 +148,28 @@ export function createManhwaArchiveReadModel(
 ): ManhwaArchiveReadModel {
   const balance =
     progressionState.resources.memoryShards.spendableBalance;
+  const unlockedPageIds = progressionState.manhwa.unlockedPageIds;
   const viewedPageIds = new Set(progressionState.manhwa.viewedPageIds);
   const accessByPageId = new Map(
-    CHAPTER_01_MANHWA_ACCESS_DEFINITIONS.map((page) => [
+    FINAL_MANHWA_ACCESS_DEFINITIONS.map((page) => [
       page.pageId,
       page,
     ]),
   );
-  const pages = [...CHAPTER_01_MANHWA_PAGES]
-    .sort((left, right) => left.pageNumber - right.pageNumber)
+  const pages = [...FINAL_MANHWA_PAGES]
+    .sort((left, right) => left.globalPageNumber - right.globalPageNumber)
     .map((page): ManhwaArchivePageReadModel => {
       const access = accessByPageId.get(page.id);
       const shardCost = access?.shardCost ?? 0;
       const prerequisitePageId = access?.prerequisitePageId;
       const prerequisitePageNumber = prerequisitePageId
-        ? CHAPTER_01_MANHWA_PAGES.find(
+        ? FINAL_MANHWA_PAGES.find(
             (candidate) => candidate.id === prerequisitePageId,
-          )?.pageNumber
+          )?.globalPageNumber
         : undefined;
       const status = getStatus(
         progressionState,
-        page.id,
+        page,
         shardCost,
         prerequisitePageId,
       );
@@ -169,8 +177,8 @@ export function createManhwaArchiveReadModel(
 
       return {
         id: page.id,
-        pageNumber: page.pageNumber,
-        pageLabel: String(page.pageNumber).padStart(2, '0'),
+        pageNumber: page.globalPageNumber,
+        pageLabel: String(page.globalPageNumber).padStart(2, '0'),
         status,
         statusLabel: statusLabels[status],
         reason: createReason(
@@ -181,7 +189,11 @@ export function createManhwaArchiveReadModel(
         ),
         shardCost,
         balanceAfterUnlock: Math.max(0, balance - shardCost),
-        isNew: unlocked && !viewedPageIds.has(page.id),
+        // Book-matter pages are always readable, but only pages explicitly
+        // present in canonical progression should create a new-content badge.
+        isNew: unlocked
+          && unlockedPageIds.includes(page.id)
+          && !viewedPageIds.has(page.id),
         ...(unlocked
           ? {
               unlockedContent: {

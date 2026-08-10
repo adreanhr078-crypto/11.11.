@@ -4,6 +4,7 @@ import type {
 } from '../domain/puzzles/campaignContracts';
 import type { ProgressionState } from '../domain/progression/progression';
 import type { NarrativeState } from '../domain/narrative/narrativeState';
+import type { AuthoritativeStoryState } from '../domain/story/storyState';
 import type { EchoEventProgressState } from './echoEventTypes';
 import type { EchoEvolutionProgressState } from './echoEvolutionTypes';
 import type { NarrativeEventProgressState } from './narrativeEventTypes';
@@ -33,6 +34,8 @@ export interface PuzzleProgressState {
 }
 
 export interface ManhwaProgressState {
+  /** Version of the active publication manifest used by this save. */
+  manifestVersion: number;
   unlockedPageIds: string[];
   viewedPageIds: string[];
   pageUnlockedAt: Record<string, string>;
@@ -45,6 +48,13 @@ export interface ManhwaProgressState {
   claimedPageEffectIds: string[];
   /** Payload metadata for versioned Page Effect receipts, not a receipt. */
   pageEffectFingerprintsByReceiptKey: Record<string, string>;
+  /** Continue Reading checkpoint for the active publication. */
+  lastReadPageId: string | null;
+  lastReadChapterId: string | null;
+  lastReadGlobalPageNumber: number | null;
+  lastReadAt: string | null;
+  /** Server-confirmed chapter rewards mirrored for local UX only. */
+  completedChapterIds: string[];
 }
 
 export interface AchievementProgressEntry {
@@ -86,6 +96,8 @@ export interface EchoProgressState {
 
 export interface StoryProgressState {
   narrative: NarrativeState;
+  /** Server-backed Canon and Memory Fragment receipts for cross-device story state. */
+  authoritative: AuthoritativeStoryState;
 }
 
 export interface GameProgressionState {

@@ -1,0 +1,154 @@
+.collection-hub {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-block-start: 0.85rem;
+}
+
+.collection-hub > * { min-width: 0; }
+.collection-hub__recovery { grid-column: span 12; }
+.collection-hub__shards { grid-column: span 7; }
+.collection-hub__signals { grid-column: span 5; }
+.collection-hub__achievements { grid-column: span 12; }
+
+.collection-hub__recovery-value,
+.collection-hub__counter {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.collection-hub__recovery-value strong,
+.collection-hub__counter strong {
+  color: var(--gds-cyan-400);
+  font: 800 clamp(1.4rem, 4vw, 2.4rem) var(--gds-font-mono);
+  text-shadow: 0 0 1rem rgb(72 220 247 / 24%);
+}
+
+.collection-hub__recovery-value span,
+.collection-hub__counter small,
+.collection-hub__status,
+.collection-hub__note {
+  color: var(--gds-text-muted);
+  font: 600 0.58rem var(--gds-font-mono);
+  letter-spacing: 0.06em;
+}
+
+.collection-hub__recovery-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.45rem;
+  margin-block-start: 0.65rem;
+}
+
+.collection-hub__recovery-grid span {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.3rem;
+  padding: 0.42rem;
+  border-inline-start: 1px solid rgb(72 220 247 / 24%);
+  color: var(--gds-text-muted);
+  font: 600 0.58rem var(--gds-font-mono);
+}
+
+.collection-hub__recovery-grid b { color: var(--gds-text-primary); }
+
+.collection-hub__sets {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin-block-start: 0.7rem;
+}
+
+.collection-hub__sets article {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.58rem;
+  border: 1px solid rgb(255 255 255 / 8%);
+  background: rgb(2 6 10 / 45%);
+}
+
+.collection-hub__sets article[data-complete="true"] { border-color: rgb(72 220 247 / 35%); }
+.collection-hub__sets header { display: flex; justify-content: space-between; color: var(--gds-text-secondary); font: 700 0.62rem var(--gds-font-mono); }
+.collection-hub__sets header b { color: var(--gds-cyan-400); }
+
+.collection-hub__shard-slots { display: flex; gap: 0.3rem; }
+.collection-hub__shard-slots i { color: rgb(255 255 255 / 18%); font-style: normal; }
+.collection-hub__shard-slots i[data-collected="true"] { color: var(--gds-cyan-400); text-shadow: 0 0 0.6rem rgb(72 220 247 / 40%); }
+
+.collection-hub__sets button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-height: 2rem;
+  border: 1px solid rgb(255 52 72 / 38%);
+  color: var(--gds-text-primary);
+  background: rgb(255 52 72 / 10%);
+  font: 700 0.58rem var(--gds-font-mono);
+  cursor: pointer;
+}
+
+.collection-hub__sets button svg { width: 0.8rem; }
+.collection-hub__status { color: var(--gds-cyan-400); }
+
+.collection-hub__signal-list,
+.collection-hub__achievement-list {
+  display: grid;
+  gap: 0.45rem;
+  margin-block-start: 0.7rem;
+}
+
+.collection-hub__signal-list > div {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.15rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid rgb(255 255 255 / 7%);
+  color: var(--gds-text-muted);
+  font: 700 0.62rem var(--gds-font-mono);
+}
+
+.collection-hub__signal-list > div[data-discovered="true"] { border-color: rgb(72 220 247 / 26%); color: var(--gds-cyan-400); }
+.collection-hub__signal-list svg { width: 0.9rem; }
+.collection-hub__signal-list small { color: var(--gds-text-muted); font-size: 0.52rem; }
+
+.collection-hub__achievement-list {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.collection-hub__achievement-list article {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 3.4rem;
+  padding: 0.45rem;
+  border: 1px solid rgb(255 255 255 / 7%);
+  background: rgb(2 6 10 / 45%);
+}
+
+.collection-hub__achievement-list article[data-unlocked="true"] { border-color: rgb(72 220 247 / 25%); }
+.collection-hub__achievement-list article[data-tier="system"] { border-inline-start: 2px solid var(--gds-danger-400); }
+.collection-hub__achievement-list article > span { color: var(--gds-cyan-400); font-size: 1.1rem; }
+.collection-hub__achievement-list article > div { display: grid; gap: 0.2rem; min-width: 0; }
+.collection-hub__achievement-list strong { overflow: hidden; color: var(--gds-text-primary); font: 700 0.62rem var(--gds-font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.collection-hub__achievement-list small { overflow: hidden; color: var(--gds-text-muted); font-size: 0.6rem; text-overflow: ellipsis; white-space: nowrap; }
+.collection-hub__note { display: flex; align-items: center; gap: 0.35rem; margin: 0.75rem 0 0; line-height: 1.6; }
+.collection-hub__note svg { width: 0.8rem; color: var(--gds-cyan-400); }
+
+@media (max-width: 70rem) {
+  .collection-hub__shards,
+  .collection-hub__signals { grid-column: span 12; }
+  .collection-hub__achievement-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 38rem) {
+  .collection-hub__recovery-grid { grid-template-columns: repeat(2, 1fr); }
+  .collection-hub__sets { grid-template-columns: 1fr; }
+  .collection-hub__achievement-list { grid-template-columns: 1fr; }
+}
+

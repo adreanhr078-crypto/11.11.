@@ -12,13 +12,6 @@ import type {
   PlayerDatabaseStatement,
 } from '../../functions/api/player/_database';
 import type { PlayerApiEnv } from '../../functions/api/player/_shared';
-import {
-  CHAPTER_01_PUZZLES,
-} from '../content/puzzles/chapter01Campaign';
-import type {
-  CampaignPuzzleDefinition,
-  CampaignPuzzleProgress,
-} from '../domain/puzzles/campaignContracts';
 
 interface FakePlayerRow {
   userId: string;
@@ -198,16 +191,6 @@ class FakePlayerDatabase implements PlayerDatabase {
 
 const originalFetch = globalThis.fetch;
 
-function correctSubmission(
-  definition: CampaignPuzzleDefinition,
-): CampaignPuzzleProgress[] {
-  return definition.stages.map((stage, stageIndex) => ({
-    stageIndex,
-    values: stage.mode === 'match' ? [] : [...stage.solution],
-    matches: stage.mode === 'match' ? { ...stage.solution } : {},
-  }));
-}
-
 function authenticatedRequest(path: string, init?: RequestInit): Request {
   return new Request(`https://game.example${path}`, {
     ...init,
@@ -248,16 +231,14 @@ afterEach(() => {
 });
 
 describe('global leaderboard gateway', () => {
-  it('awards a verified puzzle once and derives total XP from the ledger', async () => {
+  it('awards a verified Manhwa completion once and derives total XP from the ledger', async () => {
     installFirebaseLookup();
     const database = new FakePlayerDatabase();
     const env = testEnv(database);
-    const puzzle = CHAPTER_01_PUZZLES[0];
-    assert.ok(puzzle);
     const body = JSON.stringify({
-      sourceType: 'puzzle',
-      sourceId: puzzle.id,
-      proof: correctSubmission(puzzle),
+      sourceType: 'manhwa',
+      sourceId: 'chapter_1',
+      proof: { finalPageNumber: 11 },
     });
 
     const first = await claimXp({
@@ -273,9 +254,9 @@ describe('global leaderboard gateway', () => {
     };
     assert.equal(first.status, 200);
     assert.equal(firstPayload.reward.awarded, true);
-    assert.equal(firstPayload.reward.xpGranted, 75);
-    assert.equal(firstPayload.progression.totalXp, 75);
-    assert.equal(firstPayload.progression.level, 1);
+    assert.equal(firstPayload.reward.xpGranted, 100);
+    assert.equal(firstPayload.progression.totalXp, 100);
+    assert.equal(firstPayload.progression.level, 2);
 
     const duplicate = await claimXp({
       request: authenticatedRequest('/api/player/xp/claim', {
@@ -290,23 +271,21 @@ describe('global leaderboard gateway', () => {
     };
     assert.equal(duplicatePayload.reward.awarded, false);
     assert.equal(duplicatePayload.reward.xpGranted, 0);
-    assert.equal(duplicatePayload.progression.totalXp, 75);
+    assert.equal(duplicatePayload.progression.totalXp, 100);
     assert.equal(database.rewards.size, 1);
-    assert.equal(database.memoryFragments.size, 1);
+    assert.equal(database.memoryFragments.size, 0);
   });
 
   it('rejects client-authored XP before touching the database', async () => {
     installFirebaseLookup();
     const database = new FakePlayerDatabase();
-    const puzzle = CHAPTER_01_PUZZLES[0];
-    assert.ok(puzzle);
     const response = await claimXp({
       request: authenticatedRequest('/api/player/xp/claim', {
         method: 'POST',
         body: JSON.stringify({
-          sourceType: 'puzzle',
-          sourceId: puzzle.id,
-          proof: correctSubmission(puzzle),
+          sourceType: 'manhwa',
+          sourceId: 'chapter_1',
+          proof: { finalPageNumber: 11 },
           xp: 999_999,
         }),
       }),
@@ -320,18 +299,16 @@ describe('global leaderboard gateway', () => {
     assert.equal(database.players.size, 0);
   });
 
-  it('rejects a later puzzle until its previous reward exists', async () => {
+  it('rejects a later Manhwa chapter until its previous reward exists', async () => {
     installFirebaseLookup();
     const database = new FakePlayerDatabase();
-    const puzzle = CHAPTER_01_PUZZLES[1];
-    assert.ok(puzzle);
     const response = await claimXp({
       request: authenticatedRequest('/api/player/xp/claim', {
         method: 'POST',
         body: JSON.stringify({
-          sourceType: 'puzzle',
-          sourceId: puzzle.id,
-          proof: correctSubmission(puzzle),
+          sourceType: 'manhwa',
+          sourceId: 'chapter_2',
+          proof: { finalPageNumber: 28 },
         }),
       }),
       env: testEnv(database),

@@ -1,5 +1,6 @@
 export const PLAYER_XP_SOURCE_TYPES = [
   'puzzle',
+  'manhwa',
   'story',
   'secret',
   'achievement',

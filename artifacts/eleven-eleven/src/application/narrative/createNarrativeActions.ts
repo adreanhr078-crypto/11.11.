@@ -108,7 +108,7 @@ export function createNarrativeActions(
         );
         return projectGameProgressionCompatibility(state, {
           ...state.progressionState,
-          story: { narrative },
+          story: { ...state.progressionState.story, narrative },
         });
       });
     },
@@ -126,7 +126,7 @@ export function createNarrativeActions(
         );
         return projectGameProgressionCompatibility(state, {
           ...state.progressionState,
-          story: { narrative },
+          story: { ...state.progressionState.story, narrative },
         });
       });
     },
@@ -183,7 +183,7 @@ export function createNarrativeActions(
       );
       progressionState = {
         ...progressionState,
-        story: { narrative },
+        story: { ...progressionState.story, narrative },
       };
       set({
         ...projectGameProgressionCompatibility(state, progressionState),
@@ -225,7 +225,7 @@ export function createNarrativeActions(
       set({
         ...projectGameProgressionCompatibility(state, {
           ...state.progressionState,
-          story: { narrative },
+          story: { ...state.progressionState.story, narrative },
         }),
       });
     },
@@ -293,7 +293,7 @@ export function createNarrativeActions(
       );
       const progressionState = {
         ...transaction.state,
-        story: { narrative },
+        story: { ...transaction.state.story, narrative },
       };
       set({
         ...projectGameProgressionCompatibility(state, progressionState),
@@ -314,7 +314,7 @@ export function createNarrativeActions(
       set({
         ...projectGameProgressionCompatibility(state, {
           ...state.progressionState,
-          story: { narrative },
+          story: { ...state.progressionState.story, narrative },
         }),
         unlockedEndings: [
           ...new Set([

@@ -54,6 +54,21 @@
     inset 0 0 5rem rgb(255 25 42 / 12%);
 }
 
+.echo-interactive-stage[data-form="black-coronation"] .echo-interactive-stage__halo,
+.echo-interactive-stage[data-form="black-echo-protocol"] .echo-interactive-stage__halo {
+  background:
+    radial-gradient(circle, transparent 0 35%, rgb(255 31 48 / 13%) 36% 39%, transparent 41%),
+    conic-gradient(from 45deg, transparent, rgb(255 28 44 / 36%), transparent 24%, rgb(111 0 17 / 28%), transparent 56%);
+  box-shadow:
+    0 0 9rem rgb(255 24 42 / 18%),
+    inset 0 0 5rem rgb(255 25 42 / 12%);
+}
+
+.echo-interactive-stage[data-form="black-echo-protocol"] .echo-interactive-stage__halo {
+  animation-duration: 9s;
+  filter: saturate(1.22) contrast(1.1);
+}
+
 .echo-interactive-stage__orbit {
   position: absolute;
   inset: 17% auto auto 50%;
@@ -95,6 +110,15 @@
     repeating-radial-gradient(ellipse, transparent 0 12%, rgb(255 38 55 / 9%) 13% 13.5%, transparent 14% 23%),
     radial-gradient(ellipse, rgb(255 28 47 / 14%), transparent 65%);
   box-shadow: 0 0 4rem rgb(255 25 43 / 18%);
+}
+
+.echo-interactive-stage[data-form="black-coronation"] .echo-interactive-stage__floor,
+.echo-interactive-stage[data-form="black-echo-protocol"] .echo-interactive-stage__floor {
+  border-color: rgb(255 35 54 / 24%);
+  background:
+    repeating-radial-gradient(ellipse, transparent 0 12%, rgb(255 38 55 / 11%) 13% 13.5%, transparent 14% 23%),
+    radial-gradient(ellipse, rgb(255 28 47 / 15%), transparent 65%);
+  box-shadow: 0 0 4rem rgb(255 25 43 / 20%);
 }
 
 .echo-interactive-stage__character {
@@ -155,6 +179,22 @@
 
 .echo-interactive-stage[data-form="corrupted"] .echo-interactive-stage__signal {
   opacity: 0.2;
+  animation: echo-stage-glitch 4.7s steps(1, end) infinite;
+}
+
+.echo-interactive-stage[data-form="black-coronation"] .echo-interactive-stage__image,
+.echo-interactive-stage[data-form="black-echo-protocol"] .echo-interactive-stage__image {
+  filter:
+    drop-shadow(0 1.6rem 1.6rem rgb(0 0 0 / 78%))
+    drop-shadow(0 0 1.8rem rgb(255 28 47 / 18%));
+}
+
+.echo-interactive-stage[data-form="black-coronation"] .echo-interactive-stage__signal {
+  opacity: 0.12;
+}
+
+.echo-interactive-stage[data-form="black-echo-protocol"] .echo-interactive-stage__signal {
+  opacity: 0.22;
   animation: echo-stage-glitch 4.7s steps(1, end) infinite;
 }
 

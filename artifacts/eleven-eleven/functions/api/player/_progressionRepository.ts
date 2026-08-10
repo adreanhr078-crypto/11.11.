@@ -1,7 +1,6 @@
 import {
-  CHAPTER_01_PUZZLE_BY_ID,
-  CHAPTER_01_PUZZLES,
-} from '../../../src/content/puzzles/chapter01Campaign';
+  FINAL_MANHWA_CHAPTERS,
+} from '../../../src/content/manhwa/finalManhwa';
 import {
   getPlayerLevelProgress,
   normalizeTotalXp,
@@ -94,6 +93,15 @@ function upsertPlayerStatement(
   `).bind(account.uid, publicUsername(account), now, now);
 }
 
+/** Shared bootstrap for server-authoritative player ledgers. */
+export async function ensurePlayerProgressionRow(
+  db: PlayerDatabase,
+  account: FirebaseAccount,
+  now = new Date().toISOString(),
+): Promise<void> {
+  await upsertPlayerStatement(db, account, now).run();
+}
+
 async function currentPlayerRow(
   db: PlayerDatabase,
   uid: string,
@@ -146,7 +154,7 @@ export async function readLeaderboard(
   limit: number,
 ): Promise<LeaderboardSnapshot> {
   const now = new Date().toISOString();
-  await upsertPlayerStatement(db, account, now).run();
+  await ensurePlayerProgressionRow(db, account, now);
   await db.prepare(`
     UPDATE player_progression
     SET
@@ -256,43 +264,36 @@ export async function claimXpReward(
   };
 }
 
-function chapterIdForPuzzle(sourceId: string): string | null {
-  const definition = CHAPTER_01_PUZZLE_BY_ID[sourceId];
-  if (!definition) return null;
-  const match = definition.targetPageId.match(/^manhwa_ch(\d+)_/);
-  return match ? `chapter_${Number(match[1])}` : null;
-}
-
 export async function readPlayerProfileStats(
   db: PlayerDatabase,
   uid: string,
 ): Promise<PlayerProfileStatsRow> {
-  const puzzleResult = await db.prepare(`
+  // Phase 3 keeps the public profile tied exclusively to the new immutable
+  // campaign receipts. Legacy local or old XP records cannot inflate stats.
+  const puzzleRow = await db.prepare(`
+    SELECT COUNT(*) AS total
+    FROM player_story_puzzle_completion_events
+    WHERE user_id = ?
+  `).bind(uid).first<CountRow>();
+  const puzzlesSolved = toPositiveInteger(puzzleRow?.total, 0);
+  const manhwaResult = await db.prepare(`
     SELECT source_id
     FROM xp_reward_events
-    WHERE user_id = ? AND source_type = 'puzzle'
+    WHERE user_id = ? AND source_type = 'manhwa'
   `).bind(uid).all<{ source_id: string }>();
-  const verifiedPuzzleIds = new Set(
-    (puzzleResult.results ?? [])
-      .map((row) => row.source_id)
-      .filter((sourceId) => Boolean(CHAPTER_01_PUZZLE_BY_ID[sourceId])),
+  const validChapterIds = new Set<string>(
+    FINAL_MANHWA_CHAPTERS.map((chapter) => chapter.chapterId),
   );
-  const puzzlesSolved = verifiedPuzzleIds.size;
-  const requiredPuzzleIdsByChapter = new Map<string, string[]>();
-  for (const puzzle of CHAPTER_01_PUZZLES) {
-    const chapterId = chapterIdForPuzzle(puzzle.id);
-    if (!chapterId) continue;
-    const puzzleIds = requiredPuzzleIdsByChapter.get(chapterId) ?? [];
-    puzzleIds.push(puzzle.id);
-    requiredPuzzleIdsByChapter.set(chapterId, puzzleIds);
-  }
-  const chaptersCompleted = [...requiredPuzzleIdsByChapter.values()]
-    .filter((requiredIds) => requiredIds.every((id) => verifiedPuzzleIds.has(id)))
-    .length;
+  const chaptersCompleted = new Set(
+    (manhwaResult.results ?? [])
+      .map((row) => row.source_id)
+      .filter((sourceId) => validChapterIds.has(sourceId)),
+  ).size;
   const secretRow = await db.prepare(`
     SELECT COUNT(*) AS total
     FROM player_memory_fragment_events
     WHERE user_id = ?
+      AND fragment_id NOT GLOB 'story_puzzle_shard_*'
   `).bind(uid).first<CountRow>();
   const secretsFound = toPositiveInteger(secretRow?.total, 0);
   const now = new Date().toISOString();

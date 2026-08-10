@@ -12,9 +12,7 @@ import {
   RotateCcw,
   X,
 } from 'lucide-react';
-import type {
-  ManhwaViewerPageReadModel,
-} from '../../application/ui/manhwaArchiveReadModel';
+import type { FinalManhwaPage } from '../../content/manhwa/finalManhwa';
 import {
   createBrowserManhwaViewerHistoryPort,
   ManhwaViewerHistoryMarker,
@@ -34,7 +32,7 @@ const FOCUSABLE_SELECTOR = [
 ].join(',');
 
 export interface ManhwaFullscreenViewerProps {
-  pages: ManhwaViewerPageReadModel[];
+  pages: readonly FinalManhwaPage[];
   initialPageId: string;
   onRequestClose: () => void;
   onSuccessfulImageLoad: (pageId: string) => void;
@@ -52,13 +50,12 @@ export function ManhwaFullscreenViewer({
     (page) => page.id === initialPageId,
   )
     ? initialPageId
-    : '';
-  const [currentPageId, setCurrentPageId] = useState(
-    availableInitialPage,
-  );
+    : pages[0]?.id ?? '';
+  const [currentPageId, setCurrentPageId] = useState(availableInitialPage);
   const [loadState, setLoadState] = useState<ViewerLoadState>('loading');
   const [retryKey, setRetryKey] = useState(0);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const touchStartX = useRef<number | null>(null);
   const historyMarkerRef = useRef<ManhwaViewerHistoryMarker | null>(null);
   const adapter = useMemo(
     () => platformAdapter ?? createManhwaViewerPlatformAdapter(),
@@ -67,15 +64,9 @@ export function ManhwaFullscreenViewer({
   const currentIndex = pages.findIndex(
     (page) => page.id === currentPageId,
   );
-  const currentPage = currentIndex >= 0
-    ? pages[currentIndex]
-    : undefined;
-  const previousPage = currentIndex > 0
-    ? pages[currentIndex - 1]
-    : undefined;
-  const nextPage = currentIndex >= 0
-    ? pages[currentIndex + 1]
-    : undefined;
+  const currentPage = currentIndex >= 0 ? pages[currentIndex] : undefined;
+  const previousPage = currentIndex > 0 ? pages[currentIndex - 1] : undefined;
+  const nextPage = currentIndex >= 0 ? pages[currentIndex + 1] : undefined;
 
   const closeViewer = useCallback(() => {
     historyMarkerRef.current?.close();
@@ -91,12 +82,7 @@ export function ManhwaFullscreenViewer({
   }, [adapter, pages]);
 
   useEffect(() => {
-    if (
-      typeof document === 'undefined'
-      || !availableInitialPage
-    ) {
-      return;
-    }
+    if (typeof document === 'undefined' || !availableInitialPage) return;
     const previousFocus = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     const historyMarker = new ManhwaViewerHistoryMarker(
@@ -130,21 +116,19 @@ export function ManhwaFullscreenViewer({
         closeViewer();
         return;
       }
-      if (event.key === 'PageUp') {
+      if (event.key === 'PageUp' || event.key === 'ArrowRight') {
         event.preventDefault();
         navigateTo(previousPage?.id);
         return;
       }
-      if (event.key === 'PageDown') {
+      if (event.key === 'PageDown' || event.key === 'ArrowLeft') {
         event.preventDefault();
         navigateTo(nextPage?.id);
         return;
       }
       if (event.key !== 'Tab' || !dialogRef.current) return;
       const focusable = Array.from(
-        dialogRef.current.querySelectorAll<HTMLElement>(
-          FOCUSABLE_SELECTOR,
-        ),
+        dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
       );
       if (focusable.length === 0) {
         event.preventDefault();
@@ -162,19 +146,9 @@ export function ManhwaFullscreenViewer({
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [
-    closeViewer,
-    currentPage,
-    navigateTo,
-    nextPage?.id,
-    previousPage?.id,
-  ]);
+  }, [closeViewer, currentPage, navigateTo, nextPage?.id, previousPage?.id]);
 
-  if (
-    typeof document === 'undefined'
-    || !currentPage
-    || pages.length === 0
-  ) {
+  if (typeof document === 'undefined' || !currentPage || pages.length === 0) {
     return null;
   }
 
@@ -185,14 +159,17 @@ export function ManhwaFullscreenViewer({
         className="manhwa-viewer"
         role="dialog"
         aria-modal="true"
-        aria-label={`عارض المانهوا، الصفحة ${currentPage.pageLabel}`}
+        aria-label={`عارض المانهوا، الصفحة ${currentPage.globalPageNumber}`}
       >
         <header className="manhwa-viewer__toolbar">
           <span>
-            <small>MANHWA VIEWER</small>
-            <strong>
-              {currentPage.unlockedContent.title.ar}
-            </strong>
+            <small>11.11 // FINAL PUBLICATION</small>
+            <strong>{currentPage.title.ar}</strong>
+            <em>
+              {currentPage.chapterId === 'chapter_0'
+                ? 'BOOK'
+                : currentPage.chapterId.replace('_', ' ').toUpperCase()}
+            </em>
           </span>
           <GameButton
             variant="ghost"
@@ -204,11 +181,26 @@ export function ManhwaFullscreenViewer({
           </GameButton>
         </header>
 
-        <main className="manhwa-viewer__stage">
+        <main
+          className="manhwa-viewer__stage"
+          onTouchStart={(event) => {
+            touchStartX.current = event.changedTouches[0]?.clientX ?? null;
+          }}
+          onTouchEnd={(event) => {
+            const start = touchStartX.current;
+            touchStartX.current = null;
+            const end = event.changedTouches[0]?.clientX;
+            if (start === null || end === undefined) return;
+            const distance = end - start;
+            if (Math.abs(distance) < 42) return;
+            if (distance > 0) navigateTo(previousPage?.id);
+            else navigateTo(nextPage?.id);
+          }}
+        >
           <img
             key={`${currentPage.id}-${retryKey}`}
-            src={currentPage.unlockedContent.thumbnailSrc}
-            alt={currentPage.unlockedContent.accessibleDescription.ar}
+            src={currentPage.imageSrc}
+            alt={currentPage.accessibleDescription.ar}
             decoding="async"
             hidden={loadState === 'error'}
             onLoad={() => {
@@ -222,11 +214,7 @@ export function ManhwaFullscreenViewer({
           />
 
           {loadState === 'loading' && (
-            <div
-              className="manhwa-viewer__status"
-              role="status"
-              aria-live="polite"
-            >
+            <div className="manhwa-viewer__status" role="status" aria-live="polite">
               <span aria-hidden="true" />
               <strong>جارٍ تحميل الصفحة</strong>
               <small lang="en">Loading page…</small>
@@ -234,15 +222,9 @@ export function ManhwaFullscreenViewer({
           )}
 
           {loadState === 'error' && (
-            <div
-              className="manhwa-viewer__status"
-              role="alert"
-              aria-live="assertive"
-            >
+            <div className="manhwa-viewer__status" role="alert" aria-live="assertive">
               <strong>تعذر تحميل الصفحة</strong>
-              <small lang="en">
-                The page was not viewed and no effect was applied.
-              </small>
+              <small lang="en">The page was not recorded. Check the asset and try again.</small>
               <GameButton
                 variant="memory"
                 leadingIcon={<RotateCcw />}
@@ -265,10 +247,10 @@ export function ManhwaFullscreenViewer({
             disabled={!previousPage}
             onClick={() => navigateTo(previousPage?.id)}
           >
-            الصفحة السابقة
+            السابقة
           </GameButton>
           <span aria-live="polite">
-            {currentIndex + 1} / {pages.length}
+            {currentPage.globalPageNumber} / {pages.length}
           </span>
           <GameButton
             variant="ghost"
@@ -276,7 +258,7 @@ export function ManhwaFullscreenViewer({
             disabled={!nextPage}
             onClick={() => navigateTo(nextPage?.id)}
           >
-            الصفحة التالية
+            التالية
           </GameButton>
         </footer>
       </div>

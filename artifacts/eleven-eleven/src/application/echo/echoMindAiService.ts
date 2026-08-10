@@ -5,10 +5,16 @@ import {
 import type {
   EchoMindLocale,
 } from './echoMindExperience';
+import { FINAL_MANHWA_PAGE_BY_ID } from '../../content/manhwa/finalManhwa';
 import {
-  CHAPTER_01_MANHWA_PAGE_BY_ID,
-  CHAPTER_01_PUZZLE_BY_ID,
-} from '../../content/puzzles/chapter01Campaign';
+  FINAL_MANHWA_SERVER_ECHO_KNOWLEDGE_NODE_IDS,
+} from '../../content/story/finalManhwaCanonEvents';
+import {
+  createStoryStateReadModel,
+} from '../../domain/story/storyState';
+import {
+  getCurrentAuthToken,
+} from '../../features/auth/authService';
 import type {
   EchoMindPlayerContext,
 } from './echoMindLivingStore';
@@ -90,6 +96,16 @@ export function createEchoMindKnowledgeContext(
   const unlockedFragmentIds = new Set(
     state.narrative.unlockedMemoryFragmentIds,
   );
+  const authoritativeStory = createStoryStateReadModel(state.progressionState);
+  const serverOwnedKnowledge = new Set(
+    FINAL_MANHWA_SERVER_ECHO_KNOWLEDGE_NODE_IDS,
+  );
+  const knowledgeNodeIds = [...new Set([
+    ...state.narrative.knowledgeNodeIds
+      .filter((nodeId) => !serverOwnedKnowledge.has(nodeId))
+      .slice(-30),
+    ...authoritativeStory.unlockedKnowledge.echo,
+  ])].slice(-30);
 
   return {
     chapterId: state.progression.currentChapterId,
@@ -112,11 +128,11 @@ export function createEchoMindKnowledgeContext(
     solvedPuzzleIds: state.progression.completedPuzzleIds.slice(-30),
     beliefs: state.narrative.beliefs.slice(-30),
     questions: state.narrative.questions.slice(-30),
-    knowledgeNodeIds: state.narrative.knowledgeNodeIds.slice(-30),
+    knowledgeNodeIds,
     restoredManhwaPages: state.unlockedManhwaPageIds
       .slice(-10)
       .flatMap((pageId) => {
-        const page = CHAPTER_01_MANHWA_PAGE_BY_ID[pageId];
+        const page = FINAL_MANHWA_PAGE_BY_ID[pageId];
         return page ? [{
           id: page.id,
           title: locale === 'en' ? page.title.en : page.title.ar,
@@ -128,21 +144,10 @@ export function createEchoMindKnowledgeContext(
           )),
         }] : [];
       }),
-    revealedStoryBeats: state.progression.completedPuzzleIds
-      .slice(-30)
-      .flatMap((puzzleId) => {
-        const puzzle = CHAPTER_01_PUZZLE_BY_ID[puzzleId];
-        if (!puzzle) return [];
-        return [{
-          puzzleId: puzzle.id,
-          echoReflection: locale === 'en'
-            ? puzzle.dialogue.en
-            : puzzle.dialogue.ar,
-          beliefs: [...puzzle.echoMindDelta.beliefsAdded],
-          questions: [...puzzle.echoMindDelta.questionsAdded],
-          knowledge: [...puzzle.echoMindDelta.knowledgeNodesAdded],
-        }];
-      }),
+    // Story Puzzle completion is authoritative and intentionally does not
+    // invent Echo dialogue. Future owner-authored dialogue can enter here via
+    // Canon-safe knowledge gates rather than the retired local campaign.
+    revealedStoryBeats: [],
     ...(playerRelationship ? { playerRelationship } : {}),
   };
 }
@@ -193,11 +198,13 @@ export async function streamEchoMindAiResponse({
   signal,
   onDelta,
 }: StreamEchoMindAiInput): Promise<string> {
+  const token = await getCurrentAuthToken();
   const response = await fetch(getAiEndpoint(), {
     method: 'POST',
     headers: {
       Accept: 'text/event-stream',
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({
       message,

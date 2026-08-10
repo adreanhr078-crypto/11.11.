@@ -1,5 +1,6 @@
 import { Coins, Diamond } from 'lucide-react';
 import { useGameStore } from '../../stores/gameStore';
+import { useStoryPuzzleStore } from '../../features/story-puzzles/storyPuzzleStore';
 
 interface PlayerResourceCountersProps {
   className?: string;
@@ -8,14 +9,17 @@ interface PlayerResourceCountersProps {
 export function PlayerResourceCounters({
   className = '',
 }: PlayerResourceCountersProps) {
-  const currency = useGameStore(
+  const localCurrency = useGameStore(
     (state) => state.progressionState.resources.coins,
   );
-  const spendableShardBalance = useGameStore(
+  const localShardBalance = useGameStore(
     (state) => (
       state.progressionState.resources.memoryShards.spendableBalance
     ),
   );
+  const authoritativeSnapshot = useStoryPuzzleStore((state) => state.snapshot);
+  const currency = authoritativeSnapshot?.coinBalance ?? localCurrency;
+  const spendableShardBalance = authoritativeSnapshot?.shardCount ?? localShardBalance;
 
   return (
     <div

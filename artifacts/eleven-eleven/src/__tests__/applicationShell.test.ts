@@ -13,7 +13,6 @@ import {
 } from '../application/ui/psychologicalStateReadModel';
 import {
   createEchoPresentationReadModel,
-  ECHO_CORRUPTED_FORM_FLAG,
 } from '../application/ui/echoPresentationReadModel';
 import {
   GAME_SCREEN_DEFINITIONS,
@@ -187,24 +186,42 @@ describe('Application Shell', () => {
     );
   });
 
-  it('reveals the corrupted Echo form only through narrative state', () => {
+  it('reveals Echo presentation only from server-issued Canon receipts', () => {
     const state = useGameStore.getState();
     assert.equal(createEchoPresentationReadModel(state).form, 'normal');
 
     const transformedState = {
       ...state,
+      progressionState: structuredClone(state.progressionState),
+    };
+    transformedState.progressionState.story.authoritative.completedChapterIds = [
+      'chapter_3',
+    ];
+    transformedState.progressionState.story.authoritative.canonEventReceipts = [{
+      eventId: 'manhwa_chapter_04_black_coronation',
+      eventVersion: 1,
+      sourceType: 'manhwa',
+      sourceId: 'chapter_4',
+      sourcePageId: 'manhwa_ch04_page_02',
+      sourcePageNumber: 56,
+      reachedAt: '2026-08-09T11:11:00.000Z',
+    }];
+    assert.equal(
+      createEchoPresentationReadModel(transformedState).form,
+      'black-coronation',
+    );
+
+    const tamperedState = {
+      ...state,
       narrative: {
         ...state.narrative,
         activeFlags: {
           ...state.narrative.activeFlags,
-          [ECHO_CORRUPTED_FORM_FLAG]: true,
+          'echo.form.corrupted': true,
         },
       },
     };
-    assert.equal(
-      createEchoPresentationReadModel(transformedState).form,
-      'corrupted',
-    );
+    assert.equal(createEchoPresentationReadModel(tamperedState).form, 'normal');
   });
 
   it('maps every screen icon to a system, action, and label', () => {

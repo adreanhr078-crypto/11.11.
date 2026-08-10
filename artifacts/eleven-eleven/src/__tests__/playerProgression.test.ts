@@ -5,29 +5,12 @@ import {
   verifyXpRewardClaim,
 } from '../../functions/api/player/_xpRewards';
 import {
-  CHAPTER_01_PUZZLES,
-} from '../content/puzzles/chapter01Campaign';
-import type {
-  CampaignPuzzleDefinition,
-  CampaignPuzzleProgress,
-} from '../domain/puzzles/campaignContracts';
-import {
   MAX_PLAYER_LEVEL,
   PLAYER_XP_SOURCE_TYPES,
   createXpRewardKey,
   getPlayerLevelProgress,
   totalXpRequiredForLevel,
 } from '../domain/player-progression/playerProgression';
-
-function correctSubmission(
-  definition: CampaignPuzzleDefinition,
-): CampaignPuzzleProgress[] {
-  return definition.stages.map((stage, stageIndex) => ({
-    stageIndex,
-    values: stage.mode === 'match' ? [] : [...stage.solution],
-    matches: stage.mode === 'match' ? { ...stage.solution } : {},
-  }));
-}
 
 describe('server-authoritative player progression', () => {
   it('derives level from total XP with one shared deterministic curve', () => {
@@ -43,9 +26,10 @@ describe('server-authoritative player progression', () => {
     assert.equal(totalXpRequiredForLevel(10), 8_100);
   });
 
-  it('reserves every requested future source without activating it', () => {
+  it('keeps the verified Manhwa source in the shared XP source contract', () => {
     assert.deepEqual(PLAYER_XP_SOURCE_TYPES, [
       'puzzle',
+      'manhwa',
       'story',
       'secret',
       'achievement',
@@ -69,45 +53,68 @@ describe('server-authoritative player progression', () => {
     );
   });
 
-  it('calculates puzzle XP on the server after validating the solution', () => {
-    const puzzle = CHAPTER_01_PUZZLES[0];
-    assert.ok(puzzle);
-    const reward = verifyXpRewardClaim({
+  it('keeps the retired puzzle claim endpoint closed', () => {
+    assert.throws(() => verifyXpRewardClaim({
       sourceType: 'puzzle',
-      sourceId: puzzle.id,
-      proof: correctSubmission(puzzle),
-    });
-
-    assert.equal(reward.sourceId, puzzle.id);
-    assert.equal(reward.rewardKey, `puzzle:${puzzle.id}:v1`);
-    assert.equal(reward.xpAmount, 75);
-    assert.deepEqual(reward.requiredRewardKeys, []);
+      sourceId: 'story_puzzle_01_signal_calibration',
+      proof: {},
+    }), (error) => error instanceof PlayerApiError
+      && error.code === 'reward_source_not_active');
   });
 
-  it('rejects forged XP amounts and invalid puzzle proof', () => {
-    const puzzle = CHAPTER_01_PUZZLES[0];
-    assert.ok(puzzle);
+  it('validates Manhwa chapter completion against the official final page range', () => {
+    const reward = verifyXpRewardClaim({
+      sourceType: 'manhwa',
+      sourceId: 'chapter_1',
+      proof: { finalPageNumber: 11 },
+    });
+    assert.equal(reward.sourceType, 'manhwa');
+    assert.equal(reward.xpAmount, 100);
+    assert.equal(reward.rewardKey, 'manhwa:chapter_1:v1');
+    assert.deepEqual(reward.requiredRewardKeys, []);
+
+    const secondChapter = verifyXpRewardClaim({
+      sourceType: 'manhwa',
+      sourceId: 'chapter_2',
+      proof: { finalPageNumber: 28 },
+    });
+    assert.equal(secondChapter.xpAmount, 150);
+    assert.deepEqual(secondChapter.requiredRewardKeys, ['manhwa:chapter_1:v1']);
+  });
+
+  it('rejects chapter claims before the chapter end and never accepts client XP', () => {
+    assert.throws(
+      () => verifyXpRewardClaim({
+        sourceType: 'manhwa',
+        sourceId: 'chapter_1',
+        proof: { finalPageNumber: 10 },
+      }),
+      (error) => error instanceof PlayerApiError
+        && error.code === 'reward_not_verified',
+    );
+    assert.throws(
+      () => verifyXpRewardClaim({
+        sourceType: 'manhwa',
+        sourceId: 'chapter_1',
+        proof: { finalPageNumber: 11 },
+        totalXp: 999_999,
+      }),
+      (error) => error instanceof PlayerApiError
+        && error.code === 'client_xp_forbidden',
+    );
+  });
+
+  it('rejects forged XP amounts before routing to any reward validator', () => {
     assert.throws(
       () => verifyXpRewardClaim({
         sourceType: 'puzzle',
-        sourceId: puzzle.id,
-        proof: correctSubmission(puzzle),
+        sourceId: 'story_puzzle_01_signal_calibration',
+        proof: {},
         amount: 999_999,
       }),
       (error) => (
         error instanceof PlayerApiError
         && error.code === 'client_xp_forbidden'
-      ),
-    );
-    assert.throws(
-      () => verifyXpRewardClaim({
-        sourceType: 'puzzle',
-        sourceId: puzzle.id,
-        proof: [{ stageIndex: 0, values: ['wrong'], matches: {} }],
-      }),
-      (error) => (
-        error instanceof PlayerApiError
-        && error.code === 'reward_not_verified'
       ),
     );
   });

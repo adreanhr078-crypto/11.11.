@@ -2,15 +2,13 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { createGameProgressionActions } from '../application/game/createGameProgressionActions';
 import { createManhwaPageViewActions } from '../application/game/createManhwaPageViewActions';
-import { createPuzzleCampaignActions } from '../application/game/createPuzzleCampaignActions';
 import {
   createManhwaPageAuthoredEffect,
 } from '../application/game/manhwaPageEffectAdapter';
 import {
-  CHAPTER_01_MANHWA_PAGE_BY_ID,
-  CHAPTER_01_MANHWA_PAGES,
-  CHAPTER_01_PUZZLES,
-} from '../content/puzzles/chapter01Campaign';
+  FINAL_MANHWA_PAGE_BY_ID,
+  FINAL_MANHWA_PAGES,
+} from '../content/manhwa/finalManhwa';
 import {
   CANONICAL_ECHO_METRIC_KEYS,
 } from '../core/echoEventTypes';
@@ -20,10 +18,6 @@ import {
   MANHWA_PAGE_EFFECT_VERSION,
   type ManhwaPageAuthoredEffect,
 } from '../core/manhwaPageViewTypes';
-import type {
-  CampaignPuzzleDefinition,
-  CampaignPuzzleProgress,
-} from '../domain/puzzles/campaignContracts';
 import {
   applyManhwaPageViewTransaction,
 } from '../domain/manhwa/manhwaPageViewTransaction';
@@ -39,24 +33,6 @@ import type {
 } from '../application/game/statePorts';
 import { buildInitialState } from '../stores/gameStoreHelpers';
 
-function correctSubmission(
-  definition: CampaignPuzzleDefinition,
-): CampaignPuzzleProgress[] {
-  return definition.stages.map((stage, stageIndex) => (
-    stage.mode === 'match'
-      ? {
-          stageIndex,
-          values: [],
-          matches: { ...stage.solution },
-        }
-      : {
-          stageIndex,
-          values: [...stage.solution],
-          matches: {},
-        }
-  ));
-}
-
 function createHarness(initial: GameState = buildInitialState()) {
   let state = initial;
   let setCallCount = 0;
@@ -68,13 +44,8 @@ function createHarness(initial: GameState = buildInitialState()) {
       : partial;
     state = { ...state, ...update };
   };
-  const progressionActions = createGameProgressionActions(set, get);
+  createGameProgressionActions(set, get);
   return {
-    campaign: createPuzzleCampaignActions(
-      set,
-      get,
-      progressionActions,
-    ),
     pageView: createManhwaPageViewActions(set, get),
     getState: get,
     getSetCallCount: () => setCallCount,
@@ -97,7 +68,7 @@ describe('canonical Manhwa page view transaction', () => {
   it('adapts every authored page to canonical Echo metrics only', () => {
     const canonicalKeys = new Set<string>(CANONICAL_ECHO_METRIC_KEYS);
 
-    for (const page of CHAPTER_01_MANHWA_PAGES) {
+    for (const page of FINAL_MANHWA_PAGES) {
       const effect = createManhwaPageAuthoredEffect(page);
       assert.equal(effect.effectVersion, MANHWA_PAGE_EFFECT_VERSION);
       assert.ok(
@@ -110,6 +81,7 @@ describe('canonical Manhwa page view transaction', () => {
 
   it('records nothing when the page is locked', () => {
     const harness = createHarness();
+    harness.getState().progressionState.manhwa.unlockedPageIds = [];
     const before = structuredClone(harness.getState().progressionState);
     const result = harness.pageView.viewManhwaPage(
       'manhwa_ch01_page_02',
@@ -141,16 +113,9 @@ describe('canonical Manhwa page view transaction', () => {
     );
   });
 
-  it('keeps Puzzle 001 at Fear 71, then applies Page 01 once to reach 73', () => {
+  it('keeps final publication pages viewable without adding hidden authored effects', () => {
     const harness = createHarness();
-    const puzzle = CHAPTER_01_PUZZLES[0];
-    assert.ok(puzzle);
-    const completed = harness.campaign.completeCampaignPuzzle(
-      puzzle.id,
-      correctSubmission(puzzle),
-    );
-    assert.equal(completed.success, true);
-    assert.equal(harness.getState().progressionState.echo.fear, 71);
+    const initialFear = harness.getState().progressionState.echo.fear;
 
     const writesBeforeView = harness.getSetCallCount();
     const firstView = harness.pageView.viewManhwaPage(
@@ -158,11 +123,11 @@ describe('canonical Manhwa page view transaction', () => {
       '2026-03-01T01:00:00.000Z',
     );
     assert.equal(firstView.success, true);
-    assert.equal(firstView.effectApplied, true);
+    assert.equal(firstView.effectApplied, false);
     assert.equal(harness.getSetCallCount(), writesBeforeView + 1);
     const afterFirstView = harness.getState();
-    assert.equal(afterFirstView.progressionState.echo.fear, 73);
-    assert.equal(afterFirstView.echo.fear, 73);
+    assert.equal(afterFirstView.progressionState.echo.fear, initialFear);
+    assert.equal(afterFirstView.echo.fear, initialFear);
     assert.deepEqual(
       afterFirstView.progressionState.manhwa.viewedPageIds,
       ['manhwa_ch01_page_01'],
@@ -172,22 +137,8 @@ describe('canonical Manhwa page view transaction', () => {
         .manhwa_ch01_page_01,
       '2026-03-01T01:00:00.000Z',
     );
-    assert.deepEqual(
-      afterFirstView.progressionState.manhwa.claimedPageEffectIds,
-      ['manhwa_ch01_page_01:effect:1'],
-    );
-    assert.match(
-      afterFirstView.progressionState.manhwa
-        .pageEffectFingerprintsByReceiptKey[
-          'manhwa_ch01_page_01:effect:1'
-        ] ?? '',
-      /^manhwa-page-v1-[0-9a-f]{8}$/,
-    );
-    assert.equal(
-      afterFirstView.narrative.activeFlags
-        .first_glass_memory_restored,
-      true,
-    );
+    assert.deepEqual(afterFirstView.progressionState.manhwa.claimedPageEffectIds, []);
+    assert.equal(afterFirstView.narrative.activeFlags.first_glass_memory_restored, undefined);
     assert.deepEqual(
       afterFirstView.progressionState.echoEvents
         .standaloneReceiptsByKey,
@@ -201,7 +152,7 @@ describe('canonical Manhwa page view transaction', () => {
     assert.equal(secondView.success, true);
     assert.equal(secondView.alreadyViewed, true);
     assert.equal(secondView.effectApplied, false);
-    assert.equal(harness.getState().progressionState.echo.fear, 73);
+    assert.equal(harness.getState().progressionState.echo.fear, initialFear);
     assert.equal(
       harness.getState().progressionState.manhwa.pageViewedAt
         .manhwa_ch01_page_01,
@@ -212,18 +163,15 @@ describe('canonical Manhwa page view transaction', () => {
         .filter(
           (id) => id === 'manhwa_ch01_page_01:effect:1',
         ).length,
-      1,
+      0,
     );
-    assert.equal(
-      harness.getState().progressionState.puzzles
-        .claimedRewardReceipts.filter(
-          (receipt) => receipt === `${puzzle.id}:1`,
-        ).length,
-      1,
+    assert.deepEqual(
+      harness.getState().progressionState.puzzles.claimedRewardReceipts,
+      [],
     );
   });
 
-  it('applies Page 02 authored effects once', () => {
+  it('records Page 02 once without inventing Echo effects from the PDF', () => {
     const harness = createHarness(
       withUnlockedPages('manhwa_ch01_page_02'),
     );
@@ -236,18 +184,18 @@ describe('canonical Manhwa page view transaction', () => {
     );
 
     assert.equal(first.success, true);
-    assert.equal(first.effectApplied, true);
+    assert.equal(first.effectApplied, false);
     assert.equal(
       harness.getState().progressionState.echo.hope,
       before.hope,
     );
     assert.equal(
       harness.getState().progressionState.echo.trust,
-      before.trust + 2,
+      before.trust,
     );
     assert.equal(
       harness.getState().progressionState.echo.memoryStability,
-      before.memoryStability + 2,
+      before.memoryStability,
     );
     assert.equal(
       harness.getState().progressionState.echo.ragePoints,
@@ -264,7 +212,7 @@ describe('canonical Manhwa page view transaction', () => {
     assert.equal(
       harness.getState().narrative.activeFlags
         .time_0333_discovered,
-      true,
+      undefined,
     );
 
     const afterFirst = structuredClone(
@@ -392,9 +340,13 @@ describe('canonical Manhwa page view transaction', () => {
   });
 
   it('rejects a conflicting page effect payload atomically', () => {
-    const page = CHAPTER_01_MANHWA_PAGE_BY_ID.manhwa_ch01_page_01;
+    const page = FINAL_MANHWA_PAGE_BY_ID.manhwa_ch01_page_01;
     assert.ok(page);
-    const effect = createManhwaPageAuthoredEffect(page);
+    const effect: ManhwaPageAuthoredEffect = {
+      ...createManhwaPageAuthoredEffect(page),
+      echoEffect: { fear: 2 },
+      hasAuthoredEffect: true,
+    };
     const first = applyManhwaPageViewTransaction(
       withUnlockedPages().progressionState,
       page.id,
@@ -433,7 +385,7 @@ describe('canonical Manhwa page view transaction', () => {
   });
 
   it('rejects compatibility Echo fields without recording the view', () => {
-    const page = CHAPTER_01_MANHWA_PAGE_BY_ID.manhwa_ch01_page_01;
+    const page = FINAL_MANHWA_PAGE_BY_ID.manhwa_ch01_page_01;
     assert.ok(page);
     const state = withUnlockedPages().progressionState;
     const before = structuredClone(state);
@@ -457,7 +409,7 @@ describe('canonical Manhwa page view transaction', () => {
   });
 
   it('allows a future effect version on an already viewed no-effect page', () => {
-    const page = CHAPTER_01_MANHWA_PAGE_BY_ID.manhwa_ch01_page_03;
+    const page = FINAL_MANHWA_PAGE_BY_ID.manhwa_ch01_page_03;
     assert.ok(page);
     const initialEffect = createManhwaPageAuthoredEffect(page);
     const first = applyManhwaPageViewTransaction(

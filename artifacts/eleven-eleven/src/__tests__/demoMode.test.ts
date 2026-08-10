@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { CHAPTER_01_PUZZLES } from '../content/puzzles/chapter01Campaign';
+import { STORY_PUZZLES } from '../content/puzzles/storyPuzzleCatalog';
 import {
   createDemoProgressReadModel,
   readDemoModeConfig,
@@ -25,8 +25,8 @@ describe('demo mode', () => {
     }).fullGameUrl, null);
   });
 
-  it('counts only unique puzzles from the published Chapter 1 campaign', () => {
-    const firstId = CHAPTER_01_PUZZLES[0]?.id ?? '';
+  it('counts only unique puzzles from the official Story Puzzle campaign', () => {
+    const firstId = STORY_PUZZLES[0]?.id ?? '';
     const progress = createDemoProgressReadModel([
       firstId,
       firstId,
@@ -40,7 +40,7 @@ describe('demo mode', () => {
   });
 
   it('reaches the demo boundary without changing campaign state', () => {
-    const completedIds = CHAPTER_01_PUZZLES.map((puzzle) => puzzle.id);
+    const completedIds = STORY_PUZZLES.map((puzzle) => puzzle.id);
     const progress = createDemoProgressReadModel(completedIds);
 
     assert.deepEqual(progress, {
@@ -51,7 +51,7 @@ describe('demo mode', () => {
       boundaryReached: true,
     });
     assert.deepEqual(completedIds,
-      CHAPTER_01_PUZZLES.map((puzzle) => puzzle.id),
+      STORY_PUZZLES.map((puzzle) => puzzle.id),
     );
   });
 });

@@ -15,6 +15,13 @@ import {
 import {
   validatePuzzleTemplateCompatibility,
 } from '../../domain/puzzles/puzzleTemplateRegistry';
+import {
+  FINAL_MANHWA_CHAPTERS,
+  FINAL_MANHWA_ASSET_ROOT,
+  FINAL_MANHWA_PAGE_COUNT,
+  FINAL_MANHWA_PAGES,
+  FINAL_MANHWA_PAGE_BY_ID,
+} from '../manhwa/finalManhwa';
 
 const t = (ar: string, en: string): CampaignLocalizedText => ({ ar, en });
 const o = (
@@ -111,10 +118,13 @@ function puzzle(seed: PuzzleSeed): CampaignPuzzleDefinition {
   });
 }
 
+/*
+ * The former 29-page campaign page registry is intentionally disabled.
+ * The final approved publication is the only active Manhwa registry.
 const page01 = 'manhwa_ch01_page_01';
 const page02 = 'manhwa_ch01_page_02';
 
-/** Page count read from the PDF page tree (`/Type /Pages /Count 29`). */
+// Final publication metadata is defined in src/content/manhwa/finalManhwa.ts.
 export const CHAPTER_01_MANHWA_PDF_PAGE_COUNT = 29;
 
 function twoDigit(value: number): string {
@@ -276,6 +286,10 @@ export const CHAPTER_01_MANHWA_PAGES = z.array(manhwaMemoryPageSchema).parse([
     (_, index) => deferredManhwaPage(index + 3),
   ),
 ]) as ManhwaMemoryPageDefinition[];
+*/
+
+const page01 = 'manhwa_ch01_page_01';
+const page02 = 'manhwa_ch01_page_02';
 
 export const CHAPTER_01_PUZZLES = [
   puzzle({
@@ -1039,6 +1053,9 @@ export const CHAPTER_01_MEMORY_SHARDS = z.array(
   sourcePuzzleId: definition.id,
 }))) satisfies CampaignMemoryShardDefinition[];
 
+/*
+ * Legacy validation targeted the removed 29-page campaign registry.
+ * It remains outside the runtime source below for Git history only.
 export function validateChapter01Campaign(): void {
   const puzzleIds = new Set<string>();
   const orders = new Set<number>();
@@ -1154,17 +1171,73 @@ export function validateChapter01Campaign(): void {
 }
 
 validateChapter01Campaign();
+*/
+
+export function validateChapter01Campaign(): void {
+  const pageIds = new Set(FINAL_MANHWA_PAGES.map((page) => page.id));
+  const puzzleIds = new Set<string>();
+  const orders = new Set<number>();
+  const shardIds = new Set<string>();
+  const shardDefinitions = new Map(
+    CHAPTER_01_MEMORY_SHARDS.map((shard) => [shard.id, shard]),
+  );
+
+  for (const definition of CHAPTER_01_PUZZLES) {
+    validatePuzzleTemplateCompatibility(definition);
+    campaignPuzzleSchema.parse(definition);
+    if (puzzleIds.has(definition.id) || orders.has(definition.order)) {
+      throw new Error(`Duplicate Chapter 01 campaign entry: ${definition.id}`);
+    }
+    if (shardIds.has(definition.rewards.shardId)) {
+      throw new Error(`Duplicate campaign shard reward: ${definition.rewards.shardId}`);
+    }
+    if (!pageIds.has(definition.targetPageId)) {
+      throw new Error(`${definition.id} references unknown final Manhwa page`);
+    }
+    const shard = shardDefinitions.get(definition.rewards.shardId);
+    if (
+      !shard
+      || shard.pageId !== definition.targetPageId
+      || shard.sourcePuzzleId !== definition.id
+    ) {
+      throw new Error(`${definition.id} has an invalid shard definition`);
+    }
+    puzzleIds.add(definition.id);
+    orders.add(definition.order);
+    shardIds.add(definition.rewards.shardId);
+  }
+
+  for (const [index, page] of FINAL_MANHWA_PAGES.entries()) {
+    manhwaMemoryPageSchema.parse(page);
+    if (page.globalPageNumber !== index + 1) {
+      throw new Error('Final Manhwa pages must remain in PDF source order');
+    }
+    if (!page.imageSrc.startsWith(`${FINAL_MANHWA_ASSET_ROOT}/page-`)) {
+      throw new Error(`${page.id} references a non-final Manhwa asset`);
+    }
+  }
+  if (FINAL_MANHWA_PAGES.length !== FINAL_MANHWA_PAGE_COUNT) {
+    throw new Error(`Final Manhwa must contain ${FINAL_MANHWA_PAGE_COUNT} pages`);
+  }
+  for (const chapter of FINAL_MANHWA_CHAPTERS) {
+    if (
+      chapter.startPage > chapter.endPage
+      || chapter.coverPage !== chapter.startPage
+      || chapter.pageCount !== chapter.endPage - chapter.startPage + 1
+    ) {
+      throw new Error(`${chapter.chapterId} has an invalid final page range`);
+    }
+  }
+  if (CHAPTER_01_PUZZLES.length !== 20 || CHAPTER_01_MEMORY_SHARDS.length !== 20) {
+    throw new Error('Chapter 01 puzzle campaign contract changed unexpectedly');
+  }
+}
+
+validateChapter01Campaign();
 
 export const CHAPTER_01_PUZZLE_BY_ID = Object.freeze(
   Object.fromEntries(CHAPTER_01_PUZZLES.map((definition) => [
     definition.id,
     definition,
   ])) as Record<string, CampaignPuzzleDefinition>,
-);
-
-export const CHAPTER_01_MANHWA_PAGE_BY_ID = Object.freeze(
-  Object.fromEntries(CHAPTER_01_MANHWA_PAGES.map((definition) => [
-    definition.id,
-    definition,
-  ])) as Record<string, ManhwaMemoryPageDefinition>,
 );

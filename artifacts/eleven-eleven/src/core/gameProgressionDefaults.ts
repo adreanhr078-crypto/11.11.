@@ -19,8 +19,14 @@ import {
 import type {
   NarrativeEventProgressState,
 } from './narrativeEventTypes';
+import {
+  FINAL_MANHWA_MANIFEST_VERSION,
+} from '../content/manhwa/finalManhwa';
+import {
+  createInitialAuthoritativeStoryState,
+} from '../domain/story/storyState';
 
-export const GAME_PROGRESSION_SCHEMA_VERSION = 7;
+export const GAME_PROGRESSION_SCHEMA_VERSION = 9;
 
 export const DEFAULT_ECHO_PROGRESS: Readonly<EchoProgressState> = {
   humanity: 35,
@@ -106,6 +112,7 @@ export function createInitialGameProgressionState(
       unlockedHintTiersByPuzzle: {},
     },
     manhwa: {
+      manifestVersion: FINAL_MANHWA_MANIFEST_VERSION,
       unlockedPageIds: [
         ...new Set(input.initiallyUnlockedManhwaPageIds ?? []),
       ],
@@ -117,6 +124,11 @@ export function createInitialGameProgressionState(
       ].map((pageId) => createManhwaUnlockReceiptKey(pageId)),
       claimedPageEffectIds: [],
       pageEffectFingerprintsByReceiptKey: {},
+      lastReadPageId: null,
+      lastReadChapterId: null,
+      lastReadGlobalPageNumber: null,
+      lastReadAt: null,
+      completedChapterIds: [],
     },
     achievements: createInitialAchievementProgressState(),
     echo: {
@@ -128,6 +140,7 @@ export function createInitialGameProgressionState(
     evolution: createInitialEchoEvolutionProgressState(),
     story: {
       narrative: input.narrative,
+      authoritative: createInitialAuthoritativeStoryState(),
     },
   };
 }

@@ -23,6 +23,7 @@ import {
 } from './_progressionRepository';
 import {
   isPlayerAvatarId,
+  PROFILE_FEATURED_ACHIEVEMENT_LIMIT,
   PROFILE_BIO_MAX_LENGTH,
   PROFILE_USERNAME_MAX_LENGTH,
   type PlayerAvatarId,
@@ -37,6 +38,7 @@ interface ProfileUpdateBody {
   username?: unknown;
   bio?: unknown;
   avatarId?: unknown;
+  featuredAchievementIds?: unknown;
 }
 
 async function ensureProgressionRow(
@@ -128,7 +130,7 @@ function validateUpdateBody(body: unknown): ProfileUpdateBody {
     throw new PlayerApiError(400, 'invalid_request', 'Profile update is invalid.');
   }
   const input = body as ProfileUpdateBody & Record<string, unknown>;
-  const allowed = new Set(['username', 'bio', 'avatarId']);
+  const allowed = new Set(['username', 'bio', 'avatarId', 'featuredAchievementIds']);
   if (Object.keys(input).some((key) => !allowed.has(key))) {
     throw new PlayerApiError(
       400,
@@ -145,7 +147,34 @@ function validateUpdateBody(body: unknown): ProfileUpdateBody {
   if (!isPlayerAvatarId(input.avatarId)) {
     throw new PlayerApiError(400, 'invalid_avatar', 'Avatar ID is not allowed.');
   }
+  if (input.featuredAchievementIds !== undefined && (
+    !Array.isArray(input.featuredAchievementIds)
+    || input.featuredAchievementIds.length > PROFILE_FEATURED_ACHIEVEMENT_LIMIT
+    || input.featuredAchievementIds.some((id) => typeof id !== 'string' || !/^[a-z0-9_-]{1,100}$/i.test(id))
+  )) {
+    throw new PlayerApiError(400, 'invalid_featured_achievements', 'Up to three verified achievements can be showcased.');
+  }
   return input;
+}
+
+async function validateFeaturedAchievementOwnership(
+  db: PlayerDatabase,
+  uid: string,
+  requested: string[] | undefined,
+  fallback: string[],
+): Promise<string[]> {
+  const ids = [...new Set(requested ?? fallback)].slice(0, PROFILE_FEATURED_ACHIEVEMENT_LIMIT);
+  if (ids.length === 0) return [];
+  const rows = await db.prepare(`
+    SELECT achievement_id
+    FROM player_achievement_unlock_events
+    WHERE user_id = ?
+  `).bind(uid).all<{ achievement_id: string }>();
+  const owned = new Set((rows.results ?? []).map((row) => row.achievement_id));
+  if (ids.some((id) => !owned.has(id))) {
+    throw new PlayerApiError(403, 'achievement_not_unlocked', 'Only verified achievements can be showcased.');
+  }
+  return ids;
 }
 
 async function responseProfile(
@@ -242,6 +271,12 @@ export async function onRequestPut({
       usernameSource: 'stored',
       bio: cleanBio(body.bio),
       avatarId: body.avatarId as PlayerAvatarId,
+      featuredAchievementIds: await validateFeaturedAchievementOwnership(
+        db,
+        account.uid,
+        body.featuredAchievementIds as string[] | undefined,
+        stored.featuredAchievementIds,
+      ),
     };
     await reserveUsername(db, account.uid, username, stored.joinDate);
     const saved = await writePlayerProfile(env, idToken, account, nextProfile);

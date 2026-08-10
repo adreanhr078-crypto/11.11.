@@ -4,9 +4,27 @@ import {
   type EchoProviderEnv,
   type EchoProviderMessage,
 } from './providers';
+import {
+  FINAL_MANHWA_SERVER_ECHO_KNOWLEDGE_NODE_IDS,
+} from '../../../src/content/story/finalManhwaCanonEvents';
+import {
+  getAuthoritativeEchoKnowledgeIds,
+} from '../../../src/domain/story/storyState';
+import {
+  readAuthoritativeStoryState,
+} from '../player/_storyState';
+import {
+  authenticatePlayer,
+} from '../player/_shared';
+import type {
+  PlayerDatabase,
+} from '../player/_database';
 
 interface EchoGatewayEnv extends EchoProviderEnv {
   ECHO_ALLOWED_ORIGINS?: string;
+  FIREBASE_PROJECT_ID?: string;
+  FIREBASE_WEB_API_KEY?: string;
+  PLAYER_DB?: PlayerDatabase;
 }
 
 interface EchoGatewayContext {
@@ -45,7 +63,7 @@ function corsHeaders(
     ...(allowedOrigin
       ? { 'Access-Control-Allow-Origin': allowedOrigin }
       : {}),
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Cache-Control': 'no-store',
     Vary: 'Origin',
@@ -222,6 +240,51 @@ function sanitizeKnowledge(value: unknown): Record<string, unknown> {
   };
 }
 
+/**
+ * The browser may still send its normal conversation context, but it cannot
+ * manufacture the new Canon-gated Echo topics. Those IDs are stripped unless
+ * they are re-derived from this player's D1 receipts.
+ */
+async function resolveAuthoritativeEchoKnowledge(
+  request: Request,
+  env: EchoGatewayEnv,
+  knowledge: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const serverOwnedKnowledge = new Set(
+    FINAL_MANHWA_SERVER_ECHO_KNOWLEDGE_NODE_IDS,
+  );
+  const suppliedKnowledge = cleanStringArray(
+    knowledge.knowledgeNodeIds,
+    30,
+    200,
+  ).filter((nodeId) => !serverOwnedKnowledge.has(nodeId));
+
+  const authorization = request.headers.get('Authorization');
+  if (
+    !authorization
+    || !env.PLAYER_DB
+    || !env.FIREBASE_PROJECT_ID?.trim()
+    || !env.FIREBASE_WEB_API_KEY?.trim()
+  ) {
+    return { ...knowledge, knowledgeNodeIds: suppliedKnowledge };
+  }
+
+  try {
+    const { account } = await authenticatePlayer(request, env);
+    const storyState = await readAuthoritativeStoryState(env.PLAYER_DB, account);
+    return {
+      ...knowledge,
+      knowledgeNodeIds: [...new Set([
+        ...suppliedKnowledge,
+        ...getAuthoritativeEchoKnowledgeIds(storyState),
+      ])].slice(-30),
+    };
+  } catch {
+    // An unavailable or invalid player session must never unlock a topic.
+    return { ...knowledge, knowledgeNodeIds: suppliedKnowledge };
+  }
+}
+
 function echoInstructions(locale: 'ar' | 'en'): string {
   const language = locale === 'en' ? 'English' : 'Arabic';
   return [
@@ -335,7 +398,11 @@ export async function onRequestPost({
     return jsonResponse({ error: 'Message is required.' }, 400, headers);
   }
 
-  const knowledge = sanitizeKnowledge(body.context);
+  const knowledge = await resolveAuthoritativeEchoKnowledge(
+    request,
+    env,
+    sanitizeKnowledge(body.context),
+  );
   const history = sanitizeHistory(body.history);
   const safetyIdentifier = cleanText(body.safetyIdentifier, 128) || undefined;
   const instructions = echoInstructions(locale);

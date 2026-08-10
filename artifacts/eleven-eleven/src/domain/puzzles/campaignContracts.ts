@@ -198,6 +198,15 @@ export const manhwaMemoryPageSchema = z.object({
   narrativeFlags: z.array(z.string().min(1)),
   dialogue: localizedTextSchema,
   dialogueTriggers: z.array(z.string().min(1)),
+  globalPageNumber: z.number().int().positive().optional(),
+  pageKind: z.enum([
+    'cover',
+    'credits',
+    'chapter-cover',
+    'chapter-page',
+    'teaser',
+    'back-cover',
+  ]).optional(),
 });
 export type ManhwaMemoryPageDefinition = z.infer<
   typeof manhwaMemoryPageSchema

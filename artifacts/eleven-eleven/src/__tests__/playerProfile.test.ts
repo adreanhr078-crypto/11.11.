@@ -17,7 +17,6 @@ import {
   normalizeUsername,
 } from '../../functions/api/player/_profile';
 import { verifyXpRewardClaim } from '../../functions/api/player/_xpRewards';
-import { CHAPTER_01_PUZZLES } from '../content/puzzles/chapter01Campaign';
 import { PLAYER_AVATAR_CATALOG, playerAvatarPresentationSrc } from '../ui/presentation/playerAvatarCatalog';
 import type {
   FirebaseAccount,
@@ -33,14 +32,6 @@ const account: FirebaseAccount = {
   createdAt: '2026-08-08T11:11:00.000Z',
   lastLoginAt: '2026-08-08T12:00:00.000Z',
 };
-
-function correctProof(puzzle: typeof CHAPTER_01_PUZZLES[number]) {
-  return puzzle.stages.map((stage, stageIndex) => ({
-    stageIndex,
-    values: stage.mode === 'match' ? [] : [...stage.solution],
-    matches: stage.mode === 'match' ? { ...stage.solution } : {},
-  }));
-}
 
 describe('player profile identity and authority', () => {
   it('keeps the Profile screen hidden from primary navigation', () => {
@@ -101,22 +92,23 @@ describe('player profile identity and authority', () => {
     assert.equal(PROFILE_FEATURED_ACHIEVEMENT_LIMIT, 3);
   });
 
-  it('derives XP and Memory Fragment IDs from the canonical puzzle only', () => {
-    const puzzle = CHAPTER_01_PUZZLES[0];
-    assert.ok(puzzle);
-    const reward = verifyXpRewardClaim({
+  it('rejects retired puzzle claims and all client-authored reward values', () => {
+    assert.throws(() => verifyXpRewardClaim({
       sourceType: 'puzzle',
-      sourceId: puzzle.id,
-      proof: correctProof(puzzle),
-    });
-    assert.equal(reward.xpAmount, 75);
-    assert.equal(reward.memoryFragmentId, puzzle.rewards.shardId);
+      sourceId: 'story_puzzle_01_signal_calibration',
+      proof: {},
+    }), (error: unknown) => (
+      typeof error === 'object'
+      && error !== null
+      && 'code' in error
+      && error.code === 'reward_source_not_active'
+    ));
     assert.throws(
       () => verifyXpRewardClaim({
         sourceType: 'puzzle',
-        sourceId: puzzle.id,
-        proof: correctProof(puzzle),
-        fragmentId: puzzle.rewards.shardId,
+        sourceId: 'story_puzzle_01_signal_calibration',
+        proof: {},
+        fragmentId: 'story_puzzle_shard_01',
       }),
       (error: unknown) => (
         typeof error === 'object'
@@ -136,5 +128,18 @@ describe('player profile identity and authority', () => {
     assert.match(migration, /BEFORE DELETE ON xp_reward_events/);
     assert.match(migration, /BEFORE UPDATE ON player_memory_fragment_events/);
     assert.match(migration, /BEFORE DELETE ON player_memory_fragment_events/);
+    const finalXpMigration = readFileSync(
+      new URL('../../migrations/0003_allow_manhwa_xp_source.sql', import.meta.url),
+      'utf8',
+    );
+    assert.match(finalXpMigration, /'manhwa'/);
+    assert.match(finalXpMigration, /BEFORE UPDATE ON xp_reward_events/);
+    assert.match(finalXpMigration, /BEFORE DELETE ON xp_reward_events/);
+    const storyPuzzleMigration = readFileSync(
+      new URL('../../migrations/0005_story_puzzle_experience.sql', import.meta.url),
+      'utf8',
+    );
+    assert.match(storyPuzzleMigration, /player_story_puzzle_completion_events is append-only/);
+    assert.match(storyPuzzleMigration, /player_coin_events is append-only/);
   });
 });

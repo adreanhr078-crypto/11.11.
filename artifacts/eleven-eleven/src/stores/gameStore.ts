@@ -33,6 +33,9 @@ import {
 import {
   createManhwaPageViewActions,
 } from '../application/game/createManhwaPageViewActions';
+import {
+  createStoryStateActions,
+} from '../application/story/createStoryStateActions';
 import { createNarrativeActions } from '../application/narrative/createNarrativeActions';
 import { createCinematicActions } from '../application/cinematics/createCinematicActions';
 import type {
@@ -46,9 +49,6 @@ import {
   migrateGameState,
   partializeGameState,
 } from '../infrastructure/persistence/gamePersistence';
-import {
-  registerAuthoredPuzzleContent,
-} from '../infrastructure/content/registerPuzzleContent';
 
 export type {
   Achievement,
@@ -88,7 +88,6 @@ const DEFAULT_SHOP_PRICES: CoinShopPrices = {
 };
 
 function createInitialGameState(): GameState {
-  registerAuthoredPuzzleContent();
   const state = buildInitialState();
   state.shopPrices = DEFAULT_SHOP_PRICES;
   return state;
@@ -116,13 +115,10 @@ export const useGameStore = create<GameState>()(
             getState,
             progressionActions,
           ),
-          ...createPuzzleCampaignActions(
-            setState,
-            getState,
-            progressionActions,
-          ),
+          ...createPuzzleCampaignActions(setState),
           ...createManhwaArchiveActions(setState, getState),
           ...createManhwaPageViewActions(setState, getState),
+          ...createStoryStateActions(setState, getState),
           ...createNarrativeActions(setState, getState),
           ...createCinematicActions(setState, getState),
         },

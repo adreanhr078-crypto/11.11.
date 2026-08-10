@@ -121,7 +121,7 @@ describe('canonical game progression persistence', () => {
     );
   });
 
-  it('migrates reward receipts and preserves unlocked achievements', () => {
+  it('retires local campaign receipts while preserving unlocked achievements', () => {
     const migrated = migrateGameState({
       claimedPuzzleRewards: ['puzzle_001_broken_pulse'],
       achievements: [{
@@ -136,7 +136,7 @@ describe('canonical game progression persistence', () => {
 
     assert.deepEqual(
       migrated.progressionState?.puzzles.claimedRewardReceipts,
-      ['puzzle_001_broken_pulse:1'],
+      [],
     );
     assert.deepEqual(
       migrated.progressionState?.achievements.byId.first_puzzle,

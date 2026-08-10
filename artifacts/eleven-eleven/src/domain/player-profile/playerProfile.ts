@@ -42,6 +42,7 @@ export interface PlayerProfileUpdateInput {
   username: string;
   bio: string;
   avatarId: PlayerAvatarId;
+  featuredAchievementIds?: string[];
 }
 
 export function isPlayerAvatarId(value: unknown): value is PlayerAvatarId {

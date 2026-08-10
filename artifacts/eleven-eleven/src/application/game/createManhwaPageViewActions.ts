@@ -1,6 +1,7 @@
 import {
-  CHAPTER_01_MANHWA_PAGE_BY_ID,
-} from '../../content/puzzles/chapter01Campaign';
+  FINAL_MANHWA_CHAPTERS,
+  FINAL_MANHWA_PAGE_BY_ID,
+} from '../../content/manhwa/finalManhwa';
 import type {
   GameActions,
 } from '../../core/gameTypes';
@@ -28,7 +29,10 @@ import type {
 
 type ManhwaPageViewActions = Pick<
   GameActions,
-  'viewManhwaPage' | 'markManhwaPageViewed'
+  | 'viewManhwaPage'
+  | 'markManhwaPageViewed'
+  | 'recordManhwaReadingProgress'
+  | 'markManhwaChapterCompleted'
 >;
 
 function unique(values: readonly string[]): string[] {
@@ -45,7 +49,7 @@ export function createManhwaPageViewActions(
     timestamp = now(),
   ) => {
     const normalizedPageId = pageId.trim();
-    const page = CHAPTER_01_MANHWA_PAGE_BY_ID[normalizedPageId];
+    const page = FINAL_MANHWA_PAGE_BY_ID[normalizedPageId];
     let transaction: ManhwaPageViewTransactionResult = {
       success: false,
       alreadyViewed: false,
@@ -112,6 +116,69 @@ export function createManhwaPageViewActions(
     viewManhwaPage,
     markManhwaPageViewed(pageId) {
       void viewManhwaPage(pageId);
+    },
+    recordManhwaReadingProgress(pageId, globalPageNumber, chapterId, timestamp = now()) {
+      const page = FINAL_MANHWA_PAGE_BY_ID[pageId.trim()];
+      if (
+        !page
+        || page.globalPageNumber !== globalPageNumber
+        || (chapterId !== null && page.chapterId !== chapterId)
+        || !timestamp.trim()
+        || !Number.isFinite(Date.parse(timestamp))
+      ) {
+        return false;
+      }
+
+      let changed = false;
+      set((state) => {
+        const current = state.progressionState.manhwa;
+        if (
+          current.lastReadPageId === page.id
+          && current.lastReadGlobalPageNumber === page.globalPageNumber
+          && current.lastReadChapterId === page.chapterId
+        ) {
+          return {};
+        }
+        changed = true;
+        return {
+          progressionState: {
+            ...state.progressionState,
+            manhwa: {
+              ...current,
+              lastReadPageId: page.id,
+              lastReadChapterId: page.chapterId === 'chapter_0' ? null : page.chapterId,
+              lastReadGlobalPageNumber: page.globalPageNumber,
+              lastReadAt: timestamp,
+            },
+          },
+        };
+      });
+      return changed;
+    },
+    markManhwaChapterCompleted(chapterId) {
+      if (!FINAL_MANHWA_CHAPTERS.some((chapter) => chapter.chapterId === chapterId)) {
+        return false;
+      }
+      let changed = false;
+      set((state) => {
+        if (state.progressionState.manhwa.completedChapterIds.includes(chapterId)) {
+          return {};
+        }
+        changed = true;
+        return {
+          progressionState: {
+            ...state.progressionState,
+            manhwa: {
+              ...state.progressionState.manhwa,
+              completedChapterIds: [
+                ...state.progressionState.manhwa.completedChapterIds,
+                chapterId,
+              ],
+            },
+          },
+        };
+      });
+      return changed;
     },
   };
 }

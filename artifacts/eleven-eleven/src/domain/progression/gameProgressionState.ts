@@ -25,6 +25,9 @@ import {
 import {
   normalizeNarrativeState,
 } from '../narrative/narrativeState';
+import {
+  normalizeAuthoritativeStoryState,
+} from '../story/storyState';
 
 export function clampProgressMetric(value: number): number {
   if (!Number.isFinite(value)) return 0;
@@ -196,6 +199,9 @@ export function reconcileGameProgressionState(
     evolution: normalizeEchoEvolutionProgressState(state.evolution),
     story: {
       narrative: normalizeNarrativeState(state.story.narrative),
+      authoritative: normalizeAuthoritativeStoryState(
+        state.story.authoritative,
+      ),
     },
   };
 }

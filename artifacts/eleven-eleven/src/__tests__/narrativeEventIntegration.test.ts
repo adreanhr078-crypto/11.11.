@@ -766,12 +766,29 @@ describe('Phase 3F canonical narrative event integration', () => {
     );
   });
 
-  it('keeps current runtime narrative registries empty and author-safe', () => {
+  it('keeps runtime narrative registries limited to approved final-Manhwa gates', () => {
     assert.equal(MEMORY_DEFINITIONS.length, 0);
     assert.equal(DIALOGUE_DEFINITIONS.length, 0);
     assert.equal(CINEMATIC_EPISODE_DEFINITIONS.length, 0);
-    assert.equal(RUNTIME_NARRATIVE_KNOWLEDGE_NODES.length, 0);
-    assert.equal(RUNTIME_ECHO_STORY_EVENTS.length, 0);
+    assert.deepEqual(
+      RUNTIME_NARRATIVE_KNOWLEDGE_NODES.map(({ nodeId }) => nodeId),
+      [
+        'echo_knowledge_black_coronation',
+        'echo_knowledge_lina_protocol',
+        'echo_knowledge_black_echo_protocol',
+      ],
+    );
+    assert.ok(RUNTIME_NARRATIVE_KNOWLEDGE_NODES.every((node) => (
+      node.published && !node.playerVisible && node.audience === 'echo'
+    )));
+    assert.deepEqual(
+      RUNTIME_ECHO_STORY_EVENTS.map(({ eventId }) => eventId),
+      [
+        'manhwa_chapter_04_black_coronation',
+        'manhwa_chapter_04_lina_protocol',
+        'manhwa_chapter_04_black_echo_protocol',
+      ],
+    );
 
     const runtimeFiles = [
       '../domain/narrative/knowledgeRegistry.ts',

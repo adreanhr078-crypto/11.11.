@@ -29,8 +29,12 @@ import {
   CONTENT_MANIFEST,
 } from '../infrastructure/content/contentRegistry';
 import {
-  CHAPTER_01_MANHWA_PAGES,
-} from '../content/puzzles/chapter01Campaign';
+  FINAL_MANHWA_PAGES,
+} from '../content/manhwa/finalManhwa';
+import {
+  STORY_PUZZLE_COUNTS,
+  STORY_PUZZLES,
+} from '../content/puzzles/storyPuzzleCatalog';
 import {
   createInitialAchievementProgressState,
   createInitialGameProgressionState,
@@ -43,13 +47,8 @@ import {
   createInitialAwakeningWardState,
 } from '../features/awakening-ward/domain/awakeningWardState';
 
-const CONFIGURED_PUZZLE_COUNT = (
-  CHAPTER_DEFINITIONS.at(-1)?.puzzleRange[1] ?? 0
-);
-const CAMPAIGN_MEMORY_SHARD_SLOT_COUNT = CHAPTER_01_MANHWA_PAGES.reduce(
-  (total, page) => total + page.requiredShardIds.length,
-  0,
-);
+const CONFIGURED_PUZZLE_COUNT = STORY_PUZZLE_COUNTS.total;
+const CAMPAIGN_MEMORY_SHARD_SLOT_COUNT = STORY_PUZZLE_COUNTS.total;
 
 // ─── INITIAL STATE ─────────────────────────────────────────────────────
 export function buildInitialState(): GameState {
@@ -61,12 +60,10 @@ export function buildInitialState(): GameState {
   );
   const narrative = createInitialNarrativeState();
   const achievements = generateAllAchievements();
-  const initiallyUnlockedManhwaPageIds = CHAPTER_01_MANHWA_PAGES
-    .filter((page) => (
-      page.requiredShardIds.length === 0
-      && !page.prerequisitePageId
-    ))
-    .map((page) => page.id);
+  // The final publication is readable end-to-end. Chapter prerequisite data
+  // remains in the central manifest for a later product decision, but the
+  // current game build must not strand the newly approved chapters.
+  const initiallyUnlockedManhwaPageIds = FINAL_MANHWA_PAGES.map((page) => page.id);
   const progressionState = createInitialGameProgressionState({
     journey: progression,
     narrative,
@@ -103,7 +100,7 @@ export function buildInitialState(): GameState {
     manhwaPageUnlockedAt: {},
     manhwaPageViewedAt: {},
     consumedDialogueTriggerIds: [],
-    lastAvailablePuzzleId: 'puzzle_001_broken_pulse',
+    lastAvailablePuzzleId: STORY_PUZZLES[0]!.id,
     lastPuzzleReward: null,
     echo: {
       personality,

@@ -115,7 +115,11 @@ export default function CharactersScreen() {
 
             <div className="shell-character-archive__identity">
               <span className="shell-character-archive__status">
-                {selected.unlocked ? 'Discovered' : 'Locked'}
+                {selected.accessLevel === 'partial'
+                  ? 'Partial file'
+                  : selected.unlocked
+                    ? 'Discovered'
+                    : 'Locked'}
               </span>
               <h2>{selected.displayName}</h2>
               <strong>{selected.role}</strong>
@@ -181,6 +185,31 @@ export default function CharactersScreen() {
                   {selected.unlocked
                     ? 'لا توجد ملفات مرتبطة بهذه الشخصية بعد.'
                     : 'سيفتح هذا القسم عندما تبدأ اللعبة بكشف الأدلة المرتبطة بها.'}
+                </p>
+              )}
+            </article>
+
+            <article className="shell-character-archive__moments">
+              <header>
+                <Sparkles size={16} />
+                <span>CHARACTER MOMENTS</span>
+              </header>
+              {selected.moments.some((moment) => moment.unlocked) ? (
+                <ul>
+                  {selected.moments
+                    .filter((moment) => moment.unlocked)
+                    .map((moment) => (
+                      <li key={moment.momentId}>
+                        <strong>{moment.contentType.toUpperCase()}</strong>
+                        <small>{moment.seenState === 'seen' ? 'SEEN' : 'AVAILABLE'}</small>
+                      </li>
+                    ))}
+                </ul>
+              ) : (
+                <p>
+                  {selected.moments.length > 0
+                    ? 'DATA INSUFFICIENT // STORY-GATED'
+                    : 'NO APPROVED MOMENT CONTENT YET'}
                 </p>
               )}
             </article>

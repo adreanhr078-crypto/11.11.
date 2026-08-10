@@ -1,15 +1,29 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useGameStore } from '../../stores/gameStore';
+import { useCollectionStore } from '../collection/collectionStore';
 import {
   GameProgress,
   GlassPanel,
   HudPanel,
 } from '../../ui/design-system';
+import { Lock, RotateCcw, ScanLine, Sparkles } from 'lucide-react';
 import { createProgressScreenReadModel } from '../../application/ui/gameUiReadModels';
+import { useStoryPuzzleStore } from '../story-puzzles/storyPuzzleStore';
 
 export default function ProgressScreen() {
   const state = useGameStore();
-  const model = useMemo(() => createProgressScreenReadModel(state), [state]);
+  const storyPuzzleSnapshot = useStoryPuzzleStore((store) => store.snapshot);
+  const collection = useCollectionStore((store) => store.snapshot);
+  const collectionStatus = useCollectionStore((store) => store.status);
+  const collectionError = useCollectionStore((store) => store.error);
+  const collectionActions = useCollectionStore((store) => store.actions);
+  useEffect(() => {
+    if (collectionStatus === 'idle') void collectionActions.load();
+  }, [collectionActions, collectionStatus]);
+  const model = useMemo(
+    () => createProgressScreenReadModel(state, storyPuzzleSnapshot),
+    [state, storyPuzzleSnapshot],
+  );
 
   return (
     <div className="shell-screen shell-progress-screen">
@@ -96,6 +110,82 @@ export default function ProgressScreen() {
           )}
         </div>
       </HudPanel>
+
+      {collection && (
+        <section className="collection-hub" aria-label="11.11 recovery collection">
+          <HudPanel
+            className="collection-hub__recovery"
+            tone="danger"
+            eyebrow="11.11 DATABASE // RECOVERY SYSTEM"
+            title="SYSTEM RECOVERY"
+          >
+            <div className="collection-hub__recovery-value">
+              <strong>{collection.systemRecovery.percent}%</strong>
+              <span>VERIFIED COLLECTION RECOVERED</span>
+            </div>
+            <GameProgress value={collection.systemRecovery.percent} tone="danger" label="SYSTEM RECOVERY" />
+            <div className="collection-hub__recovery-grid">
+              <span>STORY <b>{collection.systemRecovery.story}%</b></span>
+              <span>PUZZLES <b>{collection.systemRecovery.puzzles}%</b></span>
+              <span>MEMORY <b>{collection.systemRecovery.memory}%</b></span>
+              <span>ARCHIVE <b>{collection.systemRecovery.archive}%</b></span>
+            </div>
+          </HudPanel>
+
+          <GlassPanel className="collection-hub__shards" tone="memory" title="MEMORY SHARDS">
+            <div className="collection-hub__counter"><strong>{collection.shardCount} / {collection.totalShards}</strong><small>UNIQUE VERIFIED SHARDS</small></div>
+            <div className="collection-hub__sets">
+              {collection.memorySets.map((set) => (
+                <article key={set.chapterId} data-complete={set.complete}>
+                  <header><span>CHAPTER {set.order.toString().padStart(2, '0')}</span><b>{set.collected} / {set.total}</b></header>
+                  <div className="collection-hub__shard-slots" aria-label={`Chapter ${set.order} shards`}>
+                    {Array.from({ length: set.total }, (_, index) => (
+                      <i key={index} data-collected={index < set.collected} aria-hidden="true">{index < set.collected ? '◆' : '◇'}</i>
+                    ))}
+                  </div>
+                  {set.reconstructed ? (
+                    <small className="collection-hub__status">MEMORY SLOT OPEN // NEEDS OWNER CONTENT</small>
+                  ) : set.reconstructionAvailable ? (
+                    <button type="button" onClick={() => void collectionActions.reconstruct(set.chapterId)}>
+                      <RotateCcw aria-hidden="true" /> RECONSTRUCT
+                    </button>
+                  ) : (
+                    <small className="collection-hub__status">{set.complete ? 'SYNC READY' : 'UNKNOWN / CORRUPTED'}</small>
+                  )}
+                </article>
+              ))}
+            </div>
+          </GlassPanel>
+
+          <GlassPanel className="collection-hub__signals" tone="rare" title="SECRET SIGNALS">
+            <div className="collection-hub__counter"><strong>{collection.secretSignals.filter((signal) => signal.discovered).length} / {collection.secretSignals.length}</strong><small>DISCOVERY RECORDS</small></div>
+            <div className="collection-hub__signal-list">
+              {collection.secretSignals.map((signal) => (
+                <div key={signal.id} data-discovered={signal.discovered}>
+                  {signal.discovered ? <ScanLine aria-hidden="true" /> : <Lock aria-hidden="true" />}
+                  <span>{signal.discovered ? signal.label : 'CLASSIFIED SIGNAL'}</span>
+                  <small>{signal.discovered ? 'VERIFIED' : '???'}</small>
+                </div>
+              ))}
+            </div>
+            <p className="collection-hub__note">Secrets Found remains separate from Memory Shards and uses only canonical Memory Fragment receipts.</p>
+          </GlassPanel>
+
+          <GlassPanel className="collection-hub__achievements" tone="progression" title="ACHIEVEMENTS // SYSTEM RECORDS">
+            <div className="collection-hub__counter"><strong>{collection.achievements.filter((achievement) => achievement.unlocked).length} / {collection.achievements.length}</strong><small>UNLOCKED RECORDS</small></div>
+            <div className="collection-hub__achievement-list">
+              {collection.achievements.slice(0, 8).map((achievement) => (
+                <article key={achievement.id} data-unlocked={achievement.unlocked} data-tier={achievement.presentationTier}>
+                  <span aria-hidden="true">{achievement.unlocked ? achievement.icon : '???'}</span>
+                  <div><strong>{achievement.name}</strong><small>{achievement.unlocked ? achievement.description : 'DATA UNAVAILABLE'}</small></div>
+                </article>
+              ))}
+            </div>
+            <p className="collection-hub__note"><Sparkles aria-hidden="true" /> Hidden records stay CLASSIFIED until verified.</p>
+          </GlassPanel>
+        </section>
+      )}
+      {collectionStatus === 'error' && <p className="shell-inline-empty" role="alert">{collectionError}</p>}
     </div>
   );
 }

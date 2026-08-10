@@ -22,6 +22,9 @@ import {
   createEchoMindScreenReadModel,
 } from '../../application/ui/gameUiReadModels';
 import {
+  createEchoKnowledgeTopicReadModels,
+} from '../../domain/echo/echoKnowledgeGates';
+import {
   createBrowserEchoMindVoice,
 } from '../../infrastructure/voice/browserEchoMindVoice';
 import { EchoPresence } from '../../ui/presentation';
@@ -110,6 +113,10 @@ function expressionLine(envelope: EchoMindTurnEnvelope): string {
 export default function EchoMindScreen() {
   const state = useGameStore();
   const model = useMemo(() => createEchoMindScreenReadModel(state), [state]);
+  const knowledgeTopics = useMemo(
+    () => createEchoKnowledgeTopicReadModels(state.progressionState),
+    [state.progressionState],
+  );
   const living = useEchoMindLivingStore();
   const [draft, setDraft] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
@@ -431,6 +438,20 @@ export default function EchoMindScreen() {
                   ? 'Echo has not learned anything personal yet.'
                   : 'لم يتعلم Echo شيئًا شخصيًا بعد.'}</span>
               )}
+            </div>
+          </section>
+          <section className="echo-knowledge-gates" aria-label="Echo knowledge channels">
+            <header>
+              <small>CANON KNOWLEDGE // STORY-GATED</small>
+              <span>{knowledgeTopics.filter((topic) => topic.status !== 'locked').length} OPEN</span>
+            </header>
+            <div>
+              {knowledgeTopics.map((topic) => (
+                <span key={topic.topicId} data-status={topic.status}>
+                  <i aria-hidden="true" />
+                  {topic.status === 'locked' ? topic.lockedLabel : topic.safeLabel}
+                </span>
+              ))}
             </div>
           </section>
         </aside>

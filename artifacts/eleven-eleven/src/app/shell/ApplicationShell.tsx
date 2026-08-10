@@ -21,6 +21,7 @@ import {
 import {
   PremiumAtmosphere,
   ScreenTransition,
+  AchievementPresentationOverlay,
 } from '../../ui/presentation';
 import {
   GAME_SCREEN_REGISTRY,
@@ -39,15 +40,20 @@ import { PlayerResourceCounters } from './PlayerResourceCounters';
 import { EchoIntrusionOverlay } from '../../features/echo/EchoIntrusionOverlay';
 import { DemoExperienceLayer } from '../demo/DemoExperienceLayer';
 import { AuthStatusButton } from '../../features/auth/AuthStatusButton';
+import { useStoryPuzzleStore } from '../../features/story-puzzles/storyPuzzleStore';
 
 export function ApplicationShell() {
   const shell = useShellStore();
   const preferences = useUiPreferencesStore();
+  const storyPuzzleSnapshot = useStoryPuzzleStore((state) => state.snapshot);
   const chapterTitle = useGameStore(
-    (state) => createDashboardReadModel(state).chapter.title,
+    (state) => createDashboardReadModel(state, storyPuzzleSnapshot).chapter.title,
   );
   const campaignProgress = useGameStore(
-    (state) => createDashboardReadModel(state).puzzleProgress.progress,
+    (state) => createDashboardReadModel(
+      state,
+      storyPuzzleSnapshot,
+    ).puzzleProgress.progress,
   );
   const unviewedManhwaPages = useGameStore((state) => (
     getCanonicalManhwaBadgeCount(state.progressionState)
@@ -317,6 +323,7 @@ export function ApplicationShell() {
         </div>
       </GameModal>
       <EchoIntrusionOverlay />
+      <AchievementPresentationOverlay />
       <DemoExperienceLayer />
     </GameViewport>
   );

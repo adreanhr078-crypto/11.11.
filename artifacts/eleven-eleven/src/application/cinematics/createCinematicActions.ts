@@ -76,7 +76,7 @@ function applyTransition(
   );
   const progressionState = {
     ...transition.state,
-    story: { narrative },
+    story: { ...transition.state.story, narrative },
   };
   set({
     ...projectGameProgressionCompatibility(state, progressionState),

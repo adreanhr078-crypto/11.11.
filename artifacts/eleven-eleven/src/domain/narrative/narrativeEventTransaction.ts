@@ -489,6 +489,7 @@ export function applyNarrativeEventTransaction(
       ? evolution.plan!.nextProgress
       : state.evolution,
     story: {
+      ...state.story,
       narrative: applyNarrativeState(state, plan),
     },
   });

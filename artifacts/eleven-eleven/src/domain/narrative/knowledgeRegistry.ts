@@ -16,5 +16,24 @@ export interface RuntimeKnowledgeNodeDefinition {
  * the current runtime data. Author Canon is deliberately not imported here.
  */
 export const RUNTIME_NARRATIVE_KNOWLEDGE_NODES = Object.freeze(
-  [] satisfies RuntimeKnowledgeNodeDefinition[],
+  [
+    {
+      nodeId: 'echo_knowledge_black_coronation',
+      audience: 'echo',
+      published: true,
+      playerVisible: false,
+    },
+    {
+      nodeId: 'echo_knowledge_lina_protocol',
+      audience: 'echo',
+      published: true,
+      playerVisible: false,
+    },
+    {
+      nodeId: 'echo_knowledge_black_echo_protocol',
+      audience: 'echo',
+      published: true,
+      playerVisible: false,
+    },
+  ] satisfies RuntimeKnowledgeNodeDefinition[],
 );

@@ -84,14 +84,9 @@ describe('Manhwa Viewer unlocked-page boundary', () => {
     const model = createManhwaArchiveReadModel(progression);
     const pages = getUnlockedManhwaViewerPages(model);
 
-    assert.deepEqual(
-      pages.map((page) => page.id),
-      ['manhwa_ch01_page_01'],
-    );
-    assert.equal(
-      pages.some((page) => page.id === 'manhwa_ch01_page_02'),
-      false,
-    );
+    assert.equal(pages.length, 71);
+    assert.equal(pages[0]?.id, 'manhwa_ch00_page_01');
+    assert.equal(pages.at(-1)?.id, 'manhwa_ch00_page_04');
     const screen = readFileSync(
       resolve(
         process.cwd(),
@@ -102,9 +97,7 @@ describe('Manhwa Viewer unlocked-page boundary', () => {
       ),
       'utf8',
     );
-    assert.ok(screen.includes(
-      'if (!viewerPages.some((page) => page.id === pageId)) return;',
-    ));
+    assert.ok(screen.includes('pages={FINAL_MANHWA_PAGES}'));
   });
 
   it('calls the canonical view callback only from image onLoad', () => {
@@ -136,14 +129,13 @@ describe('Manhwa Viewer unlocked-page boundary', () => {
       false,
     );
     assert.ok(source.includes("setLoadState('error')"));
-    assert.ok(source.includes('إعادة المحاولة'));
+    assert.ok(source.includes('The page was not recorded'));
     assert.equal(
-      [...screen.matchAll(/viewManhwaPage\(pageId\)/g)].length,
+      [...screen.matchAll(/viewManhwaPage\(page\.id\)/g)].length,
       1,
     );
     assert.ok(
-      screen.indexOf('onSuccessfulImageLoad={(pageId) => {')
-        < screen.indexOf('viewManhwaPage(pageId)'),
+      screen.includes('onSuccessfulImageLoad={handleImageLoaded}'),
     );
   });
 

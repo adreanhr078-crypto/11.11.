@@ -14,11 +14,16 @@ import { createDashboardReadModel } from '../../application/ui/gameUiReadModels'
 import { useShellStore } from '../../app/shell/shellStore';
 import { EchoPresence } from '../../ui/presentation';
 import { EchoStatusPanel } from '../../components/echo/EchoStatusPanel';
+import { useStoryPuzzleStore } from '../story-puzzles/storyPuzzleStore';
 
 export default function DashboardScreen() {
   const state = useGameStore();
   const navigate = useShellStore((shell) => shell.navigate);
-  const model = useMemo(() => createDashboardReadModel(state), [state]);
+  const storyPuzzleSnapshot = useStoryPuzzleStore((store) => store.snapshot);
+  const model = useMemo(
+    () => createDashboardReadModel(state, storyPuzzleSnapshot),
+    [state, storyPuzzleSnapshot],
+  );
   const latestDecision = model.decisions[0];
 
   return (

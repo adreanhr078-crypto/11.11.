@@ -17,12 +17,17 @@ import {
   ENVIRONMENT_PRESENTATION_ASSETS,
 } from '../../ui/presentation';
 import { AuthStatusButton } from '../auth/AuthStatusButton';
+import { useStoryPuzzleStore } from '../story-puzzles/storyPuzzleStore';
 
 export default function MainMenuScreen() {
   const state = useGameStore();
   const navigate = useShellStore((shell) => shell.navigate);
+  const storyPuzzleSnapshot = useStoryPuzzleStore((store) => store.snapshot);
   const [confirmNewGame, setConfirmNewGame] = useState(false);
-  const model = useMemo(() => createDashboardReadModel(state), [state]);
+  const model = useMemo(
+    () => createDashboardReadModel(state, storyPuzzleSnapshot),
+    [state, storyPuzzleSnapshot],
+  );
 
   return (
     <CinematicFrame

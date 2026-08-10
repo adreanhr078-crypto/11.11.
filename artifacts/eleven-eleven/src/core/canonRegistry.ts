@@ -20,7 +20,7 @@ export const CANON_CHAPTERS = [
       ar: 'المراقب الذي لا يرمش',
       en: 'The Watcher Who Never Blinks',
     },
-    publicationStatus: 'authored-internal',
+    publicationStatus: 'runtime-published',
   },
   {
     id: 'chapter_3',
@@ -29,12 +29,18 @@ export const CANON_CHAPTERS = [
       ar: 'الأشياء التي يجب أن تنساها',
       en: 'Things You Must Forget',
     },
-    publicationStatus: 'authored-internal',
+    publicationStatus: 'runtime-published',
   },
-  ...(['chapter_4', 'chapter_5', 'chapter_6', 'chapter_7'] as const).map(
+  {
+    id: 'chapter_4',
+    order: 4,
+    title: { ar: 'غير مكشوف', en: 'Unrevealed' },
+    publicationStatus: 'runtime-published',
+  },
+  ...(['chapter_5', 'chapter_6', 'chapter_7'] as const).map(
     (id, index): CanonChapter => ({
       id,
-      order: index + 4,
+      order: index + 5,
       title: { ar: 'غير مكشوف', en: 'Unrevealed' },
       publicationStatus: 'unpublished',
     }),
@@ -95,8 +101,8 @@ export const PUBLIC_CANON_CHARACTERS = [
 export const CANON_REGISTRY = Object.freeze({
   canonVersion: CANON_VERSION,
   storyStatus: 'ongoing',
-  runtimePublishedChapterIds: ['chapter_1'],
-  authoredInternalChapterIds: ['chapter_2', 'chapter_3'],
+  runtimePublishedChapterIds: ['chapter_1', 'chapter_2', 'chapter_3', 'chapter_4'],
+  authoredInternalChapterIds: [],
   chapters: CANON_CHAPTERS,
   publicCharacters: PUBLIC_CANON_CHARACTERS,
 } as const satisfies CanonRegistry);

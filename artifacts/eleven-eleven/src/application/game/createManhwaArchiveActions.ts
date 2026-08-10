@@ -1,6 +1,6 @@
 import {
-  CHAPTER_01_MANHWA_PAGE_BY_ID,
-} from '../../content/puzzles/chapter01Campaign';
+  FINAL_MANHWA_PAGE_BY_ID,
+} from '../../content/manhwa/finalManhwa';
 import type {
   GameActions,
 } from '../../core/gameTypes';
@@ -30,7 +30,7 @@ export function createManhwaArchiveActions(
   return {
     unlockManhwaPage(pageId, timestamp = now()) {
       const normalizedPageId = pageId.trim();
-      const page = CHAPTER_01_MANHWA_PAGE_BY_ID[normalizedPageId];
+      const page = FINAL_MANHWA_PAGE_BY_ID[normalizedPageId];
       let transaction: ManhwaUnlockTransactionResult = {
         success: false,
         alreadyUnlocked: false,

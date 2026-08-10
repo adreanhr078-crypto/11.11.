@@ -13,12 +13,12 @@ import {
 import { CORE_LORE } from '../lore';
 
 describe('canonical story authority', () => {
-  it('adopts the ongoing Long Fall canon and its three authored sources', () => {
+  it('keeps the archived authored sources internal while publishing the approved final Manhwa', () => {
     assert.equal(CANON_VERSION, 'long-fall-v1');
     assert.equal(CANON_REGISTRY.storyStatus, 'ongoing');
     assert.deepEqual(
       CANON_REGISTRY.authoredInternalChapterIds,
-      ['chapter_2', 'chapter_3'],
+      [],
     );
     assert.equal(archiveManifest.canonVersion, CANON_VERSION);
     assert.equal(archiveManifest.canonStatus, 'canonical-authority');
@@ -34,7 +34,7 @@ describe('canonical story authority', () => {
   it('keeps unreleased authored material out of the runtime projection', () => {
     assert.deepEqual(
       CANON_REGISTRY.runtimePublishedChapterIds,
-      ['chapter_1'],
+      ['chapter_1', 'chapter_2', 'chapter_3', 'chapter_4'],
     );
 
     const runtimeProjection = JSON.stringify(CORE_LORE);
@@ -57,13 +57,16 @@ describe('canonical story authority', () => {
     assert.equal(chapterThree?.title.ar, 'الأشياء التي يجب أن تنساها');
 
     const unrevealedChapters = CANON_CHAPTERS.filter(
-      ({ order }) => order >= 4,
+      ({ order }) => order >= 5,
     );
-    assert.equal(unrevealedChapters.length, 4);
+    assert.equal(unrevealedChapters.length, 3);
     assert.ok(unrevealedChapters.every((chapter) => (
       chapter.publicationStatus === 'unpublished'
       && chapter.title.en === 'Unrevealed'
     )));
+    const chapterFour = CANON_CHAPTERS.find(({ id }) => id === 'chapter_4');
+    assert.equal(chapterFour?.publicationStatus, 'runtime-published');
+    assert.equal(chapterFour?.title.en, 'Unrevealed');
   });
 
   it('keeps the content registry aligned with the canonical projection', () => {
