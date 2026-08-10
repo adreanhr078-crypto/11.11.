@@ -124,7 +124,7 @@ function withoutKnownStoryProjection(
     evolution: {
       ...createInitialEchoEvolutionProgressState(),
       transformationIntroSeen: [
-        ...(state.progressionState.evolution.transformationIntroSeen ?? []),
+        ...(state.evolution.transformationIntroSeen ?? []),
       ],
     },
     story: {
