@@ -15,7 +15,7 @@ interface CollectionStoreState {
   snapshot: CollectionSnapshot | null;
   error: string | null;
   actions: {
-    load: (force?: boolean) => Promise<CollectionSnapshot | null>;
+    load: (force?: boolean, expectedUid?: string) => Promise<CollectionSnapshot | null>;
     reconstruct: (chapterId: string) => Promise<CollectionSnapshot | null>;
     equip: (cosmeticId: string) => Promise<CollectionSnapshot | null>;
     reset: () => void;
@@ -23,6 +23,7 @@ interface CollectionStoreState {
 }
 
 let requestVersion = 0;
+let loadRequest: Promise<CollectionSnapshot | null> | null = null;
 
 function friendlyError(error: unknown): string {
   if (error instanceof PlayerProgressionApiError) {
@@ -46,19 +47,27 @@ export const useCollectionStore = create<CollectionStoreState>((set, get) => ({
   snapshot: null,
   error: null,
   actions: {
-    async load(force = false) {
-      if (!force && get().status === 'loading') return get().snapshot;
+    async load(force = false, expectedUid?: string) {
+      if (loadRequest) return loadRequest;
       const version = ++requestVersion;
       set({ status: 'loading', error: null });
+      const request = (async () => {
+        try {
+          const snapshot = await fetchPlayerCollection(expectedUid);
+          if (version !== requestVersion) return null;
+          acceptSnapshot(snapshot);
+          set({ status: 'ready', snapshot, error: null });
+          return snapshot;
+        } catch (error) {
+          if (version === requestVersion) set({ status: 'error', error: friendlyError(error) });
+          return null;
+        }
+      })();
+      loadRequest = request;
       try {
-        const snapshot = await fetchPlayerCollection();
-        if (version !== requestVersion) return null;
-        acceptSnapshot(snapshot);
-        set({ status: 'ready', snapshot, error: null });
-        return snapshot;
-      } catch (error) {
-        if (version === requestVersion) set({ status: 'error', error: friendlyError(error) });
-        return null;
+        return await request;
+      } finally {
+        if (loadRequest === request) loadRequest = null;
       }
     },
     async reconstruct(chapterId) {
@@ -86,9 +95,9 @@ export const useCollectionStore = create<CollectionStoreState>((set, get) => ({
     },
     reset() {
       requestVersion += 1;
+      loadRequest = null;
       set({ status: 'idle', snapshot: null, error: null });
       useAchievementPresentationQueue.getState().actions.reset();
     },
   },
 }));
-

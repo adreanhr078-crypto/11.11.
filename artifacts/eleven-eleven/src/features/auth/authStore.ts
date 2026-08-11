@@ -20,6 +20,7 @@ export type AuthRuntimeStatus =
 
 interface AuthActions {
   initialize: () => void;
+  retryInitialize: () => void;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   createAccountWithEmail: (
     email: string,
@@ -112,12 +113,20 @@ export const useAuthStore = create<AuthStoreState>((set) => ({
           user: state.user,
           configured: state.configured,
           missingConfigKeys: state.missingConfigKeys,
-          status: state.configured
+          status: state.error
+            ? 'unavailable'
+            : state.configured
             ? state.user ? 'signed-in' : 'signed-out'
             : 'unavailable',
-          error: null,
+          error: state.error ? friendlyError(state.error) : null,
         });
       });
+    },
+    retryInitialize: () => {
+      unsubscribeAuth?.();
+      unsubscribeAuth = null;
+      set({ status: 'checking', user: null, error: null });
+      useAuthStore.getState().actions.initialize();
     },
     signInWithEmail: (email, password) => runAuthAction(
       set,

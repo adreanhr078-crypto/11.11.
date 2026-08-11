@@ -12,23 +12,20 @@ import './features/live-challenges/live-challenges.css';
 import { ApplicationShell } from './app/shell/ApplicationShell';
 import { GameRuntimeBridge } from './app/shell/GameRuntimeBridge';
 import { AuthBootstrap } from './features/auth/AuthBootstrap';
-import { CloudSaveBootstrap } from './features/cloud-save/CloudSaveBootstrap';
-import {
-  PlayerProgressionBootstrap,
-} from './features/player-progression/PlayerProgressionBootstrap';
-import { StoryPuzzleBootstrap } from './features/story-puzzles/StoryPuzzleBootstrap';
+import { PlayerSyncBootstrap } from './features/player-sync/PlayerSyncBootstrap';
+import { PlayerSyncFailureOverlay } from './features/player-sync/PlayerSyncFailureOverlay';
 import { FirstTimeOnboarding } from './features/onboarding/FirstTimeOnboarding';
+import './features/player-sync/player-sync.css';
 
 export default function App() {
   return (
     <>
       <AuthBootstrap />
-      <CloudSaveBootstrap />
-      <PlayerProgressionBootstrap />
-      <StoryPuzzleBootstrap />
+      <PlayerSyncBootstrap />
       <ApplicationShell />
       <GameRuntimeBridge />
       <FirstTimeOnboarding />
+      <PlayerSyncFailureOverlay />
     </>
   );
 }

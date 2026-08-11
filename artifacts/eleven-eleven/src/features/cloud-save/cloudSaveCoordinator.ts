@@ -15,6 +15,7 @@ import {
 import {
   resetCloudSaveState,
   updateCloudSaveState,
+  useCloudSaveStore,
 } from './cloudSaveStore';
 
 const SYNC_METADATA_KEY = '11-11-cloud-sync-v1';
@@ -159,15 +160,16 @@ async function uploadSnapshot(
   payload: PersistedGameState,
   fingerprint: string,
   baseRevision: number,
-): Promise<void> {
+  token?: string,
+): Promise<boolean> {
   updateCloudSaveState({ status: 'syncing', message: null });
   try {
     const result = await writeCloudSave({
       saveVersion: GAME_SAVE_VERSION,
       baseRevision,
       payload,
-    });
-    if (uid !== activeUid) return;
+    }, token);
+    if (uid !== activeUid) return false;
     setSynced(
       uid,
       result.save.revision,
@@ -177,8 +179,9 @@ async function uploadSnapshot(
 
     const current = snapshotLocalSave();
     if (current.fingerprint !== fingerprint) scheduleUpload();
+    return true;
   } catch (error) {
-    if (uid !== activeUid) return;
+    if (uid !== activeUid) return false;
     if (error instanceof CloudSaveApiError && error.code === 'save_conflict') {
       conflictActive = true;
       updateCloudSaveState({
@@ -187,12 +190,13 @@ async function uploadSnapshot(
         lastSyncedAt: error.updatedAt,
         message: 'يوجد تقدم أحدث من جهاز آخر. اختر النسخة التي تريد الاحتفاظ بها.',
       });
-      return;
+      return false;
     }
     updateCloudSaveState({
       status: 'error',
       message: friendlySyncError(error),
     });
+    return false;
   }
 }
 
@@ -236,7 +240,12 @@ export function stopCloudSaveSync(): void {
   resetCloudSaveState();
 }
 
-export async function startCloudSaveSync(uid: string): Promise<void> {
+export type CloudSaveSyncResult = 'synced' | 'error' | 'cancelled';
+
+export async function startCloudSaveSync(
+  uid: string,
+  token?: string,
+): Promise<CloudSaveSyncResult> {
   stopCloudSaveSync();
   activeUid = uid;
   const requestGeneration = generation;
@@ -244,12 +253,19 @@ export async function startCloudSaveSync(uid: string): Promise<void> {
 
   try {
     const local = snapshotLocalSave();
-    const bootstrap = await bootstrapCloudPlayer();
-    if (requestGeneration !== generation || activeUid !== uid) return;
+    const bootstrap = await bootstrapCloudPlayer(token, uid);
+    if (requestGeneration !== generation || activeUid !== uid) return 'cancelled';
 
     const savedMetadata = readMetadata().byUid[uid];
     if (!bootstrap.save) {
-      await uploadSnapshot(uid, local.payload, local.fingerprint, 0);
+      const uploaded = await uploadSnapshot(
+        uid,
+        local.payload,
+        local.fingerprint,
+        0,
+        token,
+      );
+      if (!uploaded) return 'error';
     } else if (
       savedMetadata?.revision === bootstrap.save.revision
       && savedMetadata.fingerprint === local.fingerprint
@@ -263,26 +279,29 @@ export async function startCloudSaveSync(uid: string): Promise<void> {
     } else if (savedMetadata?.revision === bootstrap.save.revision) {
       activeRevision = bootstrap.save.revision;
       activeFingerprint = savedMetadata.fingerprint;
-      await uploadSnapshot(
+      const uploaded = await uploadSnapshot(
         uid,
         local.payload,
         local.fingerprint,
         bootstrap.save.revision,
+        token,
       );
+      if (!uploaded) return 'error';
     } else {
       backupLocalSave(uid, local.payload);
       applyCloudSnapshot(uid, bootstrap.save);
     }
 
-    if (requestGeneration === generation && activeUid === uid) {
-      beginWatchingGame();
-    }
+    if (requestGeneration !== generation || activeUid !== uid) return 'cancelled';
+    beginWatchingGame();
+    return useCloudSaveStore.getState().status === 'error' ? 'error' : 'synced';
   } catch (error) {
-    if (requestGeneration !== generation || activeUid !== uid) return;
+    if (requestGeneration !== generation || activeUid !== uid) return 'cancelled';
     updateCloudSaveState({
       status: 'error',
       message: friendlySyncError(error),
     });
+    return 'error';
   }
 }
 

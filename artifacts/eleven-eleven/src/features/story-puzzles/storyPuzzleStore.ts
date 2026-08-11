@@ -19,7 +19,7 @@ import {
 export type StoryPuzzleLoadStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 interface StoryPuzzleActions {
-  load: (force?: boolean) => Promise<StoryPuzzleSnapshot | null>;
+  load: (force?: boolean, expectedUid?: string) => Promise<StoryPuzzleSnapshot | null>;
   saveDraft: (puzzleId: string, draft: StoryPuzzleDraft) => Promise<StoryPuzzleSnapshot | null>;
   complete: (puzzleId: string, draft: StoryPuzzleDraft) => Promise<StoryPuzzleRewardReceipt | null>;
   discover: (puzzleId: string) => Promise<StoryPuzzleSnapshot | null>;
@@ -38,6 +38,7 @@ interface StoryPuzzleStoreState {
 }
 
 let requestVersion = 0;
+let loadRequest: Promise<StoryPuzzleSnapshot | null> | null = null;
 
 function friendlyError(error: unknown): string {
   if (error instanceof PlayerProgressionApiError) {
@@ -64,19 +65,27 @@ export const useStoryPuzzleStore = create<StoryPuzzleStoreState>((set, get) => (
   latestReward: null,
   latestActivity: null,
   actions: {
-    async load(force = false) {
-      if (!force && get().status === 'loading') return get().snapshot;
+    async load(force = false, expectedUid?: string) {
+      if (loadRequest) return loadRequest;
       const version = ++requestVersion;
       set({ status: 'loading', error: null });
-      try {
-        const snapshot = await fetchStoryPuzzleState();
-        if (version === requestVersion) {
-          set({ status: 'ready', snapshot, error: null, latestActivity: null });
+      const request = (async () => {
+        try {
+          const snapshot = await fetchStoryPuzzleState(expectedUid);
+          if (version === requestVersion) {
+            set({ status: 'ready', snapshot, error: null, latestActivity: null });
+          }
+          return snapshot;
+        } catch (error) {
+          if (version === requestVersion) set({ status: 'error', error: friendlyError(error) });
+          return null;
         }
-        return snapshot;
-      } catch (error) {
-        if (version === requestVersion) set({ status: 'error', error: friendlyError(error) });
-        return null;
+      })();
+      loadRequest = request;
+      try {
+        return await request;
+      } finally {
+        if (loadRequest === request) loadRequest = null;
       }
     },
 
@@ -165,6 +174,7 @@ export const useStoryPuzzleStore = create<StoryPuzzleStoreState>((set, get) => (
 
     reset() {
       requestVersion += 1;
+      loadRequest = null;
       set({
         status: 'idle',
         snapshot: null,

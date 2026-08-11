@@ -1,5 +1,12 @@
-import { getCurrentAuthToken } from '../../features/auth/authService';
+import {
+  AuthSessionError,
+  getCurrentAuthSession,
+} from '../../features/auth/authService';
 import { playerApiRoot } from '../player-api/apiRoot';
+import {
+  fetchPlayerRequest,
+  PlayerTransportError,
+} from '../player-api/playerRequest';
 import type {
   LeaderboardPlayer,
 } from '../../domain/player-progression/playerProgression';
@@ -82,8 +89,10 @@ export class PlayerProgressionApiError extends Error {
     readonly status: number,
     readonly code: string,
     message: string,
+    readonly endpoint: string | null = null,
   ) {
     super(message);
+    this.name = 'PlayerProgressionApiError';
   }
 }
 
@@ -95,60 +104,141 @@ function apiRoot(): string {
   return playerApiRoot(configured);
 }
 
-async function parseResponse<T>(response: Response): Promise<T> {
-  let payload: ApiErrorBody & Partial<T> = {};
+function invalidResponse(endpoint: string): PlayerProgressionApiError {
+  return new PlayerProgressionApiError(
+    502,
+    'invalid_response',
+    'Player service returned an invalid response.',
+    endpoint,
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+async function parseResponse<T>(
+  response: Response,
+  endpoint: string,
+): Promise<T> {
+  let payload: unknown = null;
+  let parsed = false;
   try {
-    payload = await response.json() as ApiErrorBody & Partial<T>;
+    payload = await response.json();
+    parsed = true;
   } catch {
     // A stable API error is produced below.
   }
+  const payloadRecord: ApiErrorBody & Partial<T> = isRecord(payload)
+    ? payload as ApiErrorBody & Partial<T>
+    : {};
   if (!response.ok) {
     throw new PlayerProgressionApiError(
       response.status,
-      typeof payload.code === 'string' ? payload.code : 'request_failed',
-      typeof payload.error === 'string'
-        ? payload.error
+      typeof payloadRecord.code === 'string' ? payloadRecord.code : 'request_failed',
+      typeof payloadRecord.error === 'string'
+        ? payloadRecord.error
         : 'Player progression request failed.',
+      endpoint,
     );
   }
+  const contentType = response.headers.get('content-type') ?? '';
+  if (!parsed) throw invalidResponse(endpoint);
+  if (contentType && !contentType.toLowerCase().includes('json')) {
+    throw invalidResponse(endpoint);
+  }
+  if (!isRecord(payload)) throw invalidResponse(endpoint);
   return payload as T;
 }
 
 async function authorizedRequest<T>(
   path: string,
   init?: RequestInit,
+  expectedUid?: string,
 ): Promise<T> {
-  const token = await getCurrentAuthToken();
-  if (!token) {
+  let token: string;
+  try {
+    const session = await getCurrentAuthSession(expectedUid);
+    token = session.token;
+  } catch (error) {
+    const authError = error instanceof AuthSessionError
+      ? error
+      : new AuthSessionError('token_failed', 'Authentication failed.');
+    const status = authError.code === 'auth_timeout'
+      || authError.code === 'token_timeout'
+      ? 504
+      : authError.code === 'uid_changed' ? 409 : 401;
     throw new PlayerProgressionApiError(
-      401,
-      'unauthorized',
-      'Authentication is required.',
+      status,
+      authError.code,
+      authError.message,
+      path,
     );
   }
-  const response = await fetch(`${apiRoot()}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
-      ...init?.headers,
-    },
-  });
-  return parseResponse<T>(response);
+  try {
+    const response = await fetchPlayerRequest(`${apiRoot()}${path}`, {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+        ...init?.headers,
+      },
+    });
+    return parseResponse<T>(response, path);
+  } catch (error) {
+    if (error instanceof PlayerProgressionApiError) throw error;
+    if (error instanceof PlayerTransportError) {
+      throw new PlayerProgressionApiError(
+        error.code === 'request_timeout' ? 504 : 503,
+        error.code,
+        error.message,
+        path,
+      );
+    }
+    throw new PlayerProgressionApiError(
+      503,
+      'network_failure',
+      'Player service could not be reached.',
+      path,
+    );
+  }
 }
 
 export async function fetchGlobalLeaderboard(
   limit = 25,
+  expectedUid?: string,
 ): Promise<LeaderboardApiSnapshot> {
   const response = await authorizedRequest<LeaderboardApiResponse>(
     `/leaderboard?limit=${encodeURIComponent(limit)}`,
+    undefined,
+    expectedUid,
   );
+  if (!isRecord(response.leaderboard)) {
+    throw invalidResponse('/leaderboard');
+  }
   return response.leaderboard;
 }
 
-export function fetchPlayerProfile(): Promise<PlayerProfile> {
-  return authorizedRequest<PlayerProfileApiResponse>('/profile')
-    .then((response) => response.profile);
+export async function fetchPlayerProfile(
+  expectedUid?: string,
+): Promise<PlayerProfile> {
+  const response = await authorizedRequest<PlayerProfileApiResponse>(
+    '/profile',
+    undefined,
+    expectedUid,
+  );
+  if (!isRecord(response.profile) || typeof response.profile.uid !== 'string') {
+    throw invalidResponse('/profile');
+  }
+  if (expectedUid && response.profile.uid !== expectedUid) {
+    throw new PlayerProgressionApiError(
+      409,
+      'uid_mismatch',
+      'Player profile belongs to a different account.',
+      '/profile',
+    );
+  }
+  return response.profile;
 }
 
 export function updatePlayerProfile(input: {
@@ -163,9 +253,16 @@ export function updatePlayerProfile(input: {
   }).then((response) => response.profile);
 }
 
-export function fetchAuthoritativeStoryState(): Promise<AuthoritativeStoryState> {
-  return authorizedRequest<StoryStateApiResponse>('/story-state')
-    .then((response) => response.storyState);
+export async function fetchAuthoritativeStoryState(
+  expectedUid?: string,
+): Promise<AuthoritativeStoryState> {
+  const response = await authorizedRequest<StoryStateApiResponse>(
+    '/story-state',
+    undefined,
+    expectedUid,
+  );
+  if (!isRecord(response.storyState)) throw invalidResponse('/story-state');
+  return response.storyState;
 }
 
 /**
@@ -194,9 +291,17 @@ interface StoryPuzzleRewardResponse {
   reward: StoryPuzzleRewardReceipt;
 }
 
-export function fetchStoryPuzzleState(): Promise<StoryPuzzleSnapshot> {
-  return authorizedRequest<StoryPuzzleStateResponse>('/puzzles')
-    .then((response) => response.puzzleState);
+export function fetchStoryPuzzleState(
+  expectedUid?: string,
+): Promise<StoryPuzzleSnapshot> {
+  return authorizedRequest<StoryPuzzleStateResponse>(
+    '/puzzles',
+    undefined,
+    expectedUid,
+  ).then((response) => {
+    if (!isRecord(response.puzzleState)) throw invalidResponse('/puzzles');
+    return response.puzzleState;
+  });
 }
 
 export function saveStoryPuzzleProgress(
@@ -240,9 +345,17 @@ interface CollectionApiResponse {
   collection: CollectionSnapshot;
 }
 
-export function fetchPlayerCollection(): Promise<CollectionSnapshot> {
-  return authorizedRequest<CollectionApiResponse>('/collection')
-    .then((response) => response.collection);
+export function fetchPlayerCollection(
+  expectedUid?: string,
+): Promise<CollectionSnapshot> {
+  return authorizedRequest<CollectionApiResponse>(
+    '/collection',
+    undefined,
+    expectedUid,
+  ).then((response) => {
+    if (!isRecord(response.collection)) throw invalidResponse('/collection');
+    return response.collection;
+  });
 }
 
 export function reconstructPlayerMemory(
@@ -271,9 +384,14 @@ interface LiveReceiptResponse {
   receipt: LiveCompletionReceipt;
 }
 
-export function fetchLiveChallenges(): Promise<LiveChallengesSnapshot> {
-  return authorizedRequest<LiveApiResponse>('/live')
-    .then((response) => response.live);
+export function fetchLiveChallenges(
+  expectedUid?: string,
+): Promise<LiveChallengesSnapshot> {
+  return authorizedRequest<LiveApiResponse>('/live', undefined, expectedUid)
+    .then((response) => {
+      if (!isRecord(response.live)) throw invalidResponse('/live');
+      return response.live;
+    });
 }
 
 function liveAction<T>(action: string, body: Record<string, unknown> = {}): Promise<T> {

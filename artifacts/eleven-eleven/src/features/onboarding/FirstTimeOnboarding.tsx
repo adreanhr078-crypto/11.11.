@@ -22,6 +22,7 @@ import { useAuthStore } from '../auth/authStore';
 import { usePlayerProgressionStore } from '../player-progression/playerProgressionStore';
 import { useShellStore } from '../../app/shell/shellStore';
 import { needsFirstTimeOnboarding } from './onboardingRules';
+import { retryPlayerSync } from '../player-sync/playerSyncCoordinator';
 
 const WELCOME_TEXT = 'أهلاً بك في تجربة 11.11';
 const ONBOARDING_STORAGE_PREFIX = '11-11-onboarding-complete:';
@@ -324,7 +325,6 @@ export function FirstTimeOnboarding() {
   const profile = usePlayerProgressionStore((state) => state.profile);
   const profileStatus = usePlayerProgressionStore((state) => state.profileStatus);
   const profileError = usePlayerProgressionStore((state) => state.profileError);
-  const loadProfile = usePlayerProgressionStore((state) => state.actions.loadProfile);
   const updateProfile = usePlayerProgressionStore((state) => state.actions.updateProfile);
   const navigate = useShellStore((state) => state.navigate);
   const [step, setStep] = useState<OnboardingStep>('welcome');
@@ -367,12 +367,11 @@ export function FirstTimeOnboarding() {
     const retryDelay = 1000 * (profileRetryCount + 1);
     const timer = window.setTimeout(() => {
       setProfileRetryCount((count) => count + 1);
-      void loadProfile();
+      void retryPlayerSync();
     }, retryDelay);
     return () => window.clearTimeout(timer);
   }, [
     authStatus,
-    loadProfile,
     profileRetryCount,
     profileStatus,
     user,
@@ -415,7 +414,7 @@ export function FirstTimeOnboarding() {
 
   const retryProfile = () => {
     setProfileRetryCount(0);
-    void loadProfile();
+    void retryPlayerSync();
   };
 
   return (

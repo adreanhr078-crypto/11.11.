@@ -57,6 +57,37 @@ export class PlayerApiError extends Error {
   }
 }
 
+const UPSTREAM_TIMEOUT_MS = 12_000;
+
+export async function fetchUpstream(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new PlayerApiError(
+        504,
+        'upstream_timeout',
+        'The player service dependency timed out.',
+      );
+    }
+    throw new PlayerApiError(
+      503,
+      'upstream_unavailable',
+      'The player service dependency is unavailable.',
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function readJsonBody<T>(
   request: Request,
   options: {
@@ -225,7 +256,7 @@ export async function authenticatePlayer(
 ): Promise<{ account: FirebaseAccount; idToken: string }> {
   const { webApiKey } = requireFirebaseConfig(env);
   const idToken = bearerToken(request);
-  const response = await fetch(
+  const response = await fetchUpstream(
     `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(webApiKey)}`,
     {
       method: 'POST',
@@ -283,7 +314,7 @@ export async function readFirestoreDocument(
   idToken: string,
   documentPath: string,
 ): Promise<FirestoreDocument | null> {
-  const response = await fetch(firestoreDocumentUrl(env, documentPath), {
+  const response = await fetchUpstream(firestoreDocumentUrl(env, documentPath), {
     headers: { Authorization: `Bearer ${idToken}` },
   });
   if (response.status === 404) return null;
@@ -315,7 +346,7 @@ export async function writeFirestoreDocument(
     url.searchParams.set('currentDocument.updateTime', precondition.updateTime);
   }
 
-  const response = await fetch(url, {
+  const response = await fetchUpstream(url, {
     method: 'PATCH',
     headers: {
       Authorization: `Bearer ${idToken}`,

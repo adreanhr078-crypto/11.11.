@@ -26,9 +26,13 @@ export type PlayerProgressionStatus =
   | 'error';
 
 interface PlayerProgressionActions {
-  loadLeaderboard: (force?: boolean) => Promise<void>;
-  loadProfile: () => Promise<void>;
-  loadStoryState: () => Promise<AuthoritativeStoryState | null>;
+  loadLeaderboard: (force?: boolean, expectedUid?: string) => Promise<void>;
+  loadProfile: (expectedUid?: string) => Promise<PlayerProfile | null>;
+  loadStoryState: (expectedUid?: string) => Promise<AuthoritativeStoryState | null>;
+  hydrateProfile: (profile: PlayerProfile) => void;
+  hydrateStoryState: (storyState: AuthoritativeStoryState) => void;
+  failProfile: (message: string) => void;
+  failStoryState: (message: string) => void;
   updateProfile: (input: PlayerProfileUpdateInput) => Promise<boolean>;
   claimManhwaChapterReward: (
     chapterId: string,
@@ -61,6 +65,8 @@ export interface PlayerProgressionStoreState {
 let loadSequence = 0;
 let profileLoadSequence = 0;
 let storyLoadSequence = 0;
+let profileRequest: Promise<PlayerProfile | null> | null = null;
+let storyRequest: Promise<AuthoritativeStoryState | null> | null = null;
 let rewardSession = 0;
 const inFlightRewardClaims = new Map<string, Promise<boolean>>();
 const inFlightStoryCheckpointClaims = new Map<
@@ -126,12 +132,28 @@ PlayerProgressionStoreState>((set, get) => ({
   storyStatus: 'idle',
   storyError: null,
   actions: {
-    async loadLeaderboard(force = false) {
+    hydrateProfile(profile) {
+      set({ profile, profileStatus: 'ready', profileError: null });
+    },
+
+    hydrateStoryState(storyState) {
+      set({ storyState, storyStatus: 'ready', storyError: null });
+    },
+
+    failProfile(message) {
+      set({ profileStatus: 'error', profileError: message });
+    },
+
+    failStoryState(message) {
+      set({ storyStatus: 'error', storyError: message });
+    },
+
+    async loadLeaderboard(force = false, expectedUid?: string) {
       if (!force && get().status === 'loading') return;
       const sequence = ++loadSequence;
       set({ status: 'loading', error: null });
       try {
-        const snapshot = await fetchGlobalLeaderboard();
+        const snapshot = await fetchGlobalLeaderboard(25, expectedUid);
         if (sequence !== loadSequence) return;
         set({
           status: 'ready',
@@ -150,42 +172,60 @@ PlayerProgressionStoreState>((set, get) => ({
       }
     },
 
-    async loadProfile() {
+    async loadProfile(expectedUid?: string) {
       // Auth bootstrap and reward reconciliation can ask for the same profile
-      // during one tick. Keep one authoritative request in flight so a
-      // transient failure cannot overwrite a successful response.
-      if (get().profileStatus === 'loading') return;
+      // during one tick. Reuse the promise itself, not only the loading flag,
+      // so callers cannot advance the bootstrap before the request settles.
+      if (profileRequest) return profileRequest;
       const sequence = ++profileLoadSequence;
       set({ profileStatus: 'loading', profileError: null });
+      const request = (async () => {
+        try {
+          const profile = await fetchPlayerProfile(expectedUid);
+          if (sequence !== profileLoadSequence) return null;
+          set({ profile, profileStatus: 'ready', profileError: null });
+          return profile;
+        } catch (error) {
+          if (sequence !== profileLoadSequence) return null;
+          set({
+            profileStatus: 'error',
+            profileError: friendlyProfileError(error),
+          });
+          return null;
+        }
+      })();
+      profileRequest = request;
       try {
-        const profile = await fetchPlayerProfile();
-        if (sequence !== profileLoadSequence) return;
-        set({ profile, profileStatus: 'ready', profileError: null });
-      } catch (error) {
-        if (sequence !== profileLoadSequence) return;
-        set({
-          profileStatus: 'error',
-          profileError: friendlyProfileError(error),
-        });
+        return await request;
+      } finally {
+        if (profileRequest === request) profileRequest = null;
       }
     },
 
-    async loadStoryState() {
-      if (get().storyStatus === 'loading') return null;
+    async loadStoryState(expectedUid?: string) {
+      if (storyRequest) return storyRequest;
       const sequence = ++storyLoadSequence;
       set({ storyStatus: 'loading', storyError: null });
+      const request = (async () => {
+        try {
+          const storyState = await fetchAuthoritativeStoryState(expectedUid);
+          if (sequence !== storyLoadSequence) return null;
+          set({ storyState, storyStatus: 'ready', storyError: null });
+          return storyState;
+        } catch (error) {
+          if (sequence !== storyLoadSequence) return null;
+          set({
+            storyStatus: 'error',
+            storyError: friendlyStoryError(error),
+          });
+          return null;
+        }
+      })();
+      storyRequest = request;
       try {
-        const storyState = await fetchAuthoritativeStoryState();
-        if (sequence !== storyLoadSequence) return null;
-        set({ storyState, storyStatus: 'ready', storyError: null });
-        return storyState;
-      } catch (error) {
-        if (sequence !== storyLoadSequence) return null;
-        set({
-          storyStatus: 'error',
-          storyError: friendlyStoryError(error),
-        });
-        return null;
+        return await request;
+      } finally {
+        if (storyRequest === request) storyRequest = null;
       }
     },
 
@@ -287,6 +327,8 @@ PlayerProgressionStoreState>((set, get) => ({
       loadSequence += 1;
       profileLoadSequence += 1;
       storyLoadSequence += 1;
+      profileRequest = null;
+      storyRequest = null;
       rewardSession += 1;
       inFlightRewardClaims.clear();
       inFlightStoryCheckpointClaims.clear();
