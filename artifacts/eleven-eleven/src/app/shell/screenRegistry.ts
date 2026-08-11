@@ -184,6 +184,20 @@ export const GAME_SCREEN_DEFINITIONS = [
     )),
   },
   {
+    id: 'echo-network',
+    label: 'شبكة Echo',
+    shortLabel: 'الشبكة',
+    description: 'مركز النشاط والشطرنج التعاقدي واختراقات الإشارة والموسم.',
+    code: 'NET',
+    tone: 'rare',
+    iconId: 'screen-echo-network',
+    categoryId: 'network',
+    navigation: 'landing',
+    component: lazy(() => import(
+      '../../features/echo-network/EchoNetworkScreen'
+    )),
+  },
+  {
     id: 'leaderboard',
     label: 'الترتيب العالمي',
     shortLabel: 'الترتيب',

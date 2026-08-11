@@ -64,6 +64,13 @@ describe('story puzzle interaction accessibility', () => {
     assert.equal(puzzleScreen.includes('snapshot?.entries ?? []'), false);
   });
 
+  it('keeps visual Daily and Weekly boards stable while draft responses refresh', () => {
+    const liveScreen = source('src/features/live-challenges/LiveChallengesScreen.tsx');
+    assert.match(liveScreen, /\}, \[definition\.id\]\);/);
+    assert.match(liveScreen, /if \(!value\) return;/);
+    assert.doesNotMatch(liveScreen, /\[definition\.id, visual\]/);
+  });
+
   it('contains the cinematic shell without page or horizontal stage overflow', () => {
     const foundation = source('src/ui/design-system/styles/foundation.css');
     const shellStyles = source('src/app/shell/application-shell.css');

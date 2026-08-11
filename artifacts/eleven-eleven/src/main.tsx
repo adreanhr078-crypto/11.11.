@@ -8,6 +8,11 @@ import {
 } from './features/emotion/useEmotionVisualSystem';
 
 bootstrapApplication();
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/sw.js', { scope: '/' });
+  }, { once: true });
+}
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary>

@@ -1,0 +1,49 @@
+{
+  "id": "/",
+  "name": "11.11 — Echo Network",
+  "short_name": "11.11",
+  "description": "A story-driven puzzle, memory, chess, and cooperative game.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/#/main-menu",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#020306",
+  "theme_color": "#05070c",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    {
+      "src": "/icons/192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Echo Network",
+      "short_name": "Network",
+      "url": "/#/echo-network",
+      "icons": [{ "src": "/icons/192x192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Puzzle Hub",
+      "short_name": "Puzzles",
+      "url": "/#/puzzles",
+      "icons": [{ "src": "/icons/192x192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}

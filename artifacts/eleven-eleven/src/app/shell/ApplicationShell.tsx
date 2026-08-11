@@ -81,7 +81,7 @@ export function ApplicationShell() {
     <GameViewport
       id="app"
       className="app-root application-shell echo-runtime"
-      dir={document.documentElement.lang === 'ar' ? 'rtl' : 'ltr'}
+      dir={preferences.locale === 'ar' ? 'rtl' : 'ltr'}
       quality={preferences.quality}
       motion={preferences.motion}
       data-ui-system="cinematic-shell-v2"

@@ -107,6 +107,12 @@ export default function MainMenuScreen() {
               الذكريات
             </GameButton>
             <GameButton
+              variant="secondary"
+              onClick={() => navigate('echo-network')}
+            >
+              شبكة Echo
+            </GameButton>
+            <GameButton
               variant="ghost"
               onClick={() => navigate('echo-mind')}
             >

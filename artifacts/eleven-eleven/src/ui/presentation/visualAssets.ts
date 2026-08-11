@@ -15,6 +15,7 @@ export interface EchoStatePresentationAssets {
   portrait: string;
   fullBody: string;
   transitionVideo?: string;
+  transitionFrames?: readonly string[];
 }
 
 /**
@@ -49,10 +50,20 @@ export const ECHO_STATE_PRESENTATION_ASSETS: Readonly<
   second_contract_marked: {
     portrait: '/assets/characters/echo-states/echo-second-contract-marked-v1.png',
     fullBody: '/assets/characters/echo-states/echo-second-contract-marked-v1.png',
+    transitionFrames: [
+      '/assets/characters/echo-states/echo-black-coronation-v1.png',
+      '/manhwa/final/page-058.webp',
+      '/assets/characters/echo-states/echo-second-contract-marked-v1.png',
+    ],
   },
   black_echo_protocol: {
     portrait: '/assets/characters/echo-states/echo-black-echo-protocol-v1.png',
     fullBody: '/assets/characters/echo-states/echo-black-echo-protocol-v1.png',
+    transitionFrames: [
+      '/assets/characters/echo-states/echo-second-contract-marked-v1.png',
+      '/manhwa/final/page-062.webp',
+      '/assets/characters/echo-states/echo-black-echo-protocol-v1.png',
+    ],
   },
 });
 

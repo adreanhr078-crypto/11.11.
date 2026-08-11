@@ -38,6 +38,11 @@ function snapshot(shardCount = 0): StoryPuzzleSnapshot {
     totalCompletedCount: 0,
     entries: [],
     discoverableSecretPuzzleIds: [],
+    echoResonance: {
+      total: 0,
+      byAxis: { clarity: 0, memory: 0, trust: 0, resolve: 0, stability: 0, anomaly: 0 },
+      lastPuzzleId: null,
+    },
     syncedAt: '2026-08-09T11:11:00.000Z',
   };
 }

@@ -12,25 +12,28 @@ export type LiveChallengeMechanic =
   | 'load-balance'
   | 'order-logic'
   | 'signal'
-  | 'sequence'
-  | 'cipher'
-  | 'wiring'
-  | 'matrix'
   | 'pattern'
-  | 'timeline'
   | 'logic'
   | 'checksum'
-  | 'routing';
+  | 'text-riddle'
+  | 'symbol-pair'
+  | 'spatial-rotation'
+  | 'word-path';
 export type LiveChallengeStatus = 'available' | 'in_progress' | 'completed';
 
 export type LiveChallengeRewardTier = 'standard' | 'rare';
-export type LiveChallengeRewardKind = 'gift' | 'memory-shard';
+export type LiveChallengeRewardKind = 'gift' | 'memory-shard' | 'avatar' | 'sealed';
 
 export interface LiveChallengeReward {
   tier: LiveChallengeRewardTier;
   kind: LiveChallengeRewardKind;
   label: string;
   icon: string;
+  rewardId?: string;
+  imageSrc?: string;
+  avatarId?: string;
+  storyExcerpt?: string;
+  sourceLabel?: string;
 }
 
 export type LiveChallengeVisual =
@@ -48,8 +51,8 @@ export type LiveChallengeVisual =
   }
   | {
     kind: 'wiring';
-    sources: readonly { id: string; label: string }[];
-    targets: readonly { id: string; label: string; detail: string }[];
+    sources: readonly { id: string; label: string; signature?: string }[];
+    targets: readonly { id: string; label: string; detail: string; signature?: string }[];
   }
   | {
     kind: 'cipher';

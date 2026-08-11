@@ -67,10 +67,14 @@ describe('player profile identity and authority', () => {
   });
 
   it('uses only fixed in-game Avatar IDs and keeps external URLs out of the contract', () => {
-    assert.deepEqual(PLAYER_AVATAR_IDS, ['echo', 'silver_signal', 'red_rift']);
+    assert.deepEqual(PLAYER_AVATAR_IDS, [
+      'echo', 'silver_signal', 'red_rift',
+      'rare_yuki', 'rare_nara', 'rare_kenja', 'rare_lina', 'rare_zero',
+    ]);
     assert.equal(isPlayerAvatarId('https://example.com/avatar.png'), false);
     assert.equal(isPlayerAvatarId('upload-anything'), false);
     assert.equal(isPlayerAvatarId('red_rift'), true);
+    assert.equal(isPlayerAvatarId('rare_lina'), true);
   });
 
   it('maps the selected Avatar to its own Profile presentation', () => {
@@ -141,5 +145,11 @@ describe('player profile identity and authority', () => {
     );
     assert.match(storyPuzzleMigration, /player_story_puzzle_completion_events is append-only/);
     assert.match(storyPuzzleMigration, /player_coin_events is append-only/);
+    const avatarMigration = readFileSync(
+      new URL('../../migrations/0014_weekly_avatar_rewards.sql', import.meta.url),
+      'utf8',
+    );
+    assert.match(avatarMigration, /player_avatar_unlock_events is append-only/);
+    assert.match(avatarMigration, /UNIQUE \(user_id, source_type, source_id\)/);
   });
 });

@@ -4,11 +4,13 @@ import { describe, it } from 'node:test';
 import {
   STORY_PUZZLE_BY_ID,
   STORY_PUZZLE_COUNTS,
+  STORY_PUZZLE_ECHO_IMPACTS,
   STORY_PUZZLE_MEMORY_SHARD_IDS,
   STORY_PUZZLES,
 } from '../content/puzzles/storyPuzzleCatalog';
 import {
   isServerStoryPuzzleSubmissionCorrect,
+  SERVER_STORY_PUZZLE_BY_ID,
   STORY_PUZZLE_HINT_COSTS,
 } from '../../functions/api/player/_storyPuzzleDefinitions';
 import { parseStoryPuzzleDraft } from '../../functions/api/player/_storyPuzzles';
@@ -23,6 +25,37 @@ function draft(input: Partial<ReturnType<typeof parseStoryPuzzleDraft>>) {
     imageOrder: [],
     rotations: {},
     ...input,
+  });
+}
+
+type TestSolution = {
+  tokens?: readonly string[];
+  assignments?: Readonly<Record<string, string>>;
+  imageOrder?: readonly string[];
+  rotations?: Readonly<Record<string, number>>;
+  stages?: readonly TestSolution[];
+};
+
+function draftFromServerSolution(
+  solution: TestSolution,
+  stageIndex = 0,
+): ReturnType<typeof parseStoryPuzzleDraft> {
+  if (solution.stages) {
+    return draft({
+      stageIndex,
+      assignments: {
+        __stages: JSON.stringify(solution.stages.map((stage, index) => (
+          draftFromServerSolution(stage, index)
+        ))),
+      },
+    });
+  }
+  return draft({
+    stageIndex,
+    tokens: [...(solution.tokens ?? [])],
+    assignments: { ...(solution.assignments ?? {}) },
+    imageOrder: [...(solution.imageOrder ?? [])],
+    rotations: { ...(solution.rotations ?? {}) },
   });
 }
 
@@ -62,10 +95,54 @@ describe('Phase 3 Story Puzzle catalog', () => {
 
   it('keeps every puzzle self-briefed and preserves the four-token core stage', () => {
     assert.ok(STORY_PUZZLES.every((puzzle) => puzzle.brief && puzzle.reference));
+    assert.ok(STORY_PUZZLES.every((puzzle) => (
+      !puzzle.stages || puzzle.stages.every((stage) => stage.clue)
+    )));
     assert.deepEqual(
       STORY_PUZZLE_BY_ID.story_puzzle_20_core_sequence?.stages?.map((stage) => stage.tokenLimit ?? null),
       [null, 3, 3, 4],
     );
+  });
+
+  it('keeps all 20 authored solutions reachable and gives each an Echo consequence', () => {
+    for (const puzzle of STORY_PUZZLES) {
+      const definition = SERVER_STORY_PUZZLE_BY_ID[puzzle.id];
+      assert.ok(definition, `missing server definition: ${puzzle.id}`);
+      assert.equal(
+        isServerStoryPuzzleSubmissionCorrect(
+          puzzle.id,
+          draftFromServerSolution(definition.solution),
+        ),
+        true,
+        `official solution is not accepted: ${puzzle.id}`,
+      );
+      assert.ok(STORY_PUZZLE_ECHO_IMPACTS[puzzle.id], `missing Echo impact: ${puzzle.id}`);
+    }
+    assert.equal(Object.keys(STORY_PUZZLE_ECHO_IMPACTS).length, 20);
+  });
+
+  it('links the three published transformations to their intended Story puzzles', () => {
+    assert.deepEqual(
+      STORY_PUZZLES
+        .filter((puzzle) => puzzle.cinematicStageId)
+        .map((puzzle) => [puzzle.id, puzzle.cinematicStageId]),
+      [
+        ['story_puzzle_16_memory_reconstruction', 'black_coronation'],
+        ['story_puzzle_17_contradictory_records', 'second_contract_marked'],
+        ['story_puzzle_19_final_deduction', 'black_echo_protocol'],
+      ],
+    );
+  });
+
+  it('keeps every primary puzzle anchored to an approved Manhwa page', () => {
+    const primary = STORY_PUZZLES.filter((puzzle) => puzzle.classification === 'main');
+    assert.ok(primary.length > 0);
+    assert.ok(primary.every((puzzle) => (
+      puzzle.source
+      && puzzle.source.pageId.startsWith('manhwa_')
+      && Number.isInteger(puzzle.source.globalPageNumber)
+      && puzzle.source.globalPageNumber > 0
+    )));
   });
 
   it('verifies the solution only inside the server definition', () => {

@@ -38,7 +38,17 @@ function PuzzleModeLoading() {
 }
 
 export default function PuzzleHubScreen() {
-  const [mode, setMode] = useState<PuzzleHubMode>('story');
+  const [mode, setMode] = useState<PuzzleHubMode>(() => {
+    try {
+      const requested = sessionStorage.getItem('eleven_puzzle_hub_requested_mode');
+      sessionStorage.removeItem('eleven_puzzle_hub_requested_mode');
+      return PUZZLE_HUB_MODES.some((candidate) => candidate.id === requested)
+        ? requested as PuzzleHubMode
+        : 'story';
+    } catch {
+      return 'story';
+    }
+  });
   const authStatus = useAuthStore((state) => state.status);
   const storySnapshot = useStoryPuzzleStore((state) => state.snapshot);
   const liveSnapshot = useLiveChallengeStore((state) => state.snapshot);

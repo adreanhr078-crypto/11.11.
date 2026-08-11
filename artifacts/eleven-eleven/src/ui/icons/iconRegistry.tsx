@@ -15,6 +15,7 @@ import {
   Puzzle,
   Route,
   RefreshCw,
+  RadioTower,
   Settings,
   Sparkles,
   Trophy,
@@ -30,6 +31,7 @@ export type GameSystemId =
   | 'story'
   | 'memory'
   | 'puzzles'
+  | 'network'
   | 'echo-mind'
   | 'characters'
   | 'progress'
@@ -254,6 +256,20 @@ export const GAME_ICON_REGISTRY = {
     tone: 'memory',
     glyph: Puzzle,
   },
+  'category-network': {
+    id: 'category-network',
+    systemId: 'network',
+    screenIds: ['echo-network'],
+    actionId: 'navigation.open-echo-network',
+    label: { ar: 'شبكة Echo', en: 'Echo Network' },
+    description: {
+      ar: 'الشطرنج والتعاون والمواسم ومجتمع الإشارة',
+      en: 'Chess, cooperation, seasons, and the Signal community',
+    },
+    tooltip: { ar: 'شبكة Echo', en: 'Echo Network' },
+    tone: 'rare',
+    glyph: RadioTower,
+  },
   'screen-live-challenges': {
     id: 'screen-live-challenges',
     systemId: 'progress',
@@ -267,6 +283,20 @@ export const GAME_ICON_REGISTRY = {
     tooltip: { ar: 'الإشارات الحية', en: 'Live Signals' },
     tone: 'danger',
     glyph: Puzzle,
+  },
+  'screen-echo-network': {
+    id: 'screen-echo-network',
+    systemId: 'network',
+    screenIds: ['echo-network'],
+    actionId: 'navigation.open-echo-network',
+    label: { ar: 'شبكة Echo', en: 'Echo Network' },
+    description: {
+      ar: 'مركز اللعب المتجدد والأنشطة الاجتماعية الآمنة',
+      en: 'The hub for renewable play and safe social activity',
+    },
+    tooltip: { ar: 'فتح شبكة Echo', en: 'Open Echo Network' },
+    tone: 'rare',
+    glyph: RadioTower,
   },
   'screen-echo-mind': {
     id: 'screen-echo-mind',

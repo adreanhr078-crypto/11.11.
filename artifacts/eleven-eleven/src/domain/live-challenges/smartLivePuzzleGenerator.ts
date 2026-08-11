@@ -4,6 +4,7 @@ import type {
   LiveChallengeReward,
   LiveChallengeVisual,
 } from './liveChallengeContracts';
+import { WEEKLY_REWARD_PREVIEW } from './weeklyRewardCatalog';
 
 export const SMART_LIVE_VERSION = 'smart-memory-v1';
 export const SMART_WEEKLY_STAGE_COUNT = 4;
@@ -19,7 +20,11 @@ export type SmartMechanic =
   | 'evidence-match'
   | 'routing'
   | 'load-balance'
-  | 'order-logic';
+  | 'order-logic'
+  | 'text-riddle'
+  | 'symbol-pair'
+  | 'spatial-rotation'
+  | 'word-path';
 
 export interface SmartLiveTemplate {
   templateId: string;
@@ -47,6 +52,10 @@ export const SMART_MECHANIC_ROTATION: readonly SmartMechanic[] = Object.freeze([
   'routing',
   'load-balance',
   'order-logic',
+  'text-riddle',
+  'symbol-pair',
+  'spatial-rotation',
+  'word-path',
 ]);
 
 const MEMORY_FRAGMENTS = Object.freeze([
@@ -94,20 +103,29 @@ const WIRING_SCENES = Object.freeze([
     sources: ['ECHO', 'NARA', 'ZERO'],
     targets: ['CORE MEMORY', 'NORTH RELAY', 'BLACK CHANNEL'],
     labels: ['الوعي', 'البوصلة', 'القناة المحجوبة'],
+    signatures: ['11·C', '07·N', '00·B'],
   },
   {
     title: 'خط العودة',
     sources: ['YUKI', 'KENJA', 'ECHO'],
     targets: ['SAFE ROOM', 'ARCHIVE GATE', 'HEARTBEAT'],
     labels: ['المخبأ', 'البوابة', 'النبض'],
+    signatures: ['24·S', '40·A', '13·H'],
   },
   {
     title: 'مصفوفة 11:11',
     sources: ['ZERO', 'ECHO', 'NARA'],
     targets: ['TRACE 01', 'TRACE 02', 'TRACE 03'],
     labels: ['الأثر الأول', 'الأثر الثاني', 'الأثر الثالث'],
+    signatures: ['Z·01', 'E·02', 'N·03'],
   },
-] as const;
+].map((scene) => Object.freeze(scene)) as readonly {
+  readonly title: string;
+  readonly sources: readonly string[];
+  readonly targets: readonly string[];
+  readonly labels: readonly string[];
+  readonly signatures: readonly string[];
+}[]);
 
 function hash(input: string): number {
   let value = 2166136261;
@@ -122,12 +140,6 @@ function pick<T>(values: readonly T[], seed: string, channel: string): T {
   return values[hash(`${seed}:${channel}`) % values.length]!;
 }
 
-function rotate<T>(values: readonly T[], amount: number): T[] {
-  if (values.length === 0) return [];
-  const offset = ((amount % values.length) + values.length) % values.length;
-  return [...values.slice(offset), ...values.slice(0, offset)];
-}
-
 function shuffle<T>(values: readonly T[], seed: string): T[] {
   const result = [...values];
   for (let index = result.length - 1; index > 0; index -= 1) {
@@ -139,6 +151,19 @@ function shuffle<T>(values: readonly T[], seed: string): T[] {
 
 function encodedOptions(answer: string, distractors: readonly string[], seed: string): string[] {
   return shuffle([...new Set([answer, ...distractors])], `${seed}:options`);
+}
+
+function fourOptions(answer: string, candidates: readonly string[], seed: string): string[] {
+  const unique = [...new Set([answer, ...candidates])];
+  const filled = [...unique];
+  let index = 0;
+  const safeFallbacks = ['إشارة غير مستقرة', 'مسار محجوب', 'بيانات ناقصة', 'لا يوجد تطابق'];
+  while (filled.length < 4) {
+    const decoy = safeFallbacks[index % safeFallbacks.length]!;
+    if (!filled.includes(decoy)) filled.push(decoy);
+    index += 1;
+  }
+  return shuffle([answer, ...filled.filter((option) => option !== answer).slice(0, 3)], `${seed}:four-options`);
 }
 
 function encodeCaesar(value: string, shift: number): string {
@@ -162,12 +187,7 @@ function rewardFor(
   difficulty: SmartLiveTemplate['difficulty'],
 ): LiveChallengeReward {
   if (kind === 'weekly') {
-    return {
-      tier: 'rare',
-      kind: 'memory-shard',
-      label: 'شظية نادرة من ذاكرة Echo',
-      icon: '✦',
-    };
+    return WEEKLY_REWARD_PREVIEW;
   }
   const labels = {
     standard: 'هدية إشارة يومية',
@@ -187,8 +207,14 @@ function createMemoryTemplate(seed: string, kind: LiveChallengeKind): SmartLiveT
   const columns = 3;
   const totalPieces = rows * columns;
   const memory = pick(MEMORY_FRAGMENTS, seed, 'memory-image');
-  const pieceIds = Array.from({ length: totalPieces }, (_, index) => `memory-piece-${index + 1}`);
-  const shuffledIds = shuffle(pieceIds, `${seed}:memory-order`);
+  const tokenPool = shuffle(['A', 'C', 'E', 'K', 'N', 'Z'], `${seed}:memory-tokens`);
+  const canonicalPieces = Array.from({ length: totalPieces }, (_, index) => ({
+    id: `fragment-${tokenPool[index]}`,
+    label: `شظية ${tokenPool[index]}`,
+    backgroundPosition: imagePiecePosition(index, rows, columns),
+  }));
+  const shuffledPieces = shuffle(canonicalPieces, `${seed}:memory-order`);
+  const pieceIds = canonicalPieces.map((piece) => piece.id);
   const answer = pieceIds.join(',');
   const difficulty = kind === 'weekly' ? 'deep' : pick(['standard', 'focused', 'deep'] as const, seed, 'difficulty');
   return {
@@ -211,11 +237,7 @@ function createMemoryTemplate(seed: string, kind: LiveChallengeKind): SmartLiveT
       alt: memory.alt,
       rows,
       columns,
-      pieces: shuffledIds.map((id) => ({
-        id,
-        label: id.replace('memory-piece-', 'شظية '),
-        backgroundPosition: imagePiecePosition(Number(id.split('-').pop())! - 1, rows, columns),
-      })),
+      pieces: shuffledPieces,
     },
     reward: rewardFor(kind, difficulty),
   };
@@ -223,28 +245,32 @@ function createMemoryTemplate(seed: string, kind: LiveChallengeKind): SmartLiveT
 
 function createWiringTemplate(seed: string, kind: LiveChallengeKind): SmartLiveTemplate {
   const scene = pick(WIRING_SCENES, seed, 'wiring-scene');
-  const shift = hash(`${seed}:wiring-shift`) % scene.targets.length;
-  const targets = rotate(scene.targets, shift);
-  const answer = scene.sources.map((source, index) => `${source}=${targets[index]}`).join('|');
+  const targetIndices = shuffle(scene.targets.map((_, index) => index), `${seed}:wiring-order`);
+  const answer = scene.sources.map((source, index) => `${source}=${scene.targets[index]}`).join('|');
   const difficulty = kind === 'weekly' ? 'deep' : pick(['standard', 'focused'] as const, seed, 'difficulty');
   return {
     templateId: 'echo-memory-wiring',
     mechanic: 'wiring',
     title: kind === 'weekly' ? 'شبكة الذاكرة النادرة' : 'توصيل الإشارة اليومية',
-    instructions: 'صل كل مصدر بالوجهة التي تحفظ استقرار الذكرى، ثم افحص الشبكة.',
-    prompt: `${scene.title} // ${scene.sources.length} نقاط // لا تترك سلكًا عائمًا`,
+    instructions: 'صل كل مصدر بالوجهة التي تحمل توقيع المعايرة نفسه. كل وجهة تقبل سلكًا واحدًا فقط.',
+    prompt: `${scene.title} // طابق التوقيعات المتطابقة // لا تترك سلكًا عائمًا`,
     options: [],
     answer,
     hints: [
       'كل مصدر يملك وجهة واحدة فقط، وكل وجهة تستقبل سلكًا واحدًا.',
-      'ابحث عن العلاقة بين اسم المصدر ووظيفة الوجهة قبل التوصيل.',
-      `ثبّت الوصلات بالترتيب: ${scene.sources.join(' ثم ')}.`,
+      'اقرأ الرمز الصغير بجانب المصدر ثم ابحث عن الرمز نفسه في الجهة المقابلة.',
+      `ابدأ بالتوقيع ${scene.signatures[0]} ثم أكمل البقية.`,
     ],
     difficulty,
     visual: {
       kind: 'wiring',
-      sources: scene.sources.map((id) => ({ id, label: id })),
-      targets: targets.map((id, index) => ({ id, label: id, detail: scene.labels[(index + shift) % scene.labels.length] })),
+      sources: scene.sources.map((id, index) => ({ id, label: id, signature: scene.signatures[index] })),
+      targets: targetIndices.map((index) => ({
+        id: scene.targets[index]!,
+        label: scene.targets[index]!,
+        detail: scene.labels[index]!,
+        signature: scene.signatures[index]!,
+      })),
     },
     reward: rewardFor(kind, difficulty),
   };
@@ -307,7 +333,7 @@ function createChoiceTemplate(
     title,
     instructions,
     prompt,
-    options: encodedOptions(answer, options.filter((option) => option !== answer), seed),
+    options: fourOptions(answer, options.filter((option) => option !== answer), seed),
     answer,
     hints,
     difficulty,
@@ -369,7 +395,7 @@ function createChoiceTemplate(
   }
 
   if (mechanic === 'pattern-scan') {
-    const symbols = ['◆', '◆', '◆', '◇', '◆', '◆', '◆', '◆'];
+    const symbols = Array.from({ length: 8 }, () => '◆');
     const anomaly = (hash(`${seed}:pattern`) % 6) + 1;
     symbols[anomaly] = '◇';
     const answer = `NODE-${anomaly + 1}`;
@@ -388,21 +414,28 @@ function createChoiceTemplate(
 
   if (mechanic === 'evidence-match') {
     const cases = [
-      ['A', 'صوت بعيد قبل انقطاع الضوء'],
-      ['B', 'أثر ماء بجانب بوابة مغلقة'],
-      ['C', 'نبض 11:11 داخل سجل فارغ'],
-      ['D', 'خيط أحمر على لوحة الطاقة'],
+      ['A', 'شاهدان سجلا الصوت نفسه قبل انقطاع الضوء'],
+      ['B', 'أثر ماء مادي بجانب بوابة مغلقة'],
+      ['C', 'نبض 11:11 بتوقيع زمني داخل سجل الخادم'],
+      ['D', 'خيط طاقة أحمر يصل اللوحة بالقناة السوداء'],
     ] as const;
-    const answer = cases[hash(`${seed}:evidence`) % cases.length]![0];
+    const investigations = [
+      { answer: 'A', goal: 'الدليل السمعي المؤكد بأكثر من شاهد', clue: 'ابحث عن تسجيل سمعي تؤكده ملاحظتان مستقلتان.' },
+      { answer: 'B', goal: 'الأثر المادي الموجود عند البوابة', clue: 'المطلوب أثر يمكن لمسه وموقعه محدد عند بوابة.' },
+      { answer: 'C', goal: 'السجل الرقمي الذي يثبت لحظة 11:11', clue: 'الطابع الزمني داخل سجل الخادم هو الفاصل.' },
+      { answer: 'D', goal: 'الدليل الذي يربط الطاقة بالقناة السوداء', clue: 'تتبّع الوصلة الحمراء بين نقطتين.' },
+    ] as const;
+    const investigation = pick(investigations, seed, 'evidence-goal');
+    const answer = investigation.answer;
     return make(
       'مطابقة الأدلة',
-      'اختر الدليل الذي يثبت أن الذكرى لم تكن هلوسة.',
-      'ECHO FILE // اربط العلامة بالاستنتاج الصحيح',
+      `اختر ${investigation.goal}.`,
+      `ECHO FILE // الهدف: ${investigation.goal}`,
       `EVIDENCE-${answer}`,
       cases.map(([id]) => `EVIDENCE-${id}`),
       'evidence',
       cases.map(([id, detail]) => ({ label: `EVIDENCE-${id}`, detail })),
-      ['افصل الدليل القابل للرصد عن الانطباع.', 'الإشارة الزمنية لا تظهر في سجل فارغ بالصدفة.', `الملف المطابق هو EVIDENCE-${answer}.`],
+      ['اقرأ الهدف أولًا ثم استبعد الأدلة من الأنواع الأخرى.', investigation.clue, `الملف المطابق هو EVIDENCE-${answer}.`],
     );
   }
 
@@ -431,13 +464,95 @@ function createChoiceTemplate(
     const answer = 'A:40|B:35|C:25';
     return make(
       'توازن الأحمال',
-      'وزّع الطاقة على القنوات الثلاث دون أن يتجاوز مجموعها 100%.',
-      'CORE LOAD // A + B + C = 100% // C لا يتجاوز 25%',
+      'اختر التوزيع الوحيد الذي يحقق القيود الثلاثة معًا.',
+      'CORE LOAD // المجموع 100% // A=40% // B أعلى من C بعشر نقاط',
       answer,
       ['A:50|B:25|C:25', answer, 'A:30|B:45|C:25', 'A:40|B:40|C:20'],
       'balance',
-      [{ label: 'CHANNEL A', detail: '40%' }, { label: 'CHANNEL B', detail: '35%' }, { label: 'CHANNEL C', detail: '25% MAX' }],
-      ['ثبّت قناة C عند الحد الأعلى الآمن.', 'وزّع الباقي على A وB مع الحفاظ على الإجمالي.', `التوزيع المتزن هو ${answer}.`],
+      [{ label: 'TOTAL', detail: '100%' }, { label: 'CHANNEL A', detail: '40% ثابت' }, { label: 'RELATION', detail: 'B = C + 10' }],
+      ['استبعد أي خيار لا يثبت A عند 40%.', 'في الخيار الصحيح يزيد B على C بعشر نقاط والمجموع يساوي 100.', `التوزيع المتزن هو ${answer}.`],
+    );
+  }
+
+  if (mechanic === 'text-riddle') {
+    const riddles = [
+      { answer: 'MEMORY', clue: 'أحملك حين يختفي المكان، وقد أنكسر إلى شظايا من دون أن أموت.', options: ['MEMORY', 'SIGNAL', 'SHADOW', 'GATE'] },
+      { answer: 'ECHO', clue: 'أعود إليك بصوتك، لكنني لا أبدأ الكلام أبدًا.', options: ['ECHO', 'ZERO', 'LIGHT', 'TRACE'] },
+      { answer: 'KEY', clue: 'لا أفتح بابًا من حديد؛ أفتح نصًا أغلقته الشيفرة.', options: ['KEY', 'WIRE', 'CLOCK', 'MASK'] },
+      { answer: 'SHADOW', clue: 'أتبعك بلا خطوات، وأختفي عندما يغيب الضوء.', options: ['SHADOW', 'MEMORY', 'CODE', 'NORTH'] },
+    ] as const;
+    const riddle = pick(riddles, seed, 'riddle');
+    return make(
+      'همس داخل الذاكرة',
+      'اقرأ الوصف وحدد المفهوم الوحيد الذي تنطبق عليه كل الجمل.',
+      `«${riddle.clue}»`,
+      riddle.answer,
+      riddle.options,
+      'evidence',
+      [{ label: 'CLUE 01', detail: riddle.clue }, { label: 'RULE', detail: 'كل جملة يجب أن تنطبق' }],
+      ['لا تختَر كلمة تناسب نصف الوصف فقط.', `فكّر في معنى: ${riddle.clue.split('،')[0]}.`, `الإجابة هي ${riddle.answer}.`],
+    );
+  }
+
+  if (mechanic === 'symbol-pair') {
+    const families = [
+      { filled: '◆', empty: '◇', second: '●', answer: '○', options: ['○', '●', '◆', '□'] },
+      { filled: '■', empty: '□', second: '▲', answer: '△', options: ['△', '▲', '■', '○'] },
+      { filled: '⬢', empty: '⬡', second: '✦', answer: '✧', options: ['✧', '✦', '⬢', '◇'] },
+    ] as const;
+    const family = pick(families, seed, 'symbol-family');
+    return make(
+      'مرآة الرموز',
+      'استخرج التحول من الزوج الأول وطبّقه على الرمز الثالث.',
+      `${family.filled} → ${family.empty}   //   ${family.second} → ?`,
+      family.answer,
+      family.options,
+      'pattern',
+      [{ label: 'PAIR A', detail: `${family.filled} → ${family.empty}` }, { label: 'PAIR B', detail: `${family.second} → ?` }],
+      ['شكل الرمز لا يتغير؛ الذي يتغير هو امتلاؤه.', 'حوّل الرمز الثالث من ممتلئ إلى مفرغ.', `الرمز الناتج هو ${family.answer}.`],
+    );
+  }
+
+  if (mechanic === 'spatial-rotation') {
+    const arrows = ['↑', '→', '↓', '←'] as const;
+    const startIndex = hash(`${seed}:rotation-start`) % arrows.length;
+    const sequence = Array.from({ length: 3 }, (_, index) => arrows[(startIndex + index) % arrows.length]!);
+    const answer = arrows[(startIndex + 3) % arrows.length]!;
+    return make(
+      'دوران البوصلة',
+      'كل نبضة تدير السهم ربع دورة مع عقارب الساعة. اختر الاتجاه التالي.',
+      `${sequence.join('  →  ')}  →  ?`,
+      answer,
+      arrows,
+      'matrix',
+      sequence.map((arrow, index) => ({ label: `TURN ${index + 1}`, detail: arrow })),
+      ['راقب اتجاه الدوران، لا حركة السهم على الشاشة.', 'ربع دورة مع عقارب الساعة يعني: أعلى، يمين، أسفل، يسار.', `الاتجاه التالي هو ${answer}.`],
+    );
+  }
+
+  if (mechanic === 'word-path') {
+    const paths = [
+      ['WAKE', 'TRACE', 'REMEMBER'],
+      ['LISTEN', 'ALIGN', 'RETURN'],
+      ['FIND', 'CONNECT', 'RESTORE'],
+      ['SCAN', 'VERIFY', 'OPEN'],
+    ] as const;
+    const path = pick(paths, seed, 'word-path');
+    const answer = path.join('>');
+    const alternatives = [
+      [...path].reverse().join('>'),
+      `${path[1]}>${path[0]}>${path[2]}`,
+      `${path[0]}>${path[2]}>${path[1]}`,
+    ];
+    return make(
+      'مسار الكلمات',
+      'رتّب الكلمات حسب أرقام الأثر لتكوين أمر استعادة صالح.',
+      'WORD TRACE // اتبع 01 ثم 02 ثم 03',
+      answer,
+      [answer, ...alternatives],
+      'order',
+      shuffle(path.map((word, index) => ({ label: word, detail: `TRACE ${String(index + 1).padStart(2, '0')}` })), `${seed}:word-items`),
+      ['رقم TRACE هو موضع الكلمة في الأمر.', `ابدأ بـ ${path[0]} وانتهِ بـ ${path[2]}.`, `المسار الكامل هو ${answer}.`],
     );
   }
 
@@ -462,12 +577,27 @@ export function smartLiveTemplateFor(
   stageIndex = 0,
 ): SmartLiveTemplate {
   const seed = `${SMART_LIVE_VERSION}:${kind}:${periodKey}:${stageIndex}`;
-  const mechanic = kind === 'weekly'
-    ? SMART_MECHANIC_ROTATION[stageIndex % SMART_MECHANIC_ROTATION.length]!
-    : SMART_MECHANIC_ROTATION[hash(seed) % SMART_MECHANIC_ROTATION.length]!;
-  if (mechanic === 'memory-fragment') return createMemoryTemplate(seed, kind);
-  if (mechanic === 'wiring') return createWiringTemplate(seed, kind);
-  return createCipherTemplate(seed, kind);
+  const periodSlot = Math.floor(Date.parse(`${periodKey}T00:00:00.000Z`) / (24 * 60 * 60 * 1000));
+  const rotationStart = kind === 'weekly'
+    ? Math.floor(periodSlot / 7) % SMART_MECHANIC_ROTATION.length
+    : periodSlot % SMART_MECHANIC_ROTATION.length;
+  const mechanic = SMART_MECHANIC_ROTATION[
+    (rotationStart + stageIndex) % SMART_MECHANIC_ROTATION.length
+  ]!;
+  const template = mechanic === 'memory-fragment'
+    ? createMemoryTemplate(seed, kind)
+    : mechanic === 'wiring'
+      ? createWiringTemplate(seed, kind)
+      : mechanic === 'cipher'
+        ? createCipherTemplate(seed, kind)
+        : createChoiceTemplate(seed, kind, mechanic);
+  // The frame is part of the authored clue packet, not cosmetic noise. It
+  // makes every period materially distinct even when two mechanics share a
+  // safe arithmetic shape.
+  return {
+    ...template,
+    prompt: `${template.prompt} // MEMORY FRAME ${hash(seed).toString(36).toUpperCase()}`,
+  };
 }
 
 export function smartLiveFingerprint(template: SmartLiveTemplate): string {
@@ -480,27 +610,59 @@ export function smartLiveFingerprint(template: SmartLiveTemplate): string {
 }
 
 export function isSmartLiveTemplateValid(template: SmartLiveTemplate): boolean {
-  if (!template.templateId || !template.answer || template.hints.length !== 3) return false;
+  if (
+    !template.templateId
+    || !template.answer
+    || template.answer.length > 80
+    || template.hints.length !== 3
+    || template.prompt.includes('NaN')
+    || template.options.some((option) => option.startsWith('DECOY-'))
+  ) return false;
   if (template.mechanic === 'memory-fragment') {
     const visual = template.visual as Extract<LiveChallengeVisual, { kind: 'memory-fragment' }>;
+    const orderedIds = template.answer.split(',');
     return visual.pieces.length === visual.rows * visual.columns
-      && new Set(visual.pieces.map((piece) => piece.id)).size === visual.pieces.length;
+      && new Set(visual.pieces.map((piece) => piece.id)).size === visual.pieces.length
+      && orderedIds.length === visual.pieces.length
+      && orderedIds.every((id) => visual.pieces.some((piece) => piece.id === id))
+      && visual.pieces.every((piece) => /^\d+(?:\.\d+)?% \d+(?:\.\d+)?%$/.test(piece.backgroundPosition));
   }
   if (template.mechanic === 'wiring') {
     const visual = template.visual as Extract<LiveChallengeVisual, { kind: 'wiring' }>;
-    return visual.sources.length === visual.targets.length && visual.sources.length >= 3;
+    const targetById = new Map(visual.targets.map((target) => [target.id, target]));
+    const sourceById = new Map(visual.sources.map((source) => [source.id, source]));
+    const pairs = template.answer.split('|').map((pair) => pair.split('='));
+    return visual.sources.length === visual.targets.length
+      && visual.sources.length >= 3
+      && new Set(visual.sources.map((source) => source.id)).size === visual.sources.length
+      && new Set(visual.targets.map((target) => target.id)).size === visual.targets.length
+      && pairs.length === visual.sources.length
+      && new Set(pairs.map(([, targetId]) => targetId)).size === visual.targets.length
+      && pairs.every(([sourceId, targetId]) => (
+        Boolean(sourceId && targetId)
+        && sourceById.get(sourceId!)?.signature === targetById.get(targetId!)?.signature
+      ));
   }
-  const visual = template.visual as Extract<LiveChallengeVisual, { kind: 'cipher' }>;
-  return visual.encoded.length === template.answer.length
+  if (template.mechanic === 'cipher') {
+    const visual = template.visual as Extract<LiveChallengeVisual, { kind: 'cipher' }>;
+    return visual.encoded.length === template.answer.length
+      && template.options.length === 4
+      && new Set(template.options).size === 4
+      && template.options.includes(template.answer);
+  }
+  const visual = template.visual as Extract<LiveChallengeVisual, { kind: 'choice' }>;
+  return visual.items.length >= 2
     && template.options.length === 4
+    && new Set(template.options).size === 4
     && template.options.includes(template.answer);
 }
 
-const qualitySamples = Array.from({ length: 21 }, (_, index) => (
-  smartLiveTemplateFor(`quality-week-${2026 + index}`, 'weekly', index % SMART_WEEKLY_STAGE_COUNT)
+const qualitySamples = Array.from({ length: 75 }, (_, index) => (
+  smartLiveTemplateFor(`2026-${String((index % 12) + 1).padStart(2, '0')}-01`, 'weekly', index % SMART_WEEKLY_STAGE_COUNT)
 ));
-if (qualitySamples.some((template) => !isSmartLiveTemplateValid(template))) {
-  throw new Error('Smart live puzzle generator contains an invalid template.');
+const invalidQualitySample = qualitySamples.find((template) => !isSmartLiveTemplateValid(template));
+if (invalidQualitySample) {
+  throw new Error(`Smart live puzzle generator contains an invalid template: ${invalidQualitySample.mechanic}/${invalidQualitySample.answer}/${invalidQualitySample.options.length}`);
 }
 
 export type SmartLivePublicDefinition = LiveChallengePublicDefinition & {

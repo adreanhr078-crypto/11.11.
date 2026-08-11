@@ -1,0 +1,59 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "eleven-eleven-realtime",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-11",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "vars": {
+    "REALTIME_ALLOWED_ORIGINS": "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173"
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "MATCHMAKER_ROOMS", "class_name": "MatchmakerRoom" },
+      { "name": "CHESS_MATCH_ROOMS", "class_name": "ChessMatchRoom" },
+      { "name": "COOP_SESSION_ROOMS", "class_name": "CoopSessionRoom" },
+      { "name": "PARTY_ROOMS", "class_name": "PartyRoom" },
+      { "name": "COMMUNITY_CHANNEL_ROOMS", "class_name": "CommunityChannelRoom" }
+    ]
+  },
+  "exports": {
+    "MatchmakerRoom": { "type": "durable-object", "storage": "sqlite" },
+    "ChessMatchRoom": { "type": "durable-object", "storage": "sqlite" },
+    "CoopSessionRoom": { "type": "durable-object", "storage": "sqlite" },
+    "PartyRoom": { "type": "durable-object", "storage": "sqlite" },
+    "CommunityChannelRoom": { "type": "durable-object", "storage": "sqlite" }
+  },
+  "d1_databases": [
+    {
+      "binding": "PLAYER_DB",
+      "database_name": "eleven-eleven-player",
+      "database_id": "eb0c9c3f-5c00-454b-a139-ca2e9edbf6f9",
+      "migrations_dir": "../../migrations"
+    }
+  ],
+  "r2_buckets": [
+    { "binding": "REPLAYS", "bucket_name": "eleven-eleven-replays" }
+  ],
+  "queues": {
+    "producers": [
+      { "binding": "RESULT_QUEUE", "queue": "eleven-eleven-match-results" }
+    ],
+    "consumers": [
+      {
+        "queue": "eleven-eleven-match-results",
+        "max_batch_size": 10,
+        "max_batch_timeout": 5,
+        "max_retries": 5,
+        "max_concurrency": 1,
+        "dead_letter_queue": "eleven-eleven-match-results-dead"
+      }
+    ]
+  },
+  "analytics_engine_datasets": [
+    { "binding": "NETWORK_ANALYTICS", "dataset": "eleven_eleven_network" }
+  ]
+}

@@ -55,7 +55,7 @@ describe('Application Shell', () => {
         'story',
         'memory',
         'puzzles',
-        'progress',
+        'network',
       ],
     );
 
@@ -90,6 +90,12 @@ describe('Application Shell', () => {
       GAME_SCREEN_REGISTRY.memories.description,
       /Manhwa/,
     );
+    assert.equal(
+      NAVIGATION_CATEGORIES.find(({ id }) => id === 'network')
+        ?.landingScreenId,
+      'echo-network',
+    );
+    assert.equal(GAME_SCREEN_REGISTRY['echo-network'].navigation, 'landing');
     assert.equal(
       NAVIGATION_CATEGORIES.find(({ id }) => id === 'progress')
         ?.landingScreenId,

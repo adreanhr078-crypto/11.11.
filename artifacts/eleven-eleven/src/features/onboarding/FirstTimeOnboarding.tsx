@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { ECHO_PRESENTATION_ASSETS } from '../../ui/presentation/visualAssets';
 import {
-  PLAYER_AVATAR_CATALOG,
+  STARTER_PLAYER_AVATAR_CATALOG,
   playerAvatarSrc,
 } from '../../ui/presentation/playerAvatarCatalog';
 import {
@@ -264,7 +264,7 @@ function IdentityStep({
           <small>3 خيارات مجانية // ASSETS ONLY</small>
         </div>
         <div className="onboarding-avatar-grid">
-          {PLAYER_AVATAR_CATALOG.map((avatar) => (
+          {STARTER_PLAYER_AVATAR_CATALOG.map((avatar) => (
             <button
               key={avatar.id}
               type="button"

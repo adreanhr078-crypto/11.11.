@@ -2,6 +2,8 @@ export interface PlayerApiEnv {
   FIREBASE_PROJECT_ID?: string;
   FIREBASE_WEB_API_KEY?: string;
   PLAYER_ALLOWED_ORIGINS?: string;
+  PLAYER_REALTIME_URL?: string;
+  REALTIME_TICKET_SECRET?: string;
   PLAYER_DB?: import('./_database').PlayerDatabase;
 }
 

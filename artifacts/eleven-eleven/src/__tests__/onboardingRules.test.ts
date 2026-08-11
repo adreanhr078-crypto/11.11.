@@ -30,6 +30,7 @@ function profile(username: string): PlayerProfile {
       secretsFound: 0,
     },
     featuredAchievementIds: [],
+    unlockedAvatarIds: ['echo', 'silver_signal', 'red_rift'],
   };
 }
 
@@ -39,4 +40,3 @@ test('first-time onboarding only targets generated subject identities', () => {
   assert.equal(needsFirstTimeOnboarding(profile('Echo Runner'), false), false);
   assert.equal(needsFirstTimeOnboarding(null, false), false);
 });
-

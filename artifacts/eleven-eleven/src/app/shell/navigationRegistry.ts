@@ -54,6 +54,16 @@ export const NAVIGATION_CATEGORIES = [
     primary: true,
   },
   {
+    id: 'network',
+    label: 'شبكة Echo',
+    shortLabel: 'الشبكة',
+    description: 'الشطرنج والتعاون والمواسم ومجتمع الإشارة في مركز واحد.',
+    iconId: 'category-network',
+    tone: 'rare',
+    landingScreenId: 'echo-network',
+    primary: true,
+  },
+  {
     id: 'echo-mind',
     label: 'Echo Mind',
     shortLabel: 'Echo',
@@ -81,7 +91,7 @@ export const NAVIGATION_CATEGORIES = [
     iconId: 'category-progress',
     tone: 'progression',
     landingScreenId: 'leaderboard',
-    primary: true,
+    primary: false,
   },
   {
     id: 'settings',

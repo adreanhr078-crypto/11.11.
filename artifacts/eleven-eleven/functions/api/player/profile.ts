@@ -29,6 +29,10 @@ import {
   PROFILE_USERNAME_MAX_LENGTH,
   type PlayerAvatarId,
 } from '../../../src/domain/player-profile/playerProfile';
+import {
+  readUnlockedAvatarIds,
+  requireAvatarOwnership,
+} from './_avatarOwnership';
 
 interface UsernameReservationRow {
   normalized_username: string;
@@ -172,17 +176,22 @@ async function responseProfile(
   account: Awaited<ReturnType<typeof authenticatePlayer>>['account'],
   stored: StoredPlayerProfile,
 ): Promise<Record<string, unknown>> {
-  const [leaderboard, stats] = await Promise.all([
+  const [leaderboard, stats, unlockedAvatarIds] = await Promise.all([
     readLeaderboard(db, account, 1),
     readPlayerProfileStats(db, account.uid),
+    readUnlockedAvatarIds(db, account.uid),
   ]);
   const progression = leaderboard.currentPlayer;
+  const avatarId = unlockedAvatarIds.includes(stored.avatarId)
+    ? stored.avatarId
+    : 'echo';
   return {
     uid: stored.uid,
     subjectId: stored.subjectId,
     username: stored.username,
     bio: stored.bio,
-    avatarId: stored.avatarId,
+    avatarId,
+    unlockedAvatarIds,
     email: stored.email,
     providerId: stored.providerId,
     isAnonymous: stored.isAnonymous,
@@ -260,12 +269,14 @@ export async function onRequestPut({
     if (!username || username.length > PROFILE_USERNAME_MAX_LENGTH) {
       throw new PlayerApiError(400, 'invalid_username', 'Username is invalid.');
     }
+    const requestedAvatarId = body.avatarId as PlayerAvatarId;
+    await requireAvatarOwnership(db, account.uid, requestedAvatarId);
     const nextProfile: StoredPlayerProfile = {
       ...stored,
       username,
       usernameSource: 'stored',
       bio: cleanBio(body.bio),
-      avatarId: body.avatarId as PlayerAvatarId,
+      avatarId: requestedAvatarId,
       featuredAchievementIds: await validateFeaturedAchievementOwnership(
         db,
         account.uid,

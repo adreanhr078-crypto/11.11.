@@ -9,6 +9,7 @@ import type {
 
 interface PuzzleSolution {
   tokens?: readonly string[];
+  unorderedTokens?: boolean;
   assignments?: Readonly<Record<string, string>>;
   imageOrder?: readonly string[];
   rotations?: Readonly<Record<string, number>>;
@@ -78,7 +79,7 @@ const rawSolutions: Readonly<Record<string, PuzzleSolution>> = Object.freeze({
   story_puzzle_10_memory_grid: { tokens: ['a1', 'b2', 'c3', 'b2'] },
   story_puzzle_11_data_route_zero: { tokens: ['a', 'c', 'd', 'f'] },
   story_puzzle_12_mirror_code: { tokens: ['four', 'one', 'four'] },
-  story_puzzle_13_visual_forensics: { tokens: ['x2', 'z1'] },
+  story_puzzle_13_visual_forensics: { tokens: ['x2', 'z1'], unorderedTokens: true },
   story_puzzle_14_system_matrix: {
     rotations: { tile1: 1, tile2: 2, tile3: 0, tile4: 3 },
   },
@@ -96,7 +97,7 @@ const rawSolutions: Readonly<Record<string, PuzzleSolution>> = Object.freeze({
   story_puzzle_18_emergency_reroute: {
     assignments: { power: '40', data: '30', cooling: '30' },
   },
-  story_puzzle_19_final_deduction: { tokens: ['1111', 'cam07', 'r01'] },
+  story_puzzle_19_final_deduction: { tokens: ['1111', 'cam07', 'r01'], unorderedTokens: true },
   story_puzzle_20_core_sequence: {
     stages: [
       { tokens: ['81', 'channel-11'] },
@@ -153,7 +154,10 @@ function matchesSolution(solution: PuzzleSolution, draft: StoryPuzzleDraft): boo
       return false;
     }
   }
-  return (!solution.tokens || arraysEqual(solution.tokens, draft.tokens))
+  const tokensMatch = !solution.tokens || (solution.unorderedTokens
+    ? arraysEqual([...solution.tokens].sort(), [...draft.tokens].sort())
+    : arraysEqual(solution.tokens, draft.tokens));
+  return tokensMatch
     && (!solution.assignments || recordsEqual(solution.assignments, draft.assignments))
     && (!solution.imageOrder || arraysEqual(solution.imageOrder, draft.imageOrder))
     && (!solution.rotations || recordsEqual(solution.rotations, draft.rotations));

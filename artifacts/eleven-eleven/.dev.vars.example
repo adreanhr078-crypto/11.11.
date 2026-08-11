@@ -10,6 +10,12 @@ PLAYER_ALLOWED_ORIGINS=http://localhost:5173,capacitor://localhost
 # Bind a private Cloudflare D1 database as PLAYER_DB. This is a dashboard or
 # wrangler binding, not a secret stored in this file.
 
+# Echo Network realtime. `npm run dev` injects a temporary local secret and
+# these local URLs automatically. Production must configure the same 32+
+# character secret in Pages and the dedicated realtime Worker.
+PLAYER_REALTIME_URL=http://127.0.0.1:8790
+REALTIME_TICKET_SECRET=
+
 ECHO_PROVIDER_ORDER=cloudflare,gemini,openrouter,groq,huggingface
 ECHO_MAX_PROVIDER_ATTEMPTS=10
 ECHO_PROVIDER_TIMEOUT_MS=12000

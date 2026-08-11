@@ -1,5 +1,6 @@
 import type {
   StoryPuzzleDefinition,
+  StoryPuzzleEchoImpact,
   StoryPuzzleOption,
   StoryPuzzleText,
 } from '../../domain/story-puzzles/storyPuzzleContracts';
@@ -44,6 +45,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
       ],
     },
     options: systemOptions,
+    signal: { targetFrequency: 58, targetChannel: '11' },
   },
   {
     id: 'story_puzzle_02_system_sequence', order: 2, chapterId: 'chapter_1', classification: 'main',
@@ -57,8 +59,8 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
     reference: {
       title: text('أثر الذاكرة', 'Memory trace'),
       entries: [
-        text('ابدأ من العقدة التي فتحت القناة، ثم اتبع انتقال النظام خطوةً خطوة.', 'Start at the node that opened the channel, then follow the system one step at a time.'),
-        text('كل رمز يُستخدم مرة واحدة في هذا السجل.', 'Each symbol is used once in this record.'),
+        text('الإشارة تسبق الوصول، والوصول يفتح الذاكرة، وEcho هو نهاية المسار.', 'Signal precedes Access; Access opens Memory; Echo ends the route.'),
+        text('كل رمز يُستخدم مرة واحدة: ⌁ → ⌘ → ◇ → ◉.', 'Each symbol is used once: ⌁ → ⌘ → ◇ → ◉.'),
       ],
     },
     options: systemOptions,
@@ -226,7 +228,14 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
         text('الممر الآمن يمر عبر عقدتين وسيطتين قبل الوصول إلى F.', 'The safe corridor uses two intermediate nodes before reaching F.'),
       ],
     },
-    options: options(['a', 'A', 'A'], ['b', 'B', 'B'], ['c', 'C', 'C'], ['d', 'D', 'D'], ['e', 'E', 'E'], ['f', 'F', 'F']),
+    options: options(
+      ['a', 'A', 'A', undefined, 'بداية // يتصل بـ B و C', 'Start // links to B and C'],
+      ['b', 'B', 'B', undefined, 'يتصل بـ E فقط', 'Links only to E'],
+      ['c', 'C', 'C', undefined, 'يتصل بـ D', 'Links to D'],
+      ['d', 'D', 'D', undefined, 'يتصل بـ F', 'Links to F'],
+      ['e', 'E', 'E', undefined, 'عقدة تالفة', 'Corrupted node'],
+      ['f', 'F', 'F', undefined, 'نقطة الخروج', 'Exit node'],
+    ),
   },
   {
     id: 'story_puzzle_12_mirror_code', order: 12, chapterId: 'chapter_3', classification: 'main',
@@ -240,6 +249,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
       entries: [
         text('اقرأ الزوج الخارجي بعد عكسه، واترك القيمة الوسطى في مكانها.', 'Read the outer pair after reversing it, while keeping the middle value in place.'),
         text('الرمز النهائي يجب أن يقرأ بالطريقة نفسها من الطرفين.', 'The final code must read consistently from both ends.'),
+        text('الأثر الملتقط يحمل الطرفين 4 والقيمة الوسطى 1.', 'The captured trace has 4 at both ends and 1 in the center.'),
       ],
     },
     options: options(['one', '1', '1'], ['two', '2', '2'], ['three', '3', '3'], ['four', '4', '4']),
@@ -258,7 +268,12 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
         text('ابحث عن اختلاف في الإيقاع أو المحاذاة، لا عن اختلاف اللون فقط.', 'Look for a rhythm or alignment break, not a color change alone.'),
       ],
     },
-    options: options(['x2', 'X2', 'X2'], ['y3', 'Y3', 'Y3'], ['z1', 'Z1', 'Z1'], ['z3', 'Z3', 'Z3']),
+    options: options(
+      ['x2', 'X2', 'X2', undefined, 'إيقاع مزدوج غير متوافق', 'Mismatched double rhythm'],
+      ['y3', 'Y3', 'Y3', undefined, 'إيقاع مستقر', 'Stable rhythm'],
+      ['z1', 'Z1', 'Z1', undefined, 'خط محاذاة منزاح', 'Shifted alignment seam'],
+      ['z3', 'Z3', 'Z3', undefined, 'محاذاة مستقرة', 'Stable alignment'],
+    ),
     image: { src: '/manhwa/final/page-045.webp', alt: text('سجل بصري معتمد للفصل الثالث.', 'Approved Chapter 3 visual record.'), rows: 1, columns: 1, allowRotation: false },
   },
   {
@@ -276,6 +291,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
       ],
     },
     options: options(['tile1', 'عقدة 1', 'Node 1'], ['tile2', 'عقدة 2', 'Node 2'], ['tile3', 'عقدة 3', 'Node 3'], ['tile4', 'عقدة 4', 'Node 4']),
+    rotationGoal: Object.freeze({ tile1: 1, tile2: 2, tile3: 0, tile4: 3 }) as Readonly<Record<string, number>>,
   },
   {
     id: 'story_puzzle_15_system_breach', order: 15, chapterId: 'chapter_3', classification: 'main',
@@ -292,9 +308,9 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
       ],
     },
     stages: [
-      { id: 'align', mechanic: 'signal', objective: text('ثبّت تردد الاختراق.', 'Align breach frequency.') },
-      { id: 'decode', mechanic: 'cipher', objective: text('فك مخرج القناة.', 'Decode channel output.'), options: systemOptions, tokenLimit: 1 },
-      { id: 'lock', mechanic: 'wiring', objective: text('ثبّت عقدة الوصول.', 'Lock the access node.'), options: systemOptions },
+      { id: 'align', mechanic: 'signal', objective: text('ثبّت تردد الاختراق.', 'Align breach frequency.'), clue: text('نافذة الاختراق تعرض 74 على القناة 11.', 'The breach window shows 74 on channel 11.'), signal: { targetFrequency: 74, targetChannel: '11' } },
+      { id: 'decode', mechanic: 'cipher', objective: text('فك مخرج القناة.', 'Decode channel output.'), clue: text('خرج الطبقة الأولى هو الرمز ◇؛ يطابق MEMORY.', 'Layer one output is ◇; it maps to MEMORY.'), options: systemOptions, tokenLimit: 1 },
+      { id: 'lock', mechanic: 'wiring', objective: text('ثبّت عقدة الوصول.', 'Lock the access node.'), clue: text('منفذ ACCESS يقبل هوية ECHO فقط.', 'The ACCESS port accepts only ECHO identity.'), options: systemOptions },
     ],
   },
   {
@@ -312,6 +328,8 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
       ],
     },
     image: { src: '/manhwa/final/page-056.webp', alt: text('صفحة مانهوا معتمدة للفصل الرابع.', 'Approved Chapter 4 Manhwa page.'), rows: 4, columns: 1, allowRotation: false },
+    rotationGoal: Object.freeze({ layer1: 1, layer2: 0, layer3: 3, layer4: 2 }) as Readonly<Record<string, number>>,
+    cinematicStageId: 'black_coronation',
   },
   {
     id: 'story_puzzle_17_contradictory_records', order: 17, chapterId: 'chapter_4', classification: 'main',
@@ -332,6 +350,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
       ['r02', 'R-02', 'R-02', undefined, 'وقت النسخ مطابق', 'Copy time matches'],
       ['r03', 'R-03', 'R-03', undefined, 'يتعارض مع إغلاق القناة', 'Conflicts with channel closure'],
     ),
+    cinematicStageId: 'second_contract_marked',
   },
   {
     id: 'story_puzzle_18_emergency_reroute', order: 18, chapterId: 'chapter_4', classification: 'secret',
@@ -369,6 +388,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
       ['r01', 'R-01', 'R-01', undefined, 'ترتيب متوافق', 'Consistent order'],
       ['r03', 'R-03', 'R-03', undefined, 'تشويش معزول', 'Isolated noise'],
     ),
+    cinematicStageId: 'black_echo_protocol',
   },
   {
     id: 'story_puzzle_20_core_sequence', order: 20, chapterId: 'chapter_4', classification: 'main',
@@ -385,13 +405,42 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
       ],
     },
     stages: [
-      { id: 'sync', mechanic: 'signal', objective: text('زامن الإشارة النهائية.', 'Synchronize the final signal.') },
-      { id: 'route', mechanic: 'data-route', objective: text('ثبت مسار البيانات.', 'Lock the data route.'), options: systemOptions, tokenLimit: 3 },
-      { id: 'cipher', mechanic: 'cipher', objective: text('فك تسلسل النواة.', 'Decode the core sequence.'), options: systemOptions, tokenLimit: 3 },
-      { id: 'core', mechanic: 'sequence', objective: text('أوصل النواة.', 'Connect the core.'), options: systemOptions, tokenLimit: 4 },
+      { id: 'sync', mechanic: 'signal', objective: text('زامن الإشارة النهائية.', 'Synchronize the final signal.'), clue: text('النبضة النهائية تستقر عند 81 على القناة 11.', 'The final pulse stabilizes at 81 on channel 11.'), signal: { targetFrequency: 81, targetChannel: '11' } },
+      { id: 'route', mechanic: 'data-route', objective: text('ثبت مسار البيانات.', 'Lock the data route.'), clue: text('المسار الموثق: SIGNAL → MEMORY → ECHO.', 'Verified route: SIGNAL → MEMORY → ECHO.'), options: systemOptions, tokenLimit: 3 },
+      { id: 'cipher', mechanic: 'cipher', objective: text('فك تسلسل النواة.', 'Decode the core sequence.'), clue: text('مفتاح النواة: ACCESS → MEMORY → SIGNAL.', 'Core key: ACCESS → MEMORY → SIGNAL.'), options: systemOptions, tokenLimit: 3 },
+      { id: 'core', mechanic: 'sequence', objective: text('أوصل النواة.', 'Connect the core.'), clue: text('التثبيت الأخير: SIGNAL → ACCESS → MEMORY → ECHO.', 'Final lock: SIGNAL → ACCESS → MEMORY → ECHO.'), options: systemOptions, tokenLimit: 4 },
     ],
   },
 ]);
+
+export const STORY_PUZZLE_ECHO_IMPACTS: Readonly<Record<string, StoryPuzzleEchoImpact>> = Object.freeze({
+  story_puzzle_01_signal_calibration: { axis: 'stability', amount: 1, label: text('استقرار النبضة', 'Pulse stability') },
+  story_puzzle_02_system_sequence: { axis: 'clarity', amount: 1, label: text('وضوح المسار', 'Route clarity') },
+  story_puzzle_03_torn_memory: { axis: 'memory', amount: 2, label: text('ترميم ذكرى', 'Memory restored') },
+  story_puzzle_04_circuit_restore: { axis: 'stability', amount: 2, label: text('استقرار الدائرة', 'Circuit stability') },
+  story_puzzle_05_color_protocol: { axis: 'trust', amount: 2, label: text('تمييز الهوية', 'Identity trust') },
+  story_puzzle_06_cipher_decoder: { axis: 'clarity', amount: 2, label: text('وضوح الرسالة', 'Message clarity') },
+  story_puzzle_07_evidence_protocol: { axis: 'trust', amount: 2, label: text('ثقة بالدليل', 'Evidence trust') },
+  story_puzzle_08_pattern_breach: { axis: 'anomaly', amount: 2, label: text('كشف الشذوذ', 'Anomaly exposed') },
+  story_puzzle_09_timeline_recovery: { axis: 'clarity', amount: 2, label: text('تماسك الزمن', 'Timeline clarity') },
+  story_puzzle_10_memory_grid: { axis: 'memory', amount: 3, label: text('نبض الذاكرة', 'Memory pulse') },
+  story_puzzle_11_data_route_zero: { axis: 'resolve', amount: 3, label: text('إصرار المسار', 'Route resolve') },
+  story_puzzle_12_mirror_code: { axis: 'clarity', amount: 3, label: text('وضوح الانعكاس', 'Mirror clarity') },
+  story_puzzle_13_visual_forensics: { axis: 'memory', amount: 3, label: text('تثبيت السجل', 'Record anchored') },
+  story_puzzle_14_system_matrix: { axis: 'stability', amount: 3, label: text('تماسك المصفوفة', 'Matrix stability') },
+  story_puzzle_15_system_breach: { axis: 'resolve', amount: 4, label: text('إرادة الاختراق', 'Breach resolve') },
+  story_puzzle_16_memory_reconstruction: { axis: 'memory', amount: 4, label: text('رنين التاج الأسود', 'Black Coronation resonance') },
+  story_puzzle_17_contradictory_records: { axis: 'trust', amount: 4, label: text('ثقة بروتوكول لينا', 'Lina Protocol trust') },
+  story_puzzle_18_emergency_reroute: { axis: 'stability', amount: 4, label: text('توازن الطوارئ', 'Emergency stability') },
+  story_puzzle_19_final_deduction: { axis: 'clarity', amount: 5, label: text('وضوح بلاك إيكو', 'Black Echo clarity') },
+  story_puzzle_20_core_sequence: { axis: 'resolve', amount: 5, label: text('رنين نواة 11.11', '11.11 Core resonance') },
+});
+
+for (const puzzle of STORY_PUZZLES) {
+  if (!STORY_PUZZLE_ECHO_IMPACTS[puzzle.id]) {
+    throw new Error(`Missing Echo impact for Story Puzzle ${puzzle.id}.`);
+  }
+}
 
 export const STORY_PUZZLE_BY_ID = Object.freeze(Object.fromEntries(
   STORY_PUZZLES.map((puzzle) => [puzzle.id, puzzle]),

@@ -84,6 +84,92 @@ export default function SettingsScreen() {
         </div>
       </HudPanel>
 
+      <HudPanel
+        tone="rare"
+        eyebrow="LANGUAGE / DIRECTION"
+        title="اللغة واتجاه الواجهة"
+      >
+        <div className="shell-settings-options">
+          <GameButton
+            variant={preferences.locale === 'ar' ? 'rare' : 'ghost'}
+            onClick={() => preferences.setLocale('ar')}
+          >
+            العربية · RTL
+          </GameButton>
+          <GameButton
+            variant={preferences.locale === 'en' ? 'rare' : 'ghost'}
+            onClick={() => preferences.setLocale('en')}
+          >
+            English · LTR
+          </GameButton>
+        </div>
+        <p className="shell-muted-copy">
+          تغيّر اللغة كتالوج شبكة Echo واتجاه التطبيق فورًا؛ تستمر ترجمة بقية المشاهد ضمن كتالوج الإصدار العالمي.
+        </p>
+      </HudPanel>
+
+      <GlassPanel
+        tone="memory"
+        eyebrow="CONTEXTUAL ADS ONLY"
+        title="الإعلانات والخصوصية"
+      >
+        <p className="shell-muted-copy">
+          اللعبة مجانية وتعتمد على الإعلانات فقط. تظهر الإعلانات السياقية في مركز الشبكة ولوحة المجتمع لا أثناء القصة أو الألغاز أو الشطرنج أو التعاون أو المشاهد السينمائية. لا إعلانات بمكافآت ولا دفع للفوز.
+        </p>
+        <div className="shell-settings-options">
+          <GameButton
+            variant={preferences.adConsent === 'contextual' ? 'memory' : 'ghost'}
+            onClick={() => preferences.setAdConsent('contextual')}
+          >
+            السماح بالسياقية
+          </GameButton>
+          <GameButton
+            variant={preferences.adConsent === 'declined' ? 'secondary' : 'ghost'}
+            onClick={() => preferences.setAdConsent('declined')}
+          >
+            رفض الإعلانات
+          </GameButton>
+        </div>
+        <small className="shell-muted-copy">حد العرض: إعلان واحد لكل موضع كل 30 دقيقة، ولا تُستخدم بيانات الدردشة في الاستهداف.</small>
+      </GlassPanel>
+
+      <HudPanel
+        tone="progression"
+        eyebrow="OPTIONAL NOTIFICATIONS"
+        title="الإشعارات وساعات الهدوء"
+      >
+        <div className="shell-settings-options">
+          <GameButton
+            variant={preferences.notificationsEnabled ? 'secondary' : 'ghost'}
+            onClick={() => {
+              if (preferences.notificationsEnabled) {
+                preferences.setNotificationsEnabled(false);
+                return;
+              }
+              if (!('Notification' in window)) return;
+              void Notification.requestPermission().then((permission) => {
+                preferences.setNotificationsEnabled(permission === 'granted');
+              });
+            }}
+          >
+            {preferences.notificationsEnabled ? 'الإشعارات اختيارية · مفعلة' : 'تفعيل الإشعارات الاختيارية'}
+          </GameButton>
+          <GameButton
+            variant={preferences.quietHoursStart === 22 && preferences.quietHoursEnd === 8 ? 'secondary' : 'ghost'}
+            onClick={() => preferences.setQuietHours(22, 8)}
+          >
+            هدوء 22:00–08:00
+          </GameButton>
+          <GameButton
+            variant={preferences.quietHoursStart === 20 && preferences.quietHoursEnd === 7 ? 'secondary' : 'ghost'}
+            onClick={() => preferences.setQuietHours(20, 7)}
+          >
+            هدوء 20:00–07:00
+          </GameButton>
+        </div>
+        <p className="shell-muted-copy">حد أقصى رسالتان نظاميتان أسبوعيًا. لا عقوبة عند عدم العودة ولا فقدان لسلسلة.</p>
+      </HudPanel>
+
       <GlassPanel
         tone="rare"
         eyebrow="ANIME CINEMATIC"

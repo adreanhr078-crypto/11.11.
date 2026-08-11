@@ -22,6 +22,7 @@ import {
   playerAvatarPresentationSrc,
   playerAvatarSrc,
   PLAYER_AVATAR_CATALOG,
+  unlockedPlayerAvatarCatalog,
 } from '../../ui/presentation/playerAvatarCatalog';
 import { ENVIRONMENT_PRESENTATION_ASSETS } from '../../ui/presentation/visualAssets';
 import {
@@ -108,6 +109,7 @@ export default function ProfileScreen() {
 
   const selectedAvatar = PLAYER_AVATAR_CATALOG.find((avatar) => avatar.id === avatarId)
     ?? PLAYER_AVATAR_CATALOG[0];
+  const availableAvatars = unlockedPlayerAvatarCatalog(profile?.unlockedAvatarIds);
 
   const linkGuestEmail = async () => {
     await authActions.linkAnonymousAccountWithEmail(
@@ -298,7 +300,7 @@ export default function ProfileScreen() {
                 <div className="player-profile-avatar-picker">
                   <span>AVATAR // IN-GAME ASSETS ONLY</span>
                   <div>
-                    {PLAYER_AVATAR_CATALOG.map((avatar) => (
+                    {availableAvatars.map((avatar) => (
                       <button
                         key={avatar.id}
                         type="button"
@@ -310,6 +312,7 @@ export default function ProfileScreen() {
                       >
                         <img src={avatar.src} alt="" />
                         <small>{avatar.label}</small>
+                        {avatar.rarity === 'rare' && <span className="player-profile-avatar-option__rare">RARE</span>}
                         {avatarId === avatar.id && <Check aria-hidden="true" />}
                       </button>
                     ))}

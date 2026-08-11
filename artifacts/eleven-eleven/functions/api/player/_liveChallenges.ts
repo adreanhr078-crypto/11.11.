@@ -10,6 +10,7 @@ import {
 import {
   SMART_LIVE_VERSION,
   SMART_WEEKLY_STAGE_COUNT,
+  smartLiveFingerprint,
   smartLiveTemplateFor,
   type SmartLiveTemplate,
 } from '../../../src/domain/live-challenges/smartLivePuzzleGenerator';
@@ -20,8 +21,18 @@ import type {
   LiveChallengesSnapshot,
   LiveCompletionReceipt,
 } from '../../../src/domain/live-challenges/liveChallengeContracts';
+import {
+  WEEKLY_REWARD_PREVIEW,
+  weeklyRewardPlanFor,
+} from '../../../src/domain/live-challenges/weeklyRewardCatalog';
+import type { RarePlayerAvatarId } from '../../../src/domain/player-profile/playerProfile';
 import { ensurePlayerProgressionRow } from './_progressionRepository';
-import type { PlayerDatabase, PlayerDatabaseResult } from './_database';
+import { readRareUnlockedAvatarIds } from './_avatarOwnership';
+import type {
+  PlayerDatabase,
+  PlayerDatabaseResult,
+  PlayerDatabaseStatement,
+} from './_database';
 import { PlayerApiError, type FirebaseAccount } from './_shared';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -66,6 +77,7 @@ interface CountRow { total: number | string | null; }
 interface LiveSolution {
   answer: string;
   hints: readonly string[];
+  difficulty?: SmartLiveTemplate['difficulty'];
   reward?: LiveChallengeReward;
 }
 
@@ -155,7 +167,12 @@ function publicDefinition(
 }
 
 function solution(template: SmartLiveTemplate): LiveSolution {
-  return { answer: template.answer, hints: [...template.hints], reward: template.reward };
+  return {
+    answer: template.answer,
+    hints: [...template.hints],
+    difficulty: template.difficulty,
+    reward: template.reward,
+  };
 }
 
 export function liveDailyTemplateFor(periodKey: string): SmartLiveTemplate {
@@ -187,23 +204,19 @@ async function ensureDefinitions(
   const dailyPublic = publicDefinition(dailyId, 'daily', periodKey, dailyTemplate);
   const weeklyStageTemplates = liveWeeklyTemplatesFor(weekId);
   const weeklyId = `${LIVE_CHALLENGE_VERSION}:weekly:${weekId}`;
+  const weeklyReward = WEEKLY_REWARD_PREVIEW;
   const weeklyPublic: LiveChallengePublicDefinition & { stages: readonly LiveChallengePublicDefinition[] } = {
     id: weeklyId,
     kind: 'weekly',
     periodKey: weekId,
     version: SMART_LIVE_VERSION,
     mechanic: weeklyStageTemplates[0]!.mechanic,
-    title: 'رحلة ذاكرة Echo الأسبوعية',
-    instructions: 'أعد الذكرى، أوصل الشبكة، ثم فك الشيفرة لتحصل على شظية نادرة.',
-    prompt: 'ECHO MEMORY // 03 CONNECTED STAGES',
+    title: 'رحلة ذاكرة إيكو الأسبوعية',
+    instructions: 'أكمل أربع مراحل مختلفة لتحصل على ملف نادر: شظية قصة، أو الأفاتار التالي في سلسلتك الشخصية.',
+    prompt: 'ECHO MEMORY // 04 VARIED STAGES',
     options: [],
     stageCount: WEEKLY_STAGE_COUNT,
-    reward: {
-      tier: 'rare',
-      kind: 'memory-shard',
-      label: 'شظية نادرة من ذاكرة Echo',
-      icon: '✦',
-    },
+    reward: weeklyReward,
     stages: weeklyStageTemplates.map((template, index) => publicDefinition(
       `${weeklyId}:stage:${index}`,
       'weekly',
@@ -214,10 +227,10 @@ async function ensureDefinitions(
   };
   const definitions: Array<{
     id: string; kind: 'daily' | 'weekly'; period: string; mechanic: string;
-    publicValue: unknown; solutionValue: unknown;
+    publicValue: unknown; solutionValue: unknown; fingerprint?: string;
   }> = [
-    { id: dailyId, kind: 'daily', period: periodKey, mechanic: dailyTemplate.mechanic, publicValue: dailyPublic, solutionValue: solution(dailyTemplate) },
-    { id: weeklyId, kind: 'weekly', period: weekId, mechanic: weeklyPublic.mechanic, publicValue: weeklyPublic, solutionValue: { stages: weeklyStageTemplates.map(solution), memoryFragmentId: `weekly_memory_shard_${weekId}`, reward: weeklyPublic.reward } satisfies LiveWeeklySolution },
+    { id: dailyId, kind: 'daily', period: periodKey, mechanic: dailyTemplate.mechanic, publicValue: dailyPublic, solutionValue: solution(dailyTemplate), fingerprint: smartLiveFingerprint(dailyTemplate) },
+    { id: weeklyId, kind: 'weekly', period: weekId, mechanic: weeklyPublic.mechanic, publicValue: weeklyPublic, solutionValue: { stages: weeklyStageTemplates.map(solution), memoryFragmentId: `weekly_memory_shard_${weekId}`, reward: weeklyReward } satisfies LiveWeeklySolution },
     ...weeklyStageTemplates.map((template, index) => ({
       id: `${weeklyId}:stage:${index}`,
       kind: 'weekly' as const,
@@ -225,9 +238,31 @@ async function ensureDefinitions(
       mechanic: template.mechanic,
       publicValue: weeklyPublic.stages[index],
       solutionValue: solution(template),
+      fingerprint: smartLiveFingerprint(template),
     })),
   ];
   for (const definition of definitions) {
+    if (definition.fingerprint) {
+      await db.prepare(`
+        INSERT OR IGNORE INTO smart_live_generation_registry (
+          fingerprint, challenge_id, challenge_kind, period_key, registered_at
+        ) VALUES (?, ?, ?, ?, ?)
+      `).bind(
+        definition.fingerprint,
+        definition.id,
+        definition.kind,
+        definition.period,
+        new Date(nowMs).toISOString(),
+      ).run();
+      const collision = await db.prepare(`
+        SELECT challenge_id
+        FROM smart_live_generation_registry
+        WHERE fingerprint = ?
+      `).bind(definition.fingerprint).first<{ challenge_id: string }>();
+      if (collision && collision.challenge_id !== definition.id) {
+        throw new Error('Smart live generator produced a duplicate puzzle fingerprint.');
+      }
+    }
     await db.prepare(`
       INSERT OR IGNORE INTO live_challenge_definitions (
         challenge_id, challenge_kind, period_key, challenge_version,
@@ -267,7 +302,7 @@ async function ensureDefinitions(
     solution_json: JSON.stringify({
       stages: stages.map((row) => parseJson<LiveSolution>(row.solution_json, { answer: '', hints: [] })),
       memoryFragmentId: `weekly_memory_shard_${weekId}`,
-      reward: weeklyPublic.reward,
+      reward: weeklyReward,
     } satisfies LiveWeeklySolution),
   };
   return { daily, weekly, stages, periodKey, weekId };
@@ -333,7 +368,7 @@ async function ensureWeeklyProgress(db: PlayerDatabase, uid: string, weekId: str
   `).bind(uid, weekId, now).run();
 }
 
-async function rewardLiveEvent(
+export async function rewardLiveEvent(
   db: PlayerDatabase,
   account: FirebaseAccount,
   input: {
@@ -344,12 +379,16 @@ async function rewardLiveEvent(
     coins: number;
     perfect: boolean;
     memoryFragmentId?: string;
+    avatarId?: RarePlayerAvatarId;
     reward?: LiveChallengeReward;
+    progressStatement?: PlayerDatabaseStatement;
   },
 ): Promise<{ awarded: boolean; xp: number; coins: number; reward?: LiveChallengeReward }> {
   const now = new Date().toISOString();
   const sourceType = input.rewardType === 'daily' ? 'daily_trial' : 'weekly_trial';
+  const progressStatements = input.progressStatement ? [input.progressStatement] : [];
   const result = await db.batch([
+    ...progressStatements,
     db.prepare(`
       INSERT OR IGNORE INTO live_challenge_reward_events (
         user_id, reward_key, reward_type, source_id, xp_amount,
@@ -373,18 +412,26 @@ async function rewardLiveEvent(
         ) VALUES (?, ?, 'puzzle', ?, ?)
       `).bind(account.uid, input.memoryFragmentId, input.sourceId, now)]
       : []),
+    ...(input.avatarId
+      ? [db.prepare(`
+        INSERT OR IGNORE INTO player_avatar_unlock_events (
+          user_id, avatar_id, source_type, source_id, unlocked_at
+        ) VALUES (?, ?, 'weekly_trial', ?, ?)
+      `).bind(account.uid, input.avatarId, input.sourceId, now)]
+      : []),
     db.prepare(`
       UPDATE player_progression SET total_xp = (
         SELECT COALESCE(SUM(xp_amount), 0) FROM xp_reward_events WHERE user_id = ?
       ), updated_at = ? WHERE user_id = ?
     `).bind(account.uid, now, account.uid),
   ]);
-  const inserted = Number((result[0] as PlayerDatabaseResult | undefined)?.meta?.changes ?? 0) > 0;
+  const rewardEventIndex = progressStatements.length;
+  const inserted = Number((result[rewardEventIndex] as PlayerDatabaseResult | undefined)?.meta?.changes ?? 0) > 0;
   return {
     awarded: inserted,
     xp: inserted ? input.xp : 0,
     coins: inserted ? input.coins : 0,
-    ...(input.reward ? { reward: input.reward } : {}),
+    ...(inserted && input.reward ? { reward: input.reward } : {}),
   };
 }
 
@@ -543,14 +590,18 @@ export async function completeDaily(db: PlayerDatabase, account: FirebaseAccount
   const answer = parseAnswer(answerValue);
   const expected = solutionFromRow(definitions.daily).answer;
   if (existing?.status !== 'completed' && !isLiveAnswerCorrect(answer, expected)) throw new PlayerApiError(422, 'live_answer_incorrect', 'The signal is not stabilized yet.');
+  const dailySolution = solutionFromRow(definitions.daily);
   const perfect = existing?.status === 'completed' ? integer(existing.perfect_solve) === 1 : integer(existing?.hints_used) === 0;
-  const xp = LIVE_REWARD_CONFIG.dailyXp + (perfect ? LIVE_REWARD_CONFIG.dailyPerfectXpBonus : 0);
-  const coins = LIVE_REWARD_CONFIG.dailyCoins + (perfect ? LIVE_REWARD_CONFIG.dailyPerfectCoinsBonus : 0);
+  const difficulty = dailySolution.difficulty ?? 'standard';
+  const xp = LIVE_REWARD_CONFIG.dailyXpByDifficulty[difficulty] + (perfect ? LIVE_REWARD_CONFIG.dailyPerfectXpBonus : 0);
+  const coins = LIVE_REWARD_CONFIG.dailyCoinsByDifficulty[difficulty] + (perfect ? LIVE_REWARD_CONFIG.dailyPerfectCoinsBonus : 0);
   const now = new Date().toISOString();
-  await db.prepare(`UPDATE live_player_daily_attempts SET status = 'completed', perfect_solve = ?, completed_at = COALESCE(completed_at, ?), updated_at = ? WHERE user_id = ? AND challenge_id = ?`).bind(perfect ? 1 : 0, now, now, account.uid, definitions.daily.challenge_id).run();
   const reward = await rewardLiveEvent(db, account, {
     rewardKey: `daily:${definitions.periodKey}:v1`, rewardType: 'daily', sourceId: definitions.daily.challenge_id, xp, coins, perfect,
-    reward: solutionFromRow(definitions.daily).reward,
+    reward: dailySolution.reward,
+    ...(existing?.status === 'completed' ? {} : {
+      progressStatement: db.prepare(`UPDATE live_player_daily_attempts SET status = 'completed', perfect_solve = ?, completed_at = COALESCE(completed_at, ?), updated_at = ? WHERE user_id = ? AND challenge_id = ? AND status <> 'completed'`).bind(perfect ? 1 : 0, now, now, account.uid, definitions.daily.challenge_id),
+    }),
   });
   await maybeClaimWeeklyRecovery(db, account);
   return {
@@ -622,21 +673,37 @@ export async function completeWeeklyStage(db: PlayerDatabase, account: FirebaseA
   const nextStage = stageValue + 1;
   const completed = nextStage >= WEEKLY_STAGE_COUNT;
   const now = new Date().toISOString();
-  const update = await db.prepare(`UPDATE live_player_weekly_progress SET current_stage = ?, completed_stages = ?, status = ?, score = score + ?, completed_at = CASE WHEN ? = 1 THEN COALESCE(completed_at, ?) ELSE completed_at END, started_at = COALESCE(started_at, ?), updated_at = ? WHERE user_id = ? AND week_id = ? AND current_stage = ? AND status <> 'completed'`).bind(nextStage, nextStage, completed ? 'completed' : 'in_progress', 25, completed ? 1 : 0, now, now, now, account.uid, definitions.weekId, stageValue).run();
-  if (Number(update.meta?.changes ?? 0) < 1) {
-    const latest = await db.prepare(`SELECT status, hints_used FROM live_player_weekly_progress WHERE user_id = ? AND week_id = ?`).bind(account.uid, definitions.weekId).first<Pick<WeeklyRow, 'status' | 'hints_used'>>();
-    return { kind: 'weekly', challengeId: definitions.weekly.challenge_id, awarded: false, perfectSolve: integer(latest?.hints_used) === 0, xpGranted: 0, coinsGranted: 0, live: await readLiveSnapshot(db, account) };
-  }
+  const progressStatement = db.prepare(`UPDATE live_player_weekly_progress SET current_stage = ?, completed_stages = ?, status = ?, score = score + ?, completed_at = CASE WHEN ? = 1 THEN COALESCE(completed_at, ?) ELSE completed_at END, started_at = COALESCE(started_at, ?), updated_at = ? WHERE user_id = ? AND week_id = ? AND current_stage = ? AND status <> 'completed'`).bind(nextStage, nextStage, completed ? 'completed' : 'in_progress', 25, completed ? 1 : 0, now, now, now, account.uid, definitions.weekId, stageValue);
   const perfect = !integer(row?.hints_used);
-  const weeklySolution = parseJson<LiveWeeklySolution>(definitions.weekly.solution_json, {
-    stages: [],
-    memoryFragmentId: `weekly_memory_shard_${definitions.weekId}`,
-    reward: { tier: 'rare', kind: 'memory-shard', label: 'شظية نادرة من ذاكرة Echo', icon: '✦' },
-  });
+  if (!completed) {
+    const update = await progressStatement.run();
+    if (Number(update.meta?.changes ?? 0) < 1) {
+      const latest = await db.prepare(`SELECT status, hints_used FROM live_player_weekly_progress WHERE user_id = ? AND week_id = ?`).bind(account.uid, definitions.weekId).first<Pick<WeeklyRow, 'status' | 'hints_used'>>();
+      return { kind: 'weekly', challengeId: definitions.weekly.challenge_id, awarded: false, perfectSolve: integer(latest?.hints_used) === 0, xpGranted: 0, coinsGranted: 0, live: await readLiveSnapshot(db, account) };
+    }
+    return { kind: 'weekly', challengeId: definitions.weekly.challenge_id, awarded: false, perfectSolve: perfect, xpGranted: 0, coinsGranted: 0, live: await readLiveSnapshot(db, account) };
+  }
+  const weeklyRewardContext = completed
+    ? await Promise.all([
+      db.prepare(`
+        SELECT COUNT(*) AS total
+        FROM live_challenge_reward_events
+        WHERE user_id = ? AND reward_type = 'weekly'
+      `).bind(account.uid).first<CountRow>(),
+      readRareUnlockedAvatarIds(db, account.uid),
+    ])
+    : null;
+  const weeklyRewardPlan = weeklyRewardPlanFor(
+    integer(weeklyRewardContext?.[0]?.total),
+    definitions.weekId,
+    weeklyRewardContext?.[1] ?? [],
+  );
   const reward = completed ? await rewardLiveEvent(db, account, {
     rewardKey: `weekly:${definitions.weekId}:v1`, rewardType: 'weekly', sourceId: definitions.weekly.challenge_id, xp: LIVE_REWARD_CONFIG.weeklyTrialXp, coins: LIVE_REWARD_CONFIG.weeklyTrialCoins + (perfect ? LIVE_REWARD_CONFIG.weeklyPerfectBonusCoins : 0), perfect,
-    memoryFragmentId: weeklySolution.memoryFragmentId,
-    reward: weeklySolution.reward,
+    memoryFragmentId: weeklyRewardPlan.memoryFragmentId,
+    avatarId: weeklyRewardPlan.avatarId,
+    reward: weeklyRewardPlan.reward,
+    progressStatement,
   }) : { awarded: false, xp: 0, coins: 0, reward: undefined };
   return { kind: 'weekly', challengeId: definitions.weekly.challenge_id, awarded: reward.awarded, perfectSolve: perfect, xpGranted: reward.xp, coinsGranted: reward.coins, reward: reward.reward, live: await readLiveSnapshot(db, account) };
 }

@@ -1,0 +1,126 @@
+import type { FirebaseAccount } from './_shared';
+import { PlayerApiError } from './_shared';
+import type { PlayerDatabase } from './_database';
+import type { OnlineMode } from '../../../src/domain/echo-network/contracts';
+
+interface MilestoneRow {
+  chess_training_completed_at: string | null;
+  casual_chess_completed: number | string;
+  coop_training_completed_at: string | null;
+  community_rules_version: number | string;
+  age_gate_confirmed_at: string | null;
+}
+
+export interface NetworkEligibility {
+  chessTrainingCompleted: boolean;
+  casualChessCompleted: number;
+  rankedChessUnlocked: boolean;
+  coopTrainingCompleted: boolean;
+  communityRulesAccepted: boolean;
+  ageGateConfirmed: boolean;
+}
+
+function safeUsername(account: FirebaseAccount): string {
+  return account.displayName?.trim().slice(0, 80)
+    || `Signal-${account.uid.slice(0, 8)}`;
+}
+
+export async function ensureNetworkPlayer(
+  db: PlayerDatabase,
+  account: FirebaseAccount,
+  now = new Date().toISOString(),
+): Promise<void> {
+  await db.batch([
+    db.prepare(`
+      INSERT INTO player_progression (user_id, username, total_xp, created_at, updated_at)
+      VALUES (?, ?, 0, ?, ?)
+      ON CONFLICT(user_id) DO UPDATE SET
+        username = excluded.username,
+        updated_at = excluded.updated_at
+    `).bind(account.uid, safeUsername(account), now, now),
+    db.prepare(`
+      INSERT OR IGNORE INTO network_player_milestones (
+        user_id, casual_chess_completed, community_rules_version, updated_at
+      ) VALUES (?, 0, 0, ?)
+    `).bind(account.uid, now),
+  ]);
+}
+
+export async function readNetworkEligibility(
+  db: PlayerDatabase,
+  uid: string,
+): Promise<NetworkEligibility> {
+  const row = await db.prepare(`
+    SELECT chess_training_completed_at, casual_chess_completed,
+      coop_training_completed_at, community_rules_version, age_gate_confirmed_at
+    FROM network_player_milestones
+    WHERE user_id = ?
+  `).bind(uid).first<MilestoneRow>();
+  const casualChessCompleted = Math.max(0, Number(row?.casual_chess_completed ?? 0));
+  const chessTrainingCompleted = Boolean(row?.chess_training_completed_at);
+  return {
+    chessTrainingCompleted,
+    casualChessCompleted,
+    rankedChessUnlocked: chessTrainingCompleted && casualChessCompleted >= 3,
+    coopTrainingCompleted: Boolean(row?.coop_training_completed_at),
+    communityRulesAccepted: Number(row?.community_rules_version ?? 0) >= 1,
+    ageGateConfirmed: Boolean(row?.age_gate_confirmed_at),
+  };
+}
+
+export async function assertModeEligibility(
+  db: PlayerDatabase,
+  uid: string,
+  mode: OnlineMode,
+): Promise<void> {
+  if (mode !== 'chess_ranked_blitz' && mode !== 'chess_ranked_rapid') return;
+  const eligibility = await readNetworkEligibility(db, uid);
+  if (!eligibility.rankedChessUnlocked) {
+    throw new PlayerApiError(
+      409,
+      'ranked_locked',
+      'Complete chess training and three Casual matches before entering Ranked.',
+    );
+  }
+}
+
+export async function recordNetworkTicket(
+  db: PlayerDatabase,
+  input: {
+    jti: string;
+    uid: string;
+    purpose: 'queue' | 'connect';
+    mode: OnlineMode;
+    issuedAt: string;
+    expiresAt: string;
+  },
+): Promise<void> {
+  const rateWindow = new Date(Date.parse(input.issuedAt) - 60_000).toISOString();
+  const recent = await db.prepare(`
+    SELECT COUNT(*) AS total FROM network_ticket_events
+    WHERE user_id = ? AND issued_at >= ?
+  `).bind(input.uid, rateWindow).first<{ total: number | string }>();
+  if (Number(recent?.total ?? 0) >= 12) {
+    throw new PlayerApiError(
+      429,
+      'ticket_rate_limited',
+      'Too many connection attempts. Wait a moment and try again.',
+    );
+  }
+  await db.prepare(`
+    INSERT INTO network_ticket_events (
+      ticket_id, user_id, purpose, mode, issued_at, expires_at
+    ) VALUES (?, ?, ?, ?, ?, ?)
+  `).bind(
+    input.jti,
+    input.uid,
+    input.purpose,
+    input.mode,
+    input.issuedAt,
+    input.expiresAt,
+  ).run();
+}
+
+export function networkDisplayName(account: FirebaseAccount): string {
+  return safeUsername(account);
+}

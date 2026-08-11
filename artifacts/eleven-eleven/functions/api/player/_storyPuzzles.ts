@@ -1,9 +1,12 @@
 import {
   STORY_PUZZLE_BY_ID,
+  STORY_PUZZLE_ECHO_IMPACTS,
   STORY_PUZZLES,
 } from '../../../src/content/puzzles/storyPuzzleCatalog';
 import type {
   StoryPuzzleDraft,
+  StoryPuzzleEchoResonanceAxis,
+  StoryPuzzleRewardReceipt,
   StoryPuzzleSnapshot,
   StoryPuzzleSnapshotEntry,
 } from '../../../src/domain/story-puzzles/storyPuzzleContracts';
@@ -269,6 +272,19 @@ function snapshotFromRows(rows: PlayerPuzzleRows): StoryPuzzleSnapshot {
     && !rows.discoveredPuzzleIds.has(puzzle.id)
     && canReachPuzzle(puzzle.id, rows)
   )).map((puzzle) => puzzle.id);
+  const axes: StoryPuzzleEchoResonanceAxis[] = [
+    'clarity', 'memory', 'trust', 'resolve', 'stability', 'anomaly',
+  ];
+  const byAxis = Object.fromEntries(axes.map((axis) => [axis, 0])) as Record<
+    StoryPuzzleEchoResonanceAxis,
+    number
+  >;
+  const completed = [...rows.completionByPuzzleId.values()]
+    .sort((left, right) => Date.parse(left.completed_at) - Date.parse(right.completed_at));
+  for (const row of completed) {
+    const impact = STORY_PUZZLE_ECHO_IMPACTS[row.puzzle_id];
+    if (impact) byAxis[impact.axis] += impact.amount;
+  }
   return {
     coinBalance: rows.coinBalance,
     shardCount: rows.shardCount,
@@ -276,6 +292,11 @@ function snapshotFromRows(rows: PlayerPuzzleRows): StoryPuzzleSnapshot {
     totalCompletedCount: rows.completionByPuzzleId.size,
     entries,
     discoverableSecretPuzzleIds,
+    echoResonance: {
+      total: Object.values(byAxis).reduce((total, value) => total + value, 0),
+      byAxis,
+      lastPuzzleId: completed.at(-1)?.puzzle_id ?? null,
+    },
     syncedAt: new Date().toISOString(),
   };
 }
@@ -380,14 +401,7 @@ export async function completeStoryPuzzle(
   account: FirebaseAccount,
   puzzleId: string,
   draft: StoryPuzzleDraft,
-): Promise<{
-  awarded: boolean;
-  xpGranted: number;
-  coinsGranted: number;
-  perfectBonusCoins: number;
-  shardId: string;
-  snapshot: StoryPuzzleSnapshot;
-}> {
+): Promise<StoryPuzzleRewardReceipt> {
   const puzzle = getPuzzle(puzzleId);
   const serverDefinition = SERVER_STORY_PUZZLE_BY_ID[puzzle.id]!;
   const before = await readStoryPuzzleSnapshot(database, account);
@@ -395,10 +409,12 @@ export async function completeStoryPuzzle(
   if (entry.status === 'completed') {
     return {
       awarded: false,
+      puzzleId: puzzle.id,
       xpGranted: 0,
       coinsGranted: 0,
       perfectBonusCoins: 0,
       shardId: serverDefinition.shardId,
+      echoImpact: STORY_PUZZLE_ECHO_IMPACTS[puzzle.id]!,
       snapshot: before,
     };
   }
@@ -459,19 +475,23 @@ export async function completeStoryPuzzle(
     if (racedEntry?.status !== 'completed') throw error;
     return {
       awarded: false,
+      puzzleId: puzzle.id,
       xpGranted: 0,
       coinsGranted: 0,
       perfectBonusCoins: 0,
       shardId: serverDefinition.shardId,
+      echoImpact: STORY_PUZZLE_ECHO_IMPACTS[puzzle.id]!,
       snapshot: afterRace,
     };
   }
   return {
     awarded: true,
+    puzzleId: puzzle.id,
     xpGranted: serverDefinition.balance.xp,
     coinsGranted: serverDefinition.balance.coins,
     perfectBonusCoins: bonus,
     shardId: serverDefinition.shardId,
+    echoImpact: STORY_PUZZLE_ECHO_IMPACTS[puzzle.id]!,
     snapshot: await readStoryPuzzleSnapshot(database, account),
   };
 }

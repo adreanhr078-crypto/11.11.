@@ -12,6 +12,7 @@ import {
   Check,
   ChevronLeft,
   CircleHelp,
+  Clapperboard,
   Coins,
   Crosshair,
   LockKeyhole,
@@ -31,6 +32,7 @@ import type {
   StoryPuzzleMechanic,
   StoryPuzzleOption,
   StoryPuzzleReference,
+  StoryPuzzleSignalConfig,
   StoryPuzzleSnapshotEntry,
 } from '../../domain/story-puzzles/storyPuzzleContracts';
 import { useAuthStore } from '../auth/authStore';
@@ -45,6 +47,7 @@ import {
   playPuzzleCompletionSound,
   primeRewardAudio,
 } from '../../infrastructure/audio/puzzleRewardAudio';
+import { requestEchoTransformationCinematic } from '../../ui/presentation/EchoTransformationCinematic';
 import './story-puzzle-experience.css';
 
 const EMPTY_STORY_PUZZLE_ENTRIES: readonly StoryPuzzleSnapshotEntry[] = Object.freeze([]);
@@ -180,16 +183,31 @@ function draftReadiness(
   draft: StoryPuzzleDraft,
   tokenLimit?: number,
   stageOptions?: readonly StoryPuzzleOption[],
+  signal = puzzle.signal,
 ): { ready: boolean; message: string } {
   const limit = sequenceLimit(mechanic, tokenLimit);
   const complete = (ready: boolean, message: string) => ({ ready, message });
   switch (mechanic) {
     case 'signal':
-      return complete(draft.tokens.length === 2, 'اضبط التردد واختر قناة الإشارة.');
+      if (!signal) return complete(draft.tokens.length === 2, 'اضبط التردد واختر قناة الإشارة.');
+      return complete(
+        Number(draft.tokens[0]) === signal.targetFrequency
+          && draft.tokens[1] === `channel-${signal.targetChannel}`,
+        Number(draft.tokens[0]) === signal.targetFrequency
+          && draft.tokens[1] === `channel-${signal.targetChannel}`
+          ? 'الإشارة داخل نافذة التزامن؛ يمكنك تثبيتها.'
+          : `طابق المؤشر ${signal.targetFrequency} مع القناة CH-${signal.targetChannel}.`,
+      );
     case 'image-reconstruction': {
       const count = (puzzle.image?.rows ?? 0) * (puzzle.image?.columns ?? 0);
       const pieces = new Set(draft.imageOrder);
-      return complete(pieces.size === count && draft.imageOrder.length === count, 'رتّب كل الشظايا قبل تثبيت السجل.');
+      const orderAligned = draft.imageOrder.every((pieceId, index) => pieceId === `piece-${index}`);
+      const rotationsAligned = !puzzle.image?.allowRotation
+        || draft.imageOrder.every((pieceId) => (draft.rotations[pieceId] ?? 0) === 0);
+      return complete(
+        pieces.size === count && draft.imageOrder.length === count && orderAligned && rotationsAligned,
+        !rotationsAligned ? 'أعد القطع المائلة إلى اتجاهها الصحيح.' : 'رتّب كل الشظايا حتى تختفي الفواصل من الصورة.',
+      );
     }
     case 'wiring': {
       const accessNodeLock = stageOptions?.some((option) => option.id === 'echo');
@@ -199,12 +217,23 @@ function draftReadiness(
     case 'color-routing':
       return complete(assignmentSources(mechanic).every((source) => Boolean(draft.assignments[source])), 'طابق القنوات الثلاث مع أشكالها.');
     case 'matrix':
-      return complete(['tile1', 'tile2', 'tile3', 'tile4'].every((tile) => draft.rotations[tile] !== undefined), 'اضبط اتجاه العقد الأربع.');
+      return complete(
+        Object.entries(puzzle.rotationGoal ?? {}).every(([tile, target]) => draft.rotations[tile] === target),
+        'دوّر العقد حتى تتوهج الوصلات الأربع باللون السماوي.',
+      );
     case 'layer-alignment':
-      return complete(['layer1', 'layer2', 'layer3', 'layer4'].every((layer) => draft.rotations[layer] !== undefined), 'اضبط أطوار الطبقات الأربع.');
+      return complete(
+        Object.entries(puzzle.rotationGoal ?? {}).every(([layer, target]) => draft.rotations[layer] === target),
+        'اضبط الأطوار حتى تصبح فواصل الطبقات مستقرة.',
+      );
     case 'load-balancing': {
       const values = ['power', 'data', 'cooling'].map((channel) => Number(draft.assignments[channel] ?? 0));
-      return complete(values.every((value) => value > 0) && values.reduce((sum, value) => sum + value, 0) === 100, 'اجعل مجموع القنوات 100%.');
+      return complete(
+        values[0] === 40 && values[1] === 30 && values[2] === 30,
+        values.reduce((sum, value) => sum + value, 0) !== 100
+          ? 'اجعل مجموع القنوات 100%.'
+          : 'المجموع صحيح؛ اجعل البيانات والتبريد متساويين والطاقة أعلى بعشر نقاط.',
+      );
     }
     case 'visual-forensics':
       return complete(draft.tokens.length === 2, 'حدّد موضعي الشذوذ في السجل.');
@@ -421,7 +450,8 @@ function DataRouteBoard({
               tokens: selectedTokens(draft.tokens, option.id, maximum),
             })}
           >
-            {option.label.ar}
+            <strong>{option.label.ar}</strong>
+            {option.detail && <small>{option.detail.ar}</small>}
           </button>
         ))}
       </div>
@@ -557,6 +587,7 @@ interface PuzzleMechanicProps {
   >;
   options?: readonly StoryPuzzleOption[];
   tokenLimit?: number;
+  signal?: StoryPuzzleSignalConfig;
   draft: StoryPuzzleDraft;
   onChange: (next: StoryPuzzleDraft) => void;
   disabled: boolean;
@@ -579,12 +610,14 @@ function LayerAlignmentBoard({
       <div className="story-layer-board__viewport">
         {layers.map((layerId, index) => {
           const phase = draft.rotations[layerId] ?? 0;
+          const aligned = puzzle.rotationGoal?.[layerId] === phase;
           return (
             <button
               key={layerId}
               type="button"
               disabled={disabled}
               data-phase={phase}
+              data-aligned={aligned}
               onClick={() => onChange({
                 ...draft,
                 rotations: {
@@ -602,7 +635,7 @@ function LayerAlignmentBoard({
                   transform: `translateX(${(phase - 1.5) * 3.5}%)`,
                 }}
               />
-              <span>L{index + 1} // PHASE {phase}</span>
+              <span>L{index + 1} // PHASE {phase} {aligned ? '// LOCKED' : '// DRIFT'}</span>
             </button>
           );
         })}
@@ -625,8 +658,11 @@ function LoadBalancingBoard({
   const total = channels.reduce((sum, channel) => (
     sum + Number(draft.assignments[channel.id] ?? 0)
   ), 0);
+  const exactBalance = draft.assignments.power === '40'
+    && draft.assignments.data === '30'
+    && draft.assignments.cooling === '30';
   return (
-    <section className="story-load-board" data-stable={total === 100} aria-label="موازنة حمل النظام">
+    <section className="story-load-board" data-stable={exactBalance} aria-label="موازنة حمل النظام">
       <header>
         <Activity aria-hidden="true" />
         <span>EMERGENCY LOAD // <strong>{total}%</strong></span>
@@ -656,21 +692,34 @@ function LoadBalancingBoard({
           );
         })}
       </div>
-      <p>{total === 100 ? 'الحمل الكلي مستقر؛ ثبّت التوزيع الصحيح.' : `اضبط القنوات: الفرق عن الاستقرار ${Math.abs(100 - total)}%.`}</p>
+      <p>{exactBalance
+        ? 'الحمل الكلي والعلاقة بين القنوات مستقران.'
+        : total === 100
+          ? 'المجموع صحيح؛ اجعل DATA وCOOL متساويين وPWR أعلى بعشر نقاط.'
+          : `اضبط القنوات: الفرق عن الاستقرار ${Math.abs(100 - total)}%.`}</p>
     </section>
   );
 }
 
-function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, draft, onChange, disabled }: PuzzleMechanicProps) {
+function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, signal, draft, onChange, disabled }: PuzzleMechanicProps) {
   const options = stageOptions ?? sourceOptions(puzzle);
+  const reducedMotion = useUiPreferencesStore((state) => state.motion === 'reduced');
   const [memoryPreview, setMemoryPreview] = useState(mechanic === 'memory-grid');
   const [memoryReplay, setMemoryReplay] = useState(0);
+  const [memoryPulseIndex, setMemoryPulseIndex] = useState(0);
   useEffect(() => {
     if (mechanic !== 'memory-grid') return undefined;
     setMemoryPreview(true);
-    const timer = window.setTimeout(() => setMemoryPreview(false), 1700);
-    return () => window.clearTimeout(timer);
-  }, [mechanic, puzzle.id, memoryReplay]);
+    setMemoryPulseIndex(0);
+    const pulseTimers = reducedMotion
+      ? []
+      : [1, 2, 3].map((index) => window.setTimeout(() => setMemoryPulseIndex(index), index * 520));
+    const hideTimer = window.setTimeout(() => setMemoryPreview(false), reducedMotion ? 3000 : 2350);
+    return () => {
+      pulseTimers.forEach((timer) => window.clearTimeout(timer));
+      window.clearTimeout(hideTimer);
+    };
+  }, [mechanic, puzzle.id, memoryReplay, reducedMotion]);
 
   if (mechanic === 'image-reconstruction') {
     return <ImageReconstructionBoard puzzle={puzzle} draft={draft} onChange={onChange} disabled={disabled} />;
@@ -689,8 +738,16 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, d
     const channel = draft.tokens[1] ?? 'channel-07';
     return (
       <section className="story-signal-board" aria-label="Signal tuning board">
+        {signal && (
+          <div className="story-signal-board__target" role="status">
+            <span>TARGET WINDOW</span>
+            <strong>{signal.targetFrequency}</strong>
+            <small>CH-{signal.targetChannel} // SYMMETRY LOCK</small>
+          </div>
+        )}
         <div className="story-signal-board__scope" style={{ '--signal': `${frequency}%` } as CSSProperties}>
           <i /><i /><i /><b />
+          {signal && <em style={{ '--target': `${signal.targetFrequency}%` } as CSSProperties} aria-hidden="true" />}
         </div>
         <label>
           <span>FREQUENCY <strong>{frequency}</strong></span>
@@ -702,7 +759,7 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, d
         <div className="story-choice-row" role="group" aria-label="قناة الإشارة">
           {['07', '11', '13'].map((value) => {
             const id = `channel-${value}`;
-            return <button key={id} type="button" disabled={disabled} data-selected={channel === id} onClick={() => onChange({ ...draft, tokens: [String(frequency), id] })}>CH-{value}</button>;
+            return <button key={id} type="button" disabled={disabled} data-selected={channel === id} data-target={signal?.targetChannel === value} onClick={() => onChange({ ...draft, tokens: [String(frequency), id] })}>CH-{value}</button>;
           })}
         </div>
       </section>
@@ -727,7 +784,15 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, d
                 <button
                   key={target.id} type="button" disabled={disabled}
                   data-selected={draft.assignments[source] === target.id}
-                  onClick={() => onChange({ ...draft, assignments: { ...draft.assignments, [source]: target.id } })}
+                  onClick={() => {
+                    const assignments = Object.fromEntries(
+                      Object.entries(draft.assignments).filter(([otherSource, otherTarget]) => (
+                        otherSource === source || otherTarget !== target.id
+                      )),
+                    );
+                    assignments[source] = target.id;
+                    onChange({ ...draft, assignments });
+                  }}
                 >{target.label.ar}</button>
               ))}
             </div>
@@ -743,12 +808,13 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, d
       <section className="story-matrix-board" aria-label="System matrix">
         {tiles.map((tile, index) => {
           const rotation = draft.rotations[tile] ?? ((index + 1) % 4);
+          const aligned = puzzle.rotationGoal?.[tile] === rotation;
           return (
             <button
-              key={tile} type="button" disabled={disabled} data-rotation={rotation}
+              key={tile} type="button" disabled={disabled} data-rotation={rotation} data-aligned={aligned}
               onClick={() => onChange({ ...draft, rotations: { ...draft.rotations, [tile]: (rotation + 1) % 4 } })}
               aria-label={`تدوير عقدة ${index + 1}`}
-            ><i /><i /></button>
+            ><i /><i /><span>{aligned ? 'LOCK' : `R${rotation}`}</span></button>
           );
         })}
       </section>
@@ -767,9 +833,13 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, d
             <button
               key={option.id} type="button" disabled={disabled}
               data-selected={selected.includes(option.id)}
+              data-anomaly={option.id === 'x2' || option.id === 'z1'}
               style={{ '--point': index } as CSSProperties}
               onClick={() => onChange({ ...draft, tokens: selectedTokens(selected, option.id, 2) })}
-            >{option.id.toUpperCase()}</button>
+            >
+              <strong>{option.id.toUpperCase()}</strong>
+              {option.detail && <small>{option.detail.ar}</small>}
+            </button>
           ))}
         </div>
         <p>حرّك الماسح عبر السجل وحدد موضعي الشذوذ. التحكم لا يعتمد على اللون وحده.</p>
@@ -779,14 +849,20 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, d
 
   if (mechanic === 'memory-grid') {
     const grid = ['a1', 'a2', 'a3', 'b1', 'b2', 'b3', 'c1', 'c2', 'c3'];
+    const pulsePattern = ['a1', 'b2', 'c3', 'b2'];
     return (
       <section className="story-memory-grid" data-preview={memoryPreview} aria-label="Memory grid">
-        <header>{memoryPreview ? 'PATTERN BUFFER // OBSERVE' : 'PATTERN BUFFER // RESTORE'}</header>
+        <header>{memoryPreview
+          ? reducedMotion ? 'PATTERN BUFFER // STATIC ACCESSIBLE VIEW' : `PATTERN BUFFER // PULSE ${memoryPulseIndex + 1} / 4`
+          : 'PATTERN BUFFER // RESTORE'}</header>
+        {memoryPreview && reducedMotion && (
+          <p className="story-memory-grid__static-pattern" role="status">A1 → B2 → C3 → B2</p>
+        )}
         <div>
           {grid.map((id) => (
             <button
               key={id} type="button" disabled={disabled || memoryPreview}
-              data-preview={memoryPreview && ['a1', 'b2', 'c3'].includes(id)}
+              data-preview={memoryPreview && !reducedMotion && pulsePattern[memoryPulseIndex] === id}
               data-selected={draft.tokens.includes(id)}
               onClick={() => onChange({ ...draft, tokens: selectedTokens(draft.tokens, id, 4, true) })}
             >{id.toUpperCase()}</button>
@@ -865,6 +941,10 @@ function RewardMoment({ onDismiss }: { onDismiss: () => void }) {
           <div><dt>COINS</dt><dd>+{reward.coinsGranted + reward.perfectBonusCoins}</dd></div>
           <div><dt>SHARD</dt><dd dir="ltr">{reward.snapshot.shardCount} / 20</dd></div>
         </dl>
+        <div className="story-reward-moment__echo-impact">
+          <Activity aria-hidden="true" />
+          <span><small>ECHO RESONANCE</small><strong>+{reward.echoImpact.amount} · {reward.echoImpact.label.ar}</strong></span>
+        </div>
         {reward.perfectBonusCoins > 0 && <strong className="story-reward-moment__perfect">PERFECT SOLVE +{reward.perfectBonusCoins} COINS</strong>}
         <button type="button" onClick={onDismiss}>متابعة</button>
       </section>
@@ -891,6 +971,7 @@ export default function PuzzleScreen() {
   const [draft, setDraft] = useState<StoryPuzzleDraft>(() => defaultDraft(STORY_PUZZLE_BY_ID.story_puzzle_01_signal_calibration!));
   const [busy, setBusy] = useState(false);
   const saveTimer = useRef<number | null>(null);
+  const playedPuzzleCinematics = useRef(new Set<string>());
 
   useEffect(() => {
     if (authStatus === 'signed-in') void actions.load();
@@ -921,6 +1002,7 @@ export default function PuzzleScreen() {
       activeDraft,
       currentStage.tokenLimit,
       currentStage.options,
+      currentStage.signal,
     )
     : selectedPuzzle.mechanic === 'multi-stage' || selectedPuzzle.mechanic === 'breach-protocol'
       ? { ready: false, message: 'انتقل إلى المرحلة الحالية لإكمال اللغز.' }
@@ -945,6 +1027,21 @@ export default function PuzzleScreen() {
     const entry = entryById.get(selectedPuzzle.id);
     setDraft(entry?.draft ? cloneDraft(entry.draft) : defaultDraft(selectedPuzzle));
   }, [entryById, selectedPuzzle]);
+
+  useEffect(() => {
+    if (
+      !selectedPuzzle.cinematicStageId
+      || selectedEntry.status === 'locked'
+      || selectedEntry.status === 'hidden'
+      || selectedEntry.status === 'completed'
+      || playedPuzzleCinematics.current.has(selectedPuzzle.id)
+    ) return undefined;
+    playedPuzzleCinematics.current.add(selectedPuzzle.id);
+    const timer = window.setTimeout(() => {
+      requestEchoTransformationCinematic(selectedPuzzle.cinematicStageId!);
+    }, 320);
+    return () => window.clearTimeout(timer);
+  }, [selectedEntry.status, selectedPuzzle]);
 
   useEffect(() => () => {
     if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
@@ -1028,6 +1125,7 @@ export default function PuzzleScreen() {
         <dl>
           <div><dt>MAIN PATH</dt><dd dir="ltr">{snapshot?.mainCompletedCount ?? 0} / 14</dd></div>
           <div><dt>MEMORY SHARDS</dt><dd dir="ltr">{snapshot?.shardCount ?? 0} / 20</dd></div>
+          <div><dt>ECHO RESONANCE</dt><dd>{snapshot?.echoResonance.total ?? 0}</dd></div>
           <div><dt><Coins aria-hidden="true" /> COINS</dt><dd>{snapshot?.coinBalance ?? 0}</dd></div>
         </dl>
       </header>
@@ -1077,6 +1175,15 @@ export default function PuzzleScreen() {
           <div className="story-puzzle-console__title">
             <div><small>{selectedPuzzle.mechanic.replace('-', ' ').toUpperCase()}</small><h2>{selectedPuzzle.title.ar}</h2><p>{selectedPuzzle.objective.ar}</p></div>
             <span className="story-puzzle-console__page">SOURCE // {String(selectedPuzzle.source.globalPageNumber).padStart(2, '0')}</span>
+            {selectedPuzzle.cinematicStageId && selectedEntry.status !== 'locked' && (
+              <button
+                type="button"
+                className="story-puzzle-console__cinematic"
+                onClick={() => requestEchoTransformationCinematic(selectedPuzzle.cinematicStageId!)}
+              >
+                <Clapperboard aria-hidden="true" /> إعادة مشهد التحول
+              </button>
+            )}
           </div>
           <PuzzleReference reference={selectedPuzzle.reference} />
 
@@ -1109,8 +1216,19 @@ export default function PuzzleScreen() {
               {currentStage && (
                 <div className="story-puzzle-stages">
                   <span dir="ltr">STAGE {stageIndex + 1} / {stageDrafts.length}</span>
-                  <div>{stageDrafts.map((_, index) => <i key={index} data-active={index === stageIndex} data-complete={index < stageIndex} />)}</div>
+                  <div>{stageDrafts.map((_, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      data-active={index === stageIndex}
+                      data-complete={index < stageIndex}
+                      aria-label={`الانتقال إلى المرحلة ${index + 1}`}
+                      aria-current={index === stageIndex ? 'step' : undefined}
+                      onClick={() => queueSave(composeStageDraft(draft, index, stageDrafts))}
+                    >{index + 1}</button>
+                  ))}</div>
                   <strong>{currentStage.objective.ar}</strong>
+                  {currentStage.clue && <p>{currentStage.clue.ar}</p>}
                 </div>
               )}
               <PuzzleMechanic
@@ -1121,6 +1239,7 @@ export default function PuzzleScreen() {
                 >}
                 options={currentStage?.options}
                 tokenLimit={currentStage?.tokenLimit}
+                signal={currentStage?.signal ?? selectedPuzzle.signal}
                 draft={activeDraft}
                 onChange={updateActiveDraft}
                 disabled={busy}

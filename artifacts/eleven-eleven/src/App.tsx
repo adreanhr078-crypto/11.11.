@@ -17,11 +17,14 @@ import { PlayerSyncBootstrap } from './features/player-sync/PlayerSyncBootstrap'
 import { PlayerSyncFailureOverlay } from './features/player-sync/PlayerSyncFailureOverlay';
 import { FirstTimeOnboarding } from './features/onboarding/FirstTimeOnboarding';
 import './features/player-sync/player-sync.css';
+import './features/echo-network/echo-network.css';
+import { LocaleDocumentBridge } from './app/LocaleDocumentBridge';
 
 export default function App() {
   return (
     <>
       <AuthBootstrap />
+      <LocaleDocumentBridge />
       <PlayerSyncBootstrap />
       <ApplicationShell />
       <GameRuntimeBridge />

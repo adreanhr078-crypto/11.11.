@@ -1,4 +1,14 @@
-import type { LiveChallengeMechanic } from './liveChallengeContracts';
+type LegacyLiveMechanic =
+  | 'signal'
+  | 'sequence'
+  | 'cipher'
+  | 'wiring'
+  | 'matrix'
+  | 'pattern'
+  | 'timeline'
+  | 'logic'
+  | 'checksum'
+  | 'routing';
 
 // Period IDs remain stable so a mid-window quality upgrade cannot create a
 // second attempt or duplicate reward for the same player/day. Existing cached
@@ -20,13 +30,15 @@ export const LIVE_REWARD_CONFIG = Object.freeze({
   weeklyRecoveryXp: 100,
   weeklyRecoveryCoins: 100,
   weeklyPerfectBonusCoins: 25,
+  dailyXpByDifficulty: Object.freeze({ standard: 25, focused: 35, deep: 50 }),
+  dailyCoinsByDifficulty: Object.freeze({ standard: 25, focused: 40, deep: 60 }),
 });
 
 export const LIVE_HINT_COSTS = Object.freeze([0, 12, 24] as const);
 
 export interface LiveTemplate {
   templateId: string;
-  mechanic: LiveChallengeMechanic;
+  mechanic: LegacyLiveMechanic;
   title: string;
   instructions: string;
   prompt: string;
@@ -37,7 +49,7 @@ export interface LiveTemplate {
 
 type LiveTemplateFactory = (seed: string, variant: number) => LiveTemplate;
 
-export const LIVE_MECHANIC_ROTATION: readonly LiveChallengeMechanic[] = Object.freeze([
+export const LIVE_MECHANIC_ROTATION: readonly LegacyLiveMechanic[] = Object.freeze([
   'signal',
   'sequence',
   'cipher',
@@ -90,7 +102,7 @@ function encodeCaesar(value: string, shift: number): string {
   }).join('');
 }
 
-const LIVE_TEMPLATE_FACTORIES: Readonly<Record<LiveChallengeMechanic, LiveTemplateFactory>> = {
+const LIVE_TEMPLATE_FACTORIES: Readonly<Record<LegacyLiveMechanic, LiveTemplateFactory>> = {
   signal(seed, variant) {
     const target = variantNumber(variant, 1, 46, 37);
     const drift = variantNumber(variant, 37, 2, 7);
@@ -341,7 +353,7 @@ const LIVE_TEMPLATE_FACTORIES: Readonly<Record<LiveChallengeMechanic, LiveTempla
 
 function createTemplateForMechanic(
   seed: string,
-  mechanic: LiveChallengeMechanic,
+  mechanic: LegacyLiveMechanic,
   variant = stableHash(seed),
 ): LiveTemplate {
   const template = LIVE_TEMPLATE_FACTORIES[mechanic](seed, variant);
@@ -372,7 +384,7 @@ export function createLiveTemplateForSlot(seed: string, slot: number): LiveTempl
 /** Backward-compatible deterministic selector used by isolated engine callers. */
 export function chooseRotatingTemplate(
   seed: string,
-  previousMechanic?: LiveChallengeMechanic,
+  previousMechanic?: LegacyLiveMechanic,
 ): LiveTemplate {
   const initial = stableHash(seed) % LIVE_MECHANIC_ROTATION.length;
   const mechanic = LIVE_MECHANIC_ROTATION.find((candidate, index) => (

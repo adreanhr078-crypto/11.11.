@@ -45,6 +45,7 @@ class FakeProfileDatabase implements PlayerDatabase {
   players = new Map<string, FakePlayer>();
   reservations = new Map<string, { normalized: string; userId: string; username: string }>();
   fragments = new Set<string>();
+  avatarUnlocks = new Set<string>();
 
   prepare(query: string): PlayerDatabaseStatement {
     return new FakeStatement(this, query);
@@ -115,6 +116,10 @@ class FakeProfileDatabase implements PlayerDatabase {
 
   first(statement: FakeStatement): Record<string, unknown> | null {
     const query = this.normalized(statement);
+    if (query.includes('FROM player_avatar_unlock_events')) {
+      const [userId, avatarId] = statement.values.map(String);
+      return this.avatarUnlocks.has(`${userId}:${avatarId}`) ? { avatar_id: avatarId } : null;
+    }
     if (query.includes('FROM player_username_reservations')) {
       const value = String(statement.values[0]);
       if (query.includes('normalized_username = ?')) {
@@ -144,6 +149,12 @@ class FakeProfileDatabase implements PlayerDatabase {
 
   all(statement: FakeStatement): Record<string, unknown>[] {
     const query = this.normalized(statement);
+    if (query.includes('FROM player_avatar_unlock_events')) {
+      const userId = String(statement.values[0]);
+      return [...this.avatarUnlocks]
+        .filter((entry) => entry.startsWith(`${userId}:`))
+        .map((entry) => ({ avatar_id: entry.slice(userId.length + 1) }));
+    }
     if (query.includes('SELECT source_id')) return [];
     if (query.includes('RANK() OVER')) {
       return [...this.players.values()]
@@ -222,6 +233,7 @@ describe('player profile gateway', () => {
         subjectId: string;
         stats: { secretsFound: number };
         progression: { rank: number; totalXp: number };
+        unlockedAvatarIds: string[];
       };
     };
     assert.equal(response.status, 200);
@@ -230,6 +242,48 @@ describe('player profile gateway', () => {
     assert.equal(payload.profile.stats.secretsFound, 0);
     assert.equal(payload.profile.progression.rank, 1);
     assert.equal(payload.profile.progression.totalXp, 0);
+    assert.deepEqual(payload.profile.unlockedAvatarIds, ['echo', 'silver_signal', 'red_rift']);
+  });
+
+  it('rejects a rare avatar until the verified weekly ledger owns it', async () => {
+    const database = new FakeProfileDatabase();
+    globalThis.fetch = async (input, init) => {
+      if (String(input).includes('accounts:lookup')) {
+        return Response.json({
+          users: [{
+            localId: 'profile-player',
+            providerUserInfo: [{ providerId: 'password' }],
+            createdAt: '1700000000000',
+            lastLoginAt: '1700000100000',
+          }],
+        });
+      }
+      if (init?.method === 'PATCH') return Response.json({ updateTime: '2026-08-08T12:00:00.000Z' });
+      return Response.json({}, { status: 404 });
+    };
+
+    const locked = await putProfile({
+      request: request('/api/player/profile', {
+        method: 'PUT',
+        body: JSON.stringify({ username: 'Rare Runner', bio: '', avatarId: 'rare_yuki' }),
+      }),
+      env: env(database),
+    });
+    assert.equal(locked.status, 403);
+    assert.equal((await locked.json() as { code: string }).code, 'avatar_not_unlocked');
+
+    database.avatarUnlocks.add('profile-player:rare_yuki');
+    const owned = await putProfile({
+      request: request('/api/player/profile', {
+        method: 'PUT',
+        body: JSON.stringify({ username: 'Rare Runner', bio: '', avatarId: 'rare_yuki' }),
+      }),
+      env: env(database),
+    });
+    const payload = await owned.json() as { profile: { avatarId: string; unlockedAvatarIds: string[] } };
+    assert.equal(owned.status, 200);
+    assert.equal(payload.profile.avatarId, 'rare_yuki');
+    assert.ok(payload.profile.unlockedAvatarIds.includes('rare_yuki'));
   });
 
   it('rejects external avatar values before writing profile data', async () => {

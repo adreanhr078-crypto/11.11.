@@ -3,6 +3,7 @@ import {
   getCurrentAuthSession,
 } from '../../features/auth/authService';
 import type { PersistedGameState } from '../persistence/gamePersistence';
+import type { PlayerAvatarId } from '../../domain/player-profile/playerProfile';
 import { playerApiRoot } from '../player-api/apiRoot';
 import {
   fetchPlayerRequest,
@@ -14,7 +15,7 @@ export interface CloudPlayerProfile {
   subjectId?: string;
   username?: string;
   bio?: string;
-  avatarId?: 'echo' | 'silver_signal' | 'red_rift';
+  avatarId?: PlayerAvatarId;
   isAnonymous?: boolean;
   featuredAchievementIds?: string[];
   displayName: string | null;

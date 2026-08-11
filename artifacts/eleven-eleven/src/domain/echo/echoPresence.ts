@@ -1,6 +1,7 @@
 import type { GameProgressionState } from '../../core/gameProgressionTypes';
 import type {
   StoryPuzzleActivity,
+  StoryPuzzleEchoResonanceAxis,
   StoryPuzzleSnapshot,
 } from '../story-puzzles/storyPuzzleContracts';
 import {
@@ -263,6 +264,8 @@ export interface EchoPresenceReadModel {
     recentHintUsed: boolean;
     recentSecretFound: boolean;
     currentShardCount: number;
+    puzzleResonanceTotal: number;
+    dominantPuzzleResonance: StoryPuzzleEchoResonanceAxis | null;
     lastMajorCanonEvent: FinalManhwaCanonEventId | null;
   };
 }
@@ -348,7 +351,17 @@ export function createEchoPresenceReadModel(input: {
 }): EchoPresenceReadModel {
   const now = input.now ?? Date.now();
   const story = createStoryStateReadModel(input.progressionState);
-  const stage = stageDefinition(story.echoState.stageId);
+  const baseStage = stageDefinition(story.echoState.stageId);
+  const resonance = input.puzzleSnapshot?.echoResonance;
+  const resonanceTotal = resonance?.total ?? 0;
+  const resonanceStrength = Math.min(1, resonanceTotal / 60);
+  // Story Puzzle resonance is a verified presentation state. It can make Echo
+  // appear more attentive, but it can never unlock or replace a Canon stage.
+  const stage: EchoStateDefinition = {
+    ...baseStage,
+    glanceAmount: Math.min(0.4, baseStage.glanceAmount + resonanceStrength * 0.08),
+    scanIntensity: Math.min(0.75, baseStage.scanIntensity + resonanceStrength * 0.12),
+  };
   const activity = input.activity;
   const activityReaction = activity
     ? createReaction(
@@ -365,6 +378,11 @@ export function createEchoPresenceReadModel(input: {
   const latestActivityIsPerfect = activity?.kind === 'perfect-solve'
     || (latestEntry?.perfectSolve === true && activity?.puzzleId === latestEntry.puzzleId);
 
+  const dominantPuzzleResonance = resonance
+    ? (Object.entries(resonance.byAxis) as Array<[StoryPuzzleEchoResonanceAxis, number]>)
+      .sort((left, right) => right[1] - left[1])[0]?.[0] ?? null
+    : null;
+
   return {
     stage,
     reaction,
@@ -374,6 +392,8 @@ export function createEchoPresenceReadModel(input: {
       recentSecretFound: activity?.kind === 'secret-puzzle-discovered'
         || activity?.kind === 'secret-puzzle-solved',
       currentShardCount: input.puzzleSnapshot?.shardCount ?? 0,
+      puzzleResonanceTotal: resonanceTotal,
+      dominantPuzzleResonance,
       lastMajorCanonEvent: story.reachedCanonEvents.at(-1) ?? null,
     },
   };

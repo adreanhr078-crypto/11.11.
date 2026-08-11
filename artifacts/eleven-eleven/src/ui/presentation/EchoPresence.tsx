@@ -97,6 +97,7 @@ export function EchoPresence({
       data-form={presentation.form}
       data-idle-variant={presence.stage.idleVariant}
       data-reaction={presence.reaction?.visualEffect ?? 'idle'}
+      data-puzzle-resonance={presence.memorySignals.dominantPuzzleResonance ?? 'none'}
       data-asset-status={presence.stage.assetStatus}
       style={style}
       aria-label={`${label}: ${profile.signature}, ${presence.stage.stageId}`}

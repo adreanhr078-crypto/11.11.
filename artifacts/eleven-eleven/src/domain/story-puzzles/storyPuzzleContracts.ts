@@ -62,6 +62,28 @@ export interface StoryPuzzleStage {
   options?: readonly StoryPuzzleOption[];
   /** Presentation-only input length; it never contains the correct solution. */
   tokenLimit?: number;
+  /** Visible field clue; it makes a stage derivable without buying a hint. */
+  clue?: StoryPuzzleText;
+  signal?: StoryPuzzleSignalConfig;
+}
+
+export interface StoryPuzzleSignalConfig {
+  targetFrequency: number;
+  targetChannel: '07' | '11' | '13';
+}
+
+export type StoryPuzzleEchoResonanceAxis =
+  | 'clarity'
+  | 'memory'
+  | 'trust'
+  | 'resolve'
+  | 'stability'
+  | 'anomaly';
+
+export interface StoryPuzzleEchoImpact {
+  axis: StoryPuzzleEchoResonanceAxis;
+  amount: number;
+  label: StoryPuzzleText;
 }
 
 export interface StoryPuzzleDefinition {
@@ -89,6 +111,11 @@ export interface StoryPuzzleDefinition {
   options?: readonly StoryPuzzleOption[];
   image?: StoryPuzzleImageSource;
   stages?: readonly StoryPuzzleStage[];
+  signal?: StoryPuzzleSignalConfig;
+  /** Visible alignment feedback; the server still verifies the submitted state. */
+  rotationGoal?: Readonly<Record<string, number>>;
+  /** Canon stage already proven by the Manhwa checkpoint for this puzzle. */
+  cinematicStageId?: 'black_coronation' | 'second_contract_marked' | 'black_echo_protocol';
   /** The main puzzle that presents the optional visual anomaly. */
   anomalyHostPuzzleId?: string;
 }
@@ -126,6 +153,11 @@ export interface StoryPuzzleSnapshot {
   totalCompletedCount: number;
   entries: StoryPuzzleSnapshotEntry[];
   discoverableSecretPuzzleIds: string[];
+  echoResonance: {
+    total: number;
+    byAxis: Record<StoryPuzzleEchoResonanceAxis, number>;
+    lastPuzzleId: string | null;
+  };
   syncedAt: string;
 }
 
@@ -157,5 +189,6 @@ export interface StoryPuzzleRewardReceipt {
   coinsGranted: number;
   perfectBonusCoins: number;
   shardId: string;
+  echoImpact: StoryPuzzleEchoImpact;
   snapshot: StoryPuzzleSnapshot;
 }

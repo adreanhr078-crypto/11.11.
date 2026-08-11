@@ -64,6 +64,25 @@
   filter: contrast(1.08) saturate(0.92);
 }
 
+.echo-transformation-cinematic__sequence {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.echo-transformation-cinematic__sequence img {
+  position: absolute;
+  width: min(78vw, 58rem);
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  filter: contrast(1.1) saturate(0.88);
+  animation: echo-transformation-frame 2.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--frame-index) * 1.65s);
+}
+
 .echo-transformation-cinematic__portrait {
   width: min(62vw, 42rem);
   animation: echo-transformation-reveal 5.8s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -195,6 +214,12 @@
 @keyframes echo-transformation-reveal {
   from { opacity: 0; transform: scale(1.06); filter: brightness(0.35) contrast(1.2) saturate(0.8); }
   to { opacity: 1; transform: scale(1); filter: brightness(0.95) contrast(1.08) saturate(0.92); }
+}
+
+@keyframes echo-transformation-frame {
+  0% { opacity: 0; transform: scale(1.08); filter: brightness(0.3) contrast(1.2); }
+  18%, 76% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1); filter: brightness(0.92) contrast(1.08); }
 }
 
 @media (max-width: 46rem) {

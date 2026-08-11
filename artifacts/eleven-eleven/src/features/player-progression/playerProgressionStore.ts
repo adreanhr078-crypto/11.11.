@@ -95,6 +95,9 @@ function friendlyProfileError(error: unknown): string {
     if (error.code === 'invalid_avatar') {
       return 'Choose one of the fixed in-game avatars.';
     }
+    if (error.code === 'avatar_not_unlocked') {
+      return 'هذا الأفاتار النادر يُفتح فقط عبر مهمة أسبوعية موثقة.';
+    }
     if (error.code === 'unauthorized' || error.code === 'invalid_token') {
       return 'Your session expired. Sign in again.';
     }

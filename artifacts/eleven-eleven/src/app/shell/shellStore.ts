@@ -12,6 +12,10 @@ import type { NavigationCategoryId } from './navigationTypes';
 import {
   resolveFeatureGatedScreen,
 } from '../config/featureFlags';
+import type {
+  AdConsent,
+} from '../../domain/echo-network/adPolicy';
+import type { NetworkLocale } from '../../domain/echo-network/contracts';
 
 export type { GameScreenId } from './screenRegistry';
 
@@ -124,11 +128,20 @@ interface UiPreferencesState {
   audioEnabled: boolean;
   sfxVolume: number;
   showTelemetry: boolean;
+  locale: NetworkLocale;
+  adConsent: AdConsent;
+  notificationsEnabled: boolean;
+  quietHoursStart: number;
+  quietHoursEnd: number;
   setQuality: (quality: QualityTier) => void;
   setMotion: (motion: MotionTier) => void;
   setAudioEnabled: (audioEnabled: boolean) => void;
   setSfxVolume: (sfxVolume: number) => void;
   setShowTelemetry: (showTelemetry: boolean) => void;
+  setLocale: (locale: NetworkLocale) => void;
+  setAdConsent: (adConsent: AdConsent) => void;
+  setNotificationsEnabled: (notificationsEnabled: boolean) => void;
+  setQuietHours: (start: number, end: number) => void;
 }
 
 export const useUiPreferencesStore = create<UiPreferencesState>()(
@@ -139,6 +152,11 @@ export const useUiPreferencesStore = create<UiPreferencesState>()(
       audioEnabled: true,
       sfxVolume: 0.7,
       showTelemetry: false,
+      locale: 'ar',
+      adConsent: 'unset',
+      notificationsEnabled: false,
+      quietHoursStart: 22,
+      quietHoursEnd: 8,
       setQuality: (quality) => set({ quality }),
       setMotion: (motion) => set({ motion }),
       setAudioEnabled: (audioEnabled) => set({ audioEnabled }),
@@ -146,10 +164,17 @@ export const useUiPreferencesStore = create<UiPreferencesState>()(
         sfxVolume: Math.min(1, Math.max(0, sfxVolume)),
       }),
       setShowTelemetry: (showTelemetry) => set({ showTelemetry }),
+      setLocale: (locale) => set({ locale }),
+      setAdConsent: (adConsent) => set({ adConsent }),
+      setNotificationsEnabled: (notificationsEnabled) => set({ notificationsEnabled }),
+      setQuietHours: (start, end) => set({
+        quietHoursStart: Math.min(23, Math.max(0, Math.floor(start))),
+        quietHoursEnd: Math.min(23, Math.max(0, Math.floor(end))),
+      }),
     }),
     {
       name: 'eleven_ui_preferences',
-      version: 3,
+      version: 4,
       migrate: (persistedState) => {
         const previous = persistedState as Partial<UiPreferencesState>;
         return {
@@ -159,6 +184,18 @@ export const useUiPreferencesStore = create<UiPreferencesState>()(
             ? Math.min(1, Math.max(0, previous.sfxVolume))
             : 0.7,
           showTelemetry: false,
+          locale: previous.locale === 'en' ? 'en' : 'ar',
+          adConsent: previous.adConsent === 'contextual'
+            || previous.adConsent === 'declined'
+            ? previous.adConsent
+            : 'unset',
+          notificationsEnabled: previous.notificationsEnabled ?? false,
+          quietHoursStart: typeof previous.quietHoursStart === 'number'
+            ? previous.quietHoursStart
+            : 22,
+          quietHoursEnd: typeof previous.quietHoursEnd === 'number'
+            ? previous.quietHoursEnd
+            : 8,
         };
       },
     },
