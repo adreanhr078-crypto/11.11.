@@ -11,6 +11,11 @@ import { useLiveChallengeStore } from './liveChallengeStore';
 import {
   LIVE_HINT_COSTS,
 } from '../../domain/live-challenges/liveChallengeEngine';
+import { useUiPreferencesStore } from '../../app/shell/shellStore';
+import {
+  playPuzzleCompletionSound,
+  primeRewardAudio,
+} from '../../infrastructure/audio/puzzleRewardAudio';
 
 interface LiveChallengesScreenProps {
   mode?: 'daily' | 'weekly';
@@ -31,6 +36,8 @@ export default function LiveChallengesScreen({
   const error = useLiveChallengeStore((state) => state.error);
   const receipt = useLiveChallengeStore((state) => state.latestReceipt);
   const actions = useLiveChallengeStore((state) => state.actions);
+  const audioEnabled = useUiPreferencesStore((state) => state.audioEnabled);
+  const sfxVolume = useUiPreferencesStore((state) => state.sfxVolume);
   const [tab, setTab] = useState<'daily' | 'weekly'>('daily');
   const [answer, setAnswer] = useState('');
   const [hint, setHint] = useState<string | null>(null);
@@ -45,6 +52,12 @@ export default function LiveChallengesScreen({
     setAnswer('');
     setHint(null);
   }, [activeTab]);
+
+  useEffect(() => {
+    if (receipt?.awarded && audioEnabled) {
+      playPuzzleCompletionSound(sfxVolume);
+    }
+  }, [audioEnabled, receipt, sfxVolume]);
 
   const daily = snapshot?.daily;
   const weekly = snapshot?.weekly;
@@ -66,6 +79,7 @@ export default function LiveChallengesScreen({
 
   async function submit(): Promise<void> {
     if (!answer) return;
+    primeRewardAudio(audioEnabled);
     if (activeTab === 'daily') {
       await run(async () => { await actions.completeDaily(answer); });
     } else if (currentStage) {
@@ -122,9 +136,10 @@ export default function LiveChallengesScreen({
       {activeTab === 'daily' && daily && (
         <section className="live-challenges__grid" aria-label="Daily 11:11 Signal">
           <HudPanel className="live-challenges__main" tone="danger" eyebrow="NEW 11:11 SIGNAL" title={daily.challenge.title}>
+            <small className="live-challenges__mechanic">MECHANIC // {daily.challenge.mechanic.toUpperCase()}</small>
             <p className="live-challenges__instructions">{daily.challenge.instructions}</p>
-            <div className="live-challenges__prompt">{daily.challenge.prompt}</div>
-            <div className="live-challenges__options" role="group" aria-label="Signal answers">
+            <div className="live-challenges__prompt" data-mechanic={daily.challenge.mechanic}>{daily.challenge.prompt}</div>
+            <div className="live-challenges__options" data-mechanic={daily.challenge.mechanic} role="group" aria-label="Signal answers">
               {daily.challenge.options.map((option) => (
                 <button key={option} type="button" data-selected={answer === option} onClick={() => selectAnswer(option)} disabled={daily.status === 'completed'}>
                   {option}
@@ -167,9 +182,10 @@ export default function LiveChallengesScreen({
               <>
                 <small className="live-challenges__stage-label">STAGE {(weekly.currentStage + 1).toString().padStart(2, '0')}</small>
                 <h2>{currentStage.title}</h2>
+                <small className="live-challenges__mechanic">MECHANIC // {currentStage.mechanic.toUpperCase()}</small>
                 <p className="live-challenges__instructions">{currentStage.instructions}</p>
-                <div className="live-challenges__prompt">{currentStage.prompt}</div>
-                <div className="live-challenges__options" role="group" aria-label="Trial answers">
+                <div className="live-challenges__prompt" data-mechanic={currentStage.mechanic}>{currentStage.prompt}</div>
+                <div className="live-challenges__options" data-mechanic={currentStage.mechanic} role="group" aria-label="Trial answers">
                   {currentStage.options.map((option) => <button key={option} type="button" data-selected={answer === option} onClick={() => selectAnswer(option)}>{option}</button>)}
                 </div>
                 <div className="live-challenges__actions">

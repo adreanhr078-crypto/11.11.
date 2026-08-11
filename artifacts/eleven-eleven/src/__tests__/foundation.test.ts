@@ -95,9 +95,9 @@ describe('Phase 1 foundation', () => {
     assert.deepEqual(state.claimedPuzzleRewards, []);
     assert.deepEqual(state.unlockedManhwaPageIds, []);
     assert.deepEqual(state.viewedManhwaPageIds, []);
-    assert.equal(state.progressionState.manhwa.unlockedPageIds.length, 71);
+    assert.equal(state.progressionState.manhwa.unlockedPageIds.length, 4);
     assert.equal(state.progressionState.manhwa.unlockedPageIds[0], 'manhwa_ch00_page_01');
-    assert.equal(state.progressionState.manhwa.unlockedPageIds.at(-1), 'manhwa_ch00_page_04');
+    assert.equal(state.progressionState.manhwa.unlockedPageIds.at(-1), 'manhwa_ch01_page_02');
     assert.equal(state.progressionState.echo.memoryStability, 5);
     assert.equal(state.progressionState.echo.memoriesRecovered, 0);
     assert.equal(state.progressionState.echo.humanity, 35);

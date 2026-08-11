@@ -57,6 +57,8 @@ export function ManhwaFullscreenViewer({
   const dialogRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number | null>(null);
   const historyMarkerRef = useRef<ManhwaViewerHistoryMarker | null>(null);
+  const onRequestCloseRef = useRef(onRequestClose);
+  onRequestCloseRef.current = onRequestClose;
   const adapter = useMemo(
     () => platformAdapter ?? createManhwaViewerPlatformAdapter(),
     [platformAdapter],
@@ -68,10 +70,14 @@ export function ManhwaFullscreenViewer({
   const previousPage = currentIndex > 0 ? pages[currentIndex - 1] : undefined;
   const nextPage = currentIndex >= 0 ? pages[currentIndex + 1] : undefined;
 
+  const requestClose = useCallback(() => {
+    onRequestCloseRef.current();
+  }, []);
+
   const closeViewer = useCallback(() => {
     historyMarkerRef.current?.close();
-    onRequestClose();
-  }, [onRequestClose]);
+    requestClose();
+  }, [requestClose]);
 
   const navigateTo = useCallback((pageId: string | undefined) => {
     if (!pageId || !pages.some((page) => page.id === pageId)) return;
@@ -89,7 +95,7 @@ export function ManhwaFullscreenViewer({
       createBrowserManhwaViewerHistoryPort(),
     );
     historyMarkerRef.current = historyMarker;
-    historyMarker.open(onRequestClose);
+    historyMarker.open(requestClose);
     document.body.style.overflow = 'hidden';
     void adapter.requestPortrait();
     const frame = window.requestAnimationFrame(() => {
@@ -106,7 +112,7 @@ export function ManhwaFullscreenViewer({
       void adapter.restoreLandscape();
       previousFocus?.focus();
     };
-  }, [adapter, availableInitialPage, onRequestClose]);
+  }, [adapter, availableInitialPage, requestClose]);
 
   useEffect(() => {
     if (typeof document === 'undefined' || !currentPage) return;

@@ -670,6 +670,40 @@
   font-size: .64rem;
 }
 
+.final-manhwa-reader__gate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-block: .75rem 1rem;
+  padding: .75rem 1rem;
+  border: 1px solid rgba(81, 232, 255, .24);
+  border-inline-start: 3px solid var(--final-cyan);
+  background: linear-gradient(90deg, rgba(81, 232, 255, .09), rgba(5, 9, 18, .7));
+}
+
+.final-manhwa-reader__gate span,
+.final-manhwa-reader__gate p {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  margin: 0;
+}
+
+.final-manhwa-reader__gate span {
+  color: var(--final-cyan);
+  font: 700 .72rem var(--gds-font-mono);
+}
+
+.final-manhwa-reader__gate p {
+  color: rgba(235, 247, 255, .76);
+  font-size: .78rem;
+}
+
+.final-manhwa-reader__gate svg {
+  width: 1rem;
+}
+
 .final-manhwa-reader__layout {
   display: grid;
   grid-template-columns: minmax(16rem, .75fr) minmax(0, 1.65fr);
@@ -710,6 +744,18 @@
   border-color: var(--final-red);
   background: rgba(255, 61, 95, .1);
   transform: translateX(-2px);
+}
+
+.final-manhwa-reader__chapter[data-locked="true"] {
+  border-color: rgba(235, 247, 255, .08);
+  opacity: .42;
+  cursor: not-allowed;
+  filter: saturate(.35);
+}
+
+.final-manhwa-reader__chapter[data-locked="true"]:hover {
+  transform: none;
+  background: rgba(5, 9, 18, .72);
 }
 
 .final-manhwa-reader__chapter-number {
@@ -858,6 +904,19 @@
   box-shadow: 0 0 .5rem rgba(255, 61, 95, .8);
 }
 
+.final-manhwa-reader__timeline-page[data-locked="true"] {
+  background: rgba(235, 247, 255, .045);
+  cursor: not-allowed;
+}
+
+.final-manhwa-reader__timeline-page[data-locked="true"][data-story-gated="false"] {
+  background: rgba(81, 232, 255, .1);
+}
+
+.final-manhwa-reader__timeline-page[data-story-gated="true"] {
+  background: rgba(255, 61, 95, .055);
+}
+
 .final-manhwa-reader__timeline > span {
   color: rgba(235, 247, 255, .48);
   font-size: .68rem;
@@ -891,6 +950,11 @@
   .final-manhwa-reader__heading,
   .final-manhwa-reader__summary {
     width: 100%;
+  }
+
+  .final-manhwa-reader__gate {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .final-manhwa-reader__summary {

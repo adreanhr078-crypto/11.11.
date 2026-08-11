@@ -43,26 +43,35 @@ describe('Phase 3 Story Puzzle catalog', () => {
     assert.deepEqual(STORY_PUZZLE_HINT_COSTS, [0, 12, 24]);
   });
 
-  it('does not repeat a primary mechanic across consecutive main experiences', () => {
-    const main = STORY_PUZZLES.filter((puzzle) => puzzle.classification === 'main');
-    assert.ok(main.every((puzzle, index) => (
-      index === 0 || puzzle.mechanic !== main[index - 1]?.mechanic
-    )));
+  it('does not repeat a primary mechanic anywhere in the 20-puzzle campaign', () => {
+    assert.equal(
+      new Set(STORY_PUZZLES.map((puzzle) => puzzle.mechanic)).size,
+      STORY_PUZZLES.length,
+    );
   });
 
-  it('uses a full canonical source image for both reconstruction puzzles', () => {
+  it('uses canonical images for distinct reconstruction and layer-alignment mechanics', () => {
     for (const id of ['story_puzzle_03_torn_memory', 'story_puzzle_16_memory_reconstruction']) {
       const puzzle = STORY_PUZZLE_BY_ID[id];
       assert.ok(puzzle?.image);
       assert.match(puzzle!.image!.src, /^\/manhwa\/final\/page-\d{3}\.webp$/);
-      assert.ok(puzzle!.image!.rows * puzzle!.image!.columns >= 9);
     }
+    assert.equal(STORY_PUZZLE_BY_ID.story_puzzle_03_torn_memory?.mechanic, 'image-reconstruction');
+    assert.equal(STORY_PUZZLE_BY_ID.story_puzzle_16_memory_reconstruction?.mechanic, 'layer-alignment');
   });
 
   it('verifies the solution only inside the server definition', () => {
     assert.equal(isServerStoryPuzzleSubmissionCorrect(
       'story_puzzle_01_signal_calibration',
       draft({ tokens: ['58', 'channel-11'] }),
+    ), true);
+    assert.equal(isServerStoryPuzzleSubmissionCorrect(
+      'story_puzzle_16_memory_reconstruction',
+      draft({ rotations: { layer1: 1, layer2: 0, layer3: 3, layer4: 2 } }),
+    ), true);
+    assert.equal(isServerStoryPuzzleSubmissionCorrect(
+      'story_puzzle_18_emergency_reroute',
+      draft({ assignments: { power: '40', data: '30', cooling: '30' } }),
     ), true);
     assert.equal(isServerStoryPuzzleSubmissionCorrect(
       'story_puzzle_01_signal_calibration',
@@ -120,6 +129,16 @@ describe('Phase 3 Story Puzzle catalog', () => {
     assert.match(atomicHintMigration, /AFTER INSERT ON player_story_puzzle_hint_events/);
     assert.match(atomicHintMigration, /COALESCE\(SUM\(amount\), 0\)/);
     assert.match(atomicHintMigration, /'story_puzzle_hint'/);
+  });
+
+  it('surfaces server-discoverable secret signals even after their host is complete', () => {
+    const screen = readFileSync(
+      new URL('../features/screens/PuzzleScreen.tsx', import.meta.url),
+      'utf8',
+    );
+    assert.match(screen, /discoverableSecretIds\.map/);
+    assert.match(screen, /story-puzzle-index__discovery/);
+    assert.match(screen, /actions\.discover\(secretId\)/);
   });
 
   it('never migrates retired local campaign progress into Story Puzzle progress', () => {

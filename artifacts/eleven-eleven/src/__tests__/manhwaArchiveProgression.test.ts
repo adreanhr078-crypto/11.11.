@@ -19,6 +19,7 @@ import {
 } from '../infrastructure/persistence/gamePersistence';
 import type { GameStateGetter, GameStateSetter } from '../application/game/statePorts';
 import { buildInitialState } from '../stores/gameStoreHelpers';
+import { STORY_PUZZLES } from '../content/puzzles/storyPuzzleCatalog';
 
 function progressionForUnlock(balance: number) {
   const progression = structuredClone(buildInitialState().progressionState);
@@ -58,6 +59,25 @@ describe('Final Manhwa access definitions', () => {
 });
 
 describe('Manhwa unlock transaction compatibility', () => {
+  it('synchronizes reader windows from verified Story Puzzle completions', () => {
+    const harness = createHarness(buildInitialState());
+    assert.equal(harness.getState().progressionState.manhwa.unlockedPageIds.length, 4);
+
+    assert.equal(harness.actions.synchronizeStoryPuzzleManhwaAccess([
+      'story_puzzle_01_signal_calibration',
+    ], '2026-02-02T02:02:02.000Z'), true);
+    assert.equal(harness.getState().progressionState.manhwa.unlockedPageIds.length, 5);
+
+    const mainPuzzleIds = STORY_PUZZLES
+      .filter((puzzle) => puzzle.classification === 'main')
+      .map((puzzle) => puzzle.id);
+    harness.actions.synchronizeStoryPuzzleManhwaAccess(
+      mainPuzzleIds,
+      '2026-02-02T02:03:02.000Z',
+    );
+    assert.equal(harness.getState().progressionState.manhwa.unlockedPageIds.length, 71);
+  });
+
   it('remains atomic for legacy unlock callers without affecting the final reader', () => {
     const state = progressionForUnlock(3);
     const page = createManhwaPageAccessDefinition({
@@ -92,13 +112,18 @@ describe('Final Manhwa migration boundary', () => {
     canonical.manhwa.unlockedPageIds = ['manhwa_ch01_page_01', 'manhwa_ch01_page_02'];
     canonical.manhwa.viewedPageIds = ['manhwa_ch01_page_02'];
     const migrated = migrateGameState({ progressionState: canonical }, GAME_SAVE_VERSION);
-    assert.equal(migrated.progressionState?.manhwa.unlockedPageIds.length, 71);
+    assert.equal(migrated.progressionState?.manhwa.unlockedPageIds.length, 4);
+    assert.equal(
+      migrated.progressionState?.manhwa.unlockedPageIds.at(-1),
+      'manhwa_ch01_page_02',
+    );
     assert.deepEqual(migrated.progressionState?.manhwa.viewedPageIds, []);
     assert.equal(migrated.progressionState?.manhwa.lastReadPageId, null);
   });
 
   it('keeps a current final-manifest Continue Reading checkpoint', () => {
     const canonical = structuredClone(buildInitialState().progressionState);
+    canonical.manhwa.unlockedPageIds.push('manhwa_ch03_page_04');
     canonical.manhwa.lastReadPageId = 'manhwa_ch03_page_04';
     canonical.manhwa.lastReadGlobalPageNumber = 32;
     canonical.manhwa.lastReadChapterId = 'chapter_3';

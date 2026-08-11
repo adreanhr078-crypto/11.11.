@@ -4,7 +4,12 @@ export type LiveChallengeMechanic =
   | 'sequence'
   | 'cipher'
   | 'wiring'
-  | 'matrix';
+  | 'matrix'
+  | 'pattern'
+  | 'timeline'
+  | 'logic'
+  | 'checksum'
+  | 'routing';
 export type LiveChallengeStatus = 'available' | 'in_progress' | 'completed';
 
 export interface LiveChallengePublicDefinition {

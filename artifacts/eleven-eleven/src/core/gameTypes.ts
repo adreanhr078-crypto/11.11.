@@ -188,6 +188,10 @@ export interface GameActions {
     pageId: string,
     timestamp?: string,
   ) => ManhwaUnlockTransactionResult;
+  synchronizeStoryPuzzleManhwaAccess: (
+    completedPuzzleIds: readonly string[],
+    timestamp?: string,
+  ) => boolean;
   viewManhwaPage: (
     pageId: string,
     timestamp?: string,

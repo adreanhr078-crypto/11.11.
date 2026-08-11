@@ -135,7 +135,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
   {
     id: 'story_puzzle_15_system_breach', order: 15, chapterId: 'chapter_3', classification: 'main',
     title: text('اختراق النظام', 'System Breach'), objective: text('أكمل قنوات الاختراق الثلاث دون فقدان حالة التقدم.', 'Complete the three breach channels without losing progress.'),
-    mechanic: 'multi-stage', difficulty: 'final', source: { pageId: 'manhwa_ch03_page_26', globalPageNumber: 54 }, prerequisitePuzzleIds: ['story_puzzle_13_visual_forensics'],
+    mechanic: 'breach-protocol', difficulty: 'final', source: { pageId: 'manhwa_ch03_page_26', globalPageNumber: 54 }, prerequisitePuzzleIds: ['story_puzzle_13_visual_forensics'],
     hints: [text('أكمل كل قناة قبل الانتقال للتالية.', 'Complete each channel before continuing.'), text('المرحلة الثانية تستخدم ناتج الإشارة الأولى.', 'Stage two uses the first signal output.'), text('التسلسل: 11، ◇، ACCESS.', 'Sequence: 11, ◇, ACCESS.')],
     completionMessage: text('تم تجاوز حاجز النظام.', 'System barrier breached.'),
     stages: [
@@ -146,11 +146,11 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
   },
   {
     id: 'story_puzzle_16_memory_reconstruction', order: 16, chapterId: 'chapter_4', classification: 'main',
-    title: text('إعادة تركيب الذاكرة', 'Memory Reconstruction'), objective: text('أعد بناء السجل المعتمد من قطع الذاكرة.', 'Reconstruct the approved record from memory pieces.'),
-    mechanic: 'image-reconstruction', difficulty: 'final', source: { pageId: 'manhwa_ch04_page_02', globalPageNumber: 56, requiredCanonEventId: 'manhwa_chapter_04_black_coronation' }, prerequisitePuzzleIds: ['story_puzzle_15_system_breach'],
-    hints: [text('ابدأ بالإطار ثم القطع ذات الوهج.', 'Start with the frame, then glowing pieces.'), text('هذه المصفوفة أكبر؛ ثبّت صفًا كاملًا أولًا.', 'This matrix is larger; complete one row first.'), text('كل القطع الصحيحة تعود إلى دوران 0°.', 'Every correct piece returns to 0° rotation.')],
-    completionMessage: text('تمت إعادة بناء الذاكرة.', 'Memory reconstructed.'),
-    image: { src: '/manhwa/final/page-056.webp', alt: text('صفحة مانهوا معتمدة للفصل الرابع.', 'Approved Chapter 4 Manhwa page.'), rows: 3, columns: 4, allowRotation: true },
+    title: text('محاذاة طبقات الذاكرة', 'Memory Layer Alignment'), objective: text('اضبط أطوار الطبقات الأربع حتى يتطابق السجل البصري.', 'Align four memory layers until the visual record locks.'),
+    mechanic: 'layer-alignment', difficulty: 'final', source: { pageId: 'manhwa_ch04_page_02', globalPageNumber: 56, requiredCanonEventId: 'manhwa_chapter_04_black_coronation' }, prerequisitePuzzleIds: ['story_puzzle_15_system_breach'],
+    hints: [text('راقب خط الفصل بين كل طبقتين بدل الصورة كاملة.', 'Watch the seam between adjacent layers, not the whole image.'), text('الطبقة الثانية ثابتة؛ اضبط ما حولها.', 'Layer two is already stable; align the others around it.'), text('الأطوار من الأعلى للأسفل: 1، 0، 3، 2.', 'Phases top-to-bottom: 1, 0, 3, 2.')],
+    completionMessage: text('تمت محاذاة طبقات الذاكرة.', 'Memory layers aligned.'),
+    image: { src: '/manhwa/final/page-056.webp', alt: text('صفحة مانهوا معتمدة للفصل الرابع.', 'Approved Chapter 4 Manhwa page.'), rows: 4, columns: 1, allowRotation: false },
   },
   {
     id: 'story_puzzle_17_contradictory_records', order: 17, chapterId: 'chapter_4', classification: 'main',
@@ -161,10 +161,10 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
   },
   {
     id: 'story_puzzle_18_emergency_reroute', order: 18, chapterId: 'chapter_4', classification: 'secret',
-    title: text('إعادة توجيه طارئة', 'Emergency Reroute'), objective: text('أعد توزيع الطاقة والبيانات قبل انهيار القناة.', 'Reroute power and data before the channel destabilizes.'),
-    mechanic: 'data-route', difficulty: 'final', source: { pageId: 'manhwa_ch04_page_06', globalPageNumber: 60, requiredCanonEventId: 'manhwa_chapter_04_lina_protocol' }, prerequisitePuzzleIds: ['story_puzzle_17_contradictory_records'], anomalyHostPuzzleId: 'story_puzzle_17_contradictory_records',
-    hints: [text('لا تستخدم المسار الأحمر المتقطع.', 'Do not use the broken red route.'), text('الطاقة تحتاج منعطفًا قبل البيانات.', 'Power needs a detour before data.'), text('المسار الآمن: P → B → D → T.', 'Safe route: P → B → D → T.')],
-    completionMessage: text('تمت إعادة التوجيه الطارئة.', 'Emergency reroute complete.'), options: options(['p', 'P', 'P'], ['a', 'A', 'A'], ['b', 'B', 'B'], ['d', 'D', 'D'], ['t', 'T', 'T']),
+    title: text('موازنة الحمل الطارئة', 'Emergency Load Balance'), objective: text('اجعل المجموع 100%، والطاقة أعلى بـ10% من قناتين متساويتين.', 'Reach 100% with power 10% above two equal channels.'),
+    mechanic: 'load-balancing', difficulty: 'final', source: { pageId: 'manhwa_ch04_page_06', globalPageNumber: 60, requiredCanonEventId: 'manhwa_chapter_04_lina_protocol' }, prerequisitePuzzleIds: ['story_puzzle_17_contradictory_records'], anomalyHostPuzzleId: 'story_puzzle_17_contradictory_records',
+    hints: [text('يجب أن يساوي مجموع القنوات 100%.', 'The three channels must total 100%.'), text('الطاقة تحمل النسبة الأعلى، والبيانات تساوي التبريد.', 'Power is highest; data equals cooling.'), text('التوزيع الآمن: طاقة 40، بيانات 30، تبريد 30.', 'Safe allocation: power 40, data 30, cooling 30.')],
+    completionMessage: text('استقر الحمل الطارئ.', 'Emergency load stabilized.'),
   },
   {
     id: 'story_puzzle_19_final_deduction', order: 19, chapterId: 'chapter_4', classification: 'main',

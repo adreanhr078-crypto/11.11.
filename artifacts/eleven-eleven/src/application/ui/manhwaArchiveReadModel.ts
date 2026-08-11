@@ -121,10 +121,6 @@ function getStatus(
   const unlockedPageIds = progressionState.manhwa.unlockedPageIds;
   if (
     unlockedPageIds.includes(page.id)
-    || page.pageKind === 'cover'
-    || page.pageKind === 'credits'
-    || page.pageKind === 'teaser'
-    || page.pageKind === 'back-cover'
   ) return 'unlocked';
   if (
     prerequisitePageId
@@ -189,8 +185,6 @@ export function createManhwaArchiveReadModel(
         ),
         shardCost,
         balanceAfterUnlock: Math.max(0, balance - shardCost),
-        // Book-matter pages are always readable, but only pages explicitly
-        // present in canonical progression should create a new-content badge.
         isNew: unlocked
           && unlockedPageIds.includes(page.id)
           && !viewedPageIds.has(page.id),

@@ -15,7 +15,14 @@
 .live-challenges__grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(14rem, 0.7fr); gap: 0.8rem; min-height: 0; }
 .live-challenges__main, .live-challenges__side { min-width: 0; }
 .live-challenges__instructions { color: var(--gds-text-secondary); line-height: 1.55; }
+.live-challenges__mechanic { display: inline-flex; inline-size: fit-content; padding: .2rem .38rem; border: 1px solid rgb(72 220 247 / 24%); color: var(--gds-cyan-400); background: rgb(72 220 247 / 6%); font: 700 .54rem var(--gds-font-mono); letter-spacing: .09em; }
 .live-challenges__prompt { display: grid; place-items: center; min-height: 6rem; margin: 0.8rem 0; border: 1px solid rgb(72 220 247 / 24%); background: radial-gradient(circle at center, rgb(72 220 247 / 12%), transparent 70%), rgb(0 3 8 / 70%); color: var(--gds-cyan-400); font: 800 clamp(1rem, 3vw, 1.8rem) var(--gds-font-mono); text-align: center; letter-spacing: 0.08em; }
+.live-challenges__prompt[data-mechanic="wiring"],
+.live-challenges__prompt[data-mechanic="routing"] { background: linear-gradient(90deg, transparent 49%, rgb(72 220 247 / 12%) 50%, transparent 51%), repeating-linear-gradient(0deg, rgb(72 220 247 / 4%) 0 1px, transparent 1px 18px), rgb(0 3 8 / 78%); }
+.live-challenges__prompt[data-mechanic="matrix"],
+.live-challenges__prompt[data-mechanic="checksum"] { background: repeating-linear-gradient(90deg, rgb(72 220 247 / 4%) 0 1px, transparent 1px 25%), repeating-linear-gradient(0deg, rgb(72 220 247 / 4%) 0 1px, transparent 1px 50%), rgb(0 3 8 / 78%); }
+.live-challenges__prompt[data-mechanic="pattern"],
+.live-challenges__prompt[data-mechanic="logic"] { color: #ffd7df; text-shadow: 0 0 1rem rgb(255 52 72 / 32%); background: radial-gradient(circle, rgb(255 52 72 / 10%), transparent 64%), rgb(0 3 8 / 78%); }
 .live-challenges__options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.45rem; }
 .live-challenges__options button { min-height: 2.8rem; border: 1px solid rgb(255 255 255 / 14%); background: rgb(255 255 255 / 4%); color: var(--gds-text-secondary); font: 700 0.7rem var(--gds-font-mono); cursor: pointer; }
 .live-challenges__options button[data-selected="true"] { border-color: var(--gds-red-400); background: rgb(255 52 72 / 15%); color: var(--gds-text-primary); box-shadow: 0 0 1rem rgb(255 52 72 / 18%); }

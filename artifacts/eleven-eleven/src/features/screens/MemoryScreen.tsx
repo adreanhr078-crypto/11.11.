@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -10,8 +11,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
+  LockKeyhole,
   Maximize2,
-  Play,
 } from 'lucide-react';
 import {
   FINAL_MANHWA_CHAPTERS,
@@ -23,6 +24,7 @@ import { useGameStore } from '../../stores/gameStore';
 import { usePlayerProgressionStore } from '../player-progression/playerProgressionStore';
 import { useAuthStore } from '../auth/authStore';
 import { useStoryPuzzleStore } from '../story-puzzles/storyPuzzleStore';
+import { useShellStore } from '../../app/shell/shellStore';
 import {
   GameButton,
   GlassPanel,
@@ -30,6 +32,10 @@ import {
 import { ManhwaFullscreenViewer } from '../manhwa/ManhwaFullscreenViewer';
 import './manhwa-archive.css';
 import { recordEchoPresenceActivity } from '../../application/ui/echoPresenceActivityStore';
+import {
+  deriveStoryPuzzleManhwaAccess,
+} from '../../domain/manhwa/storyPuzzleManhwaAccess';
+import { STORY_PUZZLE_BY_ID } from '../../content/puzzles/storyPuzzleCatalog';
 
 function pageKindLabel(pageKind: string): string {
   switch (pageKind) {
@@ -68,6 +74,44 @@ export default function MemoryScreen() {
   const refreshStoryPuzzles = useStoryPuzzleStore(
     (state) => state.actions.load,
   );
+  const storyPuzzleSnapshot = useStoryPuzzleStore((state) => state.snapshot);
+  const readerLaunchRequested = useShellStore(
+    (state) => state.manhwaReaderLaunchRequested,
+  );
+  const consumeReaderLaunch = useShellStore(
+    (state) => state.consumeManhwaReaderLaunch,
+  );
+  const manhwaAccess = useMemo(() => deriveStoryPuzzleManhwaAccess(
+    storyPuzzleSnapshot?.entries
+      .filter((entry) => entry.status === 'completed')
+      .map((entry) => entry.puzzleId) ?? [],
+  ), [storyPuzzleSnapshot]);
+  const accessiblePageIds = useMemo(
+    () => new Set(manhwaAccess.accessiblePageIds),
+    [manhwaAccess.accessiblePageIds],
+  );
+  const accessiblePages = useMemo(
+    () => FINAL_MANHWA_PAGES.filter((page) => accessiblePageIds.has(page.id)),
+    [accessiblePageIds],
+  );
+  const viewedPageIds = useMemo(
+    () => new Set(progressionState.manhwa.viewedPageIds),
+    [progressionState.manhwa.viewedPageIds],
+  );
+  const firstUnreadPage = accessiblePages.find((page) => !viewedPageIds.has(page.id));
+  const maxSequentialPage = firstUnreadPage?.globalPageNumber
+    ?? manhwaAccess.maxAccessibleGlobalPage;
+  const readerPages = useMemo(
+    () => accessiblePages.filter((page) => page.globalPageNumber <= maxSequentialPage),
+    [accessiblePages, maxSequentialPage],
+  );
+  const readerPageIds = useMemo(
+    () => new Set(readerPages.map((page) => page.id)),
+    [readerPages],
+  );
+  const nextGatePuzzle = manhwaAccess.nextGatePuzzleId
+    ? STORY_PUZZLE_BY_ID[manhwaAccess.nextGatePuzzleId]
+    : undefined;
   const savedPageNumber = progressionState.manhwa.lastReadGlobalPageNumber;
   const [activePageNumber, setActivePageNumber] = useState(
     savedPageNumber && FINAL_MANHWA_PAGE_BY_GLOBAL_NUMBER[savedPageNumber]
@@ -78,29 +122,55 @@ export default function MemoryScreen() {
   const [announcement, setAnnouncement] = useState('');
   const completionClaims = useRef(new Set<string>());
 
-  const activePage = FINAL_MANHWA_PAGE_BY_GLOBAL_NUMBER[activePageNumber]
-    ?? FINAL_MANHWA_PAGES[0]!;
+  const requestedActivePage = FINAL_MANHWA_PAGE_BY_GLOBAL_NUMBER[activePageNumber];
+  const activePage = requestedActivePage && readerPageIds.has(requestedActivePage.id)
+    ? requestedActivePage
+    : readerPages.at(-1) ?? FINAL_MANHWA_PAGES[0]!;
   const activeChapter = activePage && activePage.chapterId !== 'chapter_0'
     ? getFinalManhwaChapter(activePage.chapterId)
     : undefined;
   const continuePage = savedPageNumber
     ? FINAL_MANHWA_PAGE_BY_GLOBAL_NUMBER[savedPageNumber]
     : undefined;
-  const viewedPageIds = useMemo(
-    () => new Set(progressionState.manhwa.viewedPageIds),
-    [progressionState.manhwa.viewedPageIds],
-  );
-  const viewedCount = viewedPageIds.size;
+  const viewedCount = FINAL_MANHWA_PAGES.filter((page) => viewedPageIds.has(page.id)).length;
   const progressPercent = Math.floor(
     (viewedCount / FINAL_MANHWA_PAGES.length) * 100,
   );
 
+  useEffect(() => {
+    if (requestedActivePage && readerPageIds.has(requestedActivePage.id)) return;
+    setActivePageNumber(readerPages.at(-1)?.globalPageNumber ?? 1);
+    setViewerPageId(null);
+  }, [readerPageIds, readerPages, requestedActivePage]);
+
   const openViewer = useCallback((pageId: string) => {
     const page = FINAL_MANHWA_PAGES.find((candidate) => candidate.id === pageId);
-    if (!page) return;
+    if (!page || !readerPageIds.has(page.id)) return;
     setActivePageNumber(page.globalPageNumber);
     setViewerPageId(page.id);
+  }, [readerPageIds]);
+
+  const handleViewerRequestClose = useCallback(() => {
+    setViewerPageId(null);
   }, []);
+
+  useEffect(() => {
+    if (!readerLaunchRequested) return;
+    consumeReaderLaunch();
+    const pageToOpen = firstUnreadPage ?? activePage;
+    if (!pageToOpen || !readerPageIds.has(pageToOpen.id)) {
+      setAnnouncement('تعذر تحديد الصفحة التالية. حاول فتح القارئ مرة أخرى.');
+      return;
+    }
+    openViewer(pageToOpen.id);
+  }, [
+    activePage,
+    consumeReaderLaunch,
+    firstUnreadPage,
+    openViewer,
+    readerLaunchRequested,
+    readerPageIds,
+  ]);
 
   const handleImageLoaded = useCallback((pageId: string) => {
     const page = FINAL_MANHWA_PAGES.find((candidate) => candidate.id === pageId);
@@ -182,7 +252,9 @@ export default function MemoryScreen() {
 
   const jumpToPage = (globalPageNumber: number) => {
     const page = FINAL_MANHWA_PAGE_BY_GLOBAL_NUMBER[globalPageNumber];
-    if (page) setActivePageNumber(page.globalPageNumber);
+    if (page && readerPageIds.has(page.id)) {
+      setActivePageNumber(page.globalPageNumber);
+    }
   };
 
   return (
@@ -203,8 +275,24 @@ export default function MemoryScreen() {
             <strong>{progressPercent}%</strong>
             <small>التقدم الكلي</small>
           </span>
+          <span>
+            <strong>{accessiblePages.length}/71</strong>
+            <small>صفحات مكشوفة</small>
+          </span>
         </div>
       </header>
+
+      <section className="final-manhwa-reader__gate" aria-label="مسار كشف صفحات المانهوا">
+        <span><BookOpen aria-hidden="true" /> نافذة القراءة الحالية: الصفحة 01—{String(manhwaAccess.maxAccessibleGlobalPage).padStart(2, '0')}</span>
+        {nextGatePuzzle ? (
+          <p>
+            اقرأ الصفحات بالترتيب حتى الصفحة <strong>{nextGatePuzzle.source.globalPageNumber}</strong>،
+            ثم حل <strong>«{nextGatePuzzle.title.ar}»</strong> لكشف الدفعة التالية.
+          </p>
+        ) : (
+          <p><CheckCircle2 aria-hidden="true" /> اكتمل المسار الرئيسي وأصبحت النسخة كاملة متاحة للقراءة.</p>
+        )}
+      </section>
 
       <p className="gds-sr-only" role="status" aria-live="polite" aria-atomic="true">
         {announcement}
@@ -227,12 +315,16 @@ export default function MemoryScreen() {
               )).length;
               const chapterComplete = progressionState.manhwa.completedChapterIds
                 .includes(chapter.chapterId);
+              const chapterUnlocked = chapter.startPage <= manhwaAccess.maxAccessibleGlobalPage;
+              const chapterReadable = chapter.startPage <= maxSequentialPage;
               return (
                 <button
                   key={chapter.chapterId}
                   type="button"
                   className="final-manhwa-reader__chapter"
                   data-active={activeChapter?.chapterId === chapter.chapterId}
+                  data-locked={!chapterReadable}
+                  disabled={!chapterReadable}
                   onClick={() => jumpToPage(chapter.startPage)}
                 >
                   <span className="final-manhwa-reader__chapter-number">
@@ -240,14 +332,22 @@ export default function MemoryScreen() {
                   </span>
                   <span className="final-manhwa-reader__chapter-copy">
                     <strong>{chapter.title.ar}</strong>
-                    <small>{chapter.startPage}—{chapter.endPage} // {chapterViewed}/{chapterPages.length}</small>
+                    <small>
+                      {chapterReadable
+                        ? `${chapter.startPage}—${Math.min(chapter.endPage, manhwaAccess.maxAccessibleGlobalPage)} // ${chapterViewed}/${chapterPages.length}`
+                        : chapterUnlocked
+                          ? 'اقرأ الصفحة السابقة أولًا'
+                          : 'مقفل حتى إكمال لغز القصة السابق'}
+                    </small>
                   </span>
-                  {chapterComplete && <CheckCircle2 aria-label="مكتمل" />}
+                  {chapterReadable
+                    ? chapterComplete && <CheckCircle2 aria-label="مكتمل" />
+                    : <LockKeyhole aria-label="مقفل" />}
                 </button>
               );
             })}
           </div>
-          {continuePage && (
+          {continuePage && readerPageIds.has(continuePage.id) && (
             <GameButton
               variant="memory"
               leadingIcon={<Clock3 />}
@@ -299,7 +399,7 @@ export default function MemoryScreen() {
                 <GameButton
                   variant="ghost"
                   size="icon"
-                  disabled={activePage.globalPageNumber >= FINAL_MANHWA_PAGES.length}
+                  disabled={activePage.globalPageNumber >= maxSequentialPage}
                   onClick={() => jumpToPage(activePage.globalPageNumber + 1)}
                   aria-label="الصفحة التالية"
                 >
@@ -320,8 +420,15 @@ export default function MemoryScreen() {
               className="final-manhwa-reader__timeline-page"
               data-current={activePage.id === page.id}
               data-viewed={viewedPageIds.has(page.id)}
+              data-locked={!readerPageIds.has(page.id)}
+              data-story-gated={!accessiblePageIds.has(page.id)}
+              disabled={!readerPageIds.has(page.id)}
               onClick={() => jumpToPage(page.globalPageNumber)}
-              aria-label={`الصفحة ${page.globalPageNumber}`}
+              aria-label={readerPageIds.has(page.id)
+                ? `الصفحة ${page.globalPageNumber}`
+                : accessiblePageIds.has(page.id)
+                  ? `الصفحة ${page.globalPageNumber} تتطلب قراءة الصفحة السابقة`
+                  : `الصفحة ${page.globalPageNumber} تتطلب حل لغز القصة`}
             />
           ))}
         </div>
@@ -330,9 +437,9 @@ export default function MemoryScreen() {
 
       {viewerPageId && (
         <ManhwaFullscreenViewer
-          pages={FINAL_MANHWA_PAGES}
+          pages={readerPages}
           initialPageId={viewerPageId}
-          onRequestClose={() => setViewerPageId(null)}
+          onRequestClose={handleViewerRequestClose}
           onSuccessfulImageLoad={handleImageLoaded}
         />
       )}
@@ -340,7 +447,7 @@ export default function MemoryScreen() {
       <div className="final-manhwa-reader__preload" aria-hidden="true">
         {[activePage.globalPageNumber - 1, activePage.globalPageNumber + 1]
           .map((pageNumber) => FINAL_MANHWA_PAGE_BY_GLOBAL_NUMBER[pageNumber])
-          .filter(Boolean)
+          .filter((page) => page && readerPageIds.has(page.id))
           .map((page) => (
             <img key={page.id} src={page.imageSrc} alt="" loading="eager" />
           ))}

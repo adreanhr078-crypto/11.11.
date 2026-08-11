@@ -20,7 +20,10 @@ interface ShellState {
   previousScreen: GameScreenId | null;
   navigationCategory: NavigationCategoryId | null;
   pauseOpen: boolean;
+  manhwaReaderLaunchRequested: boolean;
   navigate: (screen: GameScreenId) => void;
+  requestManhwaReader: () => void;
+  consumeManhwaReaderLaunch: () => void;
   goBack: () => void;
   openNavigation: (category: NavigationCategoryId) => void;
   closeNavigation: () => void;
@@ -59,6 +62,7 @@ export const useShellStore = create<ShellState>((set, get) => ({
   previousScreen: null,
   navigationCategory: null,
   pauseOpen: false,
+  manhwaReaderLaunchRequested: false,
   navigate(screen) {
     const normalized = resolveFeatureGatedScreen(
       LEGACY_SCREEN_ALIASES[screen] ?? screen,
@@ -66,7 +70,11 @@ export const useShellStore = create<ShellState>((set, get) => ({
     const current = get().currentScreen;
     writeScreenLocation(normalized);
     if (normalized === current) {
-      set({ navigationCategory: null, pauseOpen: false });
+      set({
+        navigationCategory: null,
+        pauseOpen: false,
+        manhwaReaderLaunchRequested: false,
+      });
       return;
     }
     set({
@@ -74,8 +82,25 @@ export const useShellStore = create<ShellState>((set, get) => ({
       previousScreen: current,
       navigationCategory: null,
       pauseOpen: false,
+      manhwaReaderLaunchRequested: false,
     });
   },
+  requestManhwaReader() {
+    const current = get().currentScreen;
+    writeScreenLocation('memories');
+    set({
+      currentScreen: 'memories',
+      previousScreen: current === 'memories'
+        ? get().previousScreen
+        : current,
+      navigationCategory: null,
+      pauseOpen: false,
+      manhwaReaderLaunchRequested: true,
+    });
+  },
+  consumeManhwaReaderLaunch: () => set({
+    manhwaReaderLaunchRequested: false,
+  }),
   goBack() {
     const { previousScreen } = get();
     writeScreenLocation(previousScreen ?? 'psychological-state');
@@ -84,6 +109,7 @@ export const useShellStore = create<ShellState>((set, get) => ({
       previousScreen: null,
       navigationCategory: null,
       pauseOpen: false,
+      manhwaReaderLaunchRequested: false,
     });
   },
   openNavigation: (category) => set({ navigationCategory: category }),

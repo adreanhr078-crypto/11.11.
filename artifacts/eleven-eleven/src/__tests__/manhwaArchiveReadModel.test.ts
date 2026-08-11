@@ -8,7 +8,7 @@ import { FINAL_MANHWA_PAGE_BY_GLOBAL_NUMBER } from '../content/manhwa/finalManhw
 import { buildInitialState } from '../stores/gameStoreHelpers';
 
 describe('canonical final Manhwa Archive read model', () => {
-  it('exposes all 71 approved pages and the cover first', () => {
+  it('exposes the 71-page catalog but unlocks only the first clue window', () => {
     const model = createManhwaArchiveReadModel(buildInitialState().progressionState);
     const firstPage = model.pages[0];
 
@@ -17,14 +17,19 @@ describe('canonical final Manhwa Archive read model', () => {
     assert.equal(firstPage?.status, 'unlocked');
     assert.equal(firstPage?.unlockedContent?.thumbnailSrc, '/manhwa/final/page-001.webp');
     assert.equal(model.pages[1]?.unlockedContent?.thumbnailSrc, '/manhwa/final/page-002.webp');
-    assert.equal(model.unlockedPageCount, 71);
+    assert.equal(model.unlockedPageCount, 4);
+    assert.equal(model.pages[3]?.unlockedContent?.thumbnailSrc, '/manhwa/final/page-004.webp');
+    assert.equal(model.pages[4]?.unlockedContent, undefined);
   });
 
   it('keeps the final reader assets rooted in the approved publication', () => {
     const model = createManhwaArchiveReadModel(buildInitialState().progressionState);
-    assert.ok(model.pages.every((page) => (
+    const unlocked = model.pages.filter((page) => page.status === 'unlocked');
+    const locked = model.pages.filter((page) => page.status !== 'unlocked');
+    assert.ok(unlocked.every((page) => (
       page.unlockedContent?.thumbnailSrc.startsWith('/manhwa/final/page-')
     )));
+    assert.ok(locked.every((page) => page.unlockedContent === undefined));
     assert.equal(
       FINAL_MANHWA_PAGE_BY_GLOBAL_NUMBER[71]?.pageKind,
       'back-cover',

@@ -8,8 +8,10 @@
     "node": ">=22.12"
   },
   "scripts": {
-    "dev": "vite --config vite.config.ts --host 0.0.0.0",
-    "dev:api": "wrangler pages dev dist --port 8788",
+    "dev": "node ./tools/dev-full-stack.mjs",
+    "dev:web": "vite --config vite.config.ts --host 0.0.0.0 --strictPort",
+    "dev:api": "wrangler pages dev public --port 8788 --log-level warn --show-interactive-dev-session=false",
+    "dev:check": "node ./tools/dev-full-stack.mjs --check",
     "build": "vite build --config vite.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc --noEmit -p tsconfig.json --pretty false",

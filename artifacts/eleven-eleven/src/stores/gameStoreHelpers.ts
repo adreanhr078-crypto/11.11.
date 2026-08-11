@@ -29,12 +29,12 @@ import {
   CONTENT_MANIFEST,
 } from '../infrastructure/content/contentRegistry';
 import {
-  FINAL_MANHWA_PAGES,
-} from '../content/manhwa/finalManhwa';
-import {
   STORY_PUZZLE_COUNTS,
   STORY_PUZZLES,
 } from '../content/puzzles/storyPuzzleCatalog';
+import {
+  INITIAL_STORY_PUZZLE_MANHWA_ACCESS,
+} from '../domain/manhwa/storyPuzzleManhwaAccess';
 import {
   createInitialAchievementProgressState,
   createInitialGameProgressionState,
@@ -60,10 +60,9 @@ export function buildInitialState(): GameState {
   );
   const narrative = createInitialNarrativeState();
   const achievements = generateAllAchievements();
-  // The final publication is readable end-to-end. Chapter prerequisite data
-  // remains in the central manifest for a later product decision, but the
-  // current game build must not strand the newly approved chapters.
-  const initiallyUnlockedManhwaPageIds = FINAL_MANHWA_PAGES.map((page) => page.id);
+  const initiallyUnlockedManhwaPageIds = [
+    ...INITIAL_STORY_PUZZLE_MANHWA_ACCESS.accessiblePageIds,
+  ];
   const progressionState = createInitialGameProgressionState({
     journey: progression,
     narrative,

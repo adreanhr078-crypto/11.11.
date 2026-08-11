@@ -51,6 +51,9 @@ import {
   FINAL_MANHWA_PAGES,
 } from '../../content/manhwa/finalManhwa';
 import {
+  INITIAL_STORY_PUZZLE_MANHWA_ACCESS,
+} from '../../domain/manhwa/storyPuzzleManhwaAccess';
+import {
   createManhwaUnlockReceiptKey,
   getManhwaUnlockReceiptPageId,
 } from '../../core/manhwaArchiveTypes';
@@ -406,7 +409,7 @@ export function migrateGameState(
           ? canonicalManhwa.unlockedPageIds
           : persisted.unlockedManhwaPageIds,
       ).filter((pageId) => finalPageIds.has(pageId))
-    : FINAL_MANHWA_PAGES.map((page) => page.id);
+    : [...INITIAL_STORY_PUZZLE_MANHWA_ACCESS.accessiblePageIds];
   const integratedMemoryFragmentIds = normalizeCollectedFragmentIds(
     persisted.integratedMemoryFragmentIds,
   );

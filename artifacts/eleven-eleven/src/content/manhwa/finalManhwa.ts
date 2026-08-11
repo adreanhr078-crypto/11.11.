@@ -36,7 +36,7 @@ export interface FinalManhwaChapter {
  * or inferred sequence.
  */
 export const FINAL_MANHWA_PAGE_COUNT = 71;
-export const FINAL_MANHWA_MANIFEST_VERSION = 1;
+export const FINAL_MANHWA_MANIFEST_VERSION = 2;
 export const FINAL_MANHWA_ASSET_ROOT = '/manhwa/final';
 
 export const FINAL_MANHWA_XP_REWARDS: Readonly<Record<

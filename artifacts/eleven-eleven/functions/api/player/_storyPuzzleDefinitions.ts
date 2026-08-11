@@ -90,10 +90,12 @@ const rawSolutions: Readonly<Record<string, PuzzleSolution>> = Object.freeze({
     ],
   },
   story_puzzle_16_memory_reconstruction: {
-    imageOrder: imagePieces(12), rotations: zeroRotations(12),
+    rotations: { layer1: 1, layer2: 0, layer3: 3, layer4: 2 },
   },
   story_puzzle_17_contradictory_records: { tokens: ['r03'] },
-  story_puzzle_18_emergency_reroute: { tokens: ['p', 'b', 'd', 't'] },
+  story_puzzle_18_emergency_reroute: {
+    assignments: { power: '40', data: '30', cooling: '30' },
+  },
   story_puzzle_19_final_deduction: { tokens: ['1111', 'cam07', 'r01'] },
   story_puzzle_20_core_sequence: {
     stages: [

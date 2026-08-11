@@ -17,6 +17,9 @@ export type StoryPuzzleMechanic =
   | 'mirror-code'
   | 'visual-forensics'
   | 'matrix'
+  | 'breach-protocol'
+  | 'layer-alignment'
+  | 'load-balancing'
   | 'multi-stage'
   | 'contradiction'
   | 'deduction';
@@ -44,7 +47,10 @@ export interface StoryPuzzleImageSource {
 
 export interface StoryPuzzleStage {
   id: string;
-  mechanic: Exclude<StoryPuzzleMechanic, 'multi-stage'>;
+  mechanic: Exclude<
+    StoryPuzzleMechanic,
+    'multi-stage' | 'breach-protocol'
+  >;
   objective: StoryPuzzleText;
   options?: readonly StoryPuzzleOption[];
 }

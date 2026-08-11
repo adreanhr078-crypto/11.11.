@@ -5,10 +5,8 @@ import {
   LIVE_REWARD_CONFIG,
   LIVE_RESET_LABEL,
   LIVE_TIMEZONE,
-  LIVE_TEMPLATE_POOL,
-  chooseRotatingTemplate,
+  createLiveTemplateForSlot,
   isLiveAnswerCorrect,
-  stableHash,
   type LiveTemplate,
 } from '../../../src/domain/live-challenges/liveChallengeEngine';
 import type {
@@ -145,33 +143,22 @@ function solution(template: LiveTemplate): LiveSolution {
   return { answer: template.answer, hints: [...template.hints] };
 }
 
-function rawTemplateFor(seed: string): LiveTemplate {
-  return LIVE_TEMPLATE_POOL[stableHash(seed) % LIVE_TEMPLATE_POOL.length]!;
-}
-
-function dailyTemplateFor(periodKey: string): LiveTemplate {
-  const previousKey = shiftDate(periodKey, -1);
-  const previousPreviousKey = shiftDate(previousKey, -1);
-  const previousRaw = rawTemplateFor(`${LIVE_CHALLENGE_VERSION}:daily:${previousKey}`);
-  const previousPreviousRaw = rawTemplateFor(`${LIVE_CHALLENGE_VERSION}:daily:${previousPreviousKey}`);
-  const previous = previousRaw.mechanic === previousPreviousRaw.mechanic
-    ? chooseRotatingTemplate(`${LIVE_CHALLENGE_VERSION}:daily:${previousKey}`, previousPreviousRaw.mechanic)
-    : previousRaw;
-  return chooseRotatingTemplate(
+export function liveDailyTemplateFor(periodKey: string): LiveTemplate {
+  const daySlot = Math.floor(dateMs(periodKey) / DAY_MS);
+  return createLiveTemplateForSlot(
     `${LIVE_CHALLENGE_VERSION}:daily:${periodKey}`,
-    previous.mechanic,
+    daySlot,
   );
 }
 
-function weeklyTemplates(weekId: string): LiveTemplate[] {
-  const templates: LiveTemplate[] = [];
-  for (let index = 0; index < WEEKLY_STAGE_COUNT; index += 1) {
-    templates.push(chooseRotatingTemplate(
+export function liveWeeklyTemplatesFor(weekId: string): LiveTemplate[] {
+  const weekSlot = Math.floor(dateMs(weekId) / (DAY_MS * 7));
+  return Array.from({ length: WEEKLY_STAGE_COUNT }, (_, index) => (
+    createLiveTemplateForSlot(
       `${LIVE_CHALLENGE_VERSION}:weekly:${weekId}:${index}`,
-      templates.at(-1)?.mechanic,
-    ));
-  }
-  return templates;
+      (weekSlot * WEEKLY_STAGE_COUNT) + index,
+    )
+  ));
 }
 
 function parseJson<T>(value: string, fallback: T): T {
@@ -188,10 +175,10 @@ async function ensureDefinitions(
 ): Promise<{ daily: DefinitionRow; weekly: DefinitionRow; stages: DefinitionRow[]; periodKey: string; weekId: string }> {
   const periodKey = periodKeyFor(nowMs);
   const weekId = weekIdFor(periodKey);
-  const dailyTemplate = dailyTemplateFor(periodKey);
+  const dailyTemplate = liveDailyTemplateFor(periodKey);
   const dailyId = `${LIVE_CHALLENGE_VERSION}:daily:${periodKey}`;
   const dailyPublic = publicDefinition(dailyId, 'daily', periodKey, dailyTemplate);
-  const weeklyStageTemplates = weeklyTemplates(weekId);
+  const weeklyStageTemplates = liveWeeklyTemplatesFor(weekId);
   const weeklyId = `${LIVE_CHALLENGE_VERSION}:weekly:${weekId}`;
   const weeklyPublic: LiveChallengePublicDefinition & { stages: readonly LiveChallengePublicDefinition[] } = {
     id: weeklyId,

@@ -14,6 +14,7 @@ import {
   createManhwaViewerPlatformAdapter,
 } from '../infrastructure/browser/manhwaViewerPlatformAdapter';
 import { buildInitialState } from '../stores/gameStoreHelpers';
+import { useShellStore } from '../app/shell/shellStore';
 
 class FakeHistoryPort implements ManhwaViewerHistoryPort {
   readonly entries = [{
@@ -84,9 +85,9 @@ describe('Manhwa Viewer unlocked-page boundary', () => {
     const model = createManhwaArchiveReadModel(progression);
     const pages = getUnlockedManhwaViewerPages(model);
 
-    assert.equal(pages.length, 71);
+    assert.equal(pages.length, 4);
     assert.equal(pages[0]?.id, 'manhwa_ch00_page_01');
-    assert.equal(pages.at(-1)?.id, 'manhwa_ch00_page_04');
+    assert.equal(pages.at(-1)?.id, 'manhwa_ch01_page_02');
     const screen = readFileSync(
       resolve(
         process.cwd(),
@@ -97,7 +98,7 @@ describe('Manhwa Viewer unlocked-page boundary', () => {
       ),
       'utf8',
     );
-    assert.ok(screen.includes('pages={FINAL_MANHWA_PAGES}'));
+    assert.ok(screen.includes('pages={readerPages}'));
   });
 
   it('calls the canonical view callback only from image onLoad', () => {
@@ -137,6 +138,58 @@ describe('Manhwa Viewer unlocked-page boundary', () => {
     assert.ok(
       screen.includes('onSuccessfulImageLoad={handleImageLoaded}'),
     );
+  });
+
+  it('keeps the viewer session open when recording a page rerenders its parent', () => {
+    const source = viewerSource();
+    const screen = readFileSync(
+      resolve(
+        process.cwd(),
+        'src',
+        'features',
+        'screens',
+        'MemoryScreen.tsx',
+      ),
+      'utf8',
+    );
+
+    assert.ok(source.includes('const onRequestCloseRef = useRef(onRequestClose);'));
+    assert.ok(source.includes('onRequestCloseRef.current = onRequestClose;'));
+    assert.ok(source.includes('historyMarker.open(requestClose);'));
+    assert.ok(source.includes('[adapter, availableInitialPage, requestClose]'));
+    assert.ok(screen.includes('onRequestClose={handleViewerRequestClose}'));
+    assert.doesNotMatch(screen, /onRequestClose=\{\(\) => setViewerPageId/);
+  });
+
+  it('opens the reader directly when Story Puzzles requests Manhwa continuation', () => {
+    const puzzleScreen = readFileSync(
+      resolve(process.cwd(), 'src', 'features', 'screens', 'PuzzleScreen.tsx'),
+      'utf8',
+    );
+    const memoryScreen = readFileSync(
+      resolve(process.cwd(), 'src', 'features', 'screens', 'MemoryScreen.tsx'),
+      'utf8',
+    );
+
+    assert.ok(puzzleScreen.includes('onClick={requestManhwaReader}'));
+    assert.ok(memoryScreen.includes('if (!readerLaunchRequested) return;'));
+    assert.ok(memoryScreen.includes('const pageToOpen = firstUnreadPage ?? activePage;'));
+    assert.ok(memoryScreen.includes('openViewer(pageToOpen.id);'));
+
+    useShellStore.setState({
+      currentScreen: 'puzzles',
+      previousScreen: null,
+      manhwaReaderLaunchRequested: false,
+    });
+
+    useShellStore.getState().requestManhwaReader();
+
+    assert.equal(useShellStore.getState().currentScreen, 'memories');
+    assert.equal(useShellStore.getState().previousScreen, 'puzzles');
+    assert.equal(useShellStore.getState().manhwaReaderLaunchRequested, true);
+
+    useShellStore.getState().consumeManhwaReaderLaunch();
+    assert.equal(useShellStore.getState().manhwaReaderLaunchRequested, false);
   });
 
   it('exposes dialog, focus trap, Escape, and page keyboard controls', () => {
