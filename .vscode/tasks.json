@@ -3,8 +3,15 @@
   "tasks": [
     {
       "label": "Run development server",
-      "type": "npm",
-      "script": "div",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "$ports = @(8788, 8790); foreach ($port in $ports) { $connections = netstat -ano -p tcp | Select-String \"LISTENING\\s+$port\"; if ($connections) { $pid = ($connections -split '\\s+')[-1]; if ($pid -match '^\\d+$') { Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue } } }; npm run div"
+      ],
       "problemMatcher": [],
       "group": {
         "kind": "build",
