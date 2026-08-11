@@ -81,49 +81,38 @@ async function reserveUsername(
     );
   }
 
-  const previous = await db.prepare(`
-    SELECT normalized_username, user_id
-    FROM player_username_reservations
-    WHERE user_id = ?
-  `).bind(uid).first<UsernameReservationRow>();
-  if (previous?.normalized_username !== normalized) {
-    await db.prepare(`
-      DELETE FROM player_username_reservations
-      WHERE user_id = ?
-    `).bind(uid).run();
-  }
+  const now = new Date().toISOString();
   try {
-    await db.prepare(`
-      INSERT INTO player_username_reservations (
-        normalized_username,
-        user_id,
-        username,
-        created_at,
-        updated_at
-      ) VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT(user_id) DO UPDATE SET
-        normalized_username = excluded.normalized_username,
-        username = excluded.username,
-        updated_at = excluded.updated_at
-    `).bind(
-      normalized,
-      uid,
-      username,
-      createdAt,
-      new Date().toISOString(),
-    ).run();
-  } catch {
-    throw new PlayerApiError(
-      409,
-      'username_taken',
-      'This username is already in use.',
-    );
+    await db.batch([
+      db.prepare(`
+        INSERT INTO player_username_reservations (
+          normalized_username,
+          user_id,
+          username,
+          created_at,
+          updated_at
+        ) VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+          normalized_username = excluded.normalized_username,
+          username = excluded.username,
+          updated_at = excluded.updated_at
+      `).bind(normalized, uid, username, createdAt, now),
+      db.prepare(`
+        UPDATE player_progression
+        SET username = ?, updated_at = ?
+        WHERE user_id = ?
+      `).bind(username, now, uid),
+    ]);
+  } catch (error) {
+    if (error instanceof Error && /unique|constraint/i.test(error.message)) {
+      throw new PlayerApiError(
+        409,
+        'username_taken',
+        'This username is already in use.',
+      );
+    }
+    throw error;
   }
-  await db.prepare(`
-    UPDATE player_progression
-    SET username = ?, updated_at = ?
-    WHERE user_id = ?
-  `).bind(username, new Date().toISOString(), uid).run();
 }
 
 function validateUpdateBody(body: unknown): ProfileUpdateBody {
@@ -136,7 +125,7 @@ function validateUpdateBody(body: unknown): ProfileUpdateBody {
     throw new PlayerApiError(
       400,
       'profile_fields_forbidden',
-      'Only username, bio, and avatarId can be changed.',
+      'Only username, bio, avatarId, and verified achievements can be changed.',
     );
   }
   if (typeof input.username !== 'string') {

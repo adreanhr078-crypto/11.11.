@@ -8,7 +8,6 @@ import type { GameIconId } from '../../ui/icons';
 import type { NavigationCategoryId } from './navigationTypes';
 import {
   AWAKENING_WARD_ENABLED,
-  LEGACY_PUZZLE_ARCHIVE_ENABLED,
 } from '../config/featureFlags';
 
 export type ScreenNavigationPlacement =
@@ -130,16 +129,16 @@ export const GAME_SCREEN_DEFINITIONS = [
   },
   {
     id: 'puzzles',
-    label: 'إعادة بناء الذاكرة',
+    label: 'مركز الألغاز 11:11',
     shortLabel: 'الألغاز',
-    description: 'حل الألغاز لإعادة بناء الأحداث المفقودة.',
+    description: 'المسار القصصي وإشارة 11:11 اليومية واختبار النظام الأسبوعي.',
     code: '04',
     tone: 'memory',
     iconId: 'screen-puzzles',
     categoryId: 'puzzles',
-    navigation: LEGACY_PUZZLE_ARCHIVE_ENABLED ? 'landing' : 'hidden',
+    navigation: 'landing',
     component: lazy(() => import(
-      '../../features/screens/PuzzleScreen'
+      '../../features/puzzle-hub/PuzzleHubScreen'
     )),
   },
   {
@@ -214,14 +213,14 @@ export const GAME_SCREEN_DEFINITIONS = [
   },
   {
     id: 'progress',
-    label: 'تقدم الرحلة',
-    shortLabel: 'التقدم',
-    description: 'الإنجازات والقرارات والنهايات المؤهلة.',
+    label: 'مجموعة الاستعادة',
+    shortLabel: 'المجموعة',
+    description: 'الشظايا والأسرار والإنجازات وسجل استعادة النظام.',
     code: '08',
     tone: 'progression',
     iconId: 'screen-progress',
     categoryId: 'progress',
-    navigation: 'hidden',
+    navigation: 'secondary',
     component: lazy(() => import(
       '../../features/screens/ProgressScreen'
     )),

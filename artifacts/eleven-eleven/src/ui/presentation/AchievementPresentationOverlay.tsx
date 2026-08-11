@@ -1,18 +1,25 @@
 import { useEffect } from 'react';
 import { useStoryPuzzleStore } from '../../features/story-puzzles/storyPuzzleStore';
 import { useAchievementPresentationQueue } from '../../application/ui/achievementPresentationQueue';
+import { useUiPreferencesStore } from '../../app/shell/shellStore';
+import { playAchievementUnlockSound } from '../../infrastructure/audio/puzzleRewardAudio';
 
 export function AchievementPresentationOverlay() {
   const current = useAchievementPresentationQueue((state) => state.queue[0] ?? null);
   const dismiss = useAchievementPresentationQueue((state) => state.actions.dismiss);
   const rewardOpen = useStoryPuzzleStore((state) => state.latestReward !== null);
+  const audioEnabled = useUiPreferencesStore((state) => state.audioEnabled);
+  const sfxVolume = useUiPreferencesStore((state) => state.sfxVolume);
 
   useEffect(() => {
     if (!current || rewardOpen) return undefined;
+    if (audioEnabled) {
+      playAchievementUnlockSound(current.tier, sfxVolume);
+    }
     const duration = current.tier === 'system' ? 5200 : current.tier === 'rare' ? 3400 : 2200;
     const timer = window.setTimeout(dismiss, duration);
     return () => window.clearTimeout(timer);
-  }, [current, dismiss, rewardOpen]);
+  }, [audioEnabled, current, dismiss, rewardOpen, sfxVolume]);
 
   if (!current || rewardOpen) return null;
 
@@ -41,4 +48,3 @@ export function AchievementPresentationOverlay() {
     </div>
   );
 }
-

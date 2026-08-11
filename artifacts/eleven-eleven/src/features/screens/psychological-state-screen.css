@@ -242,6 +242,19 @@
   text-align: center;
 }
 
+.psychological-state__quick-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.psychological-state__quick-links .gds-button {
+  min-inline-size: 0;
+  min-block-size: 2.35rem;
+  padding-inline: 0.5rem;
+  font-size: var(--gds-type-2xs);
+}
+
 @keyframes psychological-camera {
   from { transform: scale(1.035) translate3d(-0.25%, 0, 0); }
   to { transform: scale(1.07) translate3d(0.4%, -0.3%, 0); }
@@ -277,16 +290,145 @@
 }
 
 @media (max-height: 35rem) and (orientation: landscape) {
+  .application-shell .psychological-state__reading {
+    inset-block-start: clamp(4.25rem, 18vh, 4.8rem);
+    max-height: calc(100% - clamp(4.6rem, 19vh, 5rem));
+    overflow: hidden;
+    transform: none;
+  }
+
+  .psychological-state__reading > .gds-panel__header {
+    min-block-size: 1.8rem;
+    padding: 0.25rem 0.65rem;
+  }
+
   .psychological-state__reading-title p {
     display: none;
   }
 
   .psychological-state__reading .gds-panel__body {
-    gap: 0.55rem;
+    gap: 0.38rem;
+    padding: 0.45rem 0.65rem;
+  }
+
+  .psychological-state__reading-title {
+    gap: 0.45rem;
+  }
+
+  .psychological-state__reading-title > svg {
+    width: 1.25rem;
+  }
+
+  .psychological-state__reading-title h2 {
+    font-size: 0.84rem;
+    line-height: 1.25;
+  }
+
+  .psychological-state__reading-title small {
+    margin-block-start: 0.14rem;
+    font-size: 0.52rem;
+  }
+
+  .psychological-state__start-game {
+    gap: 0.28rem;
+    padding-block-start: 0;
+  }
+
+  .psychological-state__start-game > .gds-button {
+    min-block-size: 2.15rem;
+    padding-block: 0.3rem;
   }
 
   .psychological-state__channels article {
-    padding-block: 0.24rem;
+    padding-block: 0.12rem;
+  }
+
+  .psychological-state__channels {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .psychological-state__channels article {
+    min-inline-size: 0;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.12rem;
+  }
+
+  .psychological-state__channels article > small {
+    display: none;
+  }
+
+  .psychological-state__channels .gds-stat-meter {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.12rem 0.35rem;
+  }
+
+  .psychological-state__channels .gds-stat-meter__label {
+    overflow: hidden;
+    font-size: 0.58rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .psychological-state__channels .gds-stat-meter__value {
+    min-inline-size: 2.4rem;
+    font-size: 0.58rem;
+  }
+
+  .psychological-state__channels .gds-progress {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .psychological-state__quick-links .gds-button {
+    min-block-size: 1.85rem;
+    padding-block: 0.22rem;
+  }
+
+  .psychological-state__start-game > small {
+    display: none;
+  }
+}
+
+@media (max-height: 25rem) and (orientation: landscape) {
+  .psychological-state__reading > .gds-panel__header {
+    min-block-size: 1.55rem;
+    padding-block: 0.12rem;
+  }
+
+  .psychological-state__reading .gds-panel__body {
+    gap: 0.24rem;
+    padding-block: 0.32rem;
+  }
+
+  .psychological-state__reading-title small {
+    display: none;
+  }
+
+  .psychological-state__start-game > .gds-button {
+    min-block-size: 1.9rem;
+    padding-block: 0.18rem;
+  }
+
+  .psychological-state__quick-links {
+    gap: 0.24rem;
+  }
+
+  .psychological-state__quick-links .gds-button {
+    min-block-size: 1.6rem;
+    padding-block: 0.12rem;
+    font-size: 0.5rem;
+  }
+
+  .psychological-state__channels {
+    gap: 0.12rem 0.24rem;
+  }
+
+  .psychological-state__channels article {
+    padding-block: 0;
+  }
+
+  .psychological-state__channels .gds-progress {
+    display: none;
   }
 }
 

@@ -30,3 +30,38 @@ Do not knowingly return fixable defects to the Owner.
 
 If runtime/browser evidence is genuinely unavailable, never fabricate PASS.
 Complete every verification possible and explicitly report the missing runtime evidence.
+
+# Mandatory 11.11 Player Experience Finish
+
+For every player-facing integration, visual pass, puzzle pass, or release task:
+
+- Prefer clear, evocative player-facing names over internal or legacy labels.
+  Rename navigation items and mode labels when evidence shows that the new name
+  makes the journey easier to understand without changing Canon.
+- The game must feel like one connected experience. Story, Manhwa, puzzles,
+  characters, progression, rewards, Daily, and Weekly may not feel like isolated
+  demos or hidden developer screens.
+- Every completed Story puzzle must produce a polished, accessible completion
+  moment using the existing authoritative reward receipt: visual feedback,
+  reward details, achievement feedback when earned, and a dedicated game sound
+  when sound is enabled. Never grant rewards or achievements from presentation
+  code, and never replay a server-owned reward from a duplicate request.
+- Sound, animation, and notifications must respect mute/volume, reduced-motion,
+  accessibility, and player control. Provide visual equivalents for audio cues.
+- Player-facing UI must be polished, cinematic, enjoyable, and unmistakably
+  consistent with the 11.11 visual language. Use strong purposeful animation
+  for entry, puzzle interaction, completion, rewards, achievements, and Echo
+  transformation moments. Avoid constant decorative motion that competes with
+  gameplay, and keep a complete Reduced Motion alternative.
+- Verify ambitious UI and animation work on target landscape viewports and
+  against performance evidence. Visual intensity never justifies clipped
+  controls, input delay, illegible RTL text, inaccessible focus, or oversized
+  blocking payloads.
+- Optimize for strong attachment to the characters, story curiosity, satisfying
+  mastery, and meaningful Daily/Weekly return. Do not use deceptive dark
+  patterns, fake urgency, punitive streak loss, spam notifications, or coercive
+  engagement mechanics.
+- Fix every known repository-local defect required to make the existing Part 1
+  experience cohesive, playable, attractive, and release-ready before reporting
+  completion. Add assets or content only when they close an evidenced release
+  gap and remain within approved Canon.

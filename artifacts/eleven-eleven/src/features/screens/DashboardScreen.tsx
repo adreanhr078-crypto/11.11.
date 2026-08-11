@@ -190,26 +190,26 @@ export default function DashboardScreen() {
           <GameButton
             variant="danger"
             fullWidth
-            onClick={() => navigate('live-challenges')}
+            onClick={() => navigate('puzzles')}
           >
             <GameIconLabel
               iconId="screen-puzzles"
-              label="NEW 11:11 SIGNAL"
+              label="PUZZLE HUB // 3 MODES"
               description={liveSnapshot
-                ? `${liveSnapshot.daily.status.replace('_', ' ').toUpperCase()} // WEEKLY ${liveSnapshot.weekly.completedStages}/${liveSnapshot.weekly.totalStages}`
-                : 'فتح قناة الإشارات اليومية والتجربة الأسبوعية'}
+                ? `DAILY ${liveSnapshot.daily.status.replace('_', ' ').toUpperCase()} // WEEKLY ${liveSnapshot.weekly.completedStages}/${liveSnapshot.weekly.totalStages}`
+                : 'القصة والإشارة اليومية واختبار النظام الأسبوعي'}
               compact
             />
           </GameButton>
           <GameButton
             variant="secondary"
             fullWidth
-            onClick={() => navigate('puzzles')}
+            onClick={() => navigate('characters')}
           >
             <GameIconLabel
-              iconId="screen-puzzles"
-              label="ابدأ اللغز التالي"
-              description="فتح مساحة إعادة البناء الحالية"
+              iconId="screen-characters"
+              label="ملفات الشخصيات"
+              description="راجع العلاقات والمعلومات التي كشفها مسار القصة"
               compact
             />
           </GameButton>

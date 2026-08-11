@@ -96,6 +96,36 @@ export default function PsychologicalStateScreen() {
           </span>
         </div>
 
+        <div className="psychological-state__start-game">
+          <GameButton
+            size="lg"
+            fullWidth
+            leadingIcon={<GameIcon id="screen-gameplay" />}
+            onClick={enterOpeningRoom}
+          >
+            {openingRoomEntered ? 'استكمال مسار الألغاز' : 'دخول مركز الألغاز'}
+          </GameButton>
+          <small>
+            ألغاز القصة، الإشارة اليومية، والاختبار الأسبوعي في وجهة واحدة
+          </small>
+          <div className="psychological-state__quick-links" aria-label="روابط القصة السريعة">
+            <GameButton
+              variant="ghost"
+              leadingIcon={<GameIcon id="screen-echo-mind" />}
+              onClick={() => navigate('echo-mind')}
+            >
+              Echo Mind
+            </GameButton>
+            <GameButton
+              variant="ghost"
+              leadingIcon={<GameIcon id="screen-characters" />}
+              onClick={() => navigate('characters')}
+            >
+              ملفات الشخصيات
+            </GameButton>
+          </div>
+        </div>
+
         <div
           className="psychological-state__channels"
           aria-label="قيم الحالة النفسية"
@@ -113,19 +143,6 @@ export default function PsychologicalStateScreen() {
           ))}
         </div>
 
-        <div className="psychological-state__start-game">
-          <GameButton
-            size="lg"
-            fullWidth
-            leadingIcon={<GameIcon id="screen-gameplay" />}
-            onClick={enterOpeningRoom}
-          >
-            {openingRoomEntered ? 'استكمال اللعبة' : 'ابدأ اللعبة'}
-          </GameButton>
-          <small>
-            منظور الشخص الثالث قريبًا
-          </small>
-        </div>
       </GlassPanel>
     </div>
   );

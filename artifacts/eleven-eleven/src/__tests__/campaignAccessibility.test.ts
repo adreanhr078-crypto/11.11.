@@ -55,6 +55,29 @@ describe('story puzzle interaction accessibility', () => {
     assert.ok(overlays.includes('event.key === \'Escape\''));
   });
 
+  it('keeps the signed-out Puzzle screen fallback stable across renders', () => {
+    const puzzleScreen = source('src/features/screens/PuzzleScreen.tsx');
+    assert.ok(puzzleScreen.includes('EMPTY_STORY_PUZZLE_ENTRIES'));
+    assert.ok(puzzleScreen.includes(
+      'snapshot?.entries ?? EMPTY_STORY_PUZZLE_ENTRIES',
+    ));
+    assert.equal(puzzleScreen.includes('snapshot?.entries ?? []'), false);
+  });
+
+  it('contains the cinematic shell without page or horizontal stage overflow', () => {
+    const foundation = source('src/ui/design-system/styles/foundation.css');
+    const shellStyles = source('src/app/shell/application-shell.css');
+    const presentationStyles = source(
+      'src/ui/presentation/premium-presentation.css',
+    );
+
+    assert.ok(foundation.includes('html,\nbody,\n#root'));
+    assert.ok(foundation.includes('overflow: hidden;'));
+    assert.ok(shellStyles.includes('overflow-x: hidden;'));
+    assert.ok(shellStyles.includes('overflow-y: auto;'));
+    assert.ok(presentationStyles.includes('overflow-x: clip;'));
+  });
+
   it('honors reduced motion for rewards, shards, and the manhwa viewer', () => {
     const puzzleStyles = source('src/features/screens/story-puzzle-experience.css');
     const memoryStyles = source(

@@ -159,6 +159,7 @@
 .premium-screen-transition {
   position: relative;
   isolation: isolate;
+  overflow-x: clip;
   animation: premium-scene-focus var(--gds-duration-slow) var(--gds-ease-enter) both;
 }
 

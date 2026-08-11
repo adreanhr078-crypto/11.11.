@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   liveDailyPeriodKeyFor,
   liveWeekIdFor,
+  parseLiveAction,
 } from '../../functions/api/player/_liveChallenges';
 
 describe('live challenge server windows', () => {
@@ -15,5 +16,24 @@ describe('live challenge server windows', () => {
     assert.equal(liveWeekIdFor('2026-08-10'), '2026-08-10');
     assert.equal(liveWeekIdFor('2026-08-16'), '2026-08-10');
     assert.equal(liveWeekIdFor('2026-08-17'), '2026-08-17');
+  });
+
+  it('rejects unknown actions and non-numeric hint indices at the boundary', async () => {
+    await assert.rejects(
+      () => parseLiveAction({ action: 'collect-client-reward' }),
+      (error: unknown) => (
+        error instanceof Error
+        && 'code' in error
+        && error.code === 'invalid_live_action'
+      ),
+    );
+    await assert.rejects(
+      () => parseLiveAction({ action: 'use-daily-hint', hintIndex: null }),
+      (error: unknown) => (
+        error instanceof Error
+        && 'code' in error
+        && error.code === 'invalid_hint'
+      ),
+    );
   });
 });

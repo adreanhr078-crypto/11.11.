@@ -1,17 +1,31 @@
 import { useEffect, useMemo, useState } from 'react';
+import { RadioTower } from 'lucide-react';
 import {
   GameButton,
   GameProgress,
   GlassPanel,
   HudPanel,
 } from '../../ui/design-system';
+import { useAuthStore } from '../auth/authStore';
 import { useLiveChallengeStore } from './liveChallengeStore';
+import {
+  LIVE_HINT_COSTS,
+} from '../../domain/live-challenges/liveChallengeEngine';
+
+interface LiveChallengesScreenProps {
+  mode?: 'daily' | 'weekly';
+  embedded?: boolean;
+}
 
 function statusLabel(status: string): string {
   return status.replace('_', ' ').toUpperCase();
 }
 
-export default function LiveChallengesScreen() {
+export default function LiveChallengesScreen({
+  mode,
+  embedded = false,
+}: LiveChallengesScreenProps = {}) {
+  const authStatus = useAuthStore((state) => state.status);
   const status = useLiveChallengeStore((state) => state.status);
   const snapshot = useLiveChallengeStore((state) => state.snapshot);
   const error = useLiveChallengeStore((state) => state.error);
@@ -21,10 +35,16 @@ export default function LiveChallengesScreen() {
   const [answer, setAnswer] = useState('');
   const [hint, setHint] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const activeTab = mode ?? tab;
 
   useEffect(() => {
-    if (status === 'idle') void actions.load();
-  }, [actions, status]);
+    if (authStatus === 'signed-in' && status === 'idle') void actions.load();
+  }, [actions, authStatus, status]);
+
+  useEffect(() => {
+    setAnswer('');
+    setHint(null);
+  }, [activeTab]);
 
   const daily = snapshot?.daily;
   const weekly = snapshot?.weekly;
@@ -40,13 +60,13 @@ export default function LiveChallengesScreen() {
 
   function selectAnswer(value: string): void {
     setAnswer(value);
-    if (tab === 'daily') void actions.saveDailyDraft(value);
+    if (activeTab === 'daily') void actions.saveDailyDraft(value);
     else void actions.saveWeeklyDraft(value);
   }
 
   async function submit(): Promise<void> {
     if (!answer) return;
-    if (tab === 'daily') {
+    if (activeTab === 'daily') {
       await run(async () => { await actions.completeDaily(answer); });
     } else if (currentStage) {
       await run(async () => {
@@ -54,6 +74,16 @@ export default function LiveChallengesScreen() {
       });
     }
     setAnswer('');
+  }
+
+  if (authStatus !== 'signed-in') {
+    return (
+      <section className="live-challenges__gate" role="status">
+        <RadioTower aria-hidden="true" />
+        <h2>قناة التحديات محمية</h2>
+        <p>سجّل الدخول لتثبيت نافذة الخادم وحفظ مكافآت Daily وWeekly دون تكرار.</p>
+      </section>
+    );
   }
 
   if (status === 'error' && !snapshot) {
@@ -70,26 +100,26 @@ export default function LiveChallengesScreen() {
   }
 
   return (
-    <div className="shell-screen live-challenges">
-      <header className="shell-screen-heading live-challenges__heading">
+    <div className={`shell-screen live-challenges${embedded ? ' live-challenges--embedded' : ''}`}>
+      {!embedded && <header className="shell-screen-heading live-challenges__heading">
         <span className="shell-screen-code">11:11</span>
         <span>
           <small>LIVE RECOVERY LOOP // {snapshot.timezone}</small>
           <h1>DAILY SIGNALS &amp; SYSTEM TRIALS</h1>
         </span>
         <span className="live-challenges__clock">RESET {snapshot.resetLabel}</span>
-      </header>
+      </header>}
 
-      <div className="live-challenges__tabs" role="tablist" aria-label="Live challenges">
-        <button type="button" role="tab" aria-selected={tab === 'daily'} onClick={() => { setTab('daily'); setAnswer(''); }}>
+      {!mode && <div className="live-challenges__tabs" role="tablist" aria-label="Live challenges">
+        <button type="button" role="tab" aria-selected={activeTab === 'daily'} onClick={() => setTab('daily')}>
           <small>DAILY 11:11 SIGNAL</small><strong>{statusLabel(daily?.status ?? 'available')}</strong>
         </button>
-        <button type="button" role="tab" aria-selected={tab === 'weekly'} onClick={() => { setTab('weekly'); setAnswer(''); }}>
+        <button type="button" role="tab" aria-selected={activeTab === 'weekly'} onClick={() => setTab('weekly')}>
           <small>WEEKLY SYSTEM TRIAL</small><strong>{statusLabel(weekly?.status ?? 'available')}</strong>
         </button>
-      </div>
+      </div>}
 
-      {tab === 'daily' && daily && (
+      {activeTab === 'daily' && daily && (
         <section className="live-challenges__grid" aria-label="Daily 11:11 Signal">
           <HudPanel className="live-challenges__main" tone="danger" eyebrow="NEW 11:11 SIGNAL" title={daily.challenge.title}>
             <p className="live-challenges__instructions">{daily.challenge.instructions}</p>
@@ -106,8 +136,8 @@ export default function LiveChallengesScreen() {
                 {daily.status === 'completed' ? 'SIGNAL COMPLETED' : 'STABILIZE SIGNAL'}
               </GameButton>
               {[0, 1, 2].map((index) => (
-                <GameButton key={index} variant="ghost" onClick={() => void run(async () => { setHint(await actions.useDailyHint(index)); })} disabled={busy || daily.hintsUsed > index || daily.status === 'completed'}>
-                  HINT {index + 1}
+                <GameButton key={index} variant="ghost" onClick={() => void run(async () => { setHint(await actions.useDailyHint(index)); })} disabled={busy || index > daily.hintsUsed || daily.status === 'completed'}>
+                  HINT {index + 1} · {LIVE_HINT_COSTS[index]} C
                 </GameButton>
               ))}
             </div>
@@ -125,12 +155,12 @@ export default function LiveChallengesScreen() {
         </section>
       )}
 
-      {tab === 'weekly' && weekly && (
+      {activeTab === 'weekly' && weekly && (
         <section className="live-challenges__grid" aria-label="Weekly System Trial">
           <HudPanel className="live-challenges__main" tone="progression" eyebrow="WEEKLY SYSTEM TRIAL" title={weekly.trial.title}>
             <p className="live-challenges__instructions">{weekly.trial.instructions}</p>
             <div className="live-challenges__stage-meter">
-              <strong>{weekly.completedStages} / {weekly.totalStages}</strong>
+              <strong dir="ltr">{weekly.completedStages} / {weekly.totalStages}</strong>
               <GameProgress value={(weekly.completedStages / weekly.totalStages) * 100} label="STAGES VERIFIED" tone="progression" />
             </div>
             {currentStage && weekly.status !== 'completed' ? (
@@ -144,8 +174,8 @@ export default function LiveChallengesScreen() {
                 </div>
                 <div className="live-challenges__actions">
                   {[0, 1, 2].map((index) => (
-                    <GameButton key={index} variant="ghost" onClick={() => void run(async () => { setHint(await actions.useWeeklyHint(index)); })} disabled={busy || weekly.hintsUsed > index}>
-                      HINT {index + 1}
+                    <GameButton key={index} variant="ghost" onClick={() => void run(async () => { setHint(await actions.useWeeklyHint(index)); })} disabled={busy || index > weekly.currentStageHintsUsed}>
+                      HINT {index + 1} · {LIVE_HINT_COSTS[index]} C
                     </GameButton>
                   ))}
                 </div>
@@ -154,7 +184,7 @@ export default function LiveChallengesScreen() {
             ) : <p className="live-challenges__complete">WEEKLY TRIAL COMPLETE // SYSTEM RECORD UPDATED</p>}
           </HudPanel>
           <GlassPanel className="live-challenges__side" tone="danger" title="WEEKLY RECOVERY">
-            <span className="live-challenges__status">{weekly.recoveryCompletedDays} / 7 SIGNAL DAYS</span>
+            <span className="live-challenges__status" dir="ltr">{weekly.recoveryCompletedDays} / 7 SIGNAL DAYS</span>
             <GameProgress value={(weekly.recoveryCompletedDays / 7) * 100} label="5 DAYS RECOVER THE WEEKLY REWARD" tone="danger" />
             <p>Missing a day does not reset this server-tracked recovery window.</p>
             <small>{weekly.recoveryRewardClaimed ? 'WEEKLY RECOVERY REWARD CLAIMED' : 'REWARD STATUS: PENDING'}</small>

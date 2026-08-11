@@ -53,6 +53,7 @@ interface WeeklyRow {
   completed_stages: number | string;
   draft_json: string;
   hints_used: number | string;
+  current_stage_hints_used?: number | string;
   score: number | string;
   started_at: string | null;
   completed_at: string | null;
@@ -397,7 +398,26 @@ export async function readLiveSnapshot(
   await ensureWeeklyProgress(db, account.uid, definitions.weekId, now);
   const [dailyResult, weeklyResult, recoveryResult, recoveryReward, dailyMastery, weeklyMastery] = await Promise.all([
     db.prepare(`SELECT challenge_id, period_key, status, draft_json, hints_used, perfect_solve, started_at, completed_at FROM live_player_daily_attempts WHERE user_id = ? AND challenge_id = ?`).bind(account.uid, definitions.daily.challenge_id).first<DailyAttemptRow>(),
-    db.prepare(`SELECT week_id, status, current_stage, completed_stages, draft_json, hints_used, score, started_at, completed_at FROM live_player_weekly_progress WHERE user_id = ? AND week_id = ?`).bind(account.uid, definitions.weekId).first<WeeklyRow>(),
+    db.prepare(`
+      SELECT
+        progress.week_id,
+        progress.status,
+        progress.current_stage,
+        progress.completed_stages,
+        progress.draft_json,
+        progress.hints_used,
+        progress.score,
+        progress.started_at,
+        progress.completed_at,
+        (
+          SELECT COUNT(*)
+          FROM live_challenge_hint_events AS hint
+          WHERE hint.user_id = progress.user_id
+            AND hint.challenge_id = ? || ':stage:' || progress.current_stage
+        ) AS current_stage_hints_used
+      FROM live_player_weekly_progress AS progress
+      WHERE progress.user_id = ? AND progress.week_id = ?
+    `).bind(definitions.weekly.challenge_id, account.uid, definitions.weekId).first<WeeklyRow>(),
     db.prepare(`SELECT COUNT(*) AS total FROM live_player_daily_attempts WHERE user_id = ? AND period_key >= ? AND period_key < ? AND status = 'completed'`).bind(account.uid, definitions.weekId, shiftDate(definitions.weekId, 7)).first<CountRow>(),
     db.prepare(`SELECT reward_key FROM live_challenge_reward_events WHERE user_id = ? AND reward_key = ?`).bind(account.uid, `weekly-recovery:${definitions.weekId}:v1`).first<{ reward_key: string }>(),
     db.prepare(`SELECT COUNT(*) AS total FROM live_player_daily_attempts WHERE user_id = ? AND status = 'completed'`).bind(account.uid).first<CountRow>(),
@@ -431,6 +451,7 @@ export async function readLiveSnapshot(
       completedStages: integer(weeklyRow?.completed_stages),
       totalStages: WEEKLY_STAGE_COUNT,
       hintsUsed: integer(weeklyRow?.hints_used),
+      currentStageHintsUsed: integer(weeklyRow?.current_stage_hints_used),
       score: integer(weeklyRow?.score),
       completedAt: weeklyRow?.completed_at ?? null,
       recoveryCompletedDays: recoveryDays,
@@ -465,13 +486,18 @@ export async function saveDailyDraft(db: PlayerDatabase, account: FirebaseAccoun
   return readLiveSnapshot(db, account);
 }
 
-export async function useDailyHint(db: PlayerDatabase, account: FirebaseAccount, hintIndex: number): Promise<{ alreadyUnlocked: boolean; hint: string; live: LiveChallengesSnapshot }> {
+export async function useDailyHint(db: PlayerDatabase, account: FirebaseAccount, hintValue: unknown): Promise<{ alreadyUnlocked: boolean; hint: string; live: LiveChallengesSnapshot }> {
+  const hintIndex = typeof hintValue === 'number' ? hintValue : -1;
   if (!Number.isInteger(hintIndex) || hintIndex < 0 || hintIndex > 2) throw new PlayerApiError(400, 'invalid_hint', 'Hint index is invalid.');
   await ensurePlayerProgressionRow(db, account);
   const definitions = await ensureDefinitions(db, Date.now());
   await ensureDailyAttempt(db, account.uid, definitions.daily, new Date().toISOString());
+  const attempt = await db.prepare(`SELECT status FROM live_player_daily_attempts WHERE user_id = ? AND challenge_id = ?`).bind(account.uid, definitions.daily.challenge_id).first<Pick<DailyAttemptRow, 'status'>>();
+  if (attempt?.status === 'completed') throw new PlayerApiError(409, 'daily_complete', 'The daily signal is already complete.');
   const existing = await db.prepare(`SELECT hint_index FROM live_challenge_hint_events WHERE user_id = ? AND challenge_id = ? AND hint_index = ?`).bind(account.uid, definitions.daily.challenge_id, hintIndex).first<{ hint_index: number }>();
   if (!existing) {
+    const priorHints = await db.prepare(`SELECT COUNT(*) AS total FROM live_challenge_hint_events WHERE user_id = ? AND challenge_id = ? AND hint_index < ?`).bind(account.uid, definitions.daily.challenge_id, hintIndex).first<CountRow>();
+    if (integer(priorHints?.total) !== hintIndex) throw new PlayerApiError(409, 'hint_sequence_locked', 'Unlock the previous hint first.');
     const now = new Date().toISOString();
     try {
       await db.batch([
@@ -480,6 +506,8 @@ export async function useDailyHint(db: PlayerDatabase, account: FirebaseAccount,
       ]);
     } catch (error) {
       if (error instanceof Error && /insufficient verified coins/i.test(error.message)) throw new PlayerApiError(409, 'insufficient_coins', 'Verified coins are required for this hint.');
+      if (error instanceof Error && /previous live hint required/i.test(error.message)) throw new PlayerApiError(409, 'hint_sequence_locked', 'Unlock the previous hint first.');
+      if (error instanceof Error && /live challenge already complete/i.test(error.message)) throw new PlayerApiError(409, 'daily_complete', 'The daily signal is already complete.');
       throw error;
     }
   }
@@ -526,7 +554,8 @@ export async function saveWeeklyDraft(db: PlayerDatabase, account: FirebaseAccou
   return readLiveSnapshot(db, account);
 }
 
-export async function useWeeklyHint(db: PlayerDatabase, account: FirebaseAccount, hintIndex: number): Promise<{ alreadyUnlocked: boolean; hint: string; live: LiveChallengesSnapshot }> {
+export async function useWeeklyHint(db: PlayerDatabase, account: FirebaseAccount, hintValue: unknown): Promise<{ alreadyUnlocked: boolean; hint: string; live: LiveChallengesSnapshot }> {
+  const hintIndex = typeof hintValue === 'number' ? hintValue : -1;
   if (!Number.isInteger(hintIndex) || hintIndex < 0 || hintIndex > 2) throw new PlayerApiError(400, 'invalid_hint', 'Hint index is invalid.');
   await ensurePlayerProgressionRow(db, account);
   const definitions = await ensureDefinitions(db, Date.now());
@@ -537,6 +566,8 @@ export async function useWeeklyHint(db: PlayerDatabase, account: FirebaseAccount
   if (!stage) throw new PlayerApiError(409, 'weekly_stage_locked', 'The weekly stage is not available.');
   const existing = await db.prepare(`SELECT hint_index FROM live_challenge_hint_events WHERE user_id = ? AND challenge_id = ? AND hint_index = ?`).bind(account.uid, stage.challenge_id, hintIndex).first<{ hint_index: number }>();
   if (!existing) {
+    const priorHints = await db.prepare(`SELECT COUNT(*) AS total FROM live_challenge_hint_events WHERE user_id = ? AND challenge_id = ? AND hint_index < ?`).bind(account.uid, stage.challenge_id, hintIndex).first<CountRow>();
+    if (integer(priorHints?.total) !== hintIndex) throw new PlayerApiError(409, 'hint_sequence_locked', 'Unlock the previous hint first.');
     const now = new Date().toISOString();
     try {
       await db.batch([
@@ -545,6 +576,8 @@ export async function useWeeklyHint(db: PlayerDatabase, account: FirebaseAccount
       ]);
     } catch (error) {
       if (error instanceof Error && /insufficient verified coins/i.test(error.message)) throw new PlayerApiError(409, 'insufficient_coins', 'Verified coins are required for this hint.');
+      if (error instanceof Error && /previous live hint required/i.test(error.message)) throw new PlayerApiError(409, 'hint_sequence_locked', 'Unlock the previous hint first.');
+      if (error instanceof Error && /live challenge already complete/i.test(error.message)) throw new PlayerApiError(409, 'weekly_complete', 'The weekly trial is already complete.');
       throw error;
     }
   }
@@ -602,6 +635,28 @@ export async function parseLiveAction(value: unknown): Promise<{
   if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new PlayerApiError(400, 'invalid_live_action', 'Live action is invalid.');
   const input = value as Record<string, unknown>;
   if (typeof input.action !== 'string' || !/^[a-z-]{3,40}$/.test(input.action)) throw new PlayerApiError(400, 'invalid_live_action', 'Live action is invalid.');
+  const knownActions = new Set([
+    'start-daily',
+    'save-daily',
+    'use-daily-hint',
+    'complete-daily',
+    'start-weekly',
+    'save-weekly',
+    'use-weekly-hint',
+    'complete-weekly-stage',
+  ]);
+  if (!knownActions.has(input.action)) throw new PlayerApiError(400, 'invalid_live_action', 'Live action is invalid.');
+  if (
+    (input.action === 'use-daily-hint' || input.action === 'use-weekly-hint')
+    && (
+      typeof input.hintIndex !== 'number'
+      || !Number.isInteger(input.hintIndex)
+      || input.hintIndex < 0
+      || input.hintIndex > 2
+    )
+  ) {
+    throw new PlayerApiError(400, 'invalid_hint', 'Hint index is invalid.');
+  }
   const allowed = new Set(['action', 'draft', 'answer', 'stageIndex', 'hintIndex']);
   if (Object.keys(input).some((key) => !allowed.has(key))) throw new PlayerApiError(400, 'client_reward_forbidden', 'Live rewards are assigned only by the server.');
   return { action: input.action, draft: input.draft, answer: input.answer, stageIndex: input.stageIndex, hintIndex: input.hintIndex };

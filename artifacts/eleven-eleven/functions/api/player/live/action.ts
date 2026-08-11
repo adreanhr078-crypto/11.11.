@@ -4,6 +4,7 @@ import {
   errorResponse,
   jsonResponse,
   optionsResponse,
+  PlayerApiError,
   readJsonBody,
   type PlayerApiContext,
 } from '../_shared';
@@ -12,7 +13,6 @@ import {
   completeDaily,
   completeWeeklyStage,
   parseLiveAction,
-  readLiveSnapshot,
   saveDailyDraft,
   saveWeeklyDraft,
   startDaily,
@@ -43,7 +43,7 @@ export async function onRequestPost({ request, env }: PlayerApiContext): Promise
       case 'save-daily':
         return jsonResponse({ live: await saveDailyDraft(database, account, body.draft) }, 200, headers);
       case 'use-daily-hint':
-        return jsonResponse(await useDailyHint(database, account, Number(body.hintIndex)), 200, headers);
+        return jsonResponse(await useDailyHint(database, account, body.hintIndex), 200, headers);
       case 'complete-daily':
         return jsonResponse({ receipt: await completeDaily(database, account, body.answer) }, 200, headers);
       case 'start-weekly':
@@ -51,11 +51,11 @@ export async function onRequestPost({ request, env }: PlayerApiContext): Promise
       case 'save-weekly':
         return jsonResponse({ live: await saveWeeklyDraft(database, account, body.draft) }, 200, headers);
       case 'use-weekly-hint':
-        return jsonResponse(await useWeeklyHint(database, account, Number(body.hintIndex)), 200, headers);
+        return jsonResponse(await useWeeklyHint(database, account, body.hintIndex), 200, headers);
       case 'complete-weekly-stage':
         return jsonResponse({ receipt: await completeWeeklyStage(database, account, body.stageIndex, body.answer) }, 200, headers);
       default:
-        return jsonResponse({ live: await readLiveSnapshot(database, account) }, 200, headers);
+        throw new PlayerApiError(400, 'invalid_live_action', 'Live action is invalid.');
     }
   } catch (error) {
     return errorResponse(error, headers);

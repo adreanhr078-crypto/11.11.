@@ -1,6 +1,9 @@
 import type {
   EchoMindVoicePort,
 } from '../../application/echo/echoMindVoicePort';
+import {
+  getCurrentAuthToken,
+} from '../../features/auth/authService';
 
 interface SpeechRecognitionResultLike {
   isFinal: boolean;
@@ -170,11 +173,14 @@ function getTranscriptionEndpoint(): string {
 }
 
 async function requestAiTranscript(blob: Blob, locale: 'ar' | 'en'): Promise<string> {
+  const token = await getCurrentAuthToken();
+  if (!token) throw new Error('VOICE_TRANSCRIPTION_UNAVAILABLE');
   const response = await fetch(
     `${getTranscriptionEndpoint()}?locale=${encodeURIComponent(locale)}`,
     {
       method: 'POST',
       headers: {
+        Authorization: `Bearer ${token}`,
         'Content-Type': blob.type || 'audio/wav',
       },
       body: blob,

@@ -77,6 +77,11 @@ class FakeProfileDatabase implements PlayerDatabase {
       const [normalized, userId, username] = statement.values.map(String);
       const owner = this.reservations.get(normalized);
       if (owner && owner.userId !== userId) throw new Error('unique username');
+      for (const [key, reservation] of this.reservations) {
+        if (reservation.userId === userId && key !== normalized) {
+          this.reservations.delete(key);
+        }
+      }
       this.reservations.set(normalized, { normalized, userId, username });
       return { success: true, meta: { changes: 1 } };
     }
@@ -303,5 +308,40 @@ describe('player profile gateway', () => {
     assert.equal(second.status, 409);
     assert.equal((await second.json() as { code: string }).code, 'username_taken');
     assert.equal(database.reservations.get('shared name')?.userId, 'profile-one');
+  });
+
+  it('atomically replaces a player username without leaving a stale reservation', async () => {
+    const database = new FakeProfileDatabase();
+    globalThis.fetch = async (input, init) => {
+      if (String(input).includes('accounts:lookup')) {
+        return Response.json({
+          users: [{
+            localId: 'profile-player',
+            providerUserInfo: [{ providerId: 'password' }],
+            createdAt: '1700000000000',
+            lastLoginAt: '1700000100000',
+          }],
+        });
+      }
+      if (init?.method === 'PATCH') {
+        return Response.json({ updateTime: '2026-08-08T12:00:00.000Z' });
+      }
+      return Response.json({}, { status: 404 });
+    };
+
+    for (const username of ['Old Signal', 'New Signal']) {
+      const response = await putProfile({
+        request: request('/api/player/profile', {
+          method: 'PUT',
+          body: JSON.stringify({ username, bio: '', avatarId: 'echo' }),
+        }),
+        env: env(database),
+      });
+      assert.equal(response.status, 200);
+    }
+
+    assert.equal(database.reservations.has('old signal'), false);
+    assert.equal(database.reservations.get('new signal')?.userId, 'profile-player');
+    assert.equal(database.reservations.size, 1);
   });
 });

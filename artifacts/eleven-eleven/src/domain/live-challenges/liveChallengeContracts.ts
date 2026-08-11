@@ -42,6 +42,7 @@ export interface LiveWeeklySnapshot {
   completedStages: number;
   totalStages: number;
   hintsUsed: number;
+  currentStageHintsUsed: number;
   score: number;
   completedAt: string | null;
   recoveryCompletedDays: number;

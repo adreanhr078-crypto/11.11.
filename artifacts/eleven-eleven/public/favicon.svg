@@ -1,3 +1,34 @@
 <svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="180" height="180" rx="36" fill="#FF3C00"/>
+  <defs>
+    <linearGradient id="void" x1="22" y1="14" x2="157" y2="166" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#101927" />
+      <stop offset="0.54" stop-color="#05070C" />
+      <stop offset="1" stop-color="#020306" />
+    </linearGradient>
+    <linearGradient id="signal" x1="40" y1="42" x2="140" y2="138" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#57E7FF" />
+      <stop offset="0.48" stop-color="#F5F7FB" />
+      <stop offset="1" stop-color="#FF4655" />
+    </linearGradient>
+    <filter id="glow" x="-35%" y="-35%" width="170%" height="170%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+  <rect x="4" y="4" width="172" height="172" rx="38" fill="url(#void)" stroke="#253447" stroke-width="8" />
+  <path d="M90 25L155 90L90 155L25 90L90 25Z" stroke="url(#signal)" stroke-width="4" opacity="0.82" filter="url(#glow)" />
+  <path d="M90 43L137 90L90 137L43 90L90 43Z" fill="#050A11" stroke="#FF4655" stroke-width="3" />
+  <g stroke="url(#signal)" stroke-width="7" stroke-linecap="round">
+    <path d="M60 65V115" />
+    <path d="M76 65V115" />
+    <path d="M104 65V115" />
+    <path d="M120 65V115" />
+  </g>
+  <g fill="#F5F7FB">
+    <circle cx="90" cy="79" r="3.5" />
+    <circle cx="90" cy="101" r="3.5" />
+  </g>
 </svg>

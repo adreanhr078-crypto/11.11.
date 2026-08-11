@@ -377,11 +377,13 @@
 .story-puzzle-loading { position: fixed; z-index: 6; inset: auto 1.2rem 1rem auto; padding: .55rem .75rem; border: 1px solid rgb(57 230 255 / 42%); color: var(--story-cyan); background: rgb(1 9 13 / 92%); font: 700 .58rem var(--gds-font-mono, monospace); letter-spacing: .08em; }
 .story-puzzle-gate { display: grid; place-items: center; align-content: center; gap: .65rem; min-block-size: 64dvh; padding: 1.25rem; color: #c7d7df; text-align: center; background: radial-gradient(circle, rgb(57 230 255 / 8%), transparent 28rem), #020609; }.story-puzzle-gate svg { inline-size: 2.6rem; block-size: 2.6rem; color: var(--story-red); }.story-puzzle-gate h1 { margin: 0; color: #f3fbff; }.story-puzzle-gate p { max-inline-size: 35rem; margin: 0; line-height: 1.8; }
 
-.story-reward-moment { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 1rem; background: radial-gradient(circle, rgb(57 230 255 / 15%), transparent 33rem), rgb(0 2 5 / 84%); backdrop-filter: blur(.55rem); }.story-reward-moment > section { position: relative; inline-size: min(100%, 30rem); padding: 1.5rem; overflow: hidden; border: 1px solid rgb(57 230 255 / 64%); color: #e8faff; background: linear-gradient(145deg, rgb(57 230 255 / 13%), transparent 38%), #050e15; text-align: center; box-shadow: 0 0 3rem rgb(57 230 255 / 16%); clip-path: polygon(1.2rem 0, 100% 0, 100% calc(100% - 1.2rem), calc(100% - 1.2rem) 100%, 0 100%, 0 1.2rem); }.story-reward-moment small { color: var(--story-cyan); font: 700 .59rem var(--gds-font-mono, monospace); letter-spacing: .1em; }.story-reward-moment h2 { margin: .55rem 0 .25rem; font-size: 1.55rem; }.story-reward-moment p { margin: 0; color: #adc4cf; }.story-reward-moment dl { display: grid; grid-template-columns: repeat(3, 1fr); gap: .4rem; margin: 1rem 0; }.story-reward-moment dl div { padding: .5rem; border: 1px solid rgb(57 230 255 / 18%); }.story-reward-moment dt { color: #8ca4af; font: 700 .55rem var(--gds-font-mono, monospace); }.story-reward-moment dd { margin: .22rem 0 0; color: var(--story-cyan); font: 800 .78rem var(--gds-font-mono, monospace); }.story-reward-moment__perfect { display: block; margin-block-end: .8rem; color: #ffcc68; font: 700 .64rem var(--gds-font-mono, monospace); }.story-reward-moment__shard { position: absolute; display: grid; place-items: center; inline-size: 5.5rem; block-size: 5.5rem; border: 1px solid var(--story-cyan); border-radius: 50%; color: var(--story-cyan); background: rgb(57 230 255 / 9%); box-shadow: 0 0 2rem rgb(57 230 255 / 42%); animation: story-shard 1.5s ease-in-out infinite alternate; }.story-reward-moment__shard svg { inline-size: 2.3rem; block-size: 2.3rem; }
+.story-reward-moment { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 1rem; background: radial-gradient(circle, rgb(57 230 255 / 15%), transparent 33rem), rgb(0 2 5 / 84%); backdrop-filter: blur(.55rem); animation: story-reward-backdrop .32s ease-out both; }.story-reward-moment > section { position: relative; inline-size: min(100%, 30rem); padding: 1.5rem; overflow: hidden; border: 1px solid rgb(57 230 255 / 64%); color: #e8faff; background: linear-gradient(145deg, rgb(57 230 255 / 13%), transparent 38%), #050e15; text-align: center; box-shadow: 0 0 3rem rgb(57 230 255 / 16%); clip-path: polygon(1.2rem 0, 100% 0, 100% calc(100% - 1.2rem), calc(100% - 1.2rem) 100%, 0 100%, 0 1.2rem); animation: story-reward-panel .54s cubic-bezier(.16,.86,.24,1.12) both; }.story-reward-moment small { color: var(--story-cyan); font: 700 .59rem var(--gds-font-mono, monospace); letter-spacing: .1em; }.story-reward-moment h2 { margin: .55rem 0 .25rem; font-size: 1.55rem; }.story-reward-moment p { margin: 0; color: #adc4cf; }.story-reward-moment dl { display: grid; grid-template-columns: repeat(3, 1fr); gap: .4rem; margin: 1rem 0; }.story-reward-moment dl div { padding: .5rem; border: 1px solid rgb(57 230 255 / 18%); }.story-reward-moment dt { color: #8ca4af; font: 700 .55rem var(--gds-font-mono, monospace); }.story-reward-moment dd { margin: .22rem 0 0; color: var(--story-cyan); font: 800 .78rem var(--gds-font-mono, monospace); }.story-reward-moment__perfect { display: block; margin-block-end: .8rem; color: #ffcc68; font: 700 .64rem var(--gds-font-mono, monospace); }.story-reward-moment__shard { position: absolute; display: grid; place-items: center; inline-size: 5.5rem; block-size: 5.5rem; border: 1px solid var(--story-cyan); border-radius: 50%; color: var(--story-cyan); background: rgb(57 230 255 / 9%); box-shadow: 0 0 2rem rgb(57 230 255 / 42%); animation: story-shard 1.5s ease-in-out infinite alternate; }.story-reward-moment__shard svg { inline-size: 2.3rem; block-size: 2.3rem; }
 
 @keyframes story-scan { from { transform: translateY(-90%); } to { transform: translateY(90%); } }
 @keyframes story-anomaly { 0%, 100% { opacity: .55; transform: translateX(0); } 48% { opacity: 1; transform: translateX(-.16rem); } 52% { transform: translateX(.14rem); } }
 @keyframes story-shard { from { transform: translateY(-8.3rem) rotate(-8deg) scale(.92); } to { transform: translateY(-9.1rem) rotate(9deg) scale(1.05); } }
+@keyframes story-reward-backdrop { from { opacity: 0; backdrop-filter: blur(0); } }
+@keyframes story-reward-panel { from { opacity: 0; transform: translateY(1rem) scale(.88); filter: brightness(1.8) blur(.18rem); } }
 
 @media (max-width: 68rem) {
   .story-puzzle-workspace { grid-template-columns: minmax(0, 1fr) 12rem; }
@@ -404,6 +406,8 @@
 @media (prefers-reduced-motion: reduce) {
   .story-forensics-board__record > svg,
   .story-puzzle-anomaly,
+  .story-reward-moment,
+  .story-reward-moment > section,
   .story-reward-moment__shard { animation: none !important; }
   .story-puzzle-index > button,
   .story-puzzle-console__actions button { transition: none !important; }
@@ -411,4 +415,6 @@
 
 [data-gds-motion="reduced"] .story-forensics-board__record > svg,
 [data-gds-motion="reduced"] .story-puzzle-anomaly,
+[data-gds-motion="reduced"] .story-reward-moment,
+[data-gds-motion="reduced"] .story-reward-moment > section,
 [data-gds-motion="reduced"] .story-reward-moment__shard { animation: none !important; }

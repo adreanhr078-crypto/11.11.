@@ -24,6 +24,12 @@ const MOTION_OPTIONS: Array<{ id: MotionTier; label: string }> = [
   { id: 'cinematic', label: 'سينمائي' },
 ];
 
+const SFX_VOLUME_OPTIONS = [
+  { value: 0.35, label: 'هادئ' },
+  { value: 0.7, label: 'متوازن' },
+  { value: 1, label: 'سينمائي' },
+] as const;
+
 export default function SettingsScreen() {
   const cinematic = useGameStore((state) => state.cinematic);
   const actions = useGameStore((state) => state.actions);
@@ -84,6 +90,34 @@ export default function SettingsScreen() {
         title="الصوت والترجمة"
       >
         <dl className="shell-settings-list">
+          <div>
+            <dt>مؤثرات اللعب</dt>
+            <dd>
+              <GameButton
+                size="sm"
+                variant={preferences.audioEnabled ? 'rare' : 'ghost'}
+                onClick={() => preferences.setAudioEnabled(!preferences.audioEnabled)}
+              >
+                {preferences.audioEnabled ? 'مفعّلة' : 'صامتة'}
+              </GameButton>
+            </dd>
+          </div>
+          <div>
+            <dt>شدة مؤثرات المكافآت</dt>
+            <dd className="shell-settings-volume" aria-label="شدة مؤثرات اللعب">
+              {SFX_VOLUME_OPTIONS.map((option) => (
+                <GameButton
+                  key={option.value}
+                  size="sm"
+                  variant={preferences.sfxVolume === option.value ? 'memory' : 'ghost'}
+                  disabled={!preferences.audioEnabled}
+                  onClick={() => preferences.setSfxVolume(option.value)}
+                >
+                  {option.label}
+                </GameButton>
+              ))}
+            </dd>
+          </div>
           <div>
             <dt>الأداء الصوتي</dt>
             <dd>日本語 · ثابت للحلقات</dd>

@@ -35,7 +35,14 @@ import { useAuthStore } from '../auth/authStore';
 import { usePlayerProgressionStore } from '../player-progression/playerProgressionStore';
 import { useCollectionStore } from '../collection/collectionStore';
 import { useStoryPuzzleStore } from '../story-puzzles/storyPuzzleStore';
+import { useUiPreferencesStore } from '../../app/shell/shellStore';
+import {
+  playPuzzleCompletionSound,
+  primeRewardAudio,
+} from '../../infrastructure/audio/puzzleRewardAudio';
 import './story-puzzle-experience.css';
+
+const EMPTY_STORY_PUZZLE_ENTRIES: readonly StoryPuzzleSnapshotEntry[] = Object.freeze([]);
 
 const emptyDraft = (): StoryPuzzleDraft => ({
   stageIndex: 0,
@@ -644,7 +651,7 @@ function RewardMoment({ onDismiss }: { onDismiss: () => void }) {
         <dl>
           <div><dt>XP</dt><dd>+{reward.xpGranted}</dd></div>
           <div><dt>COINS</dt><dd>+{reward.coinsGranted + reward.perfectBonusCoins}</dd></div>
-          <div><dt>SHARD</dt><dd>{reward.snapshot.shardCount} / 20</dd></div>
+          <div><dt>SHARD</dt><dd dir="ltr">{reward.snapshot.shardCount} / 20</dd></div>
         </dl>
         {reward.perfectBonusCoins > 0 && <strong className="story-reward-moment__perfect">PERFECT SOLVE +{reward.perfectBonusCoins} COINS</strong>}
         <button type="button" onClick={onDismiss}>متابعة</button>
@@ -663,6 +670,8 @@ export default function PuzzleScreen() {
   const loadCollection = useCollectionStore((state) => state.actions.load);
   const loadProfile = usePlayerProgressionStore((state) => state.actions.loadProfile);
   const loadLeaderboard = usePlayerProgressionStore((state) => state.actions.loadLeaderboard);
+  const audioEnabled = useUiPreferencesStore((state) => state.audioEnabled);
+  const sfxVolume = useUiPreferencesStore((state) => state.sfxVolume);
   const [selectedPuzzleId, setSelectedPuzzleId] = useState<string>('story_puzzle_01_signal_calibration');
   const [draft, setDraft] = useState<StoryPuzzleDraft>(() => defaultDraft(STORY_PUZZLE_BY_ID.story_puzzle_01_signal_calibration!));
   const [busy, setBusy] = useState(false);
@@ -676,7 +685,7 @@ export default function PuzzleScreen() {
     if (latestReward?.awarded) void loadCollection(true);
   }, [latestReward, loadCollection]);
 
-  const entries = snapshot?.entries ?? [];
+  const entries = snapshot?.entries ?? EMPTY_STORY_PUZZLE_ENTRIES;
   const entryById = useMemo(() => new Map(entries.map((entry) => [entry.puzzleId, entry])), [entries]);
   const visiblePuzzles = useMemo(() => STORY_PUZZLES.filter((puzzle) => (
     puzzle.classification === 'main' || entryById.get(puzzle.id)?.status !== 'hidden'
@@ -739,9 +748,11 @@ export default function PuzzleScreen() {
   };
 
   const complete = async () => {
+    primeRewardAudio(audioEnabled);
     setBusy(true);
     const receipt = await actions.complete(selectedPuzzle.id, draft);
     if (receipt?.awarded) {
+      if (audioEnabled) playPuzzleCompletionSound(sfxVolume);
       void loadProfile();
       void loadLeaderboard(true);
     }
@@ -783,8 +794,8 @@ export default function PuzzleScreen() {
       <header className="story-puzzle-screen__header">
         <div><small>11.11 // STORY INTERFERENCE</small><h1>استعادة الذاكرة</h1></div>
         <dl>
-          <div><dt>MAIN PATH</dt><dd>{snapshot?.mainCompletedCount ?? 0} / 14</dd></div>
-          <div><dt>MEMORY SHARDS</dt><dd>{snapshot?.shardCount ?? 0} / 20</dd></div>
+          <div><dt>MAIN PATH</dt><dd dir="ltr">{snapshot?.mainCompletedCount ?? 0} / 14</dd></div>
+          <div><dt>MEMORY SHARDS</dt><dd dir="ltr">{snapshot?.shardCount ?? 0} / 20</dd></div>
           <div><dt><Coins aria-hidden="true" /> COINS</dt><dd>{snapshot?.coinBalance ?? 0}</dd></div>
         </dl>
       </header>
@@ -828,7 +839,7 @@ export default function PuzzleScreen() {
             <>
               {currentStage && (
                 <div className="story-puzzle-stages">
-                  <span>STAGE {stageIndex + 1} / {stageDrafts.length}</span>
+                  <span dir="ltr">STAGE {stageIndex + 1} / {stageDrafts.length}</span>
                   <div>{stageDrafts.map((_, index) => <i key={index} data-active={index === stageIndex} data-complete={index < stageIndex} />)}</div>
                   <strong>{currentStage.objective.ar}</strong>
                 </div>

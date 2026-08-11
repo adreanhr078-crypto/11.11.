@@ -34,7 +34,7 @@ export default function ProgressScreen() {
           <h1>تقدم الرحلة</h1>
         </span>
         <div className="shell-screen-heading__metrics">
-          <span>{model.resolvedPuzzles}/{model.totalPuzzles} ألغاز</span>
+          <span><bdi dir="ltr">{model.resolvedPuzzles} / {model.totalPuzzles}</bdi> ألغاز</span>
           <span>{model.memoriesUnlocked} ذكريات</span>
         </div>
       </header>
@@ -133,11 +133,11 @@ export default function ProgressScreen() {
           </HudPanel>
 
           <GlassPanel className="collection-hub__shards" tone="memory" title="MEMORY SHARDS">
-            <div className="collection-hub__counter"><strong>{collection.shardCount} / {collection.totalShards}</strong><small>UNIQUE VERIFIED SHARDS</small></div>
+            <div className="collection-hub__counter"><strong dir="ltr">{collection.shardCount} / {collection.totalShards}</strong><small>UNIQUE VERIFIED SHARDS</small></div>
             <div className="collection-hub__sets">
               {collection.memorySets.map((set) => (
                 <article key={set.chapterId} data-complete={set.complete}>
-                  <header><span>CHAPTER {set.order.toString().padStart(2, '0')}</span><b>{set.collected} / {set.total}</b></header>
+                  <header><span>CHAPTER {set.order.toString().padStart(2, '0')}</span><b dir="ltr">{set.collected} / {set.total}</b></header>
                   <div className="collection-hub__shard-slots" aria-label={`Chapter ${set.order} shards`}>
                     {Array.from({ length: set.total }, (_, index) => (
                       <i key={index} data-collected={index < set.collected} aria-hidden="true">{index < set.collected ? '◆' : '◇'}</i>
@@ -158,7 +158,7 @@ export default function ProgressScreen() {
           </GlassPanel>
 
           <GlassPanel className="collection-hub__signals" tone="rare" title="SECRET SIGNALS">
-            <div className="collection-hub__counter"><strong>{collection.secretSignals.filter((signal) => signal.discovered).length} / {collection.secretSignals.length}</strong><small>DISCOVERY RECORDS</small></div>
+            <div className="collection-hub__counter"><strong dir="ltr">{collection.secretSignals.filter((signal) => signal.discovered).length} / {collection.secretSignals.length}</strong><small>DISCOVERY RECORDS</small></div>
             <div className="collection-hub__signal-list">
               {collection.secretSignals.map((signal) => (
                 <div key={signal.id} data-discovered={signal.discovered}>
@@ -172,7 +172,7 @@ export default function ProgressScreen() {
           </GlassPanel>
 
           <GlassPanel className="collection-hub__achievements" tone="progression" title="ACHIEVEMENTS // SYSTEM RECORDS">
-            <div className="collection-hub__counter"><strong>{collection.achievements.filter((achievement) => achievement.unlocked).length} / {collection.achievements.length}</strong><small>UNLOCKED RECORDS</small></div>
+            <div className="collection-hub__counter"><strong dir="ltr">{collection.achievements.filter((achievement) => achievement.unlocked).length} / {collection.achievements.length}</strong><small>UNLOCKED RECORDS</small></div>
             <div className="collection-hub__achievement-list">
               {collection.achievements.slice(0, 8).map((achievement) => (
                 <article key={achievement.id} data-unlocked={achievement.unlocked} data-tier={achievement.presentationTier}>

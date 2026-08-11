@@ -1,11 +1,16 @@
 import {
   extractGeminiText,
-  type EchoProviderEnv,
 } from './providers';
+import {
+  authenticateEchoRequest,
+  consumeEchoQuota,
+  type EchoGatewayEnv,
+} from './_guard';
+import {
+  PlayerApiError,
+} from '../player/_shared';
 
-interface EchoTranscribeEnv extends EchoProviderEnv {
-  ECHO_ALLOWED_ORIGINS?: string;
-}
+type EchoTranscribeEnv = EchoGatewayEnv;
 
 interface EchoTranscribeContext {
   request: Request;
@@ -60,7 +65,7 @@ function corsHeaders(
     ...(allowedOrigin
       ? { 'Access-Control-Allow-Origin': allowedOrigin }
       : {}),
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Cache-Control': 'no-store',
     Vary: 'Origin',
@@ -90,6 +95,62 @@ function bytesToBase64(bytes: Uint8Array): string {
     );
   }
   return btoa(binary);
+}
+
+async function readAudioBody(request: Request): Promise<Uint8Array> {
+  const reader = request.body?.getReader();
+  if (!reader) {
+    throw new PlayerApiError(400, 'audio_required', 'Audio is required.');
+  }
+
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_AUDIO_BYTES) {
+        await reader.cancel();
+        throw new PlayerApiError(413, 'audio_too_large', 'Audio is too large.');
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  if (totalBytes === 0) {
+    throw new PlayerApiError(400, 'audio_required', 'Audio is required.');
+  }
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
+}
+
+function requestErrorResponse(
+  error: unknown,
+  headers: HeadersInit,
+): Response {
+  if (error instanceof PlayerApiError) {
+    return jsonResponse(
+      { error: error.message, code: error.code },
+      error.status,
+      {
+        ...headers,
+        ...(error.status === 429 ? { 'Retry-After': '60' } : {}),
+      },
+    );
+  }
+  return jsonResponse(
+    { error: 'Echo voice AI is temporarily unavailable.' },
+    503,
+    headers,
+  );
 }
 
 function normalizeAudioType(value: string): string {
@@ -184,19 +245,26 @@ export async function onRequestPost({
     return jsonResponse({ error: 'Unsupported audio format.' }, 415, headers);
   }
 
-  const audioBuffer = await request.arrayBuffer();
-  if (audioBuffer.byteLength === 0) {
-    return jsonResponse({ error: 'Audio is required.' }, 400, headers);
+  let authorized: Awaited<ReturnType<typeof authenticateEchoRequest>>;
+  try {
+    authorized = await authenticateEchoRequest(request, env);
+  } catch (error) {
+    return requestErrorResponse(error, headers);
   }
-  if (audioBuffer.byteLength > MAX_AUDIO_BYTES) {
-    return jsonResponse({ error: 'Audio is too large.' }, 413, headers);
+
+  let audioBytes: Uint8Array;
+  try {
+    audioBytes = await readAudioBody(request);
+    await consumeEchoQuota(authorized, 'transcribe');
+  } catch (error) {
+    return requestErrorResponse(error, headers);
   }
 
   const url = new URL(request.url);
   const locale = url.searchParams.get('locale') === 'en' ? 'en' : 'ar';
   const models = splitList(env.GEMINI_MODELS);
   const selectedModels = models.length > 0 ? models : [...DEFAULT_GEMINI_MODELS];
-  const audioData = bytesToBase64(new Uint8Array(audioBuffer));
+  const audioData = bytesToBase64(audioBytes);
   const timeoutMs = boundedInteger(
     env.ECHO_PROVIDER_TIMEOUT_MS,
     20_000,

@@ -95,9 +95,13 @@ export const useShellStore = create<ShellState>((set, get) => ({
 interface UiPreferencesState {
   quality: QualityTier;
   motion: MotionTier;
+  audioEnabled: boolean;
+  sfxVolume: number;
   showTelemetry: boolean;
   setQuality: (quality: QualityTier) => void;
   setMotion: (motion: MotionTier) => void;
+  setAudioEnabled: (audioEnabled: boolean) => void;
+  setSfxVolume: (sfxVolume: number) => void;
   setShowTelemetry: (showTelemetry: boolean) => void;
 }
 
@@ -106,18 +110,31 @@ export const useUiPreferencesStore = create<UiPreferencesState>()(
     (set) => ({
       quality: 'balanced',
       motion: 'balanced',
+      audioEnabled: true,
+      sfxVolume: 0.7,
       showTelemetry: false,
       setQuality: (quality) => set({ quality }),
       setMotion: (motion) => set({ motion }),
+      setAudioEnabled: (audioEnabled) => set({ audioEnabled }),
+      setSfxVolume: (sfxVolume) => set({
+        sfxVolume: Math.min(1, Math.max(0, sfxVolume)),
+      }),
       setShowTelemetry: (showTelemetry) => set({ showTelemetry }),
     }),
     {
       name: 'eleven_ui_preferences',
-      version: 2,
-      migrate: (persistedState) => ({
-        ...(persistedState as Partial<UiPreferencesState>),
-        showTelemetry: false,
-      }),
+      version: 3,
+      migrate: (persistedState) => {
+        const previous = persistedState as Partial<UiPreferencesState>;
+        return {
+          ...previous,
+          audioEnabled: previous.audioEnabled ?? true,
+          sfxVolume: typeof previous.sfxVolume === 'number'
+            ? Math.min(1, Math.max(0, previous.sfxVolume))
+            : 0.7,
+          showTelemetry: false,
+        };
+      },
     },
   ),
 );

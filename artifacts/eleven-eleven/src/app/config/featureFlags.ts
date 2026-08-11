@@ -24,18 +24,13 @@ export function resolveFeatureGatedScreen(
 ): string {
   if (!OPENING_ROOM_3D_ENABLED && screen === 'play') {
     if (AWAKENING_WARD_ENABLED) return 'awakening-ward';
-    if (LEGACY_PUZZLE_ARCHIVE_ENABLED) return 'puzzles';
-    return 'psychological-state';
+    return 'puzzles';
   }
   if (!AWAKENING_WARD_ENABLED && screen === 'awakening-ward') {
-    return LEGACY_PUZZLE_ARCHIVE_ENABLED
-      ? 'puzzles'
-      : 'psychological-state';
+    return 'puzzles';
   }
-  if (!LEGACY_PUZZLE_ARCHIVE_ENABLED && screen === 'puzzles') {
-    return AWAKENING_WARD_ENABLED
-      ? 'awakening-ward'
-      : 'psychological-state';
+  if (screen === 'live-challenges') {
+    return 'puzzles';
   }
   return screen;
 }

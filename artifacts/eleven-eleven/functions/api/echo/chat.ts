@@ -1,7 +1,6 @@
 import {
   generateEchoReply,
   hasConfiguredEchoProvider,
-  type EchoProviderEnv,
   type EchoProviderMessage,
 } from './providers';
 import {
@@ -14,20 +13,17 @@ import {
   readAuthoritativeStoryState,
 } from '../player/_storyState';
 import {
-  authenticatePlayer,
   PlayerApiError,
   readJsonBody,
+  type FirebaseAccount,
 } from '../player/_shared';
 import type {
   PlayerDatabase,
 } from '../player/_database';
-
-interface EchoGatewayEnv extends EchoProviderEnv {
-  ECHO_ALLOWED_ORIGINS?: string;
-  FIREBASE_PROJECT_ID?: string;
-  FIREBASE_WEB_API_KEY?: string;
-  PLAYER_DB?: PlayerDatabase;
-}
+import {
+  authorizeEchoRequest,
+  type EchoGatewayEnv,
+} from './_guard';
 
 interface EchoGatewayContext {
   request: Request;
@@ -248,8 +244,8 @@ function sanitizeKnowledge(value: unknown): Record<string, unknown> {
  * they are re-derived from this player's D1 receipts.
  */
 async function resolveAuthoritativeEchoKnowledge(
-  request: Request,
-  env: EchoGatewayEnv,
+  database: PlayerDatabase,
+  account: FirebaseAccount,
   knowledge: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
   const serverOwnedKnowledge = new Set(
@@ -261,19 +257,8 @@ async function resolveAuthoritativeEchoKnowledge(
     200,
   ).filter((nodeId) => !serverOwnedKnowledge.has(nodeId));
 
-  const authorization = request.headers.get('Authorization');
-  if (
-    !authorization
-    || !env.PLAYER_DB
-    || !env.FIREBASE_PROJECT_ID?.trim()
-    || !env.FIREBASE_WEB_API_KEY?.trim()
-  ) {
-    return { ...knowledge, knowledgeNodeIds: suppliedKnowledge };
-  }
-
   try {
-    const { account } = await authenticatePlayer(request, env);
-    const storyState = await readAuthoritativeStoryState(env.PLAYER_DB, account);
+    const storyState = await readAuthoritativeStoryState(database, account);
     return {
       ...knowledge,
       knowledgeNodeIds: [...new Set([
@@ -404,9 +389,30 @@ export async function onRequestPost({
     return jsonResponse({ error: 'Message is required.' }, 400, headers);
   }
 
+  let authorized: Awaited<ReturnType<typeof authorizeEchoRequest>>;
+  try {
+    authorized = await authorizeEchoRequest(request, env, 'chat');
+  } catch (error) {
+    if (error instanceof PlayerApiError) {
+      return jsonResponse(
+        { error: error.message, code: error.code },
+        error.status,
+        {
+          ...headers,
+          ...(error.status === 429 ? { 'Retry-After': '60' } : {}),
+        },
+      );
+    }
+    return jsonResponse(
+      { error: 'Echo AI is temporarily unavailable.' },
+      503,
+      headers,
+    );
+  }
+
   const knowledge = await resolveAuthoritativeEchoKnowledge(
-    request,
-    env,
+    authorized.database,
+    authorized.account,
     sanitizeKnowledge(body.context),
   );
   const history = sanitizeHistory(body.history);

@@ -25,9 +25,9 @@ export interface NavigationCategoryDefinition {
 export const NAVIGATION_CATEGORIES = [
   {
     id: 'story',
-    label: 'القصة',
-    shortLabel: 'القصة',
-    description: 'متابعة الحالة النفسية الحالية لـ Echo.',
+    label: 'الرئيسية',
+    shortLabel: 'الرئيسية',
+    description: 'حالة Echo الحالية وبوابة الرحلة والملفات المرتبطة بالقصة.',
     iconId: 'category-story',
     tone: 'danger',
     landingScreenId: 'psychological-state',
@@ -61,7 +61,7 @@ export const NAVIGATION_CATEGORIES = [
     iconId: 'category-echo-mind',
     tone: 'danger',
     landingScreenId: 'echo-mind',
-    primary: true,
+    primary: false,
   },
   {
     id: 'characters',
@@ -71,7 +71,7 @@ export const NAVIGATION_CATEGORIES = [
     iconId: 'category-characters',
     tone: 'rare',
     landingScreenId: 'characters',
-    primary: true,
+    primary: false,
   },
   {
     id: 'progress',

@@ -32,6 +32,7 @@ import { useGameStore } from '../stores/gameStore';
 import {
   GAME_ICON_REGISTRY,
 } from '../ui/icons';
+import { PUZZLE_HUB_MODES } from '../features/puzzle-hub/puzzleHubModes';
 import {
   ECHO_PRESENTATION_ASSETS,
   ENVIRONMENT_PRESENTATION_ASSETS,
@@ -47,15 +48,13 @@ describe('Application Shell', () => {
     assert.equal(screens.length, GAME_SCREEN_DEFINITIONS.length);
   });
 
-  it('uses six primary navigation categories and keeps settings as utility only', () => {
+  it('uses four primary navigation categories and keeps secondary systems reachable', () => {
     assert.deepEqual(
       PRIMARY_NAVIGATION_CATEGORIES.map(({ id }) => id),
       [
         'story',
         'memory',
         'puzzles',
-        'echo-mind',
-        'characters',
         'progress',
       ],
     );
@@ -97,7 +96,63 @@ describe('Application Shell', () => {
       'leaderboard',
     );
     assert.equal(GAME_SCREEN_REGISTRY.leaderboard.navigation, 'landing');
-    assert.equal(GAME_SCREEN_REGISTRY.progress.navigation, 'hidden');
+    assert.equal(GAME_SCREEN_REGISTRY.progress.navigation, 'secondary');
+    assert.deepEqual(
+      getCategoryScreens('progress').map(({ id }) => id),
+      ['leaderboard', 'progress'],
+    );
+    assert.equal(
+      NAVIGATION_CATEGORIES.find(({ id }) => id === 'echo-mind')?.primary,
+      false,
+    );
+    assert.equal(
+      NAVIGATION_CATEGORIES.find(({ id }) => id === 'characters')?.primary,
+      false,
+    );
+  });
+
+  it('exposes one Puzzle Hub with exactly the three approved Part 1 modes', () => {
+    assert.deepEqual(
+      PUZZLE_HUB_MODES.map(({ id }) => id),
+      ['story', 'daily', 'weekly'],
+    );
+    assert.equal(GAME_SCREEN_REGISTRY.puzzles.navigation, 'landing');
+    assert.match(GAME_SCREEN_REGISTRY.puzzles.label, /مركز الألغاز/);
+
+    useShellStore.setState({ currentScreen: 'psychological-state' });
+    useShellStore.getState().navigate('live-challenges');
+    assert.equal(useShellStore.getState().currentScreen, 'puzzles');
+
+    const hubSource = readFileSync(
+      resolve(
+        process.cwd(),
+        'src',
+        'features',
+        'puzzle-hub',
+        'PuzzleHubScreen.tsx',
+      ),
+      'utf8',
+    );
+    assert.ok(hubSource.includes('tabIndex={active ? 0 : -1}'));
+    assert.ok(hubSource.includes("event.key === 'ArrowLeft'"));
+    assert.ok(hubSource.includes("event.key === 'Home'"));
+    assert.ok(hubSource.includes("event.key === 'End'"));
+  });
+
+  it('keeps live hint purchases sequential and transparent per active stage', () => {
+    const source = readFileSync(
+      resolve(
+        process.cwd(),
+        'src',
+        'features',
+        'live-challenges',
+        'LiveChallengesScreen.tsx',
+      ),
+      'utf8',
+    );
+    assert.ok(source.includes('index > daily.hintsUsed'));
+    assert.ok(source.includes('index > weekly.currentStageHintsUsed'));
+    assert.ok(source.includes('LIVE_HINT_COSTS[index]'));
   });
 
   it('reads Manhwa badges and player counters from canonical progression', () => {
