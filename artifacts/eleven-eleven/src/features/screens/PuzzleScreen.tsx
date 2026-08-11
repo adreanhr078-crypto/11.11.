@@ -30,6 +30,7 @@ import type {
   StoryPuzzleDraft,
   StoryPuzzleMechanic,
   StoryPuzzleOption,
+  StoryPuzzleReference,
   StoryPuzzleSnapshotEntry,
 } from '../../domain/story-puzzles/storyPuzzleContracts';
 import { useAuthStore } from '../auth/authStore';
@@ -159,7 +160,8 @@ function selectedTokens(
   return [...current, optionId];
 }
 
-function sequenceLimit(mechanic: StoryPuzzleMechanic): number {
+function sequenceLimit(mechanic: StoryPuzzleMechanic, tokenLimit?: number): number {
+  if (tokenLimit !== undefined) return tokenLimit;
   switch (mechanic) {
     case 'cipher':
     case 'mirror-code': return 3;
@@ -169,6 +171,56 @@ function sequenceLimit(mechanic: StoryPuzzleMechanic): number {
     case 'visual-forensics': return 2;
     case 'deduction': return 3;
     default: return 4;
+  }
+}
+
+function draftReadiness(
+  puzzle: StoryPuzzleDefinition,
+  mechanic: Exclude<StoryPuzzleMechanic, 'multi-stage' | 'breach-protocol'>,
+  draft: StoryPuzzleDraft,
+  tokenLimit?: number,
+  stageOptions?: readonly StoryPuzzleOption[],
+): { ready: boolean; message: string } {
+  const limit = sequenceLimit(mechanic, tokenLimit);
+  const complete = (ready: boolean, message: string) => ({ ready, message });
+  switch (mechanic) {
+    case 'signal':
+      return complete(draft.tokens.length === 2, 'اضبط التردد واختر قناة الإشارة.');
+    case 'image-reconstruction': {
+      const count = (puzzle.image?.rows ?? 0) * (puzzle.image?.columns ?? 0);
+      const pieces = new Set(draft.imageOrder);
+      return complete(pieces.size === count && draft.imageOrder.length === count, 'رتّب كل الشظايا قبل تثبيت السجل.');
+    }
+    case 'wiring': {
+      const accessNodeLock = stageOptions?.some((option) => option.id === 'echo');
+      const sources = accessNodeLock ? ['access'] : assignmentSources(mechanic);
+      return complete(sources.every((source) => Boolean(draft.assignments[source])), 'أكمل توصيل كل المسارات.');
+    }
+    case 'color-routing':
+      return complete(assignmentSources(mechanic).every((source) => Boolean(draft.assignments[source])), 'طابق القنوات الثلاث مع أشكالها.');
+    case 'matrix':
+      return complete(['tile1', 'tile2', 'tile3', 'tile4'].every((tile) => draft.rotations[tile] !== undefined), 'اضبط اتجاه العقد الأربع.');
+    case 'layer-alignment':
+      return complete(['layer1', 'layer2', 'layer3', 'layer4'].every((layer) => draft.rotations[layer] !== undefined), 'اضبط أطوار الطبقات الأربع.');
+    case 'load-balancing': {
+      const values = ['power', 'data', 'cooling'].map((channel) => Number(draft.assignments[channel] ?? 0));
+      return complete(values.every((value) => value > 0) && values.reduce((sum, value) => sum + value, 0) === 100, 'اجعل مجموع القنوات 100%.');
+    }
+    case 'visual-forensics':
+      return complete(draft.tokens.length === 2, 'حدّد موضعي الشذوذ في السجل.');
+    case 'memory-grid':
+      return complete(draft.tokens.length === limit, `أعد ${limit} نبضات بالترتيب.`);
+    case 'pattern-scan':
+      return complete(draft.tokens.length === limit, 'حدّد عقدة الشذوذ الوحيدة.');
+    case 'data-route':
+      return complete(draft.tokens.length === limit, `ابنِ مسارًا من ${limit} عقد.`);
+    case 'evidence':
+    case 'contradiction':
+      return complete(draft.tokens.length === 1, 'اختر سجلًا واحدًا تدعمه الأدلة.');
+    case 'deduction':
+      return complete(draft.tokens.length === limit, `ثبّت ${limit} أدلة متوافقة.`);
+    default:
+      return complete(draft.tokens.length === limit, `أكمل التسلسل من ${limit} رموز.`);
   }
 }
 
@@ -267,6 +319,7 @@ function EvidenceBoard({
           >
             <small>NODE {String(index + 1).padStart(2, '0')}</small>
             <strong>{option.label.ar}</strong>
+            {option.detail && <span>{option.detail.ar}</span>}
             <span>{recordSignal(option.id)}</span>
           </button>
         ))}
@@ -274,6 +327,24 @@ function EvidenceBoard({
       <p>{mechanic === 'deduction'
         ? 'حدد الأدلة المتوافقة ثم ثبّت تسلسلها داخل السجل.'
         : 'قارن السجل مع الإشارة قبل تثبيت النتيجة.'}</p>
+    </section>
+  );
+}
+
+function PuzzleReference({ reference }: { reference?: StoryPuzzleReference }) {
+  if (!reference) return null;
+  return (
+    <section className="story-puzzle-reference" aria-label={reference.title.ar}>
+      <header>
+        <BookOpenCheck aria-hidden="true" />
+        <span>{reference.title.ar}</span>
+        <small>FIELD NOTES</small>
+      </header>
+      <ul>
+        {reference.entries.map((entry, index) => (
+          <li key={`${entry.en}-${index}`}>{entry.ar}</li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -320,12 +391,15 @@ function DataRouteBoard({
   draft,
   onChange,
   disabled,
+  tokenLimit,
 }: {
   options: readonly StoryPuzzleOption[];
   draft: StoryPuzzleDraft;
   onChange: (next: StoryPuzzleDraft) => void;
   disabled: boolean;
+  tokenLimit?: number;
 }) {
+  const maximum = tokenLimit ?? 4;
   return (
     <section className="story-data-route" aria-label="Data routing graph">
       <header><Crosshair aria-hidden="true" /> ROUTE PACKET // SELECT A SAFE ORDER</header>
@@ -344,7 +418,7 @@ function DataRouteBoard({
             style={{ '--node': index } as CSSProperties}
             onClick={() => onChange({
               ...draft,
-              tokens: selectedTokens(draft.tokens, option.id, 4),
+              tokens: selectedTokens(draft.tokens, option.id, maximum),
             })}
           >
             {option.label.ar}
@@ -482,6 +556,7 @@ interface PuzzleMechanicProps {
     'multi-stage' | 'breach-protocol'
   >;
   options?: readonly StoryPuzzleOption[];
+  tokenLimit?: number;
   draft: StoryPuzzleDraft;
   onChange: (next: StoryPuzzleDraft) => void;
   disabled: boolean;
@@ -586,14 +661,16 @@ function LoadBalancingBoard({
   );
 }
 
-function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, draft, onChange, disabled }: PuzzleMechanicProps) {
+function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, draft, onChange, disabled }: PuzzleMechanicProps) {
   const options = stageOptions ?? sourceOptions(puzzle);
   const [memoryPreview, setMemoryPreview] = useState(mechanic === 'memory-grid');
+  const [memoryReplay, setMemoryReplay] = useState(0);
   useEffect(() => {
     if (mechanic !== 'memory-grid') return undefined;
+    setMemoryPreview(true);
     const timer = window.setTimeout(() => setMemoryPreview(false), 1700);
     return () => window.clearTimeout(timer);
-  }, [mechanic]);
+  }, [mechanic, puzzle.id, memoryReplay]);
 
   if (mechanic === 'image-reconstruction') {
     return <ImageReconstructionBoard puzzle={puzzle} draft={draft} onChange={onChange} disabled={disabled} />;
@@ -716,6 +793,14 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, draft, onChan
           ))}
         </div>
         <p>{memoryPreview ? 'احفظ النمط قبل أن يختفي.' : 'أعد النمط بالنقر على العقد بالترتيب.'}</p>
+        <button
+          type="button"
+          className="story-memory-grid__replay"
+          disabled={disabled || memoryPreview}
+          onClick={() => setMemoryReplay((value) => value + 1)}
+        >
+          إعادة عرض النمط
+        </button>
       </section>
     );
   }
@@ -725,7 +810,7 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, draft, onChan
   }
 
   if (mechanic === 'data-route') {
-    return <DataRouteBoard options={options} draft={draft} onChange={onChange} disabled={disabled} />;
+    return <DataRouteBoard options={options} tokenLimit={tokenLimit} draft={draft} onChange={onChange} disabled={disabled} />;
   }
 
   if (mechanic === 'evidence' || mechanic === 'contradiction' || mechanic === 'deduction') {
@@ -733,7 +818,7 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, draft, onChan
   }
 
   const selected = draft.tokens;
-  const limit = sequenceLimit(mechanic);
+  const limit = sequenceLimit(mechanic, tokenLimit);
   const ordered = ['sequence', 'timeline', 'cipher', 'mirror-code', 'data-route'].includes(mechanic);
   const repeatable = ['cipher', 'mirror-code', 'memory-grid'].includes(mechanic);
   return (
@@ -754,6 +839,7 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, draft, onChan
           >
             {option.symbol && <i>{option.symbol}</i>}
             <strong>{option.label.ar}</strong>
+            {option.detail && <small>{option.detail.ar}</small>}
             <small>{option.label.en}</small>
           </button>
         ))}
@@ -828,6 +914,17 @@ export default function PuzzleScreen() {
   const stageIndex = Math.min(draft.stageIndex, Math.max(0, stageDrafts.length - 1));
   const currentStage = selectedPuzzle.stages?.[stageIndex];
   const activeDraft = currentStage ? stageDrafts[stageIndex]! : draft;
+  const activeReadiness = currentStage
+    ? draftReadiness(
+      selectedPuzzle,
+      currentStage.mechanic,
+      activeDraft,
+      currentStage.tokenLimit,
+      currentStage.options,
+    )
+    : selectedPuzzle.mechanic === 'multi-stage' || selectedPuzzle.mechanic === 'breach-protocol'
+      ? { ready: false, message: 'انتقل إلى المرحلة الحالية لإكمال اللغز.' }
+      : draftReadiness(selectedPuzzle, selectedPuzzle.mechanic, draft);
   const missingPrerequisite = selectedPuzzle.prerequisitePuzzleIds
     .map((puzzleId) => STORY_PUZZLE_BY_ID[puzzleId])
     .find((puzzle) => (
@@ -981,6 +1078,7 @@ export default function PuzzleScreen() {
             <div><small>{selectedPuzzle.mechanic.replace('-', ' ').toUpperCase()}</small><h2>{selectedPuzzle.title.ar}</h2><p>{selectedPuzzle.objective.ar}</p></div>
             <span className="story-puzzle-console__page">SOURCE // {String(selectedPuzzle.source.globalPageNumber).padStart(2, '0')}</span>
           </div>
+          <PuzzleReference reference={selectedPuzzle.reference} />
 
           {selectedEntry.status === 'locked' ? (
             <div className="story-puzzle-console__locked">
@@ -1022,15 +1120,19 @@ export default function PuzzleScreen() {
                   'multi-stage' | 'breach-protocol'
                 >}
                 options={currentStage?.options}
+                tokenLimit={currentStage?.tokenLimit}
                 draft={activeDraft}
                 onChange={updateActiveDraft}
                 disabled={busy}
               />
+              <p className="story-puzzle-console__readiness" data-ready={activeReadiness.ready} role="status">
+                <Activity aria-hidden="true" /> {activeReadiness.message}
+              </p>
               <div className="story-puzzle-console__actions">
                 {currentStage && stageIndex < stageDrafts.length - 1 ? (
-                  <button type="button" disabled={busy} onClick={() => void advanceStage()}>تثبيت المرحلة <ChevronLeft aria-hidden="true" /></button>
+                  <button type="button" disabled={busy || !activeReadiness.ready} onClick={() => void advanceStage()}>تثبيت المرحلة <ChevronLeft aria-hidden="true" /></button>
                 ) : (
-                  <button type="button" disabled={busy} onClick={() => void complete()}><Zap aria-hidden="true" /> تحقق من الاستعادة</button>
+                  <button type="button" disabled={busy || !activeReadiness.ready} onClick={() => void complete()}><Zap aria-hidden="true" /> تحقق من الاستعادة</button>
                 )}
                 <button type="button" className="story-puzzle-console__quiet" disabled={busy} onClick={() => void saveNow()}>حفظ الآن</button>
                 <button type="button" className="story-puzzle-console__quiet" disabled={busy} onClick={resetPuzzle}><RotateCcw aria-hidden="true" /> إعادة المحاولة</button>

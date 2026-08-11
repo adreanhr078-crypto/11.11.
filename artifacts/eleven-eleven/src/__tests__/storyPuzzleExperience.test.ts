@@ -60,6 +60,14 @@ describe('Phase 3 Story Puzzle catalog', () => {
     assert.equal(STORY_PUZZLE_BY_ID.story_puzzle_16_memory_reconstruction?.mechanic, 'layer-alignment');
   });
 
+  it('keeps every puzzle self-briefed and preserves the four-token core stage', () => {
+    assert.ok(STORY_PUZZLES.every((puzzle) => puzzle.brief && puzzle.reference));
+    assert.deepEqual(
+      STORY_PUZZLE_BY_ID.story_puzzle_20_core_sequence?.stages?.map((stage) => stage.tokenLimit ?? null),
+      [null, 3, 3, 4],
+    );
+  });
+
   it('verifies the solution only inside the server definition', () => {
     assert.equal(isServerStoryPuzzleSubmissionCorrect(
       'story_puzzle_01_signal_calibration',
@@ -96,6 +104,19 @@ describe('Phase 3 Story Puzzle catalog', () => {
             { stageIndex: 0, tokens: ['74', 'channel-11'], assignments: {}, imageOrder: [], rotations: {} },
             { stageIndex: 1, tokens: ['memory'], assignments: {}, imageOrder: [], rotations: {} },
             { stageIndex: 2, tokens: [], assignments: { access: 'echo' }, imageOrder: [], rotations: {} },
+          ]),
+        },
+      }),
+    ), true);
+    assert.equal(isServerStoryPuzzleSubmissionCorrect(
+      'story_puzzle_20_core_sequence',
+      draft({
+        assignments: {
+          __stages: JSON.stringify([
+            { stageIndex: 0, tokens: ['81', 'channel-11'], assignments: {}, imageOrder: [], rotations: {} },
+            { stageIndex: 1, tokens: ['signal', 'memory', 'echo'], assignments: {}, imageOrder: [], rotations: {} },
+            { stageIndex: 2, tokens: ['access', 'memory', 'signal'], assignments: {}, imageOrder: [], rotations: {} },
+            { stageIndex: 3, tokens: ['signal', 'access', 'memory', 'echo'], assignments: {}, imageOrder: [], rotations: {} },
           ]),
         },
       }),

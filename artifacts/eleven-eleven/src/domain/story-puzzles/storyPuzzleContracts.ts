@@ -33,6 +33,13 @@ export interface StoryPuzzleOption {
   id: string;
   label: StoryPuzzleText;
   symbol?: string;
+  /** Optional evidence shown beside a choice so the puzzle is self-contained. */
+  detail?: StoryPuzzleText;
+}
+
+export interface StoryPuzzleReference {
+  title: StoryPuzzleText;
+  entries: readonly StoryPuzzleText[];
 }
 
 export interface StoryPuzzleImageSource {
@@ -53,6 +60,8 @@ export interface StoryPuzzleStage {
   >;
   objective: StoryPuzzleText;
   options?: readonly StoryPuzzleOption[];
+  /** Presentation-only input length; it never contains the correct solution. */
+  tokenLimit?: number;
 }
 
 export interface StoryPuzzleDefinition {
@@ -73,6 +82,10 @@ export interface StoryPuzzleDefinition {
   prerequisitePuzzleIds: readonly string[];
   hints: readonly [StoryPuzzleText, StoryPuzzleText, StoryPuzzleText];
   completionMessage: StoryPuzzleText;
+  /** A short in-world brief that makes the task legible before interaction. */
+  brief?: StoryPuzzleText;
+  /** Verified facts available to the player without spending a hint. */
+  reference?: StoryPuzzleReference;
   options?: readonly StoryPuzzleOption[];
   image?: StoryPuzzleImageSource;
   stages?: readonly StoryPuzzleStage[];

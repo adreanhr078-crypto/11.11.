@@ -3,7 +3,9 @@ import type { LiveChallengeMechanic } from './liveChallengeContracts';
 // Period IDs remain stable so a mid-window quality upgrade cannot create a
 // second attempt or duplicate reward for the same player/day. Existing cached
 // windows finish with their original definition; new windows use this engine.
-export const LIVE_CHALLENGE_VERSION = 'live-signal-v1';
+// The live route now uses the smart memory generator. The legacy template
+// helpers below remain available to isolated compatibility tests only.
+export const LIVE_CHALLENGE_VERSION = 'smart-memory-v1';
 export const LIVE_BALANCE_VERSION = 'live-balance-v1';
 export const LIVE_RESET_LABEL = '11:11';
 export const LIVE_TIMEZONE = 'UTC' as const;

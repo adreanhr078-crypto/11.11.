@@ -215,6 +215,20 @@
 .story-puzzle-console__title p { max-inline-size: 55ch; margin: 0; color: #aebfc9; font-size: .82rem; line-height: 1.75; }
 .story-puzzle-console__page { align-self: start; color: #ff7188; white-space: nowrap; }
 
+.story-puzzle-reference {
+  display: grid;
+  gap: .55rem;
+  margin-block: .2rem .75rem;
+  padding: .7rem .8rem;
+  border-inline-start: 2px solid var(--story-cyan);
+  background: linear-gradient(90deg, rgb(57 230 255 / 8%), transparent 78%);
+}
+.story-puzzle-reference > header { display: flex; align-items: center; gap: .42rem; color: var(--story-cyan); font: 800 .63rem var(--gds-font-mono, monospace); letter-spacing: .08em; }
+.story-puzzle-reference > header svg { inline-size: .9rem; }
+.story-puzzle-reference > header small { margin-inline-start: auto; color: #7e98a5; font-size: .5rem; }
+.story-puzzle-reference ul { display: grid; gap: .28rem; margin: 0; padding-inline-start: 1rem; color: #c9dbe3; font-size: .71rem; line-height: 1.65; }
+.story-puzzle-reference li::marker { color: var(--story-red); }
+
 .story-puzzle-console__locked,
 .story-puzzle-console__completed {
   display: grid;
@@ -412,12 +426,17 @@
 .story-memory-grid button { aspect-ratio: 1; border: 1px solid rgb(57 230 255 / 25%); color: #78909c; background: #050d13; font: 700 .65rem var(--gds-font-mono, monospace); cursor: pointer; }
 .story-memory-grid[data-preview="true"] button[data-preview="true"], .story-memory-grid button[data-selected="true"] { border-color: var(--story-cyan); color: var(--story-cyan); background: rgb(57 230 255 / 17%); box-shadow: inset 0 0 1rem rgb(57 230 255 / 18%), 0 0 .55rem rgb(57 230 255 / 14%); }
 .story-memory-grid p { margin: 0; color: #8fa4af; font-size: .7rem; text-align: center; }
+.story-memory-grid__replay { justify-self: center; min-block-size: 1.9rem; padding: .35rem .7rem; border: 1px solid rgb(57 230 255 / 35%); color: #c9edf5; background: rgb(57 230 255 / 7%); font: 700 .61rem var(--gds-font-body, sans-serif); cursor: pointer; }
+.story-memory-grid__replay:disabled { cursor: not-allowed; opacity: .45; }
 
 .story-puzzle-console__actions { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; margin-block-start: .8rem; padding-block-start: .75rem; border-block-start: 1px solid rgb(57 230 255 / 17%); }
 .story-puzzle-console__actions > button:first-child { display: inline-flex; align-items: center; gap: .35rem; border-color: rgb(255 66 102 / 78%); color: #fff6f8; background: linear-gradient(110deg, rgb(255 66 102 / 38%), rgb(95 9 32 / 53%)); box-shadow: inset 0 0 .8rem rgb(255 66 102 / 16%); }
 .story-puzzle-console__actions > button:first-child svg { inline-size: .85rem; }
 .story-puzzle-console__quiet { color: #a7bcc6 !important; }
 .story-puzzle-console__actions button:hover:not(:disabled), .story-puzzle-hints button:hover:not(:disabled), .story-reward-moment button:hover { transform: translateY(-1px); border-color: var(--story-cyan); }
+.story-puzzle-console__readiness { display: flex; align-items: center; gap: .4rem; margin: .7rem 0 0; padding: .45rem .55rem; border: 1px solid rgb(255 189 89 / 24%); color: #ffd18a; background: rgb(255 189 89 / 5%); font-size: .68rem; line-height: 1.5; }
+.story-puzzle-console__readiness[data-ready="true"] { border-color: rgb(57 230 255 / 24%); color: #9beefb; background: rgb(57 230 255 / 5%); }
+.story-puzzle-console__readiness svg { inline-size: .85rem; flex: 0 0 auto; }
 .story-puzzle-anomaly { display: flex; align-items: center; gap: .5rem; margin-block-start: .75rem; padding: .42rem .55rem; border: 1px dashed rgb(255 66 102 / 54%); color: #ffa4b2; background: rgb(255 66 102 / 5%); cursor: pointer; animation: story-anomaly 1.8s steps(2, end) infinite; }
 .story-puzzle-anomaly span { font: 900 1rem var(--gds-font-mono, monospace); }.story-puzzle-anomaly small { font: 700 .55rem var(--gds-font-mono, monospace); letter-spacing: .1em; }
 .story-puzzle-console__error { display: flex; align-items: center; gap: .4rem; margin: .65rem 0 0; padding: .55rem .6rem; border-inline-start: 2px solid var(--story-red); color: #ffadba; background: rgb(255 66 102 / 7%); font-size: .72rem; }.story-puzzle-console__error svg { flex: 0 0 auto; inline-size: .95rem; }

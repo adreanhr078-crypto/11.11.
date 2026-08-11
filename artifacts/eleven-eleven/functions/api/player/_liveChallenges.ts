@@ -5,12 +5,17 @@ import {
   LIVE_REWARD_CONFIG,
   LIVE_RESET_LABEL,
   LIVE_TIMEZONE,
-  createLiveTemplateForSlot,
   isLiveAnswerCorrect,
-  type LiveTemplate,
 } from '../../../src/domain/live-challenges/liveChallengeEngine';
+import {
+  SMART_LIVE_VERSION,
+  SMART_WEEKLY_STAGE_COUNT,
+  smartLiveTemplateFor,
+  type SmartLiveTemplate,
+} from '../../../src/domain/live-challenges/smartLivePuzzleGenerator';
 import type {
   LiveChallengePublicDefinition,
+  LiveChallengeReward,
   LiveChallengeStatus,
   LiveChallengesSnapshot,
   LiveCompletionReceipt,
@@ -23,7 +28,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const RESET_MINUTES = 11 * 60 + 11;
 const RESET_HOUR = Math.floor(RESET_MINUTES / 60);
 const RESET_MINUTE = RESET_MINUTES % 60;
-const WEEKLY_STAGE_COUNT = 4;
+const WEEKLY_STAGE_COUNT = SMART_WEEKLY_STAGE_COUNT;
 
 interface DefinitionRow {
   challenge_id: string;
@@ -61,6 +66,13 @@ interface CountRow { total: number | string | null; }
 interface LiveSolution {
   answer: string;
   hints: readonly string[];
+  reward?: LiveChallengeReward;
+}
+
+interface LiveWeeklySolution {
+  stages: readonly LiveSolution[];
+  memoryFragmentId: string;
+  reward: LiveChallengeReward;
 }
 
 function integer(value: unknown): number {
@@ -119,19 +131,22 @@ function publicDefinition(
   id: string,
   kind: 'daily' | 'weekly',
   periodKey: string,
-  template: LiveTemplate,
+  template: SmartLiveTemplate,
   stageIndex?: number,
 ): LiveChallengePublicDefinition {
   return {
     id,
     kind,
     periodKey,
-    version: LIVE_CHALLENGE_VERSION,
+    version: SMART_LIVE_VERSION,
     mechanic: template.mechanic,
     title: template.title,
     instructions: template.instructions,
     prompt: template.prompt,
     options: [...template.options],
+    difficulty: template.difficulty,
+    visual: template.visual,
+    reward: template.reward,
     ...(stageIndex === undefined ? {} : {
       stageIndex,
       stageCount: WEEKLY_STAGE_COUNT,
@@ -139,25 +154,17 @@ function publicDefinition(
   };
 }
 
-function solution(template: LiveTemplate): LiveSolution {
-  return { answer: template.answer, hints: [...template.hints] };
+function solution(template: SmartLiveTemplate): LiveSolution {
+  return { answer: template.answer, hints: [...template.hints], reward: template.reward };
 }
 
-export function liveDailyTemplateFor(periodKey: string): LiveTemplate {
-  const daySlot = Math.floor(dateMs(periodKey) / DAY_MS);
-  return createLiveTemplateForSlot(
-    `${LIVE_CHALLENGE_VERSION}:daily:${periodKey}`,
-    daySlot,
-  );
+export function liveDailyTemplateFor(periodKey: string): SmartLiveTemplate {
+  return smartLiveTemplateFor(periodKey, 'daily');
 }
 
-export function liveWeeklyTemplatesFor(weekId: string): LiveTemplate[] {
-  const weekSlot = Math.floor(dateMs(weekId) / (DAY_MS * 7));
+export function liveWeeklyTemplatesFor(weekId: string): SmartLiveTemplate[] {
   return Array.from({ length: WEEKLY_STAGE_COUNT }, (_, index) => (
-    createLiveTemplateForSlot(
-      `${LIVE_CHALLENGE_VERSION}:weekly:${weekId}:${index}`,
-      (weekSlot * WEEKLY_STAGE_COUNT) + index,
-    )
+    smartLiveTemplateFor(weekId, 'weekly', index)
   ));
 }
 
@@ -184,13 +191,19 @@ async function ensureDefinitions(
     id: weeklyId,
     kind: 'weekly',
     periodKey: weekId,
-    version: LIVE_CHALLENGE_VERSION,
+    version: SMART_LIVE_VERSION,
     mechanic: weeklyStageTemplates[0]!.mechanic,
-    title: 'WEEKLY SYSTEM TRIAL',
-    instructions: 'أكمل أربع مراحل مستقلة واحفظ تقدمك بين الجلسات.',
-    prompt: 'SYSTEM TRIAL // 04 STAGES',
+    title: 'رحلة ذاكرة Echo الأسبوعية',
+    instructions: 'أعد الذكرى، أوصل الشبكة، ثم فك الشيفرة لتحصل على شظية نادرة.',
+    prompt: 'ECHO MEMORY // 03 CONNECTED STAGES',
     options: [],
     stageCount: WEEKLY_STAGE_COUNT,
+    reward: {
+      tier: 'rare',
+      kind: 'memory-shard',
+      label: 'شظية نادرة من ذاكرة Echo',
+      icon: '✦',
+    },
     stages: weeklyStageTemplates.map((template, index) => publicDefinition(
       `${weeklyId}:stage:${index}`,
       'weekly',
@@ -204,7 +217,7 @@ async function ensureDefinitions(
     publicValue: unknown; solutionValue: unknown;
   }> = [
     { id: dailyId, kind: 'daily', period: periodKey, mechanic: dailyTemplate.mechanic, publicValue: dailyPublic, solutionValue: solution(dailyTemplate) },
-    { id: weeklyId, kind: 'weekly', period: weekId, mechanic: weeklyPublic.mechanic, publicValue: weeklyPublic, solutionValue: { stages: weeklyStageTemplates.map(solution) } },
+    { id: weeklyId, kind: 'weekly', period: weekId, mechanic: weeklyPublic.mechanic, publicValue: weeklyPublic, solutionValue: { stages: weeklyStageTemplates.map(solution), memoryFragmentId: `weekly_memory_shard_${weekId}`, reward: weeklyPublic.reward } satisfies LiveWeeklySolution },
     ...weeklyStageTemplates.map((template, index) => ({
       id: `${weeklyId}:stage:${index}`,
       kind: 'weekly' as const,
@@ -251,7 +264,11 @@ async function ensureDefinitions(
     challenge_version: LIVE_CHALLENGE_VERSION,
     mechanic: weeklyPublic.mechanic,
     public_definition_json: JSON.stringify(weeklyPublic),
-    solution_json: JSON.stringify({ stages: stages.map((row) => parseJson<LiveSolution>(row.solution_json, { answer: '', hints: [] })) }),
+    solution_json: JSON.stringify({
+      stages: stages.map((row) => parseJson<LiveSolution>(row.solution_json, { answer: '', hints: [] })),
+      memoryFragmentId: `weekly_memory_shard_${weekId}`,
+      reward: weeklyPublic.reward,
+    } satisfies LiveWeeklySolution),
   };
   return { daily, weekly, stages, periodKey, weekId };
 }
@@ -326,8 +343,10 @@ async function rewardLiveEvent(
     xp: number;
     coins: number;
     perfect: boolean;
+    memoryFragmentId?: string;
+    reward?: LiveChallengeReward;
   },
-): Promise<{ awarded: boolean; xp: number; coins: number }> {
+): Promise<{ awarded: boolean; xp: number; coins: number; reward?: LiveChallengeReward }> {
   const now = new Date().toISOString();
   const sourceType = input.rewardType === 'daily' ? 'daily_trial' : 'weekly_trial';
   const result = await db.batch([
@@ -347,6 +366,13 @@ async function rewardLiveEvent(
         user_id, event_key, source_type, source_id, amount, recorded_at
       ) VALUES (?, ?, ?, ?, ?, ?)
     `).bind(account.uid, `${input.rewardKey}:coins`, sourceType, input.sourceId, input.coins, now),
+    ...(input.memoryFragmentId
+      ? [db.prepare(`
+        INSERT OR IGNORE INTO player_memory_fragment_events (
+          user_id, fragment_id, source_type, source_id, found_at
+        ) VALUES (?, ?, 'puzzle', ?, ?)
+      `).bind(account.uid, input.memoryFragmentId, input.sourceId, now)]
+      : []),
     db.prepare(`
       UPDATE player_progression SET total_xp = (
         SELECT COALESCE(SUM(xp_amount), 0) FROM xp_reward_events WHERE user_id = ?
@@ -354,7 +380,12 @@ async function rewardLiveEvent(
     `).bind(account.uid, now, account.uid),
   ]);
   const inserted = Number((result[0] as PlayerDatabaseResult | undefined)?.meta?.changes ?? 0) > 0;
-  return { awarded: inserted, xp: inserted ? input.xp : 0, coins: inserted ? input.coins : 0 };
+  return {
+    awarded: inserted,
+    xp: inserted ? input.xp : 0,
+    coins: inserted ? input.coins : 0,
+    ...(input.reward ? { reward: input.reward } : {}),
+  };
 }
 
 async function readDailyHistory(db: PlayerDatabase, uid: string): Promise<LiveChallengesSnapshot['dailyHistory']> {
@@ -519,11 +550,12 @@ export async function completeDaily(db: PlayerDatabase, account: FirebaseAccount
   await db.prepare(`UPDATE live_player_daily_attempts SET status = 'completed', perfect_solve = ?, completed_at = COALESCE(completed_at, ?), updated_at = ? WHERE user_id = ? AND challenge_id = ?`).bind(perfect ? 1 : 0, now, now, account.uid, definitions.daily.challenge_id).run();
   const reward = await rewardLiveEvent(db, account, {
     rewardKey: `daily:${definitions.periodKey}:v1`, rewardType: 'daily', sourceId: definitions.daily.challenge_id, xp, coins, perfect,
+    reward: solutionFromRow(definitions.daily).reward,
   });
   await maybeClaimWeeklyRecovery(db, account);
   return {
     kind: 'daily', challengeId: definitions.daily.challenge_id, awarded: reward.awarded, perfectSolve: perfect,
-    xpGranted: reward.xp, coinsGranted: reward.coins, live: await readLiveSnapshot(db, account),
+    xpGranted: reward.xp, coinsGranted: reward.coins, reward: reward.reward, live: await readLiveSnapshot(db, account),
   };
 }
 
@@ -596,10 +628,17 @@ export async function completeWeeklyStage(db: PlayerDatabase, account: FirebaseA
     return { kind: 'weekly', challengeId: definitions.weekly.challenge_id, awarded: false, perfectSolve: integer(latest?.hints_used) === 0, xpGranted: 0, coinsGranted: 0, live: await readLiveSnapshot(db, account) };
   }
   const perfect = !integer(row?.hints_used);
+  const weeklySolution = parseJson<LiveWeeklySolution>(definitions.weekly.solution_json, {
+    stages: [],
+    memoryFragmentId: `weekly_memory_shard_${definitions.weekId}`,
+    reward: { tier: 'rare', kind: 'memory-shard', label: 'شظية نادرة من ذاكرة Echo', icon: '✦' },
+  });
   const reward = completed ? await rewardLiveEvent(db, account, {
     rewardKey: `weekly:${definitions.weekId}:v1`, rewardType: 'weekly', sourceId: definitions.weekly.challenge_id, xp: LIVE_REWARD_CONFIG.weeklyTrialXp, coins: LIVE_REWARD_CONFIG.weeklyTrialCoins + (perfect ? LIVE_REWARD_CONFIG.weeklyPerfectBonusCoins : 0), perfect,
-  }) : { awarded: false, xp: 0, coins: 0 };
-  return { kind: 'weekly', challengeId: definitions.weekly.challenge_id, awarded: reward.awarded, perfectSolve: perfect, xpGranted: reward.xp, coinsGranted: reward.coins, live: await readLiveSnapshot(db, account) };
+    memoryFragmentId: weeklySolution.memoryFragmentId,
+    reward: weeklySolution.reward,
+  }) : { awarded: false, xp: 0, coins: 0, reward: undefined };
+  return { kind: 'weekly', challengeId: definitions.weekly.challenge_id, awarded: reward.awarded, perfectSolve: perfect, xpGranted: reward.xp, coinsGranted: reward.coins, reward: reward.reward, live: await readLiveSnapshot(db, account) };
 }
 
 export async function maybeClaimWeeklyRecovery(db: PlayerDatabase, account: FirebaseAccount): Promise<void> {

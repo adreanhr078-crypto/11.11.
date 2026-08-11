@@ -1,5 +1,16 @@
 export type LiveChallengeKind = 'daily' | 'weekly';
 export type LiveChallengeMechanic =
+  | 'memory-fragment'
+  | 'wiring'
+  | 'cipher'
+  | 'sequence'
+  | 'matrix'
+  | 'timeline'
+  | 'pattern-scan'
+  | 'evidence-match'
+  | 'routing'
+  | 'load-balance'
+  | 'order-logic'
   | 'signal'
   | 'sequence'
   | 'cipher'
@@ -12,6 +23,46 @@ export type LiveChallengeMechanic =
   | 'routing';
 export type LiveChallengeStatus = 'available' | 'in_progress' | 'completed';
 
+export type LiveChallengeRewardTier = 'standard' | 'rare';
+export type LiveChallengeRewardKind = 'gift' | 'memory-shard';
+
+export interface LiveChallengeReward {
+  tier: LiveChallengeRewardTier;
+  kind: LiveChallengeRewardKind;
+  label: string;
+  icon: string;
+}
+
+export type LiveChallengeVisual =
+  | {
+    kind: 'memory-fragment';
+    imageSrc: string;
+    alt: string;
+    rows: number;
+    columns: number;
+    pieces: readonly {
+      id: string;
+      label: string;
+      backgroundPosition: string;
+    }[];
+  }
+  | {
+    kind: 'wiring';
+    sources: readonly { id: string; label: string }[];
+    targets: readonly { id: string; label: string; detail: string }[];
+  }
+  | {
+    kind: 'cipher';
+    encoded: string;
+    shift: number;
+    alphabet: string;
+  }
+  | {
+    kind: 'choice';
+    layout: 'sequence' | 'matrix' | 'timeline' | 'pattern' | 'evidence' | 'routing' | 'balance' | 'order';
+    items: readonly { label: string; detail?: string }[];
+  };
+
 export interface LiveChallengePublicDefinition {
   id: string;
   kind: LiveChallengeKind;
@@ -22,6 +73,9 @@ export interface LiveChallengePublicDefinition {
   instructions: string;
   prompt: string;
   options: readonly string[];
+  difficulty?: 'standard' | 'focused' | 'deep';
+  visual?: LiveChallengeVisual;
+  reward?: LiveChallengeReward;
   stageIndex?: number;
   stageCount?: number;
 }
@@ -83,5 +137,6 @@ export interface LiveCompletionReceipt {
   perfectSolve: boolean;
   xpGranted: number;
   coinsGranted: number;
+  reward?: LiveChallengeReward;
   live: LiveChallengesSnapshot;
 }
