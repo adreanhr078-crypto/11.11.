@@ -16,6 +16,7 @@ export interface SocketAttachment {
   displayName: string;
   jti: string;
   joinedAt: number;
+  region?: string;
   roles?: string[];
 }
 

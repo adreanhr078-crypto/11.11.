@@ -1,5 +1,5 @@
-const SHELL_CACHE = 'eleven-shell-v2';
-const RUNTIME_CACHE = 'eleven-runtime-v2';
+const SHELL_CACHE = 'eleven-shell-v3';
+const RUNTIME_CACHE = 'eleven-runtime-v3';
 const CONFIG_CACHE = 'eleven-sw-config-v1';
 const CONFIG_URL = '/__eleven_sw_preferences__';
 const COUNTER_URL = '/__eleven_sw_notification_counter__';

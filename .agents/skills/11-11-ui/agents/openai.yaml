@@ -1,0 +1,4 @@
+interface:
+  display_name: "11.11ui"
+  short_description: "Cinematic 11.11 player interface workflow"
+  default_prompt: "Use $11-11-ui to design and implement a cinematic 11.11 player interface."

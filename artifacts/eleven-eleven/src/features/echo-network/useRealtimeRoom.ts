@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  matchReceiptSchema,
+  onlineModeSchema,
   realtimeEnvelopeSchema,
   type MatchReceipt,
   type OnlineMode,
@@ -12,6 +14,7 @@ import {
   EchoNetworkApiError,
   issueNetworkTicket,
 } from '../../infrastructure/echo-network/echoNetworkApi';
+import { normalizePartyRoomId } from '../../domain/echo-network/partyRoomSafety';
 
 export type RealtimeRoomPhase =
   | 'idle'
@@ -73,6 +76,22 @@ function snapshotVersion(snapshot: Record<string, unknown> | null): number {
     && typeof (state as { version?: unknown }).version === 'number'
     ? (state as { version: number }).version
     : 0;
+}
+
+function receiptFromPayload(payload: Record<string, unknown>): MatchReceipt | null {
+  const parsed = matchReceiptSchema.safeParse(payload.receipt);
+  return parsed.success ? parsed.data : null;
+}
+
+function snapshotIsCompleted(snapshot: Record<string, unknown>): boolean {
+  return ['completed', 'white-won', 'black-won', 'draw'].includes(String(snapshot.status));
+}
+
+function matchPathFor(mode: OnlineMode, matchId: string): string {
+  const safeMatchId = encodeURIComponent(matchId);
+  return mode === 'coop_breach'
+    ? `/v1/rooms/coop/${safeMatchId}`
+    : `/v1/rooms/chess/${safeMatchId}`;
 }
 
 export function useRealtimeRoom() {
@@ -151,11 +170,10 @@ export function useRealtimeRoom() {
       const path = typeof envelope.payload.path === 'string'
         ? envelope.payload.path
         : null;
-      const mode = typeof envelope.payload.mode === 'string'
-        ? envelope.payload.mode as OnlineMode
-        : stateRef.current.mode;
+      const mode = onlineModeSchema.safeParse(envelope.payload.mode);
       const base = lastSocketBaseRef.current;
-      if (!matchId || !ticket || !path || !mode || !base) {
+      if (!matchId || !ticket || !path || !mode.success || !base
+        || ticket.length > 4_096 || path !== matchPathFor(mode.data, matchId)) {
         setState((previous) => ({ ...previous, phase: 'error', error: 'وصل عقد مباراة غير مكتمل.' }));
         return;
       }
@@ -166,23 +184,31 @@ export function useRealtimeRoom() {
         ...previous,
         phase: 'connecting',
         roomId: matchId,
-        mode,
+        mode: mode.data,
+        target: 'match',
       }));
       openRoomSocketRef.current(
-        websocketUrl(base, path),
+        websocketUrl(base, matchPathFor(mode.data, matchId)),
         'echo-network-v1',
         ticket,
-        mode,
+        mode.data,
         matchId,
       );
       return;
     }
     if (envelope.type === 'reward-pending') {
-      const receipt = envelope.payload.receipt as MatchReceipt | undefined;
+      const receipt = receiptFromPayload(envelope.payload);
+      if (!receipt || (stateRef.current.roomId && receipt.matchId !== stateRef.current.roomId)) {
+        setState((previous) => ({
+          ...previous,
+          error: 'وصل إيصال مباراة غير صالح. لم تُعرض أي مكافأة.',
+        }));
+        return;
+      }
       setState((previous) => ({
         ...previous,
         phase: 'completed',
-        receipt: receipt ?? previous.receipt,
+        receipt,
       }));
       return;
     }
@@ -204,6 +230,7 @@ export function useRealtimeRoom() {
       setState((previous) => ({
         ...previous,
         phase: envelope.type === 'match-completed' || envelope.type === 'case-completed'
+          || snapshotIsCompleted(envelope.payload)
           ? 'completed'
           : 'active',
         snapshot: envelope.payload,
@@ -240,10 +267,12 @@ export function useRealtimeRoom() {
     const socket = new WebSocket(url, [protocol, ticket]);
     socketRef.current = socket;
     socket.onopen = () => {
+      if (socketRef.current !== socket) return;
       reconnectAttemptsRef.current = 0;
       setState((previous) => ({ ...previous, phase: 'active', mode, roomId, error: null }));
     };
     socket.onmessage = (event) => {
+      if (socketRef.current !== socket) return;
       let parsed: unknown;
       try {
         parsed = JSON.parse(String(event.data));
@@ -254,6 +283,7 @@ export function useRealtimeRoom() {
       if (envelope.success) handleEnvelope(envelope.data);
     };
     socket.onerror = () => {
+      if (socketRef.current !== socket) return;
       setState((previous) => ({ ...previous, error: 'تعذر تثبيت قناة الغرفة.' }));
     };
     socket.onclose = () => {
@@ -292,6 +322,7 @@ export function useRealtimeRoom() {
       const socket = new WebSocket(response.webSocketUrl, [response.protocol, response.ticket]);
       socketRef.current = socket;
       socket.onmessage = (event) => {
+        if (socketRef.current !== socket) return;
         let parsed: unknown;
         try {
           parsed = JSON.parse(String(event.data));
@@ -302,6 +333,7 @@ export function useRealtimeRoom() {
         if (envelope.success) handleEnvelope(envelope.data);
       };
       socket.onerror = () => {
+        if (socketRef.current !== socket) return;
         setState((previous) => ({ ...previous, phase: 'error', error: 'تعذر دخول المطابقة.' }));
       };
       socket.onclose = (event) => {
@@ -325,26 +357,39 @@ export function useRealtimeRoom() {
     manualCloseRef.current = false;
     reconnectAttemptsRef.current = 0;
     const mode = input.mode ?? 'coop_breach';
+    const roomId = input.target === 'party'
+      ? normalizePartyRoomId(input.roomId)
+      : input.roomId.trim();
+    if (!roomId) {
+      setState({
+        ...INITIAL_STATE,
+        phase: 'error',
+        mode,
+        target: input.target,
+        error: 'رمز الفريق الخاص غير صالح.',
+      });
+      return;
+    }
     setState({
       ...INITIAL_STATE,
       phase: 'connecting',
       mode,
       target: input.target,
-      roomId: input.roomId,
+      roomId,
     });
     try {
       const response = await issueNetworkTicket({
         purpose: 'connect',
         target: input.target,
         mode,
-        roomId: input.roomId,
+        roomId,
       });
       openRoomSocketRef.current(
         response.webSocketUrl,
         response.protocol,
         response.ticket,
         mode,
-        input.roomId,
+        roomId,
       );
     } catch (error) {
       setState((previous) => ({ ...previous, phase: 'error', error: friendlyError(error) }));

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
-test('the default development command starts the web and player API runtimes', () => {
+test('the default development command starts the web, player API, and realtime runtimes', () => {
   const packageJson = JSON.parse(
     readFileSync(resolve(process.cwd(), 'package.json'), 'utf8'),
   ) as { scripts?: Record<string, string> };
@@ -32,6 +32,7 @@ test('the default development command starts the web and player API runtimes', (
     [
       { name: 'web', port: 3000, available: true },
       { name: 'player-api', port: 8788, available: true },
+      { name: 'realtime', port: 8790, available: true },
     ],
   );
 });

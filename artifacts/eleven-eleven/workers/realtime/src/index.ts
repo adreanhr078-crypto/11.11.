@@ -6,6 +6,7 @@ import {
   type Glicko2Rating,
 } from '../../../src/domain/echo-network/glicko2';
 import type { MatchReceipt } from '../../../src/domain/echo-network/contracts';
+import { normalizePartyRoomId } from '../../../src/domain/echo-network/partyRoomSafety';
 import { seasonAt, seasonWeekAt } from '../../../src/domain/echo-network/seasonCatalog';
 import {
   RealtimeError,
@@ -72,8 +73,11 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
           throw new RealtimeError(403, 'wrong_ticket_purpose', 'This ticket cannot enter matchmaking.');
         }
         const discriminator = ticket.caseId ?? ticket.variant ?? 'default';
+        // `ratingBand` exists only on server-issued ranked queue tickets. It
+        // deliberately remains absent from match tickets and client commands.
+        const matchmakingBand = ticket.ratingBand ?? 'open';
         const stub = this.env.MATCHMAKER_ROOMS.getByName(
-          `${ticket.region}:${ticket.mode}:${discriminator}`,
+          `${ticket.region}:${ticket.mode}:${discriminator}:${matchmakingBand}`,
           { locationHint: modeLocationHint(ticket.region) },
         );
         return stub.fetch(request);
@@ -82,6 +86,17 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
         throw new RealtimeError(403, 'wrong_ticket_purpose', 'This ticket cannot enter a room.');
       }
       const roomId = roomIdFromPath(request);
+      if (url.pathname.startsWith('/v1/parties/')) {
+        const canonicalPartyRoomId = normalizePartyRoomId(roomId);
+        if (!canonicalPartyRoomId || ticket.roomId !== canonicalPartyRoomId) {
+          throw new RealtimeError(403, 'wrong_room', 'This ticket does not belong to the requested room.');
+        }
+        const options = { locationHint: modeLocationHint(ticket.region) } as const;
+        if (ticket.target === 'party') {
+          return this.env.PARTY_ROOMS.getByName(canonicalPartyRoomId, options).fetch(request);
+        }
+        throw new RealtimeError(404, 'route_not_found', 'The realtime route does not exist.');
+      }
       if (ticket.roomId !== roomId) {
         throw new RealtimeError(403, 'wrong_room', 'This ticket does not belong to the requested room.');
       }
@@ -91,9 +106,6 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
       }
       if (url.pathname.startsWith('/v1/rooms/coop/') && ticket.target === 'match' && ticket.mode === 'coop_breach') {
         return this.env.COOP_SESSION_ROOMS.getByName(roomId, options).fetch(request);
-      }
-      if (url.pathname.startsWith('/v1/parties/') && ticket.target === 'party') {
-        return this.env.PARTY_ROOMS.getByName(roomId, options).fetch(request);
       }
       if (url.pathname.startsWith('/v1/channels/') && ticket.target === 'community') {
         return this.env.COMMUNITY_CHANNEL_ROOMS.getByName(roomId, options).fetch(request);

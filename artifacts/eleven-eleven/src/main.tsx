@@ -3,14 +3,15 @@ import ReactDOM from 'react-dom/client';
 import App from './App.tsx';
 import { ErrorBoundary } from './app/ErrorBoundary';
 import { bootstrapApplication } from './app/bootstrap';
+import { registerElevenServiceWorker } from './app/pwa/serviceWorker';
 import {
   EmotionVisualProvider,
 } from './features/emotion/useEmotionVisualSystem';
 
 bootstrapApplication();
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
+if (import.meta.env.PROD) {
   window.addEventListener('load', () => {
-    void navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    void registerElevenServiceWorker(true);
   }, { once: true });
 }
 ReactDOM.createRoot(document.getElementById('root')!).render(

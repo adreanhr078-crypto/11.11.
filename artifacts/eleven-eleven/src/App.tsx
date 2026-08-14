@@ -19,12 +19,14 @@ import { FirstTimeOnboarding } from './features/onboarding/FirstTimeOnboarding';
 import './features/player-sync/player-sync.css';
 import './features/echo-network/echo-network.css';
 import { LocaleDocumentBridge } from './app/LocaleDocumentBridge';
+import { TelemetryBridge } from './app/telemetry/TelemetryBridge';
 
 export default function App() {
   return (
     <>
       <AuthBootstrap />
       <LocaleDocumentBridge />
+      <TelemetryBridge />
       <PlayerSyncBootstrap />
       <ApplicationShell />
       <GameRuntimeBridge />

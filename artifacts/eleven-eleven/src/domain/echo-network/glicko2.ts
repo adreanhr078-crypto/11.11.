@@ -116,3 +116,21 @@ export const DEFAULT_GLICKO2_RATING: Readonly<Glicko2Rating> = Object.freeze({
   volatility: 0.06,
   gamesPlayed: 0,
 });
+
+/**
+ * The first ten ranked games are deliberately grouped together. Afterwards
+ * the server places a player into a broad, stable Glicko band so that a queue
+ * does not pair a new account against an established one by accident.
+ */
+export function rankedMatchmakingBand(
+  rating: Pick<Glicko2Rating, 'rating' | 'gamesPlayed'>,
+): 'provisional' | `glicko-${number}` {
+  if (!Number.isFinite(rating.gamesPlayed) || rating.gamesPlayed < 10) {
+    return 'provisional';
+  }
+  const safeRating = Number.isFinite(rating.rating) ? rating.rating : 1500;
+  const lowerBound = Math.max(800, Math.min(2800, Math.floor(safeRating / 200) * 200));
+  // `lowerBound` is clamped to a finite integer; padding preserves the
+  // four-digit protocol shape required by the signed ticket schema.
+  return `glicko-${String(lowerBound).padStart(4, '0')}` as `glicko-${number}`;
+}

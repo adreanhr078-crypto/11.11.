@@ -2,6 +2,10 @@ import type { FirebaseAccount } from './_shared';
 import { PlayerApiError } from './_shared';
 import type { PlayerDatabase } from './_database';
 import type { OnlineMode } from '../../../src/domain/echo-network/contracts';
+import {
+  DEFAULT_GLICKO2_RATING,
+  rankedMatchmakingBand,
+} from '../../../src/domain/echo-network/glicko2';
 
 interface MilestoneRow {
   chess_training_completed_at: string | null;
@@ -82,6 +86,37 @@ export async function assertModeEligibility(
       'Complete chess training and three Casual matches before entering Ranked.',
     );
   }
+}
+
+interface ChessRatingMatchmakingRow {
+  rating: number | string;
+  games_played: number | string;
+}
+
+/**
+ * Rank pool assignment happens at the authenticated API boundary. The signed
+ * ticket makes the choice immutable by the time it reaches a Durable Object.
+ */
+export async function readRankedMatchmakingBand(
+  db: PlayerDatabase,
+  uid: string,
+  mode: OnlineMode,
+): Promise<'provisional' | `glicko-${number}` | undefined> {
+  const speed = mode === 'chess_ranked_blitz'
+    ? 'blitz'
+    : mode === 'chess_ranked_rapid'
+      ? 'rapid'
+      : null;
+  if (!speed) return undefined;
+  const row = await db.prepare(`
+    SELECT rating, games_played
+    FROM chess_ratings
+    WHERE user_id = ? AND speed = ?
+  `).bind(uid, speed).first<ChessRatingMatchmakingRow>();
+  return rankedMatchmakingBand({
+    rating: Number(row?.rating ?? DEFAULT_GLICKO2_RATING.rating),
+    gamesPlayed: Number(row?.games_played ?? DEFAULT_GLICKO2_RATING.gamesPlayed),
+  });
 }
 
 export async function recordNetworkTicket(

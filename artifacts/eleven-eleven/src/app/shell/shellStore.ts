@@ -16,6 +16,7 @@ import type {
   AdConsent,
 } from '../../domain/echo-network/adPolicy';
 import type { NetworkLocale } from '../../domain/echo-network/contracts';
+import type { TelemetryConsent } from '../../domain/telemetry/telemetryContracts';
 
 export type { GameScreenId } from './screenRegistry';
 
@@ -128,6 +129,7 @@ interface UiPreferencesState {
   audioEnabled: boolean;
   sfxVolume: number;
   showTelemetry: boolean;
+  telemetryConsent: TelemetryConsent;
   locale: NetworkLocale;
   adConsent: AdConsent;
   notificationsEnabled: boolean;
@@ -138,6 +140,7 @@ interface UiPreferencesState {
   setAudioEnabled: (audioEnabled: boolean) => void;
   setSfxVolume: (sfxVolume: number) => void;
   setShowTelemetry: (showTelemetry: boolean) => void;
+  setTelemetryConsent: (telemetryConsent: TelemetryConsent) => void;
   setLocale: (locale: NetworkLocale) => void;
   setAdConsent: (adConsent: AdConsent) => void;
   setNotificationsEnabled: (notificationsEnabled: boolean) => void;
@@ -152,6 +155,7 @@ export const useUiPreferencesStore = create<UiPreferencesState>()(
       audioEnabled: true,
       sfxVolume: 0.7,
       showTelemetry: false,
+      telemetryConsent: 'unset',
       locale: 'ar',
       adConsent: 'unset',
       notificationsEnabled: false,
@@ -164,6 +168,7 @@ export const useUiPreferencesStore = create<UiPreferencesState>()(
         sfxVolume: Math.min(1, Math.max(0, sfxVolume)),
       }),
       setShowTelemetry: (showTelemetry) => set({ showTelemetry }),
+      setTelemetryConsent: (telemetryConsent) => set({ telemetryConsent }),
       setLocale: (locale) => set({ locale }),
       setAdConsent: (adConsent) => set({ adConsent }),
       setNotificationsEnabled: (notificationsEnabled) => set({ notificationsEnabled }),
@@ -174,7 +179,7 @@ export const useUiPreferencesStore = create<UiPreferencesState>()(
     }),
     {
       name: 'eleven_ui_preferences',
-      version: 4,
+      version: 5,
       migrate: (persistedState) => {
         const previous = persistedState as Partial<UiPreferencesState>;
         return {
@@ -184,6 +189,10 @@ export const useUiPreferencesStore = create<UiPreferencesState>()(
             ? Math.min(1, Math.max(0, previous.sfxVolume))
             : 0.7,
           showTelemetry: false,
+          telemetryConsent: previous.telemetryConsent === 'granted'
+            || previous.telemetryConsent === 'declined'
+            ? previous.telemetryConsent
+            : 'unset',
           locale: previous.locale === 'en' ? 'en' : 'ar',
           adConsent: previous.adConsent === 'contextual'
             || previous.adConsent === 'declined'

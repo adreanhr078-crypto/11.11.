@@ -233,6 +233,7 @@ export default function EchoNetworkScreen() {
             eligibility={eligibility}
             onTrainingComplete={() => completeTraining('chess')}
             onReceipt={refresh}
+            locale={locale}
           />
         )}
         {tab === 'coop' && (

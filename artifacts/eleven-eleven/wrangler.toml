@@ -9,6 +9,7 @@ pages_build_output_dir = "./dist"
 # Production same-origin requests are still allowed by the API automatically.
 [vars]
 PLAYER_ALLOWED_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173"
+PLAYER_TELEMETRY_ENABLED = "false"
 
 # The global progression API expects a private D1 binding named PLAYER_DB.
 [[d1_databases]]
@@ -16,3 +17,15 @@ binding = "PLAYER_DB"
 database_name = "eleven-eleven-player"
 database_id = "eb0c9c3f-5c00-454b-a139-ca2e9edbf6f9"
 migrations_dir = "migrations"
+
+# Replays remain private and are read only through an authenticated Pages
+# Function that checks the caller's match participation in D1.
+[[r2_buckets]]
+binding = "REPLAYS"
+bucket_name = "eleven-eleven-replays"
+
+# Aggregate-only telemetry. The request schema excludes player identifiers,
+# messages, and gameplay input before a Data Point can be written.
+[[analytics_engine_datasets]]
+binding = "PLAYER_ANALYTICS"
+dataset = "eleven_eleven_player"

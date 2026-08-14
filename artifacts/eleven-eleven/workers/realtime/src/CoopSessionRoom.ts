@@ -4,6 +4,7 @@ import type {
   MatchReceipt,
   RoomCommand,
 } from '../../../src/domain/echo-network/contracts';
+import { matchReceiptSchema } from '../../../src/domain/echo-network/contracts';
 import {
   COOP_CASES,
   COOP_CASE_BY_ID,
@@ -230,6 +231,7 @@ export class CoopSessionRoom extends DurableObject<Env> {
       server.serializeAttachment(attachment);
       this.ctx.acceptWebSocket(server, [`uid:${ticket.uid}`]);
       this.sendSnapshot(server, 'room-snapshot');
+      this.sendStoredReceipt(server);
       this.broadcastSnapshots('presence-changed');
       await this.scheduleTakeoverAlarm();
       return upgradeResponse(client);
@@ -255,6 +257,7 @@ export class CoopSessionRoom extends DurableObject<Env> {
       }
       if (this.commandWasAccepted(command.idempotencyKey)) {
         this.sendSnapshot(socket, 'command-replayed');
+        this.sendStoredReceipt(socket);
         return;
       }
       if (command.expectedVersion !== state.version) {
@@ -271,6 +274,7 @@ export class CoopSessionRoom extends DurableObject<Env> {
         this.broadcastPreset(attachment.uid, command, meta, state);
       } else if (command.type === 'resume') {
         this.sendSnapshot(socket, 'room-snapshot');
+        this.sendStoredReceipt(socket);
       } else {
         throw new RealtimeError(400, 'unsupported_command', 'This breach command is not supported.');
       }
@@ -393,6 +397,20 @@ export class CoopSessionRoom extends DurableObject<Env> {
     if (!attachment || !meta) return;
     sendEvent(socket, meta.room_id, parseState(meta.state_json).version, eventType,
       this.snapshotFor(attachment.uid));
+  }
+
+  private sendStoredReceipt(socket: WebSocket): void {
+    const meta = this.meta();
+    if (!meta?.receipt_json) return;
+    try {
+      const receipt = matchReceiptSchema.safeParse(JSON.parse(meta.receipt_json) as unknown);
+      if (!receipt.success) return;
+      sendEvent(socket, meta.room_id, parseState(meta.state_json).version, 'reward-pending', {
+        receipt: receipt.data,
+      });
+    } catch {
+      // A malformed local replay state must never crash a reconnecting room.
+    }
   }
 
   private broadcastSnapshots(eventType: string): void {

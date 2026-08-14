@@ -34,6 +34,7 @@ export default function SettingsScreen() {
   const cinematic = useGameStore((state) => state.cinematic);
   const actions = useGameStore((state) => state.actions);
   const preferences = useUiPreferencesStore();
+  const isArabic = preferences.locale === 'ar';
 
   return (
     <div className="shell-screen shell-settings-screen">
@@ -131,6 +132,61 @@ export default function SettingsScreen() {
           </GameButton>
         </div>
         <small className="shell-muted-copy">حد العرض: إعلان واحد لكل موضع كل 30 دقيقة، ولا تُستخدم بيانات الدردشة في الاستهداف.</small>
+      </GlassPanel>
+
+      <GlassPanel
+        className="shell-settings-telemetry"
+        tone="neutral"
+        eyebrow="OPTIONAL PRODUCT MEASUREMENT"
+        title={isArabic ? 'قياس التجربة الاختياري' : 'Optional experience measurement'}
+      >
+        <div className="shell-settings-telemetry__visual" aria-hidden="true">
+          <img
+            src="/assets/ui/settings/privacy-signal-contract-v1.webp"
+            alt=""
+            width="1280"
+            height="720"
+            loading="lazy"
+            decoding="async"
+          />
+        </div>
+        <div className="shell-settings-telemetry__content">
+          <p className="shell-muted-copy">
+            {isArabic
+              ? 'يساعدنا القياس الاختياري على تحسين تدفق اللعب. لا نرسل اسمك أو رسائلك أو إجابات الألغاز أو أي نص حر؛ ولا يمنح هذا الخيار XP أو جوائز.'
+              : 'Optional measurement helps us improve play flow. It never sends your name, messages, puzzle answers, or free text, and it never grants XP or rewards.'}
+          </p>
+          <div
+            className="shell-settings-options"
+            role="group"
+            aria-label={isArabic ? 'اختيار قياس التجربة' : 'Experience measurement choice'}
+          >
+            <GameButton
+              variant={preferences.telemetryConsent === 'granted' ? 'secondary' : 'ghost'}
+              aria-pressed={preferences.telemetryConsent === 'granted'}
+              onClick={() => preferences.setTelemetryConsent('granted')}
+            >
+              {isArabic ? 'السماح بالقياس المجهول' : 'Allow anonymous measurement'}
+            </GameButton>
+            <GameButton
+              variant={preferences.telemetryConsent === 'declined' ? 'secondary' : 'ghost'}
+              aria-pressed={preferences.telemetryConsent === 'declined'}
+              onClick={() => preferences.setTelemetryConsent('declined')}
+            >
+              {isArabic ? 'عدم السماح' : 'Do not allow'}
+            </GameButton>
+          </div>
+          <output className="shell-settings-telemetry__status" data-consent={preferences.telemetryConsent}>
+            <b>{isArabic ? 'الحالة:' : 'Status:'}</b>{' '}
+            {preferences.telemetryConsent === 'granted'
+              ? isArabic
+                ? 'الموافقة محفوظة. لا يبدأ القياس إلا عند تفعيل الخادم أيضًا.'
+                : 'Your consent is saved. Measurement starts only when the server is also enabled.'
+              : preferences.telemetryConsent === 'declined'
+                ? isArabic ? 'موقوف. يمكنك تغيير القرار في أي وقت.' : 'Off. You can change this at any time.'
+                : isArabic ? 'لم تختر بعد؛ القياس متوقف.' : 'No choice yet; measurement is off.'}
+          </output>
+        </div>
       </GlassPanel>
 
       <HudPanel

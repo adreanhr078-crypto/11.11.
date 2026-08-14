@@ -60,6 +60,18 @@ export interface NetworkTicketResponse {
   expiresAt: string;
 }
 
+export interface NetworkMatchReplay {
+  version: 1;
+  receiptId: string;
+  matchId: string;
+  [key: string]: unknown;
+}
+
+export interface NetworkMatchReplayResponse {
+  receipt: MatchReceipt;
+  replay: NetworkMatchReplay;
+}
+
 export class EchoNetworkApiError extends Error {
   constructor(
     readonly status: number,
@@ -127,6 +139,12 @@ export function issueNetworkTicket(input: {
     method: 'POST',
     body: JSON.stringify({ region: 'me', ...input }),
   });
+}
+
+export function fetchNetworkMatchReplay(matchId: string): Promise<NetworkMatchReplayResponse> {
+  return networkRequest<NetworkMatchReplayResponse>(
+    `/network/replay?matchId=${encodeURIComponent(matchId)}`,
+  );
 }
 
 export async function completeNetworkTraining(

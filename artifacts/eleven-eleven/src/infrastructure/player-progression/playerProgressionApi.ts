@@ -29,6 +29,9 @@ import type {
   LiveChallengesSnapshot,
   LiveCompletionReceipt,
 } from '../../domain/live-challenges/liveChallengeContracts';
+import type {
+  PlayerTelemetryEvent,
+} from '../../domain/telemetry/telemetryContracts';
 
 export interface LeaderboardApiSnapshot {
   entries: LeaderboardPlayer[];
@@ -444,4 +447,28 @@ export function useWeeklySystemTrialHint(hintIndex: number): Promise<{
   live: LiveChallengesSnapshot;
 }> {
   return liveAction('use-weekly-hint', { hintIndex });
+}
+
+/**
+ * Optional product measurement never changes player state. Failures are
+ * intentionally silent to the player and must not interrupt gameplay.
+ */
+export async function submitPlayerTelemetry(
+  event: PlayerTelemetryEvent,
+  expectedUid?: string,
+): Promise<boolean> {
+  try {
+    const session = await getCurrentAuthSession(expectedUid);
+    const response = await fetchPlayerRequest(`${apiRoot()}/telemetry`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(event),
+    });
+    return response.status === 204;
+  } catch {
+    return false;
+  }
 }

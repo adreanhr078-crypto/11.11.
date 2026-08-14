@@ -1,23 +1,86 @@
-/**
- * The 3D opening room is intentionally retained for a future gameplay pass,
- * but it is not part of the active player flow right now.
- */
-export const OPENING_ROOM_3D_ENABLED = false;
+export type FeatureFlagKey =
+  | 'openingRoom3d'
+  | 'awakeningWard'
+  | 'legacyPuzzleArchive'
+  | 'telemetry'
+  | 'communityPresetChat'
+  | 'communityFreeText'
+  | 'puzzleForgePublishing';
+
+export type FeatureFlagEnvironment = Record<string, string | undefined>;
+
+export interface FeatureFlags {
+  readonly openingRoom3d: boolean;
+  readonly awakeningWard: boolean;
+  readonly legacyPuzzleArchive: boolean;
+  readonly telemetry: boolean;
+  readonly communityPresetChat: boolean;
+  readonly communityFreeText: boolean;
+  readonly puzzleForgePublishing: boolean;
+}
+
 const runtimeEnv = (import.meta as ImportMeta & {
   env?: ImportMetaEnv;
-}).env;
+}).env as FeatureFlagEnvironment | undefined;
+
+function booleanFlag(
+  environment: FeatureFlagEnvironment | undefined,
+  key: string,
+  fallback: boolean,
+): boolean {
+  const value = environment?.[key]?.trim().toLowerCase();
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return fallback;
+}
 
 /**
- * Awakening Ward stays shipped and save-compatible while its gameplay pass is
- * paused. Set the environment flag to true to restore its entry points.
+ * Moderation-sensitive and experimental features fail closed. This local
+ * registry becomes the stable contract for remote rollout in a later phase.
  */
-export const AWAKENING_WARD_ENABLED = (
-  runtimeEnv?.VITE_AWAKENING_WARD_ENABLED === 'true'
-);
+export function createFeatureFlags(
+  environment: FeatureFlagEnvironment | undefined = runtimeEnv,
+): FeatureFlags {
+  return Object.freeze({
+    openingRoom3d: false,
+    awakeningWard: booleanFlag(environment, 'VITE_AWAKENING_WARD_ENABLED', false),
+    legacyPuzzleArchive: booleanFlag(
+      environment,
+      'VITE_LEGACY_PUZZLE_ARCHIVE_ENABLED',
+      true,
+    ),
+    telemetry: booleanFlag(environment, 'VITE_TELEMETRY_ENABLED', false),
+    communityPresetChat: booleanFlag(
+      environment,
+      'VITE_COMMUNITY_PRESET_CHAT_ENABLED',
+      true,
+    ),
+    communityFreeText: booleanFlag(
+      environment,
+      'VITE_COMMUNITY_FREE_TEXT_ENABLED',
+      false,
+    ),
+    puzzleForgePublishing: booleanFlag(
+      environment,
+      'VITE_PUZZLE_FORGE_PUBLISHING_ENABLED',
+      false,
+    ),
+  });
+}
 
-export const LEGACY_PUZZLE_ARCHIVE_ENABLED = (
-  runtimeEnv?.VITE_LEGACY_PUZZLE_ARCHIVE_ENABLED !== 'false'
-);
+export const FEATURE_FLAGS = createFeatureFlags();
+
+export function isFeatureEnabled(key: FeatureFlagKey): boolean {
+  return FEATURE_FLAGS[key];
+}
+
+/** The 3D opening room is retained but excluded from the active flow. */
+export const OPENING_ROOM_3D_ENABLED = FEATURE_FLAGS.openingRoom3d;
+
+/** Awakening Ward remains shipped and save-compatible while its pass is paused. */
+export const AWAKENING_WARD_ENABLED = FEATURE_FLAGS.awakeningWard;
+
+export const LEGACY_PUZZLE_ARCHIVE_ENABLED = FEATURE_FLAGS.legacyPuzzleArchive;
 
 export function resolveFeatureGatedScreen(
   screen: string,

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { NetworkLocale } from '../../domain/echo-network/contracts';
+import { normalizePartyRoomId } from '../../domain/echo-network/partyRoomSafety';
 import { GameButton, GlassPanel } from '../../ui/design-system';
 import { useRealtimeRoom } from './useRealtimeRoom';
 
@@ -41,8 +42,8 @@ export function LiveSignalRooms({ locale }: { locale: NetworkLocale }) {
     : 0;
 
   const enterParty = (code: string) => {
-    const normalized = code.trim();
-    if (!/^party-[A-Z2-9]{8,16}$/i.test(normalized)) return;
+    const normalized = normalizePartyRoomId(code);
+    if (!normalized) return;
     setPartyCode(normalized);
     void party.joinDirect({ target: 'party', roomId: normalized });
   };
@@ -66,7 +67,7 @@ export function LiveSignalRooms({ locale }: { locale: NetworkLocale }) {
             <p>أنشئ رمزًا أو أدخل رمز صديق. الغرفة لا تظهر في البحث العام وتستخدم عبارات جاهزة فقط.</p>
             <form className="signal-party-entry" onSubmit={(event) => { event.preventDefault(); enterParty(partyCode); }}>
               <input dir="ltr" value={partyCode} maxLength={22} placeholder="party-XXXXXXXXXX" onChange={(event) => setPartyCode(event.target.value)} aria-label="رمز الفريق الخاص" />
-              <GameButton type="submit" size="sm" variant="memory" disabled={!/^party-[A-Z2-9]{8,16}$/i.test(partyCode.trim())}>دخول</GameButton>
+              <GameButton type="submit" size="sm" variant="memory" disabled={!normalizePartyRoomId(partyCode)}>دخول</GameButton>
               <GameButton size="sm" variant="secondary" onClick={newParty}>إنشاء</GameButton>
             </form>
             {party.state.error && <p className="echo-network-error" role="alert">{party.state.error}</p>}

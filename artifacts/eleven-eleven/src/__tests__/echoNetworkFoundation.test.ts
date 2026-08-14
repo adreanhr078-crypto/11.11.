@@ -11,7 +11,7 @@ import {
   COOP_CASES,
   COOP_CASE_BY_ID,
 } from '../domain/echo-network/coopCaseCatalog';
-import { updateGlicko2 } from '../domain/echo-network/glicko2';
+import { rankedMatchmakingBand, updateGlicko2 } from '../domain/echo-network/glicko2';
 import {
   signRealtimeTicket,
   verifyRealtimeTicket,
@@ -22,6 +22,10 @@ import {
   canShowAdvertisement,
 } from '../domain/echo-network/adPolicy';
 import { moderateCommunityText } from '../domain/echo-network/communitySafety';
+import {
+  earliestPartyCleanupAlarm,
+  normalizePartyRoomId,
+} from '../domain/echo-network/partyRoomSafety';
 import {
   ECHO_SEASON_DURATION_DAYS,
   seasonAt,
@@ -112,6 +116,13 @@ describe('Echo Network foundation', () => {
     assert.equal(result.gamesPlayed, 3);
   });
 
+  it('keeps provisional chess together before issuing broad server-owned rank bands', () => {
+    assert.equal(rankedMatchmakingBand({ rating: 2390, gamesPlayed: 9 }), 'provisional');
+    assert.equal(rankedMatchmakingBand({ rating: 1500, gamesPlayed: 10 }), 'glicko-1400');
+    assert.equal(rankedMatchmakingBand({ rating: 2810, gamesPlayed: 42 }), 'glicko-2800');
+    assert.equal(rankedMatchmakingBand({ rating: 720, gamesPlayed: 42 }), 'glicko-0800');
+  });
+
   it('ships twelve reviewed co-op cases with unique server-only fingerprints', () => {
     assert.equal(COOP_CASES.length, 12);
     assert.deepEqual(
@@ -178,6 +189,16 @@ describe('Echo Network foundation', () => {
     assert.equal(moderateCommunityText('Ready for co-op').allowed, true);
     assert.equal(moderateCommunityText('visit https://example.com').reason, 'link');
     assert.equal(moderateCommunityText('call +962 79 123 4567').reason, 'personal-data');
+  });
+
+  it('canonicalizes private party codes and preserves the earliest cleanup deadline', () => {
+    assert.equal(normalizePartyRoomId(' party-abcde234 '), 'party-ABCDE234');
+    assert.equal(normalizePartyRoomId('party-ABCDEFGH'), 'party-ABCDEFGH');
+    assert.equal(normalizePartyRoomId('party-ambiguous0o'), null);
+    assert.equal(normalizePartyRoomId('channel-ar-official'), null);
+    assert.equal(earliestPartyCleanupAlarm(null, 145_000), 145_000);
+    assert.equal(earliestPartyCleanupAlarm(145_000, 155_000), 145_000);
+    assert.equal(earliestPartyCleanupAlarm(155_000, 145_000), 145_000);
   });
 
   it('keeps eight-week seasons deterministic and archive-safe', () => {

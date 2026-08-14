@@ -11,6 +11,7 @@ export const ONLINE_MODES = [
   'coop_breach',
 ] as const;
 export type OnlineMode = typeof ONLINE_MODES[number];
+export const onlineModeSchema = z.enum(ONLINE_MODES);
 
 export const CHESS_VARIANTS = [
   'standard',
@@ -31,7 +32,7 @@ export interface LocalizedCopy {
 export const realtimeTicketRequestSchema = z.object({
   purpose: z.enum(['queue', 'connect']),
   target: z.enum(['match', 'party', 'community']).default('match'),
-  mode: z.enum(ONLINE_MODES),
+  mode: onlineModeSchema,
   roomId: z.string().trim().min(3).max(96).optional(),
   caseId: z.string().trim().min(3).max(96).optional(),
   variant: z.enum(CHESS_VARIANTS).optional(),
@@ -48,12 +49,15 @@ export const realtimeTicketPayloadSchema = z.object({
   target: z.enum(['matchmaking', 'match', 'party', 'community']),
   uid: z.string().min(1).max(128),
   displayName: z.string().min(1).max(80),
-  mode: z.enum(ONLINE_MODES),
+  mode: onlineModeSchema,
   roomId: z.string().min(3).max(96).optional(),
   partySize: z.number().int().min(2).max(4).optional(),
   caseId: z.string().min(3).max(96).optional(),
   variant: z.enum(CHESS_VARIANTS).optional(),
   region: z.string().min(2).max(8),
+  // Ranked placement and rating bands are issued by the authenticated Pages
+  // boundary. Clients never select the pool that they enter.
+  ratingBand: z.string().regex(/^(provisional|glicko-[0-9]{4})$/).optional(),
   iat: z.number().int().nonnegative(),
   exp: z.number().int().positive(),
   jti: z.string().uuid(),
@@ -84,6 +88,7 @@ export const roomCommandSchema = z.object({
     'hint-vote',
     'restart-vote',
     'preset-chat',
+    'party-launch',
     'resume',
     'ping',
   ]),
@@ -96,7 +101,7 @@ export const matchReceiptSchema = z.object({
   version: z.literal(1),
   receiptId: z.string().uuid(),
   matchId: z.string().min(3).max(96),
-  mode: z.enum(ONLINE_MODES),
+  mode: onlineModeSchema,
   context: z.object({
     caseId: z.string().min(3).max(96).nullable(),
     variant: z.enum(CHESS_VARIANTS).nullable(),

@@ -4,6 +4,7 @@ import {
 } from '../../../../src/domain/echo-network/contracts';
 import { signRealtimeTicket } from '../../../../src/domain/echo-network/realtimeTicket';
 import { COOP_CASE_BY_ID } from '../../../../src/domain/echo-network/coopCaseCatalog';
+import { normalizePartyRoomId } from '../../../../src/domain/echo-network/partyRoomSafety';
 import {
   PlayerApiError,
   authenticatePlayer,
@@ -19,6 +20,7 @@ import {
   assertModeEligibility,
   ensureNetworkPlayer,
   networkDisplayName,
+  readRankedMatchmakingBand,
   readNetworkEligibility,
   recordNetworkTicket,
 } from '../_network';
@@ -69,17 +71,20 @@ export async function onRequestPost({ request, env }: PlayerApiContext): Promise
       throw new PlayerApiError(400, 'invalid_ticket_request', 'Connection request is invalid.');
     }
     const body = parsed.data;
-    if (body.purpose === 'queue' && body.roomId) {
+    const roomId = body.target === 'party'
+      ? normalizePartyRoomId(body.roomId)
+      : body.roomId;
+    if (body.target === 'party' && !roomId) {
+      throw new PlayerApiError(400, 'invalid_party', 'The party code is invalid.');
+    }
+    if (body.purpose === 'queue' && roomId) {
       throw new PlayerApiError(400, 'invalid_ticket_request', 'Queue tickets cannot target a room.');
     }
-    if (body.purpose === 'connect' && !body.roomId) {
+    if (body.purpose === 'connect' && !roomId) {
       throw new PlayerApiError(400, 'invalid_ticket_request', 'A room is required to reconnect.');
     }
     if (body.purpose === 'queue' && body.target !== 'match') {
       throw new PlayerApiError(400, 'invalid_ticket_target', 'Matchmaking accepts match tickets only.');
-    }
-    if (body.target === 'party' && !/^party-[A-Z2-9]{8,16}$/i.test(body.roomId ?? '')) {
-      throw new PlayerApiError(400, 'invalid_party', 'The party code is invalid.');
     }
     if (body.target === 'community'
       && !/^channel-(ar|en)-(official|story|puzzles|chess|coop|creator)$/.test(body.roomId ?? '')) {
@@ -110,13 +115,16 @@ export async function onRequestPost({ request, env }: PlayerApiContext): Promise
         SELECT room_id FROM network_room_memberships
         WHERE room_id = ? AND user_id = ? AND mode = ? AND expires_at > ?
       `).bind(
-        body.roomId, account.uid, body.mode, new Date(issuedAt * 1_000).toISOString(),
+        roomId, account.uid, body.mode, new Date(issuedAt * 1_000).toISOString(),
       ).first<{ room_id: string }>();
       if (!membership) {
         throw new PlayerApiError(403, 'room_membership_required', 'This player is not assigned to that room.');
       }
     }
 
+    const ratingBand = body.purpose === 'queue'
+      ? await readRankedMatchmakingBand(database, account.uid, body.mode)
+      : undefined;
     const payload: RealtimeTicketPayload = {
       v: 1,
       iss: 'eleven-eleven-pages',
@@ -126,9 +134,10 @@ export async function onRequestPost({ request, env }: PlayerApiContext): Promise
       uid: account.uid,
       displayName: networkDisplayName(account),
       mode: body.mode,
-      ...(body.roomId ? { roomId: body.roomId } : {}),
+      ...(roomId ? { roomId } : {}),
       ...(body.caseId ? { caseId: body.caseId } : {}),
       ...(body.variant ? { variant: body.variant } : {}),
+      ...(ratingBand ? { ratingBand } : {}),
       region: body.region,
       iat: issuedAt,
       exp: expiresAt,
@@ -149,12 +158,12 @@ export async function onRequestPost({ request, env }: PlayerApiContext): Promise
     base.pathname = body.purpose === 'queue'
       ? '/v1/queue'
       : body.target === 'party'
-        ? `/v1/parties/${encodeURIComponent(body.roomId!)}`
+        ? `/v1/parties/${encodeURIComponent(roomId!)}`
         : body.target === 'community'
-          ? `/v1/channels/${encodeURIComponent(body.roomId!)}`
+          ? `/v1/channels/${encodeURIComponent(roomId!)}`
           : body.mode === 'coop_breach'
-            ? `/v1/rooms/coop/${encodeURIComponent(body.roomId!)}`
-            : `/v1/rooms/chess/${encodeURIComponent(body.roomId!)}`;
+            ? `/v1/rooms/coop/${encodeURIComponent(roomId!)}`
+            : `/v1/rooms/chess/${encodeURIComponent(roomId!)}`;
     base.search = '';
     base.hash = '';
 

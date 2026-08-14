@@ -6,8 +6,9 @@ import {
   effectiveClock,
   type ContractChessState,
 } from '../../../src/domain/echo-network/chessRules';
-import type {
-  MatchReceipt,
+import {
+  matchReceiptSchema,
+  type MatchReceipt,
   OnlineMode,
   RealtimeTicketPayload,
   RoomCommand,
@@ -199,6 +200,7 @@ export class ChessMatchRoom extends DurableObject<Env> {
       server.serializeAttachment(attachment);
       this.ctx.acceptWebSocket(server, [`uid:${ticket.uid}`]);
       this.sendSnapshot(server, 'room-snapshot');
+      this.sendStoredReceipt(server);
       this.broadcastPresence();
       await this.scheduleNextAlarm();
       return upgradeResponse(client);
@@ -222,10 +224,14 @@ export class ChessMatchRoom extends DurableObject<Env> {
       }
       if (this.commandWasAccepted(command.idempotencyKey)) {
         this.sendSnapshot(socket, 'command-replayed');
+        this.sendStoredReceipt(socket);
         return;
       }
       const state = parseState(this.meta()?.state_json ?? null);
       if (!state) throw new RealtimeError(409, 'waiting_for_opponent', 'The match is waiting for an opponent.');
+      if (state.status !== 'active' && command.type !== 'resume' && command.type !== 'preset-chat') {
+        throw new RealtimeError(409, 'match_finished', 'The chess match is already complete.');
+      }
       if (command.expectedVersion !== state.version) {
         throw new RealtimeError(409, 'version_conflict', 'The room changed; apply the latest snapshot.');
       }
@@ -235,6 +241,7 @@ export class ChessMatchRoom extends DurableObject<Env> {
         await this.resign(attachment.uid, command, state);
       } else if (command.type === 'resume') {
         this.sendSnapshot(socket, 'room-snapshot');
+        this.sendStoredReceipt(socket);
       } else if (command.type === 'preset-chat') {
         this.broadcastPreset(attachment.uid, command);
       } else {
@@ -393,6 +400,19 @@ export class ChessMatchRoom extends DurableObject<Env> {
     const state = parseState(meta?.state_json ?? null);
     sendEvent(socket, meta?.room_id ?? 'chess-room', state?.version ?? 0, eventType,
       this.snapshotFor(attachment.uid));
+  }
+
+  private sendStoredReceipt(socket: WebSocket): void {
+    const meta = this.meta();
+    if (!meta?.receipt_json) return;
+    try {
+      const receipt = matchReceiptSchema.safeParse(JSON.parse(meta.receipt_json) as unknown);
+      if (!receipt.success) return;
+      const state = parseState(meta.state_json);
+      sendEvent(socket, meta.room_id, state?.version ?? 0, 'reward-pending', { receipt: receipt.data });
+    } catch {
+      // A malformed local replay state must never crash a reconnecting room.
+    }
   }
 
   private broadcastSnapshots(eventType: string): void {

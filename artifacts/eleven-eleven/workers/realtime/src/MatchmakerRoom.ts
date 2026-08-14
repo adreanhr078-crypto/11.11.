@@ -28,6 +28,8 @@ const COOP_FILL_DELAY_MS = 5_000;
 const QUEUE_STALE_MS = 90_000;
 
 export class MatchmakerRoom extends DurableObject<Env> {
+  private pendingQueueUids = new Set<string>();
+
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     ctx.blockConcurrencyWhile(async () => {
@@ -88,11 +90,16 @@ export class MatchmakerRoom extends DurableObject<Env> {
       };
       server.serializeAttachment(attachment);
       this.ctx.acceptWebSocket(server, [`uid:${ticket.uid}`]);
+      // The client side of a test/browser WebSocket may not have accepted the
+      // upgrade yet when matchAvailable runs. Keep this freshly admitted row
+      // eligible until the socket is observable or the stale alarm sweeps it.
+      this.pendingQueueUids.add(ticket.uid);
       sendEvent(server, `queue-${ticket.region}-${ticket.mode}`, 0, 'queue-joined', {
         mode: ticket.mode,
         joinedAt: now,
       });
       await this.matchAvailable(ticket.mode);
+      await this.scheduleQueueSweep();
       return upgradeResponse(client);
     } catch (error) {
       return errorResponse(error);
@@ -112,7 +119,9 @@ export class MatchmakerRoom extends DurableObject<Env> {
         throw new RealtimeError(400, 'unsupported_command', 'This queue command is not supported.');
       }
       this.ctx.storage.sql.exec('DELETE FROM waiting WHERE uid = ?', attachment.uid);
+      this.pendingQueueUids.delete(attachment.uid);
       socket.close(1000, 'Queue cancelled.');
+      await this.scheduleQueueSweep();
     } catch (error) {
       const known = error instanceof RealtimeError
         ? error
@@ -121,24 +130,32 @@ export class MatchmakerRoom extends DurableObject<Env> {
     }
   }
 
-  webSocketClose(socket: WebSocket): void {
+  async webSocketClose(socket: WebSocket): Promise<void> {
     const attachment = socketAttachment(socket);
-    if (attachment) this.ctx.storage.sql.exec('DELETE FROM waiting WHERE uid = ?', attachment.uid);
+    if (attachment) {
+      this.pendingQueueUids.delete(attachment.uid);
+      this.ctx.storage.sql.exec('DELETE FROM waiting WHERE uid = ?', attachment.uid);
+    }
+    await this.scheduleQueueSweep();
   }
 
-  webSocketError(socket: WebSocket): void {
+  async webSocketError(socket: WebSocket): Promise<void> {
     const attachment = socketAttachment(socket);
-    if (attachment) this.ctx.storage.sql.exec('DELETE FROM waiting WHERE uid = ?', attachment.uid);
+    if (attachment) {
+      this.pendingQueueUids.delete(attachment.uid);
+      this.ctx.storage.sql.exec('DELETE FROM waiting WHERE uid = ?', attachment.uid);
+    }
+    await this.scheduleQueueSweep();
   }
 
   async alarm(): Promise<void> {
-    this.ctx.storage.sql.exec(
-      'DELETE FROM waiting WHERE joined_at < ?', Date.now() - QUEUE_STALE_MS,
-    );
-    const mode = this.ctx.storage.sql.exec<{ mode: RealtimeTicketPayload['mode'] }>(
-      'SELECT mode FROM waiting ORDER BY joined_at ASC LIMIT 1',
-    ).toArray()[0]?.mode;
-    if (mode) await this.matchAvailable(mode, true);
+    this.pendingQueueUids.clear();
+    this.pruneDisconnectedWaiters(Date.now() - QUEUE_STALE_MS);
+    const modes = this.ctx.storage.sql.exec<{ mode: RealtimeTicketPayload['mode'] }>(
+      'SELECT DISTINCT mode FROM waiting ORDER BY mode ASC',
+    ).toArray().map((row) => row.mode);
+    for (const mode of modes) await this.matchAvailable(mode, true);
+    await this.scheduleQueueSweep(true);
   }
 
   private waiting(mode: RealtimeTicketPayload['mode']): WaitingRow[] {
@@ -148,11 +165,41 @@ export class MatchmakerRoom extends DurableObject<Env> {
     `, mode).toArray();
   }
 
+  private activeQueueUids(): Set<string> {
+    const activeUids = new Set(this.ctx.getWebSockets().flatMap((socket) => {
+      const attachment = socketAttachment(socket);
+      return attachment ? [attachment.uid] : [];
+    }));
+    for (const uid of this.pendingQueueUids) activeUids.add(uid);
+    return activeUids;
+  }
+
+  private pruneInactiveWaiters(waiting: WaitingRow[]): WaitingRow[] {
+    const activeUids = this.activeQueueUids();
+    const inactive = waiting.filter((player) => !activeUids.has(player.uid));
+    if (inactive.length > 0) {
+      this.ctx.storage.transactionSync(() => {
+        for (const player of inactive) {
+          this.ctx.storage.sql.exec('DELETE FROM waiting WHERE uid = ?', player.uid);
+        }
+      });
+    }
+    return waiting.filter((player) => activeUids.has(player.uid));
+  }
+
+  private pruneDisconnectedWaiters(cutoff: number): void {
+    const stale = this.ctx.storage.sql.exec<WaitingRow>(`
+      SELECT uid, display_name, joined_at, mode, region, case_id, variant
+      FROM waiting WHERE joined_at < ?
+    `, cutoff).toArray();
+    this.pruneInactiveWaiters(stale);
+  }
+
   private async matchAvailable(
     mode: RealtimeTicketPayload['mode'],
     forceCoop = false,
   ): Promise<void> {
-    const waiting = this.waiting(mode);
+    const waiting = this.pruneInactiveWaiters(this.waiting(mode));
     if (mode === 'coop_breach') {
       if (waiting.length >= 4) {
         await this.formMatch(waiting.slice(0, 4));
@@ -176,6 +223,18 @@ export class MatchmakerRoom extends DurableObject<Env> {
     const requested = Date.now() + COOP_FILL_DELAY_MS;
     const existing = await this.ctx.storage.getAlarm();
     if (existing === null || existing > requested) {
+      await this.ctx.storage.setAlarm(requested);
+    }
+  }
+
+  private async scheduleQueueSweep(force = false): Promise<void> {
+    const earliest = this.ctx.storage.sql.exec<{ joined_at: number | null }>(
+      'SELECT MIN(joined_at) AS joined_at FROM waiting',
+    ).toArray()[0]?.joined_at;
+    if (typeof earliest !== 'number') return;
+    const requested = Math.max(Date.now() + QUEUE_STALE_MS, earliest + QUEUE_STALE_MS);
+    const existing = await this.ctx.storage.getAlarm();
+    if (force || existing === null || existing > requested) {
       await this.ctx.storage.setAlarm(requested);
     }
   }
@@ -204,6 +263,7 @@ export class MatchmakerRoom extends DurableObject<Env> {
         this.ctx.storage.sql.exec('DELETE FROM waiting WHERE uid = ?', player.uid);
       }
     });
+    for (const player of players) this.pendingQueueUids.delete(player.uid);
 
     for (const player of players) {
       const payload: RealtimeTicketPayload = {
