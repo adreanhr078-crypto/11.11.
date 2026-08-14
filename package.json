@@ -2,10 +2,16 @@
   "name": "workspace",
   "version": "0.0.0",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/adreanhr078-crypto/11.11..git"
+  },
   "scripts": {
     "build": "npm --prefix artifacts/eleven-eleven run build",
     "dev": "npm --prefix artifacts/eleven-eleven run dev",
     "dev:api": "npm --prefix artifacts/eleven-eleven run dev:api",
+    "div": "npm --prefix artifacts/eleven-eleven run dev",
+    "rundiv": "npm --prefix artifacts/eleven-eleven run dev",
     "typecheck:libs": "tsc --build",
     "typecheck": "npm --prefix artifacts/eleven-eleven run typecheck",
     "test": "npm --prefix artifacts/eleven-eleven test",
