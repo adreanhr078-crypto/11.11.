@@ -49,7 +49,17 @@ interface ParticipantRow {
   disconnected_at: number | null;
 }
 
+interface FinalizationOutboxRow {
+  [key: string]: SqlStorageValue;
+  result_status: MatchReceipt['status'];
+  winner_uid: string | null;
+  created_at: number;
+  attempts: number;
+}
+
 const RECONNECT_GRACE_MS = 30_000;
+const MIN_COMPETITIVE_DURATION_MS = 90_000;
+const MIN_COMPETITIVE_PLIES = 8;
 
 function parseState(value: string | null): ContractChessState | null {
   if (!value) return null;
@@ -84,6 +94,17 @@ function rewardXp(
     return outcome === 'win' ? 80 : outcome === 'draw' ? 60 : 45;
   }
   return outcome === 'win' ? 45 : outcome === 'draw' ? 35 : 30;
+}
+
+function competitiveResultEligible(
+  mode: OnlineMode,
+  status: MatchReceipt['status'],
+  durationMs: number,
+  plies: number,
+): boolean {
+  if (mode !== 'chess_casual' && mode !== 'chess_ranked_blitz' && mode !== 'chess_ranked_rapid') return true;
+  return status !== 'resigned'
+    || (durationMs >= MIN_COMPETITIVE_DURATION_MS && plies >= MIN_COMPETITIVE_PLIES);
 }
 
 export class ChessMatchRoom extends DurableObject<Env> {
@@ -126,6 +147,13 @@ export class ChessMatchRoom extends DurableObject<Env> {
           to_square TEXT NOT NULL,
           san TEXT NOT NULL,
           played_at INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS result_finalization_outbox (
+          singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+          result_status TEXT NOT NULL,
+          winner_uid TEXT,
+          created_at INTEGER NOT NULL,
+          attempts INTEGER NOT NULL DEFAULT 0
         );
       `);
     });
@@ -288,7 +316,7 @@ export class ChessMatchRoom extends DurableObject<Env> {
           reason: 'abandoned',
           clock: { ...state.clock, ...effectiveClock(state, now), turnStartedAt: now },
         };
-        this.persistTerminalState(next, now);
+        this.persistTerminalState(next, 'abandoned', winner?.uid ?? null, now);
         this.broadcastSnapshots('match-completed');
         await this.finalize('abandoned', winner?.uid ?? null);
         return;
@@ -306,13 +334,17 @@ export class ChessMatchRoom extends DurableObject<Env> {
           reason: 'timeout',
           clock: { ...state.clock, ...clock, turnStartedAt: now },
         };
-        this.persistTerminalState(next, now);
+        this.persistTerminalState(next, 'timeout', winner?.uid ?? null, now);
         this.broadcastSnapshots('match-completed');
         await this.finalize('timeout', winner?.uid ?? null);
         return;
       }
     }
-    if (meta.receipt_json && meta.receipt_queued === 0) await this.queueStoredReceipt();
+    if (!meta.receipt_json && this.finalizationIntent()) {
+      await this.finalize('completed', null);
+    } else if (meta.receipt_json && meta.receipt_queued === 0) {
+      await this.queueStoredReceipt();
+    }
     await this.scheduleNextAlarm();
   }
 
@@ -467,6 +499,11 @@ export class ChessMatchRoom extends DurableObject<Env> {
         INSERT INTO moves (ply, uid, from_square, to_square, san, played_at)
         VALUES (?, ?, ?, ?, ?, ?)
       `, next.version, uid, from, to, next.lastMove?.san ?? '', now);
+      if (next.status !== 'active') {
+        const winnerColor = statusWinnerColor(next);
+        const winner = this.participants().find((row) => row.color === winnerColor) ?? null;
+        this.persistFinalizationIntent('completed', winner?.uid ?? null, now);
+      }
     });
     this.broadcastSnapshots(next.status === 'active' ? 'move-applied' : 'match-completed');
     if (next.status !== 'active') {
@@ -503,6 +540,7 @@ export class ChessMatchRoom extends DurableObject<Env> {
         INSERT INTO commands (idempotency_key, uid, command_type, accepted_at)
         VALUES (?, ?, ?, ?)
       `, command.idempotencyKey, uid, command.type, now);
+      this.persistFinalizationIntent('resigned', winner?.uid ?? null, now);
     });
     this.broadcastSnapshots('match-completed');
     await this.finalize('resigned', winner?.uid ?? null);
@@ -529,10 +567,36 @@ export class ChessMatchRoom extends DurableObject<Env> {
     }
   }
 
-  private persistTerminalState(state: ContractChessState, now: number): void {
+  private persistTerminalState(
+    state: ContractChessState,
+    status: MatchReceipt['status'],
+    winnerUid: string | null,
+    now: number,
+  ): void {
+    this.ctx.storage.transactionSync(() => {
+      this.ctx.storage.sql.exec(`
+        UPDATE meta SET state_json = ?, finished_at = ? WHERE singleton = 1
+      `, JSON.stringify(state), now);
+      this.persistFinalizationIntent(status, winnerUid, now);
+    });
+  }
+
+  private persistFinalizationIntent(
+    status: MatchReceipt['status'],
+    winnerUid: string | null,
+    now: number,
+  ): void {
     this.ctx.storage.sql.exec(`
-      UPDATE meta SET state_json = ?, finished_at = ? WHERE singleton = 1
-    `, JSON.stringify(state), now);
+      INSERT OR IGNORE INTO result_finalization_outbox (
+        singleton, result_status, winner_uid, created_at, attempts
+      ) VALUES (1, ?, ?, ?, 0)
+    `, status, winnerUid, now);
+  }
+
+  private finalizationIntent(): FinalizationOutboxRow | null {
+    return this.ctx.storage.sql.exec<FinalizationOutboxRow>(
+      'SELECT * FROM result_finalization_outbox WHERE singleton = 1',
+    ).toArray()[0] ?? null;
   }
 
   private async finalize(
@@ -547,19 +611,29 @@ export class ChessMatchRoom extends DurableObject<Env> {
     const now = Date.now();
     const players = this.participants();
     const state = parseState(meta.state_json);
-    const draw = !winnerUid;
+    // Terminal state and this intent are atomically durable.  A restart after
+    // a crash resumes this work from the outbox rather than losing a result.
+    const intent = this.finalizationIntent();
+    if (!intent) this.persistFinalizationIntent(matchStatus, winnerUid, now);
+    const durableIntent = intent ?? this.finalizationIntent()!;
+    const draw = !durableIntent.winner_uid;
     const participants: MatchReceipt['participants'] = players.map((player) => ({
       uid: player.uid,
-      outcome: draw ? 'draw' : player.uid === winnerUid ? 'win' : 'loss',
+      outcome: draw ? 'draw' : player.uid === durableIntent.winner_uid ? 'win' : 'loss',
       participationMs: Math.max(0, now - (meta.started_at ?? player.joined_at)),
     }));
+    const durationMs = Math.max(0, now - (meta.started_at ?? now));
+    const plies = this.ctx.storage.sql.exec<{ total: number }>(
+      'SELECT COUNT(*) AS total FROM moves',
+    ).toArray()[0]?.total ?? 0;
+    const eligible = competitiveResultEligible(meta.mode, durableIntent.result_status, durationMs, plies);
     const rewards = participants.map((participant) => participantReward(
       meta.room_id,
       participant.uid,
       rewardXp(
         meta.mode,
         participant.outcome as 'win' | 'loss' | 'draw',
-        state?.reason === 'abandoned',
+        state?.reason === 'abandoned' || !eligible,
       ),
       meta.mode === 'chess_anomaly' ? ['chess-board-echo-signal'] : [],
     ));
@@ -569,10 +643,10 @@ export class ChessMatchRoom extends DurableObject<Env> {
       matchId: meta.room_id,
       mode: meta.mode,
       context: { caseId: null, variant: meta.variant },
-      status: matchStatus,
+      status: durableIntent.result_status,
       participants,
-      winnerUid,
-      durationMs: Math.max(0, now - (meta.started_at ?? now)),
+      winnerUid: durableIntent.winner_uid,
+      durationMs,
       rewards,
       completedAt: new Date(now).toISOString(),
     });
@@ -580,6 +654,9 @@ export class ChessMatchRoom extends DurableObject<Env> {
       UPDATE meta SET receipt_json = ?, finished_at = COALESCE(finished_at, ?)
       WHERE singleton = 1 AND receipt_json IS NULL
     `, JSON.stringify(receipt), now);
+    this.ctx.storage.sql.exec(
+      'UPDATE result_finalization_outbox SET attempts = attempts + 1 WHERE singleton = 1',
+    );
     await this.storeReplay(receipt);
     await this.queueStoredReceipt();
   }
@@ -666,7 +743,8 @@ export class ChessMatchRoom extends DurableObject<Env> {
         }
       }
     }
-    if (meta?.receipt_json && meta.receipt_queued === 0) candidates.push(Date.now() + 5_000);
+    if ((meta?.receipt_json && meta.receipt_queued === 0)
+      || (!meta?.receipt_json && this.finalizationIntent())) candidates.push(Date.now() + 5_000);
     if (candidates.length > 0) {
       await this.ctx.storage.setAlarm(Math.max(Date.now() + 100, Math.min(...candidates)));
     }

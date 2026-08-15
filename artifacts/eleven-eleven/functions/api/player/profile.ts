@@ -33,6 +33,10 @@ import {
   readUnlockedAvatarIds,
   requireAvatarOwnership,
 } from './_avatarOwnership';
+import {
+  ensureAuthoritativePlayerProfile,
+  writeAuthoritativePlayerProfile,
+} from './_profileAuthority';
 
 interface UsernameReservationRow {
   normalized_username: string;
@@ -226,7 +230,8 @@ export async function onRequestGet({
   try {
     const { account, idToken } = await authenticatePlayer(request, env);
     const db = requirePlayerDatabase(env);
-    let stored = await ensurePlayerProfile(env, idToken, account);
+    await ensurePlayerProfile(env, idToken, account);
+    let stored = await ensureAuthoritativePlayerProfile(db, account);
     try {
       await reserveUsername(db, account.uid, stored.username, stored.joinDate);
     } catch (error) {
@@ -235,11 +240,12 @@ export async function onRequestGet({
         || stored.usernameSource !== 'default') {
         throw error;
       }
-      stored = await writePlayerProfile(env, idToken, account, {
+      stored = await writeAuthoritativePlayerProfile(db, account, {
         ...stored,
         username: fallbackUsername(account),
         usernameSource: 'default',
       });
+      await writePlayerProfile(env, idToken, account, stored);
       await reserveUsername(db, account.uid, stored.username, stored.joinDate);
     }
     return jsonResponse({
@@ -264,7 +270,8 @@ export async function onRequestPut({
       tooLargeMessage: 'Profile update is too large.',
       invalidMessage: 'Profile update is invalid.',
     }));
-    const stored = await ensurePlayerProfile(env, idToken, account);
+    await ensurePlayerProfile(env, idToken, account);
+    const stored = await ensureAuthoritativePlayerProfile(db, account);
     const username = cleanUsername(body.username);
     if (!username || username.length > PROFILE_USERNAME_MAX_LENGTH) {
       throw new PlayerApiError(400, 'invalid_username', 'Username is invalid.');
@@ -285,7 +292,14 @@ export async function onRequestPut({
       ),
     };
     await reserveUsername(db, account.uid, username, stored.joinDate);
-    const saved = await writePlayerProfile(env, idToken, account, nextProfile);
+    const saved = await writeAuthoritativePlayerProfile(db, account, nextProfile);
+    // Firestore is deliberately a compatibility cache only.  D1 has already
+    // accepted the authoritative choice, so a cache outage cannot roll it back.
+    try {
+      await writePlayerProfile(env, idToken, account, saved);
+    } catch {
+      // The next authenticated profile read will reconcile this cache.
+    }
     return jsonResponse({
       profile: await responseProfile(db, account, saved),
     }, 200, headers);

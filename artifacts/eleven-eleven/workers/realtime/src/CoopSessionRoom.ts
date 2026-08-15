@@ -64,7 +64,14 @@ interface ParticipantRow {
   echo_takeover: number;
 }
 
+interface FinalizationOutboxRow {
+  [key: string]: SqlStorageValue;
+  created_at: number;
+  attempts: number;
+}
+
 const ECHO_TAKEOVER_MS = 45_000;
+const MIN_REWARDED_COOP_DURATION_MS = 45_000;
 
 function parseState(raw: string): CoopState {
   const parsed = JSON.parse(raw) as CoopState;
@@ -138,6 +145,17 @@ export class CoopSessionRoom extends DurableObject<Env> {
           answer_id TEXT NOT NULL,
           correct INTEGER NOT NULL CHECK (correct IN (0, 1)),
           submitted_at INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS participation_events (
+          event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          uid TEXT NOT NULL,
+          event_type TEXT NOT NULL CHECK (event_type IN ('answer', 'vote')),
+          created_at INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS result_finalization_outbox (
+          singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+          created_at INTEGER NOT NULL,
+          attempts INTEGER NOT NULL DEFAULT 0
         );
       `);
     });
@@ -313,7 +331,11 @@ export class CoopSessionRoom extends DurableObject<Env> {
     });
     if (changed) this.broadcastSnapshots('echo-takeover');
     const meta = this.meta();
-    if (meta?.receipt_json && meta.receipt_queued === 0) await this.queueStoredReceipt();
+    if (meta && !meta.receipt_json && this.finalizationIntent()) {
+      await this.finalize();
+    } else if (meta?.receipt_json && meta.receipt_queued === 0) {
+      await this.queueStoredReceipt();
+    }
     await this.scheduleTakeoverAlarm();
   }
 
@@ -433,6 +455,13 @@ export class CoopSessionRoom extends DurableObject<Env> {
     const expected = coopAnswer(meta.case_id, state.stageIndex);
     if (!expected) throw new RealtimeError(500, 'case_not_reviewed', 'This case has no reviewed solution.');
     const correct = answerId === expected;
+    const incorrectAttempts = this.ctx.storage.sql.exec<{ total: number }>(`
+      SELECT COUNT(*) AS total FROM stage_events
+      WHERE stage_index = ? AND correct = 0
+    `, state.stageIndex).toArray()[0]?.total ?? 0;
+    if (!correct && incorrectAttempts >= 3) {
+      throw new RealtimeError(429, 'stage_attempts_exhausted', 'This stage needs an Echo hint or a voted restart.');
+    }
     const now = Date.now();
     const nextStage = correct ? state.stageIndex + 1 : state.stageIndex;
     const completed = correct && nextStage >= definition.stages.length;
@@ -460,7 +489,11 @@ export class CoopSessionRoom extends DurableObject<Env> {
         INSERT INTO stage_events (stage_index, uid, answer_id, correct, submitted_at)
         VALUES (?, ?, ?, ?, ?)
       `, state.stageIndex, uid, answerId, correct ? 1 : 0, now);
+      this.ctx.storage.sql.exec(`
+        INSERT INTO participation_events (uid, event_type, created_at) VALUES (?, 'answer', ?)
+      `, uid, now);
       if (correct) this.ctx.storage.sql.exec('DELETE FROM votes WHERE stage_index = ?', state.stageIndex);
+      if (completed) this.persistFinalizationIntent(now);
     });
     this.broadcastSnapshots(correct
       ? completed ? 'case-completed' : 'stage-completed'
@@ -488,6 +521,9 @@ export class CoopSessionRoom extends DurableObject<Env> {
         INSERT INTO commands (idempotency_key, uid, command_type, accepted_at)
         VALUES (?, ?, ?, ?)
       `, command.idempotencyKey, uid, command.type, now);
+      this.ctx.storage.sql.exec(`
+        INSERT INTO participation_events (uid, event_type, created_at) VALUES (?, 'vote', ?)
+      `, uid, now);
     });
     const count = this.ctx.storage.sql.exec<{ total: number }>(`
       SELECT COUNT(*) AS total FROM votes WHERE vote_kind = ? AND stage_index = ?
@@ -560,6 +596,12 @@ export class CoopSessionRoom extends DurableObject<Env> {
     const players = this.participants();
     const definition = COOP_CASE_BY_ID[meta.case_id];
     const cosmetic = definition ? `breach-frame-${definition.chapterId}` : 'breach-frame-signal';
+    const intent = this.finalizationIntent();
+    if (!intent) this.persistFinalizationIntent(now);
+    const durationMs = Math.max(0, now - (meta.started_at ?? now));
+    const contributors = new Set(this.ctx.storage.sql.exec<{ uid: string }>(
+      'SELECT DISTINCT uid FROM participation_events',
+    ).toArray().map((row) => row.uid));
     const participants: MatchReceipt['participants'] = players.map((player) => ({
       uid: player.uid,
       outcome: 'completed',
@@ -574,12 +616,12 @@ export class CoopSessionRoom extends DurableObject<Env> {
       status: 'completed',
       participants,
       winnerUid: null,
-      durationMs: Math.max(0, now - (meta.started_at ?? now)),
+      durationMs,
       rewards: participants.map((participant) => participantReward(
         meta.room_id,
         participant.uid,
-        90,
-        [cosmetic],
+        durationMs >= MIN_REWARDED_COOP_DURATION_MS && contributors.has(participant.uid) ? 90 : 0,
+        durationMs >= MIN_REWARDED_COOP_DURATION_MS && contributors.has(participant.uid) ? [cosmetic] : [],
       )),
       completedAt: new Date(now).toISOString(),
     });
@@ -587,8 +629,24 @@ export class CoopSessionRoom extends DurableObject<Env> {
       UPDATE meta SET receipt_json = ?, finished_at = COALESCE(finished_at, ?)
       WHERE singleton = 1 AND receipt_json IS NULL
     `, JSON.stringify(receipt), now);
+    this.ctx.storage.sql.exec(
+      'UPDATE result_finalization_outbox SET attempts = attempts + 1 WHERE singleton = 1',
+    );
     await this.storeReplay(receipt);
     await this.queueStoredReceipt();
+  }
+
+  private persistFinalizationIntent(now: number): void {
+    this.ctx.storage.sql.exec(`
+      INSERT OR IGNORE INTO result_finalization_outbox (singleton, created_at, attempts)
+      VALUES (1, ?, 0)
+    `, now);
+  }
+
+  private finalizationIntent(): FinalizationOutboxRow | null {
+    return this.ctx.storage.sql.exec<FinalizationOutboxRow>(
+      'SELECT * FROM result_finalization_outbox WHERE singleton = 1',
+    ).toArray()[0] ?? null;
   }
 
   private async storeReplay(receipt: MatchReceipt): Promise<void> {
@@ -660,7 +718,8 @@ export class CoopSessionRoom extends DurableObject<Env> {
         : []
     ));
     const meta = this.meta();
-    if (meta?.receipt_json && meta.receipt_queued === 0) candidates.push(Date.now() + 5_000);
+    if ((meta?.receipt_json && meta.receipt_queued === 0)
+      || (!meta?.receipt_json && this.finalizationIntent())) candidates.push(Date.now() + 5_000);
     if (candidates.length > 0) {
       await this.ctx.storage.setAlarm(Math.max(Date.now() + 100, Math.min(...candidates)));
     }

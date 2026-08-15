@@ -4,13 +4,12 @@ import {
   authenticatePlayer,
   corsHeaders,
   errorResponse,
-  jsonResponse,
   optionsResponse,
   readJsonBody,
   type PlayerApiContext,
 } from '../_shared';
 import { requirePlayerDatabase } from '../_database';
-import { ensureNetworkPlayer, readNetworkEligibility } from '../_network';
+import { ensureNetworkPlayer } from '../_network';
 
 const trainingSchema = z.object({
   training: z.enum(['chess', 'coop']),
@@ -35,19 +34,14 @@ export async function onRequestPost({ request, env }: PlayerApiContext): Promise
       throw new PlayerApiError(400, 'invalid_training_receipt', 'Training receipt is invalid.');
     }
     const database = requirePlayerDatabase(env);
-    const now = new Date().toISOString();
-    await ensureNetworkPlayer(database, account, now);
-    const column = parsed.data.training === 'chess'
-      ? 'chess_training_completed_at'
-      : 'coop_training_completed_at';
-    await database.prepare(`
-      UPDATE network_player_milestones
-      SET ${column} = COALESCE(${column}, ?), updated_at = ?
-      WHERE user_id = ?
-    `).bind(now, now, account.uid).run();
-    return jsonResponse({
-      eligibility: await readNetworkEligibility(database, account.uid),
-    }, 200, headers);
+    await ensureNetworkPlayer(database, account);
+    // A locally asserted training button must never unlock Ranked.  A future
+    // server-led training room will write this milestone from its own receipt.
+    throw new PlayerApiError(
+      409,
+      'training_verification_required',
+      'Complete the verified training room when it is available.',
+    );
   } catch (error) {
     return errorResponse(error, headers);
   }

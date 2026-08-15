@@ -34,6 +34,7 @@ import {
   PlayerApiError,
 } from './_shared';
 import type { PlayerDatabase } from './_database';
+import { readAuthoritativeFeaturedAchievementIds } from './_profileAuthority';
 
 interface CompletionRow {
   puzzle_id: string;
@@ -310,8 +311,7 @@ export async function readCollectionSnapshot(
     recovery.percent,
   );
   const equipped = equippedView(finalRows.equipped);
-  const profileDocument = await readFirestoreDocument(env, idToken, `players/${account.uid}`);
-  const showcasedAchievementIds = readStringArrayField(profileDocument ?? {}, 'featuredAchievementIds')
+  const showcasedAchievementIds = (await readAuthoritativeFeaturedAchievementIds(database, account.uid))
     .filter((id) => achievements.some((achievement) => achievement.id === id && achievement.unlocked))
     .slice(0, 3);
   const memorySets = chapterSetViews(finalRows.shardIds, finalRows.reconstructions);

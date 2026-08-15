@@ -36,11 +36,9 @@ export async function ensureNetworkPlayer(
 ): Promise<void> {
   await db.batch([
     db.prepare(`
-      INSERT INTO player_progression (user_id, username, total_xp, created_at, updated_at)
-      VALUES (?, ?, 0, ?, ?)
-      ON CONFLICT(user_id) DO UPDATE SET
-        username = excluded.username,
-        updated_at = excluded.updated_at
+    INSERT INTO player_progression (user_id, username, total_xp, created_at, updated_at)
+    VALUES (?, ?, 0, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET updated_at = excluded.updated_at
     `).bind(account.uid, safeUsername(account), now, now),
     db.prepare(`
       INSERT OR IGNORE INTO network_player_milestones (

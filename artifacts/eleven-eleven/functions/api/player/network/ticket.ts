@@ -24,6 +24,7 @@ import {
   readNetworkEligibility,
   recordNetworkTicket,
 } from '../_network';
+import { readAuthoritativeDisplayName } from '../_profileAuthority';
 
 const MAX_TICKET_REQUEST_BYTES = 4_096;
 
@@ -132,7 +133,11 @@ export async function onRequestPost({ request, env }: PlayerApiContext): Promise
       purpose: body.purpose,
       target: body.purpose === 'queue' ? 'matchmaking' : body.target,
       uid: account.uid,
-      displayName: networkDisplayName(account),
+      displayName: await readAuthoritativeDisplayName(
+        database,
+        account.uid,
+        networkDisplayName(account),
+      ),
       mode: body.mode,
       ...(roomId ? { roomId } : {}),
       ...(body.caseId ? { caseId: body.caseId } : {}),

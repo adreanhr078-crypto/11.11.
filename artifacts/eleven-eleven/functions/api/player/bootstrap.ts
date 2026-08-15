@@ -11,6 +11,8 @@ import {
   type PlayerApiContext,
 } from './_shared';
 import { ensurePlayerProfile } from './_profile';
+import { requirePlayerDatabase } from './_database';
+import { ensureAuthoritativePlayerProfile } from './_profileAuthority';
 
 function saveResponse(
   document: Awaited<ReturnType<typeof readFirestoreDocument>>,
@@ -45,7 +47,11 @@ export async function onRequestGet({
   const headers = corsHeaders(request, env);
   try {
     const { account, idToken } = await authenticatePlayer(request, env);
-    const profile = await ensurePlayerProfile(env, idToken, account);
+    await ensurePlayerProfile(env, idToken, account);
+    const profile = await ensureAuthoritativePlayerProfile(
+      requirePlayerDatabase(env),
+      account,
+    );
 
     const saveDocument = await readFirestoreDocument(
       env,

@@ -54,6 +54,17 @@ function outcomeScore(outcome: MatchReceipt['participants'][number]['outcome']):
   return 0;
 }
 
+/** A signed receipt can still describe an early resignation.  It is kept in
+ * history, but cannot be used to farm ratings, Ranked access, XP or cosmetics. */
+function eligibleForCompetitivePersistence(receipt: MatchReceipt): boolean {
+  const competitive = receipt.mode === 'chess_casual'
+    || receipt.mode === 'chess_ranked_blitz'
+    || receipt.mode === 'chess_ranked_rapid';
+  if (!competitive || receipt.status !== 'resigned') return true;
+  return receipt.durationMs >= 90_000
+    && receipt.participants.every((participant) => participant.participationMs >= 60_000);
+}
+
 export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
@@ -198,6 +209,7 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
     ));
 
     const sourceType = xpSourceForMode(receipt.mode);
+    const competitiveEligible = eligibleForCompetitivePersistence(receipt);
     const caseDefinition = receipt.context.caseId
       ? COOP_CASE_BY_ID[receipt.context.caseId]
       : null;
@@ -217,7 +229,7 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
         reward.rewardKey,
         reward.xpAmount,
       ));
-      if (reward.xpAmount > 0) {
+      if (reward.xpAmount > 0 && competitiveEligible) {
         statements.push(this.env.PLAYER_DB.prepare(`
           INSERT OR IGNORE INTO xp_reward_events (
             user_id, reward_key, source_type, source_id, xp_amount, granted_at
@@ -231,14 +243,14 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
           receipt.completedAt,
         ));
       }
-      for (const cosmeticId of reward.cosmeticIds) {
+      for (const cosmeticId of competitiveEligible ? reward.cosmeticIds : []) {
         statements.push(this.env.PLAYER_DB.prepare(`
           INSERT OR IGNORE INTO network_cosmetic_unlock_events (
             user_id, cosmetic_id, source_type, source_id, unlocked_at
           ) VALUES (?, ?, 'match', ?, ?)
         `).bind(participant.uid, cosmeticId, receipt.matchId, receipt.completedAt));
       }
-      statements.push(this.env.PLAYER_DB.prepare(`
+      if (competitiveEligible) statements.push(this.env.PLAYER_DB.prepare(`
         INSERT OR IGNORE INTO player_character_bond_events (
           user_id, event_key, character_id, source_type, source_id,
           bond_points, recorded_at
@@ -283,7 +295,7 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
     }
 
     const speed = rankedSpeed(receipt.mode);
-    if (speed && receipt.participants.length === 2) {
+    if (competitiveEligible && speed && receipt.participants.length === 2) {
       const [first, second] = receipt.participants;
       const [firstRow, secondRow] = await Promise.all([
         this.env.PLAYER_DB.prepare(`
@@ -355,7 +367,7 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
     }
 
     for (const participant of receipt.participants) {
-      if (receipt.mode === 'chess_casual') {
+      if (competitiveEligible && receipt.mode === 'chess_casual') {
         statements.push(this.env.PLAYER_DB.prepare(`
           UPDATE network_player_milestones
           SET casual_chess_completed = (
