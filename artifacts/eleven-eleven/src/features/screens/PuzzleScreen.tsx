@@ -32,7 +32,6 @@ import type {
   StoryPuzzleMechanic,
   StoryPuzzleOption,
   StoryPuzzleReference,
-  StoryPuzzleSignalConfig,
   StoryPuzzleSnapshotEntry,
 } from '../../domain/story-puzzles/storyPuzzleContracts';
 import { useAuthStore } from '../auth/authStore';
@@ -183,30 +182,20 @@ function draftReadiness(
   draft: StoryPuzzleDraft,
   tokenLimit?: number,
   stageOptions?: readonly StoryPuzzleOption[],
-  signal = puzzle.signal,
 ): { ready: boolean; message: string } {
   const limit = sequenceLimit(mechanic, tokenLimit);
   const complete = (ready: boolean, message: string) => ({ ready, message });
   switch (mechanic) {
     case 'signal':
-      if (!signal) return complete(draft.tokens.length === 2, 'اضبط التردد واختر قناة الإشارة.');
       return complete(
-        Number(draft.tokens[0]) === signal.targetFrequency
-          && draft.tokens[1] === `channel-${signal.targetChannel}`,
-        Number(draft.tokens[0]) === signal.targetFrequency
-          && draft.tokens[1] === `channel-${signal.targetChannel}`
-          ? 'الإشارة داخل نافذة التزامن؛ يمكنك تثبيتها.'
-          : `طابق المؤشر ${signal.targetFrequency} مع القناة CH-${signal.targetChannel}.`,
+        draft.tokens.length === 2,
+        'اختر قياسًا وقناة ثم أرسلهما إلى السجل للتحقق.',
       );
     case 'image-reconstruction': {
       const count = (puzzle.image?.rows ?? 0) * (puzzle.image?.columns ?? 0);
-      const pieces = new Set(draft.imageOrder);
-      const orderAligned = draft.imageOrder.every((pieceId, index) => pieceId === `piece-${index}`);
-      const rotationsAligned = !puzzle.image?.allowRotation
-        || draft.imageOrder.every((pieceId) => (draft.rotations[pieceId] ?? 0) === 0);
       return complete(
-        pieces.size === count && draft.imageOrder.length === count && orderAligned && rotationsAligned,
-        !rotationsAligned ? 'أعد القطع المائلة إلى اتجاهها الصحيح.' : 'رتّب كل الشظايا حتى تختفي الفواصل من الصورة.',
+        new Set(draft.imageOrder).size === count && draft.imageOrder.length === count,
+        'رتّب كل الشظايا كما تراها، ثم أرسل السجل للتحقق. لن تظهر صحة القطع قبل الإرسال.',
       );
     }
     case 'wiring': {
@@ -587,7 +576,6 @@ interface PuzzleMechanicProps {
   >;
   options?: readonly StoryPuzzleOption[];
   tokenLimit?: number;
-  signal?: StoryPuzzleSignalConfig;
   draft: StoryPuzzleDraft;
   onChange: (next: StoryPuzzleDraft) => void;
   disabled: boolean;
@@ -701,7 +689,34 @@ function LoadBalancingBoard({
   );
 }
 
-function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, signal, draft, onChange, disabled }: PuzzleMechanicProps) {
+const SIGNAL_PROBES = [
+  {
+    frequency: '42',
+    scan: 'A',
+    path: 'M2 27 C16 8 25 8 37 27 S60 46 74 27 S98 8 118 27',
+    description: 'قمة الموجة لا تقابل قاعها حول خط الوسط؛ القراءة منحازة.',
+  },
+  {
+    frequency: '58',
+    scan: 'B',
+    path: 'M2 27 C16 9 25 9 37 27 S60 45 74 27 S98 9 118 27',
+    description: 'القمتان والقاعان على المسافة نفسها من خط الوسط.',
+  },
+  {
+    frequency: '74',
+    scan: 'C',
+    path: 'M2 27 C15 18 26 4 37 27 S63 52 74 27 S98 18 118 27',
+    description: 'سعة القاع أوسع من القمة؛ القراءة غير مستقرة.',
+  },
+] as const;
+
+const SIGNAL_CHANNELS = [
+  { id: 'channel-07', code: '07', noise: 'نبضتا تشويش متقاطعتان.' },
+  { id: 'channel-11', code: '11', noise: 'لا توجد نبضة تشويش فوق خط القياس.' },
+  { id: 'channel-13', code: '13', noise: 'نبضة تشويش تنزلق قرب نهاية القياس.' },
+] as const;
+
+function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, draft, onChange, disabled }: PuzzleMechanicProps) {
   const options = stageOptions ?? sourceOptions(puzzle);
   const reducedMotion = useUiPreferencesStore((state) => state.motion === 'reduced');
   const [memoryPreview, setMemoryPreview] = useState(mechanic === 'memory-grid');
@@ -734,33 +749,40 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, s
   }
 
   if (mechanic === 'signal') {
-    const frequency = Number(draft.tokens[0] ?? 35);
-    const channel = draft.tokens[1] ?? 'channel-07';
+    const frequency = draft.tokens[0] ?? '';
+    const channel = draft.tokens[1] ?? '';
     return (
-      <section className="story-signal-board" aria-label="Signal tuning board">
-        {signal && (
-          <div className="story-signal-board__target" role="status">
-            <span>TARGET WINDOW</span>
-            <strong>{signal.targetFrequency}</strong>
-            <small>CH-{signal.targetChannel} // SYMMETRY LOCK</small>
-          </div>
-        )}
-        <div className="story-signal-board__scope" style={{ '--signal': `${frequency}%` } as CSSProperties}>
-          <i /><i /><i /><b />
-          {signal && <em style={{ '--target': `${signal.targetFrequency}%` } as CSSProperties} aria-hidden="true" />}
+      <section className="story-signal-board" aria-label="لوحة معايرة الإشارة">
+        <p className="story-signal-board__instruction">اختر القراءة المتوازنة، ثم القناة التي لا يقطعها التشويش. لا تُكشف صحة الاختيار قبل التحقق الخادمي.</p>
+        <div className="story-signal-board__probes" role="group" aria-label="قراءات التردد">
+          {SIGNAL_PROBES.map((probe) => (
+            <button
+              key={probe.frequency}
+              type="button"
+              disabled={disabled}
+              data-selected={frequency === probe.frequency}
+              aria-pressed={frequency === probe.frequency}
+              aria-label={`القراءة ${probe.scan}، ${probe.frequency}. ${probe.description}`}
+              onClick={() => onChange({ ...draft, tokens: [probe.frequency, channel || 'channel-07'] })}
+            >
+              <svg viewBox="0 0 120 54" aria-hidden="true"><path d="M0 27 H120" /><path d={probe.path} /></svg>
+              <strong dir="ltr">SCAN {probe.scan} // {probe.frequency}</strong>
+            </button>
+          ))}
         </div>
-        <label>
-          <span>FREQUENCY <strong>{frequency}</strong></span>
-          <input
-            type="range" min="0" max="100" value={frequency} disabled={disabled}
-            onChange={(event) => onChange({ ...draft, tokens: [event.target.value, channel] })}
-          />
-        </label>
         <div className="story-choice-row" role="group" aria-label="قناة الإشارة">
-          {['07', '11', '13'].map((value) => {
-            const id = `channel-${value}`;
-            return <button key={id} type="button" disabled={disabled} data-selected={channel === id} data-target={signal?.targetChannel === value} onClick={() => onChange({ ...draft, tokens: [String(frequency), id] })}>CH-{value}</button>;
-          })}
+          {SIGNAL_CHANNELS.map((candidate) => (
+            <button
+              key={candidate.id}
+              type="button"
+              disabled={disabled}
+              data-selected={channel === candidate.id}
+              aria-pressed={channel === candidate.id}
+              onClick={() => onChange({ ...draft, tokens: [frequency || '42', candidate.id] })}
+            >
+              <strong dir="ltr">CH-{candidate.code}</strong><small>{candidate.noise}</small>
+            </button>
+          ))}
         </div>
       </section>
     );
@@ -927,18 +949,50 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, s
 
 function RewardMoment({ onDismiss }: { onDismiss: () => void }) {
   const reward = useStoryPuzzleStore((state) => state.latestReward);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const continueRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!reward?.awarded) return undefined;
+    const frame = window.requestAnimationFrame(() => continueRef.current?.focus());
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onDismiss();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      const items = focusable ? [...focusable] : [];
+      if (items.length === 0) return;
+      const first = items[0]!;
+      const last = items[items.length - 1]!;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [onDismiss, reward?.awarded]);
   if (!reward?.awarded) return null;
   const puzzle = STORY_PUZZLE_BY_ID[reward.puzzleId];
   return (
-    <div className="story-reward-moment" role="dialog" aria-modal="true" aria-labelledby="story-reward-title">
+    <div ref={dialogRef} className="story-reward-moment" role="dialog" aria-modal="true" aria-labelledby="story-reward-title" aria-describedby="story-reward-description">
       <div className="story-reward-moment__shard"><Sparkles aria-hidden="true" /></div>
       <section>
         <small>SYSTEM MEMORY FRAGMENT DETECTED</small>
         <h2 id="story-reward-title">تم اكتساب شظية ذاكرة</h2>
-        <p>{puzzle?.completionMessage.ar ?? 'تمت الاستعادة.'}</p>
+        <p id="story-reward-description">{puzzle?.completionMessage.ar ?? 'تمت الاستعادة.'}</p>
         <dl>
           <div><dt>XP</dt><dd>+{reward.xpGranted}</dd></div>
-          <div><dt>COINS</dt><dd>+{reward.coinsGranted + reward.perfectBonusCoins}</dd></div>
           <div><dt>SHARD</dt><dd dir="ltr">{reward.snapshot.shardCount} / 20</dd></div>
         </dl>
         <div className="story-reward-moment__echo-impact">
@@ -946,7 +1000,7 @@ function RewardMoment({ onDismiss }: { onDismiss: () => void }) {
           <span><small>ECHO RESONANCE</small><strong>+{reward.echoImpact.amount} · {reward.echoImpact.label.ar}</strong></span>
         </div>
         {reward.perfectBonusCoins > 0 && <strong className="story-reward-moment__perfect">PERFECT SOLVE +{reward.perfectBonusCoins} COINS</strong>}
-        <button type="button" onClick={onDismiss}>متابعة</button>
+        <button ref={continueRef} type="button" onClick={onDismiss}>متابعة</button>
       </section>
     </div>
   );
@@ -1002,7 +1056,6 @@ export default function PuzzleScreen() {
       activeDraft,
       currentStage.tokenLimit,
       currentStage.options,
-      currentStage.signal,
     )
     : selectedPuzzle.mechanic === 'multi-stage' || selectedPuzzle.mechanic === 'breach-protocol'
       ? { ready: false, message: 'انتقل إلى المرحلة الحالية لإكمال اللغز.' }
@@ -1239,7 +1292,6 @@ export default function PuzzleScreen() {
                 >}
                 options={currentStage?.options}
                 tokenLimit={currentStage?.tokenLimit}
-                signal={currentStage?.signal ?? selectedPuzzle.signal}
                 draft={activeDraft}
                 onChange={updateActiveDraft}
                 disabled={busy}

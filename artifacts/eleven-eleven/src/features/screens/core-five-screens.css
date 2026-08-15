@@ -4083,6 +4083,106 @@
   border-inline-start: 1px solid rgb(255 255 255 / 10%);
 }
 
+/* The opening remains cinematic in portrait, but the player controls own a
+ * clear, thumb-reachable layer rather than being compressed beside Echo. */
+@media (max-width: 48rem) and (orientation: portrait) {
+  .shell-main-menu__atmosphere {
+    background:
+      linear-gradient(180deg, rgb(2 3 6 / 24%), rgb(2 3 6 / 76%)),
+      radial-gradient(circle at 50% 18%, rgb(var(--core-red) / 16%), transparent 28%),
+      url('/assets/ui/mobile/portrait-signal-void-v1.png') center / cover;
+  }
+
+  .shell-main-menu .gds-cinematic-frame__content {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "utility"
+      "identity"
+      "footer";
+    padding: 0.65rem;
+  }
+
+  .shell-main-menu .shell-main-menu__echo {
+    inset: auto -24% 7% auto;
+    width: min(86vw, 28rem);
+    opacity: 0.3;
+  }
+
+  .shell-main-menu__utility {
+    gap: 0.3rem;
+    min-height: 2.7rem;
+  }
+
+  .shell-main-menu__scene-title strong,
+  .shell-main-menu__auth-control .gds-button__label {
+    display: none;
+  }
+
+  .shell-main-menu__identity {
+    align-self: start;
+    width: min(100%, 28rem);
+    padding: clamp(2.2rem, 8vh, 4.5rem) 0 clamp(8rem, 26vh, 12rem);
+  }
+
+  .shell-main-menu__identity h1 {
+    font-size: clamp(3.6rem, 23vw, 6.2rem);
+  }
+
+  .shell-main-menu__identity p {
+    font-size: 0.63rem;
+  }
+
+  .shell-main-menu__identity blockquote {
+    margin-top: 1rem;
+    font-size: 0.85rem;
+  }
+
+  .shell-main-menu__action-anchor {
+    position: relative;
+    grid-area: identity;
+    align-self: end;
+    left: auto;
+    bottom: auto;
+    width: min(100%, 27rem);
+    margin: 0 auto clamp(1rem, 4vh, 2rem);
+    transform: none;
+  }
+
+  .shell-main-menu__actions .gds-panel__body {
+    padding: 0.7rem;
+  }
+
+  .shell-main-menu__footer {
+    min-height: 1.45rem;
+    overflow: hidden;
+    font-size: 0.42rem;
+    white-space: nowrap;
+  }
+
+  .shell-main-menu__footer > span:first-child {
+    color: rgb(255 255 255 / 44%);
+  }
+
+  .shell-main-menu__audio-signal {
+    display: none;
+  }
+}
+
+@media (max-width: 23rem) and (orientation: portrait) {
+  .shell-main-menu__scene-title {
+    display: none;
+  }
+
+  .shell-main-menu__identity {
+    padding-top: 1.5rem;
+  }
+
+  .shell-main-menu__identity blockquote {
+    display: none;
+  }
+}
+
 .shell-character-archive__moments li {
   display: flex;
   align-items: center;

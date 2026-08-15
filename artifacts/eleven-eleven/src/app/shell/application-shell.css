@@ -187,6 +187,21 @@
   white-space: nowrap;
 }
 
+.application-shell__skip-link {
+  position: absolute;
+  z-index: calc(var(--gds-z-hud) + 4);
+  inset-block-start: 0.5rem;
+  inset-inline-start: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  transform: translateY(-160%);
+  border-radius: 0.35rem;
+  color: #08090b;
+  background: var(--gds-cyan-300);
+  font: 800 var(--gds-type-xs) var(--gds-font-body);
+}
+
+.application-shell__skip-link:focus { transform: translateY(0); }
+
 .application-shell__utility .application-shell__player-card {
   display: inline-flex;
   align-items: center;
@@ -1883,6 +1898,121 @@
 
   .shell-memory-placeholder-grid {
     grid-template-columns: repeat(3, minmax(7rem, 1fr));
+  }
+}
+
+/* Phone portrait is a first-class player surface. Keep the route, its next
+ * objective, and every primary destination reachable without rotating. */
+@media (max-width: 48rem) and (orientation: portrait) {
+  .application-shell__safe {
+    padding-inline: max(0.3rem, var(--gds-safe-right)) max(0.3rem, var(--gds-safe-left));
+  }
+
+  .application-shell__topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.35rem;
+    min-height: 3.1rem;
+    padding: 0.3rem 0.45rem;
+  }
+
+  .application-shell__screen-title {
+    min-width: 2.6rem;
+  }
+
+  .application-shell__screen-title > span,
+  .application-shell__chapter,
+  .application-shell__utility time {
+    display: none;
+  }
+
+  .application-shell__utility {
+    gap: 0.25rem;
+  }
+
+  .application-shell__utility .gds-button,
+  .application-shell__resource {
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+    padding-inline: 0.45rem;
+  }
+
+  .application-shell__auth-control .gds-button__label,
+  .application-shell__utility-control .gds-button__label {
+    display: none;
+  }
+
+  .application-shell__player-card-copy {
+    display: none;
+  }
+
+  .application-shell__resources {
+    gap: 0.25rem;
+  }
+
+  .application-shell__resource {
+    gap: 0.25rem;
+  }
+
+  .application-shell__stage[data-has-objective="true"] {
+    padding-block-start: 5.65rem;
+  }
+
+  .shell-screen {
+    padding: var(--gds-space-3) 0.75rem var(--gds-space-4);
+  }
+
+  .shell-screen-heading {
+    gap: var(--gds-space-2);
+    margin-block-end: var(--gds-space-3);
+  }
+
+  .shell-screen-heading__metrics {
+    display: none;
+  }
+
+  .application-shell__navigation {
+    gap: 0.2rem;
+    min-height: 4.1rem;
+    padding: 0.3rem 0.35rem max(0.3rem, var(--gds-safe-bottom));
+  }
+
+  .application-shell__navigation button {
+    flex: 1 1 0;
+    flex-direction: column;
+    gap: 0.06rem;
+    min-width: 0;
+    min-height: 3.45rem;
+    padding: 0.25rem 0.18rem;
+    font-size: 0.62rem;
+    line-height: 1.1;
+  }
+
+  .application-shell__navigation button span {
+    overflow: hidden;
+    max-width: 100%;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .application-shell__navigation .game-icon {
+    font-size: 1.1rem;
+  }
+
+  .application-shell__navigation-badge {
+    inset-block-start: 0.12rem;
+    inset-inline-end: 0.12rem;
+  }
+}
+
+@media (max-width: 22rem) and (orientation: portrait) {
+  .application-shell__resource strong {
+    font-size: var(--gds-type-xs);
+  }
+
+  .application-shell__utility .gds-button,
+  .application-shell__resource {
+    min-width: 2.25rem;
+    padding-inline: 0.28rem;
   }
 }
 

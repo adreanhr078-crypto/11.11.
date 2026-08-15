@@ -15,6 +15,17 @@ interface FakePlayer {
   created_at: string;
 }
 
+interface FakeAuthoritativeProfile extends Record<string, unknown> {
+  user_id: string;
+  subject_id: string;
+  username: string;
+  bio: string;
+  avatar_id: string;
+  featured_achievement_ids_json: string;
+  created_at: string;
+  updated_at: string;
+}
+
 class FakeStatement implements PlayerDatabaseStatement {
   values: unknown[] = [];
 
@@ -46,6 +57,7 @@ class FakeProfileDatabase implements PlayerDatabase {
   reservations = new Map<string, { normalized: string; userId: string; username: string }>();
   fragments = new Set<string>();
   avatarUnlocks = new Set<string>();
+  authoritativeProfiles = new Map<string, FakeAuthoritativeProfile>();
 
   prepare(query: string): PlayerDatabaseStatement {
     return new FakeStatement(this, query);
@@ -71,6 +83,36 @@ class FakeProfileDatabase implements PlayerDatabase {
         username: current?.username ?? username,
         total_xp: current?.total_xp ?? 0,
         created_at: current?.created_at ?? createdAt,
+      });
+      return { success: true, meta: { changes: 1 } };
+    }
+    if (query.startsWith('INSERT INTO player_profile_authority')) {
+      const [userId, subjectId, username, bio, avatarId, featured, createdAt, updatedAt] = statement.values.map(String);
+      if (!this.authoritativeProfiles.has(userId)) {
+        this.authoritativeProfiles.set(userId, {
+          user_id: userId,
+          subject_id: subjectId,
+          username,
+          bio,
+          avatar_id: avatarId,
+          featured_achievement_ids_json: featured,
+          created_at: createdAt,
+          updated_at: updatedAt,
+        });
+      }
+      return { success: true, meta: { changes: 1 } };
+    }
+    if (query.startsWith('UPDATE player_profile_authority')) {
+      const [username, bio, avatarId, featured, updatedAt, userId] = statement.values.map(String);
+      const current = this.authoritativeProfiles.get(userId);
+      assert.ok(current);
+      this.authoritativeProfiles.set(userId, {
+        ...current,
+        username,
+        bio,
+        avatar_id: avatarId,
+        featured_achievement_ids_json: featured,
+        updated_at: updatedAt,
       });
       return { success: true, meta: { changes: 1 } };
     }
@@ -116,6 +158,9 @@ class FakeProfileDatabase implements PlayerDatabase {
 
   first(statement: FakeStatement): Record<string, unknown> | null {
     const query = this.normalized(statement);
+    if (query.includes('FROM player_profile_authority')) {
+      return this.authoritativeProfiles.get(String(statement.values[0])) ?? null;
+    }
     if (query.includes('FROM player_avatar_unlock_events')) {
       const [userId, avatarId] = statement.values.map(String);
       return this.avatarUnlocks.has(`${userId}:${avatarId}`) ? { avatar_id: avatarId } : null;
@@ -149,6 +194,7 @@ class FakeProfileDatabase implements PlayerDatabase {
 
   all(statement: FakeStatement): Record<string, unknown>[] {
     const query = this.normalized(statement);
+    if (query.includes('FROM player_achievement_unlock_events')) return [];
     if (query.includes('FROM player_avatar_unlock_events')) {
       const userId = String(statement.values[0]);
       return [...this.avatarUnlocks]
@@ -202,9 +248,10 @@ afterEach(() => {
 });
 
 describe('player profile gateway', () => {
-  it('creates a server profile and starts verified Secrets Found at zero', async () => {
+  it('creates a D1 profile without making a Firestore profile write a login dependency', async () => {
     const database = new FakeProfileDatabase();
-    globalThis.fetch = async (input, init) => {
+    let firestoreCalls = 0;
+    globalThis.fetch = async (input) => {
       const url = String(input);
       if (url.includes('accounts:lookup')) {
         return Response.json({
@@ -217,8 +264,9 @@ describe('player profile gateway', () => {
           }],
         });
       }
-      if (init?.method === 'PATCH') {
-        return Response.json({ updateTime: '2026-08-08T12:00:00.000Z' });
+      if (url.includes('firestore.googleapis.com')) {
+        firestoreCalls += 1;
+        return Response.json({}, { status: 503 });
       }
       return Response.json({}, { status: 404 });
     };
@@ -243,12 +291,15 @@ describe('player profile gateway', () => {
     assert.equal(payload.profile.progression.rank, 1);
     assert.equal(payload.profile.progression.totalXp, 0);
     assert.deepEqual(payload.profile.unlockedAvatarIds, ['echo', 'silver_signal', 'red_rift']);
+    assert.equal(firestoreCalls, 0);
   });
 
   it('rejects a rare avatar until the verified weekly ledger owns it', async () => {
     const database = new FakeProfileDatabase();
-    globalThis.fetch = async (input, init) => {
-      if (String(input).includes('accounts:lookup')) {
+    let firestoreCalls = 0;
+    globalThis.fetch = async (input) => {
+      const url = String(input);
+      if (url.includes('accounts:lookup')) {
         return Response.json({
           users: [{
             localId: 'profile-player',
@@ -258,7 +309,10 @@ describe('player profile gateway', () => {
           }],
         });
       }
-      if (init?.method === 'PATCH') return Response.json({ updateTime: '2026-08-08T12:00:00.000Z' });
+      if (url.includes('firestore.googleapis.com')) {
+        firestoreCalls += 1;
+        return Response.json({}, { status: 503 });
+      }
       return Response.json({}, { status: 404 });
     };
 
@@ -284,6 +338,7 @@ describe('player profile gateway', () => {
     assert.equal(owned.status, 200);
     assert.equal(payload.profile.avatarId, 'rare_yuki');
     assert.ok(payload.profile.unlockedAvatarIds.includes('rare_yuki'));
+    assert.equal(firestoreCalls, 0);
   });
 
   it('rejects external avatar values before writing profile data', async () => {

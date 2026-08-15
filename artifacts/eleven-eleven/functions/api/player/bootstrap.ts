@@ -10,7 +10,6 @@ import {
   readTimestampField,
   type PlayerApiContext,
 } from './_shared';
-import { ensurePlayerProfile } from './_profile';
 import { requirePlayerDatabase } from './_database';
 import { ensureAuthoritativePlayerProfile } from './_profileAuthority';
 
@@ -47,7 +46,6 @@ export async function onRequestGet({
   const headers = corsHeaders(request, env);
   try {
     const { account, idToken } = await authenticatePlayer(request, env);
-    await ensurePlayerProfile(env, idToken, account);
     const profile = await ensureAuthoritativePlayerProfile(
       requirePlayerDatabase(env),
       account,

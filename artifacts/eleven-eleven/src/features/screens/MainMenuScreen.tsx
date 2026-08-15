@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useGameStore } from '../../stores/gameStore';
 import {
   CinematicFrame,
@@ -17,17 +17,41 @@ import {
   ENVIRONMENT_PRESENTATION_ASSETS,
 } from '../../ui/presentation';
 import { AuthStatusButton } from '../auth/AuthStatusButton';
+import { AuthPanel } from '../auth/AuthPanel';
+import { useAuthStore } from '../auth/authStore';
 import { useStoryPuzzleStore } from '../story-puzzles/storyPuzzleStore';
+import { deriveCorePlayerObjective } from '../../application/player-journey/corePlayerLoop';
 
 export default function MainMenuScreen() {
   const state = useGameStore();
   const navigate = useShellStore((shell) => shell.navigate);
   const storyPuzzleSnapshot = useStoryPuzzleStore((store) => store.snapshot);
+  const requestManhwaReader = useShellStore((shell) => shell.requestManhwaReader);
+  const authStatus = useAuthStore((store) => store.status);
   const [confirmNewGame, setConfirmNewGame] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
   const model = useMemo(
     () => createDashboardReadModel(state, storyPuzzleSnapshot),
     [state, storyPuzzleSnapshot],
   );
+  const objective = useMemo(
+    () => deriveCorePlayerObjective(storyPuzzleSnapshot),
+    [storyPuzzleSnapshot],
+  );
+  const signedIn = authStatus === 'signed-in';
+
+  useEffect(() => {
+    if (signedIn) setAuthOpen(false);
+  }, [signedIn]);
+
+  const continueJourney = () => {
+    if (!signedIn) {
+      setAuthOpen(true);
+      return;
+    }
+    if (objective.screen === 'memories') requestManhwaReader();
+    else navigate(objective.screen);
+  };
 
   return (
     <CinematicFrame
@@ -70,7 +94,10 @@ export default function MainMenuScreen() {
           <strong>المشهد السينمائي</strong>
         </span>
         <PlayerResourceCounters className="shell-main-menu__resources" />
-        <AuthStatusButton variant="ghost" />
+        <AuthStatusButton
+          variant="ghost"
+          className="shell-main-menu__auth-control"
+        />
       </header>
 
       <section className="shell-main-menu__identity">
@@ -89,15 +116,19 @@ export default function MainMenuScreen() {
           className="shell-main-menu__actions"
           tone="danger"
           eyebrow="Echo Channel"
-          title={model.hasJourneyProgress ? 'استعادة الاتصال' : 'ابدأ الرحلة'}
+          title={signedIn
+            ? model.hasJourneyProgress ? 'استعادة الاتصال' : 'ابدأ الرحلة'
+            : 'ثبّت هويتك أولًا'}
         >
           <GameButton
             size="lg"
             fullWidth
-            leadingIcon={<GameIcon id="screen-psychological-state" />}
-            onClick={() => navigate('psychological-state')}
+            leadingIcon={<GameIcon id={signedIn
+              ? (objective.kind === 'read' ? 'screen-memory' : 'screen-puzzles')
+              : 'category-characters'} />}
+            onClick={continueJourney}
           >
-            {model.hasJourneyProgress ? 'متابعة الرحلة' : 'ابدأ الرحلة'}
+            {signedIn ? objective.actionLabel : 'سجّل الدخول وابدأ'}
           </GameButton>
           <div className="shell-main-menu__secondary-actions">
             <GameButton
@@ -126,18 +157,18 @@ export default function MainMenuScreen() {
             </GameButton>
           </div>
           <div className="shell-main-menu__checkpoint">
-            <span>الفصل الحالي</span>
-            <strong>{model.chapter.title}</strong>
-            <small>{model.puzzleProgress.progress}% من التقدم الحالي</small>
+            <span>خطوتك التالية</span>
+            <strong>{signedIn ? objective.title : 'تسجيل الدخول يربط دليلك بحسابك'}</strong>
+            <small>{signedIn ? objective.detail : 'يمكنك إنشاء حساب أو متابعة كضيف، ثم ستقابل Echo قبل أول دليل.'}</small>
           </div>
         </GlassPanel>
       </div>
 
       <footer className="shell-main-menu__footer">
-        <span>Android Landscape Cinematic Interface</span>
+        <span>Mobile Browser Interface</span>
         <span className="shell-main-menu__audio-signal">
           <i /><i /><i /><i /><i /><i /><i /><i />
-          Japanese VO Ready · Arabic Subtitles Ready
+          مؤثرات تفاعلية متاحة · الصوت المؤلف قيد الإضافة
         </span>
       </footer>
 
@@ -169,6 +200,7 @@ export default function MainMenuScreen() {
           هذا يعيد حالة اللاعب فقط ويحافظ على بنية المحتوى والأنظمة كما هي.
         </p>
       </GameModal>
+      <AuthPanel open={authOpen} onClose={() => setAuthOpen(false)} />
     </CinematicFrame>
   );
 }

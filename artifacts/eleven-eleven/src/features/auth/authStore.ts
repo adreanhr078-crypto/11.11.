@@ -71,7 +71,10 @@ function friendlyError(error: unknown): string {
       'auth/invalid-email': 'صيغة البريد الإلكتروني غير صحيحة.',
       'auth/network-request-failed': 'تعذر الاتصال بالشبكة. تحقق من اتصالك وحاول مجدداً.',
       'auth/operation-not-allowed': 'طريقة تسجيل الدخول هذه غير مفعلة في Firebase.',
+      'auth/popup-blocked': 'منع المتصفح نافذة Google. اسمح بالنوافذ المنبثقة ثم أعد المحاولة.',
       'auth/popup-closed-by-user': 'أُغلقت نافذة Google قبل اكتمال تسجيل الدخول.',
+      'auth/unauthorized-domain': 'هذا العنوان غير مسموح لتسجيل Google بعد. استخدم العنوان المعتمد أو أضفه في Firebase.',
+      'auth/account-exists-with-different-credential': 'هذا البريد مرتبط بحساب قائم بطريقة دخول أخرى. بقي حساب الضيف كما هو.',
       'auth/too-many-requests': 'محاولات كثيرة خلال وقت قصير. انتظر قليلاً ثم حاول مجدداً.',
       'auth/weak-password': 'استخدم كلمة مرور أقوى تتكون من 6 أحرف على الأقل.',
     };

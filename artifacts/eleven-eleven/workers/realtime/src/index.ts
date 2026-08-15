@@ -65,6 +65,43 @@ function eligibleForCompetitivePersistence(receipt: MatchReceipt): boolean {
     && receipt.participants.every((participant) => participant.participationMs >= 60_000);
 }
 
+const MAX_REWARDED_CHESS_REMATCHES_PER_DAY = 3;
+
+/**
+ * Ratings and network rewards must not become a private two-account faucet.
+ * We still retain every signed receipt for support/audit history, but only the
+ * first few real matches between the same pair in a rolling day can alter
+ * progression. The query runs before the receipt batch, so a duplicate Queue
+ * delivery remains harmless and a new room cannot trust client-side counters.
+ */
+async function isWithinChessPairRewardLimit(
+  database: D1Database,
+  receipt: MatchReceipt,
+): Promise<boolean> {
+  if (!modeIsChess(receipt.mode) || receipt.participants.length !== 2) return true;
+  const [first, second] = receipt.participants;
+  if (!first || !second) return false;
+  const completedAt = Date.parse(receipt.completedAt);
+  if (!Number.isFinite(completedAt)) return false;
+  const since = new Date(completedAt - 24 * 60 * 60 * 1_000).toISOString();
+  const result = await database.prepare(`
+    SELECT COUNT(*) AS total
+    FROM network_match_receipts receipt
+    WHERE receipt.mode IN ('chess_casual', 'chess_ranked_blitz', 'chess_ranked_rapid')
+      AND receipt.status NOT IN ('abandoned')
+      AND receipt.completed_at >= ?
+      AND EXISTS (
+        SELECT 1 FROM network_match_participants first_player
+        WHERE first_player.match_id = receipt.match_id AND first_player.user_id = ?
+      )
+      AND EXISTS (
+        SELECT 1 FROM network_match_participants second_player
+        WHERE second_player.match_id = receipt.match_id AND second_player.user_id = ?
+      )
+  `).bind(since, first.uid, second.uid).first<{ total: number }>();
+  return Number(result?.total ?? 0) < MAX_REWARDED_CHESS_REMATCHES_PER_DAY;
+}
+
 export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
@@ -209,7 +246,8 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
     ));
 
     const sourceType = xpSourceForMode(receipt.mode);
-    const competitiveEligible = eligibleForCompetitivePersistence(receipt);
+    const competitiveEligible = eligibleForCompetitivePersistence(receipt)
+      && await isWithinChessPairRewardLimit(this.env.PLAYER_DB, receipt);
     const caseDefinition = receipt.context.caseId
       ? COOP_CASE_BY_ID[receipt.context.caseId]
       : null;

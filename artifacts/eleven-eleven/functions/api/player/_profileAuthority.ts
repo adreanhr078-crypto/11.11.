@@ -79,6 +79,15 @@ export async function ensureAuthoritativePlayerProfile(
   if (existing) return profileFromRow(existing, account);
 
   const now = new Date().toISOString();
+  // `player_profile_authority` has a foreign key to the authoritative
+  // progression row. Profile is allowed to be the very first D1 route a new
+  // player reaches, so do not rely on a prior bootstrap request to create it.
+  await database.prepare(`
+    INSERT INTO player_progression (user_id, username, total_xp, created_at, updated_at)
+    VALUES (?, ?, 0, ?, ?)
+    ON CONFLICT(user_id) DO NOTHING
+  `).bind(account.uid, fallbackUsername(account), now, now).run();
+
   const profile: StoredPlayerProfile = {
     uid: account.uid,
     subjectId: createSubjectId(),

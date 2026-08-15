@@ -874,6 +874,79 @@
   .onboarding-footer__signal { display: none; }
 }
 
+/* The identity flow must complete in a mobile browser without a forced
+ * orientation change. Echo remains atmospheric and never competes with form
+ * controls or the keyboard. */
+@media (max-width: 46rem) and (orientation: portrait) {
+  .onboarding-overlay {
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+  }
+
+  .onboarding-shell {
+    height: auto;
+    min-height: 100dvh;
+    padding: 0.65rem 0.75rem max(0.75rem, env(safe-area-inset-bottom));
+  }
+
+  .onboarding-header {
+    min-height: 2.85rem;
+    padding-bottom: 0.45rem;
+  }
+
+  .onboarding-header__status,
+  .onboarding-brand span,
+  .onboarding-step-indicator small {
+    display: none;
+  }
+
+  .onboarding-brand,
+  .onboarding-step-indicator {
+    min-width: 0;
+  }
+
+  .onboarding-main {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    padding: 0.85rem 0;
+  }
+
+  .onboarding-panel {
+    min-height: 0;
+    padding: 1rem;
+  }
+
+  .onboarding-panel__topline {
+    top: 0.8rem;
+    right: 1rem;
+    left: 1rem;
+  }
+
+  .onboarding-welcome,
+  .onboarding-identity,
+  .onboarding-loading {
+    gap: 0.8rem;
+    padding-top: 2.25rem;
+  }
+
+  .onboarding-echo-stage {
+    position: absolute;
+    z-index: -1;
+    inset: 6% -30% 0 18%;
+    opacity: 0.18;
+  }
+
+  .onboarding-echo-stage__avatar-readout,
+  .onboarding-footer > span:last-child {
+    display: none;
+  }
+
+  .onboarding-footer {
+    min-height: 1.7rem;
+    font-size: 0.4rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .onboarding-overlay *,
   .onboarding-overlay *::before,

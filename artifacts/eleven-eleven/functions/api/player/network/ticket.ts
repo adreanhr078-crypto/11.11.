@@ -28,7 +28,38 @@ import { readAuthoritativeDisplayName } from '../_profileAuthority';
 
 const MAX_TICKET_REQUEST_BYTES = 4_096;
 
-function realtimeBaseUrl(env: PlayerApiContext['env']): URL {
+function isPrivateDevelopmentHost(hostname: string): boolean {
+  const normalized = hostname.toLowerCase();
+  if (normalized === 'localhost' || normalized === '127.0.0.1' || normalized === '::1') {
+    return true;
+  }
+  const octets = normalized.split('.').map(Number);
+  if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
+    return false;
+  }
+  return octets[0] === 10
+    || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31)
+    || (octets[0] === 192 && octets[1] === 168);
+}
+
+function configuredOrigins(env: PlayerApiContext['env']): Set<string> {
+  return new Set((env.PLAYER_ALLOWED_ORIGINS ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean));
+}
+
+/**
+ * Production always returns its configured HTTPS realtime origin. Local
+ * development has a loopback Worker, however, and a phone cannot reach the
+ * desktop through 127.0.0.1. In that one explicitly configured case, mirror
+ * the request's already allow-listed RFC1918 host while preserving the local
+ * realtime port. This never turns an arbitrary Origin header into a target.
+ */
+export function realtimeBaseUrl(
+  env: PlayerApiContext['env'],
+  request?: Request,
+): URL {
   const raw = env.PLAYER_REALTIME_URL?.trim();
   if (!raw) {
     throw new PlayerApiError(503, 'realtime_not_configured', 'Online play is not configured.');
@@ -42,6 +73,17 @@ function realtimeBaseUrl(env: PlayerApiContext['env']): URL {
   const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
   if (url.protocol !== 'https:' && !(local && url.protocol === 'http:')) {
     throw new PlayerApiError(503, 'realtime_not_configured', 'Online play is not configured securely.');
+  }
+  const requestOrigin = request?.headers.get('Origin') ?? '';
+  if (local && url.protocol === 'http:' && configuredOrigins(env).has(requestOrigin)) {
+    try {
+      const origin = new URL(requestOrigin);
+      if (origin.protocol === 'http:' && isPrivateDevelopmentHost(origin.hostname)) {
+        url.hostname = origin.hostname;
+      }
+    } catch {
+      // A malformed Origin cannot alter the configured websocket target.
+    }
   }
   return url;
 }
@@ -158,7 +200,7 @@ export async function onRequestPost({ request, env }: PlayerApiContext): Promise
       expiresAt: new Date(expiresAt * 1_000).toISOString(),
     });
 
-    const base = realtimeBaseUrl(env);
+    const base = realtimeBaseUrl(env, request);
     base.protocol = base.protocol === 'https:' ? 'wss:' : 'ws:';
     base.pathname = body.purpose === 'queue'
       ? '/v1/queue'

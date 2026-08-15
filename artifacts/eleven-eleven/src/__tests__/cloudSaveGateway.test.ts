@@ -5,12 +5,67 @@ import {
   onRequestGet as getSave,
   onRequestPut as putSave,
 } from '../../functions/api/player/save';
+import type {
+  PlayerDatabase,
+  PlayerDatabaseResult,
+  PlayerDatabaseStatement,
+} from '../../functions/api/player/_database';
 import type { PlayerApiEnv } from '../../functions/api/player/_shared';
 
 const originalFetch = globalThis.fetch;
+const bootstrapProfiles = new Map<string, Record<string, unknown>>();
+
+/** Bootstrap now intentionally crosses the D1 profile authority boundary.
+ * Keep this narrow fake honest about that contract instead of omitting D1 from
+ * the test environment and accidentally accepting a fallback to Firestore. */
+class BootstrapAuthorityStatement implements PlayerDatabaseStatement {
+  values: unknown[] = [];
+
+  constructor(readonly query: string) {}
+
+  bind(...values: unknown[]): PlayerDatabaseStatement {
+    this.values = values;
+    return this;
+  }
+
+  async first<T>(): Promise<T | null> {
+    if (!this.query.includes('FROM player_profile_authority')) return null;
+    return (bootstrapProfiles.get(String(this.values[0])) ?? null) as T | null;
+  }
+
+  async all<T>(): Promise<PlayerDatabaseResult<T>> {
+    return { results: [], success: true };
+  }
+
+  async run<T>(): Promise<PlayerDatabaseResult<T>> {
+    if (this.query.includes('INSERT INTO player_profile_authority')) {
+      const [userId, subjectId, username, bio, avatarId, featured, createdAt, updatedAt] = this.values.map(String);
+      bootstrapProfiles.set(userId, {
+        user_id: userId,
+        subject_id: subjectId,
+        username,
+        bio,
+        avatar_id: avatarId,
+        featured_achievement_ids_json: featured,
+        created_at: createdAt,
+        updated_at: updatedAt,
+      });
+    }
+    return { success: true, meta: { changes: 1 } };
+  }
+}
+
+const bootstrapAuthorityDatabase: PlayerDatabase = {
+  prepare: (query) => new BootstrapAuthorityStatement(query),
+  async batch<T>(statements: PlayerDatabaseStatement[]): Promise<PlayerDatabaseResult<T>[]> {
+    return Promise.all(statements.map((statement) => statement.run<T>()));
+  },
+};
+
 const env: PlayerApiEnv = {
   FIREBASE_PROJECT_ID: 'eleven-test',
   FIREBASE_WEB_API_KEY: 'web-api-key',
+  PLAYER_DB: bootstrapAuthorityDatabase,
 };
 
 function authenticatedRequest(
@@ -43,6 +98,7 @@ function lookupResponse(): Response {
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  bootstrapProfiles.clear();
 });
 
 describe('cloud player gateway', () => {
@@ -56,23 +112,12 @@ describe('cloud player gateway', () => {
     assert.equal((await response.json() as { code: string }).code, 'unauthorized');
   });
 
-  it('bootstraps only the player path proven by Firebase', async () => {
+  it('bootstraps the D1 identity and only reads the dedicated cloud-save path', async () => {
     const requestedUrls: string[] = [];
     globalThis.fetch = async (input, init) => {
       const url = String(input);
       requestedUrls.push(url);
       if (url.includes('accounts:lookup')) return lookupResponse();
-      if (init?.method === 'PATCH') {
-        assert.match(url, /documents\/players\/player-123(?:\?|$)/);
-        assert.equal(
-          new Headers(init.headers).get('Authorization'),
-          'Bearer valid-id-token',
-        );
-        return Response.json({ updateTime: '2026-08-06T12:00:00.000Z' });
-      }
-      if (url.endsWith('/documents/players/player-123')) {
-        return Response.json({}, { status: 404 });
-      }
       assert.match(url, /documents\/players\/player-123\/saves\/main$/);
       return Response.json({}, { status: 404 });
     };
@@ -89,7 +134,8 @@ describe('cloud player gateway', () => {
     assert.equal(response.status, 200);
     assert.equal(payload.profile.uid, 'player-123');
     assert.equal(payload.save, null);
-    assert.equal(requestedUrls.length, 4);
+    assert.equal(requestedUrls.length, 2);
+    assert.equal(requestedUrls.some((url) => /documents\/players\/player-123(?:\?|$)/.test(url)), false);
   });
 
   it('creates the first cloud save at revision one', async () => {

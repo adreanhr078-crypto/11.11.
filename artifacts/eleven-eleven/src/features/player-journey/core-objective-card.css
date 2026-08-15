@@ -1,0 +1,107 @@
+.core-objective-card {
+  position: absolute;
+  z-index: calc(var(--gds-z-hud) - 1);
+  inset-block-start: calc(var(--gds-safe-top) + clamp(3.25rem, 8.5vh, 4.8rem) + 0.45rem);
+  inset-inline: max(var(--gds-edge-buffer), env(safe-area-inset-right)) auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.38rem 0.7rem;
+  width: min(31rem, calc(100vw - 2rem));
+  min-height: 5rem;
+  overflow: hidden;
+  padding: 0.72rem 0.8rem;
+  border: 1px solid rgb(214 181 124 / 36%);
+  border-radius: 0.8rem;
+  color: var(--gds-text-primary);
+  background: linear-gradient(110deg, rgb(7 10 15 / 97%), rgb(16 12 13 / 90%));
+  box-shadow: 0 0.8rem 2.5rem rgb(0 0 0 / 38%), inset 0 1px 0 rgb(255 255 255 / 6%);
+  backdrop-filter: blur(0.85rem);
+}
+
+.core-objective-card__art {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.26;
+  background: linear-gradient(90deg, rgb(4 6 9 / 88%), transparent 72%), url('/assets/ui/core-loop/memory-objective-v1.png') center / cover;
+}
+
+.core-objective-card__signal,
+.core-objective-card__echo,
+.core-objective-card__copy small {
+  color: var(--gds-text-secondary);
+  font: 600 var(--gds-type-2xs)/1.45 var(--gds-font-body);
+}
+
+.core-objective-card__signal { display: inline-flex; gap: 0.35rem; align-items: center; color: var(--gds-gold-400); font-family: var(--gds-font-mono); letter-spacing: 0.08em; }
+.core-objective-card__copy { display: flex; grid-column: 1; gap: 0.55rem; align-items: flex-start; }
+.core-objective-card__copy > svg { flex: 0 0 auto; width: 1.25rem; color: var(--gds-red-400); }
+.core-objective-card__copy span { display: grid; gap: 0.12rem; }
+.core-objective-card__copy strong { font-size: var(--gds-type-sm); }
+.core-objective-card__echo { grid-column: 1; margin: 0; }
+.core-objective-card__echo b { color: var(--gds-cyan-300); }
+.core-objective-card > button {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  align-self: center;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.68rem;
+  border: 1px solid rgb(229 85 94 / 52%);
+  border-radius: 0.45rem;
+  color: #fff4e8;
+  background: rgb(171 42 51 / 78%);
+  font: 800 var(--gds-type-xs) var(--gds-font-body);
+  cursor: pointer;
+}
+.core-objective-card > button:focus-visible { outline: 2px solid var(--gds-cyan-400); outline-offset: 0.18rem; }
+.core-objective-card > button:hover { background: rgb(207 59 69 / 90%); }
+
+.core-objective-card[data-compact] { inset-block-start: calc(var(--gds-safe-top) + clamp(3.25rem, 8.5vh, 4.8rem) + 0.3rem); min-height: auto; opacity: 0.94; }
+.core-objective-card[data-compact] .core-objective-card__echo { display: none; }
+
+@media (max-width: 760px) {
+  .core-objective-card { inset-inline: max(0.7rem, var(--gds-safe-right)) auto; width: min(26rem, calc(100vw - 1.4rem)); }
+  .core-objective-card__copy small { display: none; }
+  .core-objective-card__echo { display: none; }
+}
+
+@media (max-width: 48rem) and (orientation: portrait) {
+  .core-objective-card {
+    inset-block-start: calc(var(--gds-safe-top) + 3.45rem);
+    inset-inline: max(0.55rem, var(--gds-safe-right)) auto;
+    width: min(32rem, calc(100vw - 1.1rem));
+    min-height: 4.8rem;
+    padding: 0.58rem 0.65rem;
+  }
+
+  .core-objective-card__signal {
+    font-size: 0.56rem;
+  }
+
+  .core-objective-card__copy strong {
+    font-size: var(--gds-type-xs);
+  }
+
+  .core-objective-card > button {
+    min-height: 2.5rem;
+    padding-inline: 0.55rem;
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 23rem) and (orientation: portrait) {
+  .core-objective-card {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.3rem;
+  }
+
+  .core-objective-card > button {
+    grid-column: 1;
+    grid-row: auto;
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .core-objective-card { backdrop-filter: none; }
+}

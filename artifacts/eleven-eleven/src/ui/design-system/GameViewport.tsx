@@ -13,7 +13,10 @@ export interface GameViewportProps extends HTMLAttributes<HTMLDivElement> {
 export function GameViewport({
   quality = 'balanced',
   motion = 'balanced',
-  landscapeRequired = true,
+  // Portrait is the baseline for the web player. Individual experiences may
+  // opt into an orientation hint, but the shell must never make the game
+  // unreachable on a phone.
+  landscapeRequired = false,
   orientationTitle = 'أفضل تجربة في الوضع الأفقي',
   orientationMessage = 'قم بتدوير جهازك للمتابعة.',
   className,
@@ -29,13 +32,15 @@ export function GameViewport({
       {...props}
     >
       {children}
-      <aside className="gds-landscape-guard" aria-live="polite">
-        <div className="gds-landscape-guard__content">
-          <span className="gds-landscape-guard__device" aria-hidden="true" />
-          <strong>{orientationTitle}</strong>
-          <span>{orientationMessage}</span>
-        </div>
-      </aside>
+      {landscapeRequired && (
+        <aside className="gds-landscape-guard" aria-live="polite">
+          <div className="gds-landscape-guard__content">
+            <span className="gds-landscape-guard__device" aria-hidden="true" />
+            <strong>{orientationTitle}</strong>
+            <span>{orientationMessage}</span>
+          </div>
+        </aside>
+      )}
     </div>
   );
 }

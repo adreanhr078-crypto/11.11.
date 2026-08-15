@@ -174,7 +174,7 @@ function OnboardingFrame({
         <footer className="onboarding-footer">
           <span>BUILD 1.0.0 // FIRST TIME ONBOARDING</span>
           <span className="onboarding-footer__signal"><i /><i /><i /><i /><i /> CYBER LINK READY</span>
-          <span>LANDSCAPE MOBILE EXPERIENCE</span>
+          <span>MOBILE BROWSER READY</span>
         </footer>
       </div>
     </div>
@@ -408,7 +408,9 @@ export function FirstTimeOnboarding() {
     setFinishing(true);
     window.setTimeout(() => {
       setFinishing(false);
-      navigate('main-menu');
+      // The player meets Echo before choosing a destination.  The persistent
+      // objective card then explains the one meaningful next action.
+      navigate('echo-mind');
     }, 900);
   };
 

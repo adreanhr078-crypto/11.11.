@@ -34,7 +34,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
     objective: text('وازن القناة حتى تصبح الإشارة مستقرة.', 'Stabilize the channel signal.'),
     mechanic: 'signal', difficulty: 'intro',
     source: { pageId: 'manhwa_ch01_page_02', globalPageNumber: 4 }, prerequisitePuzzleIds: [],
-    hints: [text('راقب المؤشر البصري، لا تحتاج إلى الصوت.', 'Use the visual meter; audio is not required.'), text('الإشارة تستقر عند نقطة التماثل.', 'The signal stabilizes at its symmetry point.'), text('استخدم القناة 11 مع التردد المعروض.', 'Use channel 11 with the displayed frequency.')],
+    hints: [text('راقب شكل النبضة، لا تحتاج إلى الصوت.', 'Use the pulse shape; audio is not required.'), text('ابحث عن نبضة تتوازن حول خط الوسط، ثم جرّب القناة التي لا تحمل تشويشًا.', 'Find a pulse balanced around its midpoint, then test the channel without interference.'), text('إذا رفض السجل القياس، غيّر متغيرًا واحدًا فقط لتعرف ما الذي أثّر.', 'If the record rejects a reading, change only one variable so you learn what mattered.')],
     completionMessage: text('تم تثبيت الإشارة.', 'Signal stabilized.'),
     brief: text('تسمع Echo من خلف الضجيج. ثبّت النبضة الأولى كي يفتح السجل.', 'Echo is buried under the noise. Stabilize the first pulse to open the record.'),
     reference: {
@@ -45,7 +45,6 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
       ],
     },
     options: systemOptions,
-    signal: { targetFrequency: 58, targetChannel: '11' },
   },
   {
     id: 'story_puzzle_02_system_sequence', order: 2, chapterId: 'chapter_1', classification: 'main',
@@ -53,14 +52,14 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
     objective: text('أعد ترتيب رموز النظام وفق أثر الذاكرة.', 'Restore the system symbols in memory order.'),
     mechanic: 'sequence', difficulty: 'intro',
     source: { pageId: 'manhwa_ch01_page_03', globalPageNumber: 5 }, prerequisitePuzzleIds: ['story_puzzle_01_signal_calibration'],
-    hints: [text('ابدأ بالرمز الذي يفتح القناة.', 'Start with the symbol that opens the channel.'), text('المسار ينتقل من إشارة إلى ذاكرة.', 'The route moves from signal to memory.'), text('رتّب: إشارة، وصول، ذاكرة، Echo.', 'Order: signal, access, memory, Echo.')],
+    hints: [text('لا يبدأ المسار من الذاكرة ولا ينتهي عند الوصول.', 'The route does not begin at Memory or end at Access.'), text('الإشارة تسبق الوصول، والوصول يسبق الذاكرة.', 'Signal precedes Access, and Access precedes Memory.'), text('ثبت طرفي المسار أولًا، ثم ضع الرمزين الباقيين وفق العلاقات التي وجدتها.', 'Lock the two ends first, then place the remaining symbols from the relations you found.')],
     completionMessage: text('تم التحقق من التسلسل.', 'Sequence verified.'),
     brief: text('الذاكرة لا تحفظ الكلمات؛ تحفظ الطريق الذي عبرته الإشارة.', 'Memory does not keep words; it keeps the route the signal travelled.'),
     reference: {
       title: text('أثر الذاكرة', 'Memory trace'),
       entries: [
         text('الإشارة تسبق الوصول، والوصول يفتح الذاكرة، وEcho هو نهاية المسار.', 'Signal precedes Access; Access opens Memory; Echo ends the route.'),
-        text('كل رمز يُستخدم مرة واحدة: ⌁ → ⌘ → ◇ → ◉.', 'Each symbol is used once: ⌁ → ⌘ → ◇ → ◉.'),
+        text('كل رمز يُستخدم مرة واحدة. لا توجد خطوة تعود إلى الوراء.', 'Each symbol is used once. No step travels backward.'),
       ],
     },
     options: systemOptions,
@@ -71,7 +70,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
     objective: text('أعد وصل أجزاء السجل المتشظي.', 'Reconstruct the fragmented record.'),
     mechanic: 'image-reconstruction', difficulty: 'standard',
     source: { pageId: 'manhwa_ch01_page_07', globalPageNumber: 9 }, prerequisitePuzzleIds: ['story_puzzle_02_system_sequence'], anomalyHostPuzzleId: 'story_puzzle_02_system_sequence',
-    hints: [text('طابق الحواف والخطوط قبل التفاصيل.', 'Match edges and lines before details.'), text('ابدأ بالقطع التي تحمل إطار السجل.', 'Begin with pieces containing the record frame.'), text('القطعة ذات الوهج السماوي تقع في أعلى اليمين.', 'The cyan-glow piece belongs at the upper right.')],
+    hints: [text('طابق الحواف والخطوط قبل التفاصيل.', 'Match edges and lines before details.'), text('ابدأ بالقطع التي تحمل إطار السجل.', 'Begin with pieces containing the record frame.'), text('ثبّت قطعة إطار واحدة، ثم راقب امتداد الخطوط إلى القطع المجاورة بدل تخمين موضع بعيد.', 'Anchor one frame piece, then follow its lines into neighboring pieces instead of guessing a distant slot.')],
     completionMessage: text('تمت استعادة الذاكرة المتشظية.', 'Fragmented memory recovered.'),
     brief: text('هناك شظية لا تنتمي إلى الضجيج. أعد ترتيب السجل قبل أن تختفي ملامحه.', 'One shard does not belong to the noise. Rebuild the record before its shape disappears.'),
     reference: {

@@ -42,6 +42,7 @@ import { EchoIntrusionOverlay } from '../../features/echo/EchoIntrusionOverlay';
 import { DemoExperienceLayer } from '../demo/DemoExperienceLayer';
 import { AuthStatusButton } from '../../features/auth/AuthStatusButton';
 import { useStoryPuzzleStore } from '../../features/story-puzzles/storyPuzzleStore';
+import { CoreObjectiveCard } from '../../features/player-journey/CoreObjectiveCard';
 
 export function ApplicationShell() {
   const shell = useShellStore();
@@ -76,6 +77,11 @@ export function ApplicationShell() {
   const isImmersive = isMainMenu
     || isGameplay
     || shell.currentScreen === 'cinematic';
+  const showCoreObjective = !isMainMenu
+    && !isGameplay
+    && shell.currentScreen !== 'echo-network'
+    && shell.currentScreen !== 'settings'
+    && shell.currentScreen !== 'profile';
 
   return (
     <GameViewport
@@ -84,9 +90,11 @@ export function ApplicationShell() {
       dir={preferences.locale === 'ar' ? 'rtl' : 'ltr'}
       quality={preferences.quality}
       motion={preferences.motion}
+      landscapeRequired={false}
       data-ui-system="cinematic-shell-v2"
     >
       <PremiumAtmosphere />
+      <a className="application-shell__skip-link" href="#player-content">تجاوز عناصر الواجهة إلى المحتوى</a>
       <GameSafeArea className="application-shell__safe">
         {!isMainMenu && !isGameplay && (
           <header className="application-shell__topbar">
@@ -124,9 +132,13 @@ export function ApplicationShell() {
 
             <div className="application-shell__utility">
               <PlayerResourceCounters />
-              <AuthStatusButton variant="ghost" />
+              <AuthStatusButton
+                variant="ghost"
+                className="application-shell__auth-control"
+              />
               <GameTooltip label="الإعدادات">
                 <GameButton
+                  className="application-shell__utility-control"
                   variant="secondary"
                   leadingIcon={<GameIcon id="screen-settings" />}
                   onClick={() => shell.navigate('settings')}
@@ -136,6 +148,7 @@ export function ApplicationShell() {
               </GameTooltip>
               <GameTooltip label="قائمة الإيقاف">
                 <GameButton
+                  className="application-shell__utility-control"
                   variant="ghost"
                   leadingIcon={<GameIcon id="utility-pause" />}
                   onClick={shell.openPause}
@@ -148,9 +161,11 @@ export function ApplicationShell() {
         )}
 
         <main
+          id="player-content"
           className="application-shell__stage"
           data-fullscreen={isImmersive}
           data-gameplay={isGameplay}
+          data-has-objective={showCoreObjective}
         >
           <Suspense
             fallback={(
@@ -166,6 +181,10 @@ export function ApplicationShell() {
             </ScreenTransition>
           </Suspense>
         </main>
+
+        {showCoreObjective && (
+          <CoreObjectiveCard compact={shell.currentScreen === 'puzzles' || shell.currentScreen === 'memories'} />
+        )}
 
         {!isMainMenu && !isGameplay && (
           <nav

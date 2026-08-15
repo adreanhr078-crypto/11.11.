@@ -384,6 +384,110 @@ describe('Echo realtime Worker', () => {
     beta.webSocket!.close(1000, 'test complete');
   });
 
+  it('recovers a terminal Chess receipt from durable finalization intent after an interrupted queue handoff', async () => {
+    const roomId = 'match_chess_finalization_recovery';
+    const alpha = await upgrade(`/v1/rooms/chess/${roomId}`, ticket({
+      target: 'match', roomId, mode: 'chess_casual', uid: 'recovery-alpha', displayName: 'Recovery Alpha',
+    }));
+    const beta = await upgrade(`/v1/rooms/chess/${roomId}`, ticket({
+      target: 'match', roomId, mode: 'chess_casual', uid: 'recovery-beta', displayName: 'Recovery Beta',
+    }));
+    expect(alpha.status).toBe(101);
+    expect(beta.status).toBe(101);
+    alpha.webSocket!.accept();
+    beta.webSocket!.accept();
+
+    const stub = env.CHESS_MATCH_ROOMS.getByName(roomId);
+    await runInDurableObject(stub, async (instance, state) => {
+      const room = instance as unknown as {
+        persistTerminalState: (state: unknown, status: 'resigned', winnerUid: string, now: number) => void;
+        alarm: () => Promise<void>;
+      };
+      const meta = state.storage.sql.exec<{ state_json: string }>(
+        'SELECT state_json FROM meta WHERE singleton = 1',
+      ).toArray()[0]!;
+      const terminal = {
+        ...JSON.parse(meta.state_json) as Record<string, unknown>,
+        version: 3,
+        status: 'black-won',
+        reason: 'resigned',
+      };
+      state.storage.sql.exec('UPDATE meta SET started_at = ? WHERE singleton = 1', Date.now() - 95_000);
+      room.persistTerminalState(terminal, 'resigned', 'recovery-beta', Date.now());
+      expect(state.storage.sql.exec<{ result_status: string; winner_uid: string }>(
+        'SELECT result_status, winner_uid FROM result_finalization_outbox WHERE singleton = 1',
+      ).toArray()).toEqual([{ result_status: 'resigned', winner_uid: 'recovery-beta' }]);
+
+      // A process stop after the transaction above leaves no receipt, but the
+      // next Durable Object alarm must complete the same terminal result.
+      await room.alarm();
+      const recovered = state.storage.sql.exec<{ receipt_json: string }>(
+        'SELECT receipt_json FROM meta WHERE singleton = 1',
+      ).toArray()[0]!;
+      expect(JSON.parse(recovered.receipt_json)).toMatchObject({
+        matchId: roomId,
+        status: 'resigned',
+        winnerUid: 'recovery-beta',
+      });
+      expect(state.storage.sql.exec<{ attempts: number }>(
+        'SELECT attempts FROM result_finalization_outbox WHERE singleton = 1',
+      ).toArray()[0]!.attempts).toBeGreaterThan(0);
+    });
+    alpha.webSocket!.close(1000, 'test complete');
+    beta.webSocket!.close(1000, 'test complete');
+  });
+
+  it('recovers a completed Co-op receipt only when the durable room has time and participation evidence', async () => {
+    const roomId = 'match_coop_finalization_recovery';
+    const alpha = await upgrade(`/v1/rooms/coop/${roomId}`, ticket({
+      target: 'match', roomId, mode: 'coop_breach', uid: 'coop-recovery-alpha', displayName: 'Co-op Alpha',
+    }));
+    const beta = await upgrade(`/v1/rooms/coop/${roomId}`, ticket({
+      target: 'match', roomId, mode: 'coop_breach', uid: 'coop-recovery-beta', displayName: 'Co-op Beta',
+    }));
+    expect(alpha.status).toBe(101);
+    expect(beta.status).toBe(101);
+    alpha.webSocket!.accept();
+    beta.webSocket!.accept();
+
+    const stub = env.COOP_SESSION_ROOMS.getByName(roomId);
+    await runInDurableObject(stub, async (instance, state) => {
+      const room = instance as unknown as { alarm: () => Promise<void> };
+      const meta = state.storage.sql.exec<{ state_json: string }>(
+        'SELECT state_json FROM meta WHERE singleton = 1',
+      ).toArray()[0]!;
+      const completed = {
+        ...JSON.parse(meta.state_json) as Record<string, unknown>,
+        version: 3,
+        status: 'completed',
+      };
+      state.storage.sql.exec(
+        'UPDATE meta SET state_json = ?, started_at = ?, finished_at = ? WHERE singleton = 1',
+        JSON.stringify(completed), Date.now() - 46_000, Date.now(),
+      );
+      state.storage.sql.exec(`
+        INSERT INTO participation_events (uid, event_type, created_at)
+        VALUES (?, 'answer', ?), (?, 'vote', ?)
+      `, 'coop-recovery-alpha', Date.now(), 'coop-recovery-beta', Date.now());
+      state.storage.sql.exec(
+        'INSERT INTO result_finalization_outbox (singleton, created_at, attempts) VALUES (1, ?, 0)',
+        Date.now(),
+      );
+
+      await room.alarm();
+      const recovered = state.storage.sql.exec<{ receipt_json: string }>(
+        'SELECT receipt_json FROM meta WHERE singleton = 1',
+      ).toArray()[0]!;
+      const receipt = JSON.parse(recovered.receipt_json) as { rewards: Array<{ xpAmount: number }> };
+      expect(receipt.rewards.map((reward) => reward.xpAmount)).toEqual([90, 90]);
+      expect(state.storage.sql.exec<{ attempts: number }>(
+        'SELECT attempts FROM result_finalization_outbox WHERE singleton = 1',
+      ).toArray()[0]!.attempts).toBeGreaterThan(0);
+    });
+    alpha.webSocket!.close(1000, 'test complete');
+    beta.webSocket!.close(1000, 'test complete');
+  });
+
   it('keeps a live chess player in matchmaking through the stale sweep', async () => {
     const queued = await upgrade('/v1/queue', ticket({
       purpose: 'queue',

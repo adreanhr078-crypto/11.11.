@@ -15,6 +15,7 @@ import {
   CloudUpload,
   Eye,
   EyeOff,
+  Link2,
   LockKeyhole,
   Mail,
   ShieldCheck,
@@ -39,6 +40,7 @@ interface AuthPanelProps {
 }
 
 type AuthMode = 'sign-in' | 'create';
+type AccountLinkMode = 'choices' | 'email';
 
 const FOCUSABLE_SELECTOR = [
   'button:not([disabled])',
@@ -81,11 +83,11 @@ export function AuthPanel({ open, onClose }: AuthPanelProps) {
   const [displayName, setDisplayName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [accountLinkMode, setAccountLinkMode] = useState<AccountLinkMode>('choices');
   const {
     status,
     user,
     configured,
-    missingConfigKeys,
     busy,
     error,
     actions,
@@ -93,6 +95,7 @@ export function AuthPanel({ open, onClose }: AuthPanelProps) {
   const cloudSave = useCloudSaveStore();
 
   const signedIn = status === 'signed-in' && user !== null;
+  const isGuest = signedIn && user?.isAnonymous === true;
   const canSubmit = configured
     && email.trim().length > 3
     && password.length >= 6
@@ -100,6 +103,7 @@ export function AuthPanel({ open, onClose }: AuthPanelProps) {
   const canResetPassword = configured
     && email.trim().length > 3
     && !busy;
+  const canLinkWithEmail = isGuest && canSubmit;
   const providerLabel = useMemo(() => {
     if (!user) return null;
     if (user.isAnonymous) return 'حساب ضيف';
@@ -155,6 +159,7 @@ export function AuthPanel({ open, onClose }: AuthPanelProps) {
     if (!open) {
       setShowPassword(false);
       setResetSent(false);
+      setAccountLinkMode('choices');
       actions.clearError();
     }
   }, [actions, open]);
@@ -200,6 +205,32 @@ export function AuthPanel({ open, onClose }: AuthPanelProps) {
     } catch {
       // The store exposes the localized error inside the panel.
     }
+  };
+
+  const openEmailAccountLink = () => {
+    setAccountLinkMode('email');
+    setResetSent(false);
+    actions.clearError();
+  };
+
+  const handleLinkWithEmail = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canLinkWithEmail) return;
+
+    try {
+      await actions.linkAnonymousAccountWithEmail(
+        email.trim(),
+        password,
+        displayName.trim(),
+      );
+    } catch {
+      // The store exposes the localized error inside the account-link panel.
+    }
+  };
+
+  const handleLinkWithGoogle = async () => {
+    actions.clearError();
+    await runProviderAction(actions.linkAnonymousAccountWithGoogle);
   };
 
   if (!open || typeof document === 'undefined') return null;
@@ -278,6 +309,139 @@ export function AuthPanel({ open, onClose }: AuthPanelProps) {
                   <h2 id={titleId}>{displayUserName(user)}</h2>
                   {user.email && <p>{user.email}</p>}
                 </div>
+                {isGuest && (
+                  <section
+                    className="auth-account-link"
+                    aria-labelledby={`${titleId}-account-link`}
+                  >
+                    <div className="auth-account-link__heading">
+                      <span className="auth-account-link__signal" aria-hidden="true">
+                        <Link2 />
+                      </span>
+                      <div>
+                        <span>ACCOUNT LINK // SECURE</span>
+                        <h3 id={`${titleId}-account-link`}>
+                          ثبّت رحلتك على حسابك
+                        </h3>
+                        <p>
+                          اربط الضيف الآن ليبقى تقدّمك معك على الهاتف والكمبيوتر.
+                          الربط لا يعيد بدء الرحلة.
+                        </p>
+                      </div>
+                    </div>
+
+                    {accountLinkMode === 'email' ? (
+                      <form
+                        className="auth-account-link__form"
+                        onSubmit={handleLinkWithEmail}
+                      >
+                        <label className="auth-field" htmlFor={`${emailId}-link`}>
+                          <span>البريد الإلكتروني الجديد</span>
+                          <div className="auth-field__control">
+                            <Mail aria-hidden="true" />
+                            <input
+                              id={`${emailId}-link`}
+                              type="email"
+                              inputMode="email"
+                              autoComplete="email"
+                              value={email}
+                              onChange={(event) => setEmail(event.target.value)}
+                              placeholder="player@example.com"
+                              disabled={busy || !configured}
+                              required
+                            />
+                          </div>
+                        </label>
+                        <label className="auth-field" htmlFor={`${passwordId}-link`}>
+                          <span>كلمة مرور للحساب</span>
+                          <div className="auth-field__control">
+                            <LockKeyhole aria-hidden="true" />
+                            <input
+                              id={`${passwordId}-link`}
+                              type={showPassword ? 'text' : 'password'}
+                              autoComplete="new-password"
+                              value={password}
+                              onChange={(event) => setPassword(event.target.value)}
+                              placeholder="6 أحرف على الأقل"
+                              minLength={6}
+                              disabled={busy || !configured}
+                              required
+                            />
+                            <button
+                              type="button"
+                              className="auth-field__reveal"
+                              onClick={() => setShowPassword((visible) => !visible)}
+                              aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                              title={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                            >
+                              {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                            </button>
+                          </div>
+                        </label>
+                        <label className="auth-field" htmlFor={`${nameId}-link`}>
+                          <span>اسم اللاعب (اختياري)</span>
+                          <div className="auth-field__control">
+                            <UserRound aria-hidden="true" />
+                            <input
+                              id={`${nameId}-link`}
+                              autoComplete="nickname"
+                              value={displayName}
+                              onChange={(event) => setDisplayName(event.target.value)}
+                              placeholder="Echo Runner"
+                              disabled={busy || !configured}
+                            />
+                          </div>
+                        </label>
+                        <div className="auth-account-link__actions">
+                          <button
+                            type="submit"
+                            className="auth-action auth-action--primary"
+                            disabled={!canLinkWithEmail}
+                          >
+                            <span>{busy ? 'جارٍ تثبيت الحساب...' : 'ربط البريد وحفظ الرحلة'}</span>
+                            <Link2 aria-hidden="true" />
+                          </button>
+                          <button
+                            type="button"
+                            className="auth-account-link__back"
+                            disabled={busy}
+                            onClick={() => {
+                              setAccountLinkMode('choices');
+                              actions.clearError();
+                            }}
+                          >
+                            العودة إلى خيارات الربط
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="auth-account-link__methods">
+                        <button
+                          type="button"
+                          className="auth-action auth-action--provider"
+                          disabled={!configured || busy}
+                          onClick={() => void handleLinkWithGoogle()}
+                        >
+                          <span className="auth-google-mark" aria-hidden="true">G</span>
+                          <span>{busy ? 'جارٍ فتح Google...' : 'ربط الحساب مع Google'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="auth-action auth-action--provider"
+                          disabled={!configured || busy}
+                          onClick={openEmailAccountLink}
+                        >
+                          <Mail aria-hidden="true" />
+                          <span>ربط بالبريد الإلكتروني</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {error && (
+                      <p className="auth-card__error" role="alert">{error}</p>
+                    )}
+                  </section>
+                )}
                 <div
                   className="auth-profile__ready"
                   data-status={cloudSave.status}
@@ -376,7 +540,8 @@ export function AuthPanel({ open, onClose }: AuthPanelProps) {
                   <div className="auth-card__notice" role="status">
                     <ShieldCheck aria-hidden="true" />
                     <span>
-                      إعداد Firebase غير مكتمل: {missingConfigKeys.join(', ')}
+                      تسجيل الدخول غير جاهز في هذه النسخة بعد. لا يمكن بدء رحلة محفوظة
+                      أو منح مكافآت موثّقة حتى تتصل هوية اللاعب بالخدمة.
                     </span>
                   </div>
                 )}

@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { connect } from 'node:net';
+import { networkInterfaces } from 'node:os';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -16,11 +17,34 @@ function developmentSecret() {
   return configured.length >= 32 ? configured : randomBytes(32).toString('hex');
 }
 
+function isPrivateLanAddress(address) {
+  const octets = address.split('.').map(Number);
+  if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
+    return false;
+  }
+  return octets[0] === 10
+    || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31)
+    || (octets[0] === 192 && octets[1] === 168);
+}
+
+/**
+ * Development runs bind all three services to the machine, so a phone on the
+ * same private network needs the precise LAN origin allowed by Pages and the
+ * realtime Worker. We enumerate only RFC1918 IPv4 addresses; public and VPN
+ * origins are never added automatically.
+ */
+function localDevelopmentOrigins(webPort) {
+  const lanHosts = Object.values(networkInterfaces())
+    .flatMap((entries) => entries ?? [])
+    .filter((entry) => entry.family === 'IPv4' && !entry.internal)
+    .map((entry) => entry.address)
+    .filter(isPrivateLanAddress);
+  const hosts = new Set(['localhost', '127.0.0.1', ...lanHosts]);
+  return [...hosts].map((host) => `http://${host}:${webPort}`);
+}
+
 function servicesFor(webPort, secret) {
-  const allowedOrigins = [
-    `http://localhost:${webPort}`,
-    `http://127.0.0.1:${webPort}`,
-  ].join(',');
+  const allowedOrigins = localDevelopmentOrigins(webPort).join(',');
   return [
     {
       name: 'web',

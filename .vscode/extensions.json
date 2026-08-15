@@ -5,6 +5,7 @@
         "vscjava.vscode-java-pack",
         "ms-edgedevtools.vscode-edge-devtools",
         "redhat.java",
-        "openai.chatgpt"
+        "openai.chatgpt",
+        "ms-windows-ai-studio.windows-ai-studio"
     ]
 }

@@ -131,7 +131,7 @@ export function subscribeToAuthState(
         });
         return;
       }
-      const { onAuthStateChanged } = await import('firebase/auth');
+      const { onIdTokenChanged } = await import('firebase/auth');
       if (!active) return;
       initialAuthTimer = setTimeout(() => {
         if (!active || initialAuthResolved) return;
@@ -146,7 +146,10 @@ export function subscribeToAuthState(
           ),
         });
       }, AUTH_OPERATION_TIMEOUT_MS);
-      unsubscribe = onAuthStateChanged(firebase.auth, (user) => {
+      // Linking a provider keeps the same UID.  Watching the ID token, rather
+      // than sign-in/out alone, refreshes the local snapshot when that link
+      // changes the user's provider data.
+      unsubscribe = onIdTokenChanged(firebase.auth, (user) => {
         initialAuthResolved = true;
         if (initialAuthTimer) clearTimeout(initialAuthTimer);
         callback({

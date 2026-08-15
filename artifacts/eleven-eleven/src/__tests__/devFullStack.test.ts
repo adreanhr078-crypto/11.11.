@@ -46,3 +46,15 @@ test('Vite keeps same-origin API calls connected to the local player service', (
   assert.match(source, /target:\s*['"]http:\/\/127\.0\.0\.1:8788['"]/);
   assert.match(source, /strictPort:\s*true/);
 });
+
+test('the local runtime allow-lists only the machine private LAN origins for phone testing', () => {
+  const source = readFileSync(
+    resolve(process.cwd(), 'tools', 'dev-full-stack.mjs'),
+    'utf8',
+  );
+  assert.match(source, /networkInterfaces/);
+  assert.match(source, /isPrivateLanAddress/);
+  assert.match(source, /REALTIME_ALLOWED_ORIGINS/);
+  assert.match(source, /PLAYER_ALLOWED_ORIGINS/);
+  assert.doesNotMatch(source, /0\.0\.0\.0:\$\{webPort\}/);
+});
