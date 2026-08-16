@@ -24,6 +24,13 @@ export default function ProgressScreen() {
     () => createProgressScreenReadModel(state, storyPuzzleSnapshot),
     [state, storyPuzzleSnapshot],
   );
+  const canonicalAchievements = collection?.achievements ?? [];
+  const canonicalAchievementsUnlocked = canonicalAchievements.filter(
+    (achievement) => achievement.unlocked,
+  ).length;
+  const canonicalAchievementsTotal = collection
+    ? canonicalAchievements.length
+    : model.achievementsTotal;
 
   return (
     <div className="shell-screen shell-progress-screen">
@@ -54,18 +61,11 @@ export default function ProgressScreen() {
             tone="danger"
           />
           <GameProgress
-            value={model.achievementsTotal > 0
-              ? Math.round((model.achievementsUnlocked / model.achievementsTotal) * 100)
+            value={canonicalAchievementsTotal > 0
+              ? Math.round((canonicalAchievementsUnlocked / canonicalAchievementsTotal) * 100)
               : 0}
             label="الإنجازات"
             tone="progression"
-          />
-          <GameProgress
-            value={model.endingsTotal > 0
-              ? Math.round((model.endingsEligible / model.endingsTotal) * 100)
-              : 0}
-            label="أهلية النهايات"
-            tone="rare"
           />
         </HudPanel>
 
@@ -79,12 +79,12 @@ export default function ProgressScreen() {
             <p>شظايا مفتوحة داخل الشبكة السردية.</p>
           </GlassPanel>
           <GlassPanel tone="progression" title="الإنجازات">
-            <strong>{model.achievementsUnlocked}</strong>
-            <p>إنجازات مفتوحة من أصل {model.achievementsTotal}.</p>
+            <strong>{canonicalAchievementsUnlocked}</strong>
+            <p>إنجازات مفتوحة من أصل {canonicalAchievementsTotal}.</p>
           </GlassPanel>
-          <GlassPanel tone="rare" title="النهايات">
-            <strong>{model.endingsSeen}</strong>
-            <p>نهايات مرئية و{model.endingsEligible} مؤهلة الآن.</p>
+          <GlassPanel tone="rare" title="الاستعادة الموثقة">
+            <strong>{collection?.systemRecovery.percent ?? 0}%</strong>
+            <p>نسبة التقدم المثبت من الخادم.</p>
           </GlassPanel>
         </section>
       </div>
@@ -174,7 +174,7 @@ export default function ProgressScreen() {
           <GlassPanel className="collection-hub__achievements" tone="progression" title="ACHIEVEMENTS // SYSTEM RECORDS">
             <div className="collection-hub__counter"><strong dir="ltr">{collection.achievements.filter((achievement) => achievement.unlocked).length} / {collection.achievements.length}</strong><small>UNLOCKED RECORDS</small></div>
             <div className="collection-hub__achievement-list">
-              {collection.achievements.slice(0, 8).map((achievement) => (
+              {collection.achievements.map((achievement) => (
                 <article key={achievement.id} data-unlocked={achievement.unlocked} data-tier={achievement.presentationTier}>
                   <span aria-hidden="true">{achievement.unlocked ? achievement.icon : '???'}</span>
                   <div><strong>{achievement.name}</strong><small>{achievement.unlocked ? achievement.description : 'DATA UNAVAILABLE'}</small></div>

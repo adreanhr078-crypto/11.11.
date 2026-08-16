@@ -159,6 +159,11 @@ describe('Application Shell', () => {
     assert.ok(source.includes('index > daily.hintsUsed'));
     assert.ok(source.includes('index > weekly.currentStageHintsUsed'));
     assert.ok(source.includes('LIVE_HINT_COSTS[index]'));
+    const networkSource = readFileSync(
+      resolve(process.cwd(), 'src', 'features', 'echo-network', 'EchoNetworkScreen.tsx'),
+      'utf8',
+    );
+    assert.ok(networkSource.includes('weeklyTotalStages={live?.weekly.totalStages ?? 4}'));
   });
 
   it('reads Manhwa badges and player counters from canonical progression', () => {

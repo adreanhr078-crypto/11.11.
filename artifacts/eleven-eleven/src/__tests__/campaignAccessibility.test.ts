@@ -67,7 +67,8 @@ describe('story puzzle interaction accessibility', () => {
   it('keeps visual Daily and Weekly boards stable while draft responses refresh', () => {
     const liveScreen = source('src/features/live-challenges/LiveChallengesScreen.tsx');
     assert.match(liveScreen, /\}, \[definition\.id\]\);/);
-    assert.match(liveScreen, /if \(!value\) return;/);
+    assert.match(liveScreen, /saveDailyDraft\(value \|\| undefined\)/);
+    assert.match(liveScreen, /saveWeeklyDraft\(value \|\| undefined\)/);
     assert.doesNotMatch(liveScreen, /\[definition\.id, visual\]/);
   });
 

@@ -180,7 +180,9 @@ export default function EchoNetworkScreen() {
               storyCompleted={story?.totalCompletedCount ?? 0}
               dailyCompleted={live?.daily.status === 'completed'}
               weeklyCompletedStages={live?.weekly.completedStages ?? 0}
-              weeklyTotalStages={live?.weekly.totalStages ?? 3}
+              // The server publishes four stages. Keep the loading fallback
+              // truthful so the director never flashes a false 3-stage goal.
+              weeklyTotalStages={live?.weekly.totalStages ?? 4}
               onlineAvailable={authStatus === 'signed-in' && navigator.onLine}
               onChoose={chooseActivity}
             />

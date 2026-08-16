@@ -84,7 +84,13 @@ async function createFirebaseClient(): Promise<FirebaseClient | null> {
 }
 
 export function getFirebaseClient(): Promise<FirebaseClient | null> {
-  clientPromise ??= createFirebaseClient();
+  // Do not permanently cache a transient SDK/import failure.  The auth panel
+  // exposes a retry action, so a failed first boot must be recoverable without
+  // a full page reload.
+  clientPromise ??= createFirebaseClient().catch((error: unknown) => {
+    clientPromise = null;
+    throw error;
+  });
   return clientPromise;
 }
 
@@ -96,7 +102,14 @@ export async function prepareFirebaseAuth(): Promise<Auth | null> {
     const { browserLocalPersistence, setPersistence } = await import(
       'firebase/auth'
     );
-    await setPersistence(firebase.auth, browserLocalPersistence);
+    try {
+      await setPersistence(firebase.auth, browserLocalPersistence);
+    } catch {
+      // Private browsing and embedded mobile webviews can reject durable
+      // storage. Firebase's default in-memory persistence is still safe for
+      // the current tab and keeps sign-in usable instead of leaving the panel
+      // stuck in an initialization error.
+    }
     persistenceReady = true;
   }
 

@@ -64,6 +64,9 @@ function friendlyError(error: unknown): string {
   const authCode = (error as { code?: unknown }).code;
   if (typeof authCode === 'string') {
     const messages: Record<string, string> = {
+      auth_timeout: 'تأخر رد Firebase. تحقق من الاتصال ثم أعد المحاولة.',
+      auth_initialization_failed: 'تعذر تشغيل نظام الدخول. أعد المحاولة بعد لحظات.',
+      auth_unavailable: 'خدمة الدخول غير متاحة حالياً. تحقق من إعدادات Firebase.',
       'auth/email-already-in-use': 'هذا البريد مرتبط بحساب موجود بالفعل.',
       'auth/credential-already-in-use': 'هذه البيانات مرتبطة بحساب آخر. بقي ملف الضيف كما هو.',
       'auth/provider-already-linked': 'طريقة الدخول هذه مرتبطة بالفعل بهذا الحساب.',

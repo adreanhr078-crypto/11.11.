@@ -69,6 +69,28 @@ async function withTimeout<T>(
   }
 }
 
+async function prepareAuthForOperation() {
+  return withTimeout(
+    prepareFirebaseAuth(),
+    AUTH_OPERATION_TIMEOUT_MS,
+    'auth_timeout',
+    'Firebase Auth initialization timed out.',
+  );
+}
+
+function runAuthOperation<T>(
+  operation: () => Promise<T>,
+): Promise<T> {
+  return withTimeout(
+    // Start on a microtask so a synchronous SDK/mock failure is handled by
+    // the same bounded promise path as an asynchronous network failure.
+    Promise.resolve().then(operation),
+    AUTH_OPERATION_TIMEOUT_MS,
+    'auth_timeout',
+    'Firebase Auth request timed out. Check your connection and try again.',
+  );
+}
+
 function snapshotUser(user: User): AuthUserSnapshot {
   const providerId = user.isAnonymous
     ? 'anonymous'
@@ -187,10 +209,14 @@ export async function signInWithEmail(
   password: string,
 ): Promise<void> {
   requireAuthConfigured();
-  const auth = await prepareFirebaseAuth();
+  const auth = await prepareAuthForOperation();
   if (!auth) throw new Error('Firebase Auth is unavailable.');
   const { signInWithEmailAndPassword } = await import('firebase/auth');
-  await signInWithEmailAndPassword(auth, email, password);
+  await runAuthOperation(() => signInWithEmailAndPassword(
+    auth,
+    email.trim(),
+    password,
+  ).then(() => undefined));
 }
 
 export async function createAccountWithEmail(
@@ -199,26 +225,28 @@ export async function createAccountWithEmail(
   displayName: string,
 ): Promise<void> {
   requireAuthConfigured();
-  const auth = await prepareFirebaseAuth();
+  const auth = await prepareAuthForOperation();
   if (!auth) throw new Error('Firebase Auth is unavailable.');
   const {
     createUserWithEmailAndPassword,
     updateProfile,
   } = await import('firebase/auth');
-  const credential = await createUserWithEmailAndPassword(
-    auth,
-    email,
-    password,
-  );
-  const safeName = displayName.trim();
-  if (safeName) {
-    await updateProfile(credential.user, { displayName: safeName });
-  }
+  await runAuthOperation(async () => {
+    const credential = await createUserWithEmailAndPassword(
+      auth,
+      email.trim(),
+      password,
+    );
+    const safeName = displayName.trim();
+    if (safeName) {
+      await updateProfile(credential.user, { displayName: safeName });
+    }
+  });
 }
 
 export async function signInWithGoogle(): Promise<void> {
   requireAuthConfigured();
-  const auth = await prepareFirebaseAuth();
+  const auth = await prepareAuthForOperation();
   if (!auth) throw new Error('Firebase Auth is unavailable.');
   const {
     GoogleAuthProvider,
@@ -226,23 +254,23 @@ export async function signInWithGoogle(): Promise<void> {
   } = await import('firebase/auth');
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
-  await signInWithPopup(auth, provider);
+  await runAuthOperation(() => signInWithPopup(auth, provider).then(() => undefined));
 }
 
 export async function resetPassword(email: string): Promise<void> {
   requireAuthConfigured();
-  const auth = await prepareFirebaseAuth();
+  const auth = await prepareAuthForOperation();
   if (!auth) throw new Error('Firebase Auth is unavailable.');
   const { sendPasswordResetEmail } = await import('firebase/auth');
-  await sendPasswordResetEmail(auth, email);
+  await runAuthOperation(() => sendPasswordResetEmail(auth, email.trim()));
 }
 
 export async function continueAsGuest(): Promise<void> {
   requireAuthConfigured();
-  const auth = await prepareFirebaseAuth();
+  const auth = await prepareAuthForOperation();
   if (!auth) throw new Error('Firebase Auth is unavailable.');
   const { signInAnonymously } = await import('firebase/auth');
-  await signInAnonymously(auth);
+  await runAuthOperation(() => signInAnonymously(auth).then(() => undefined));
 }
 
 export async function linkAnonymousAccountWithEmail(
@@ -251,8 +279,9 @@ export async function linkAnonymousAccountWithEmail(
   displayName: string,
 ): Promise<void> {
   requireAuthConfigured();
-  const auth = await prepareFirebaseAuth();
-  if (!auth?.currentUser?.isAnonymous) {
+  const auth = await prepareAuthForOperation();
+  const guest = auth?.currentUser;
+  if (!guest?.isAnonymous) {
     throw new Error('Only a guest account can be linked.');
   }
   const {
@@ -260,18 +289,21 @@ export async function linkAnonymousAccountWithEmail(
     linkWithCredential,
     updateProfile,
   } = await import('firebase/auth');
-  const credential = EmailAuthProvider.credential(email, password);
-  await linkWithCredential(auth.currentUser, credential);
-  const safeName = displayName.trim();
-  if (safeName) {
-    await updateProfile(auth.currentUser, { displayName: safeName });
-  }
+  await runAuthOperation(async () => {
+    const credential = EmailAuthProvider.credential(email.trim(), password);
+    await linkWithCredential(guest, credential);
+    const safeName = displayName.trim();
+    if (safeName) {
+      await updateProfile(guest, { displayName: safeName });
+    }
+  });
 }
 
 export async function linkAnonymousAccountWithGoogle(): Promise<void> {
   requireAuthConfigured();
-  const auth = await prepareFirebaseAuth();
-  if (!auth?.currentUser?.isAnonymous) {
+  const auth = await prepareAuthForOperation();
+  const guest = auth?.currentUser;
+  if (!guest?.isAnonymous) {
     throw new Error('Only a guest account can be linked.');
   }
   const {
@@ -280,14 +312,14 @@ export async function linkAnonymousAccountWithGoogle(): Promise<void> {
   } = await import('firebase/auth');
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
-  await linkWithPopup(auth.currentUser, provider);
+  await runAuthOperation(() => linkWithPopup(guest, provider).then(() => undefined));
 }
 
 export async function signOutCurrentUser(): Promise<void> {
   const firebase = await getFirebaseClient();
   if (!firebase) return;
   const { signOut } = await import('firebase/auth');
-  await signOut(firebase.auth);
+  await runAuthOperation(() => signOut(firebase.auth));
 }
 
 export async function getCurrentAuthSession(

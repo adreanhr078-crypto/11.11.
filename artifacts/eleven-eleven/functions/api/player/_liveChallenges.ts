@@ -19,6 +19,7 @@ import type {
   LiveChallengeReward,
   LiveChallengeStatus,
   LiveChallengesSnapshot,
+  LiveChallengeDraft,
   LiveCompletionReceipt,
 } from '../../../src/domain/live-challenges/liveChallengeContracts';
 import {
@@ -187,6 +188,13 @@ export function liveWeeklyTemplatesFor(weekId: string): SmartLiveTemplate[] {
 
 function parseJson<T>(value: string, fallback: T): T {
   try { return JSON.parse(value) as T; } catch { return fallback; }
+}
+
+function draftFromRow(value: string | null | undefined): LiveChallengeDraft {
+  const parsed = parseJson<unknown>(value ?? '{}', {});
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+  const answer = (parsed as { answer?: unknown }).answer;
+  return typeof answer === 'string' && answer.length <= 80 ? { answer } : {};
 }
 
 function isConflict(error: unknown): boolean {
@@ -504,6 +512,7 @@ export async function readLiveSnapshot(
       nextResetAt: new Date(resetAtFor(definitions.periodKey) + DAY_MS).toISOString(),
       hintsUsed: integer(dailyRow?.hints_used),
       perfectSolve: integer(dailyRow?.perfect_solve) === 1,
+      draft: draftFromRow(dailyRow?.draft_json),
       completedAt: dailyRow?.completed_at ?? null,
     },
     weekly: {
@@ -518,6 +527,7 @@ export async function readLiveSnapshot(
       hintsUsed: integer(weeklyRow?.hints_used),
       currentStageHintsUsed: integer(weeklyRow?.current_stage_hints_used),
       score: integer(weeklyRow?.score),
+      draft: draftFromRow(weeklyRow?.draft_json),
       completedAt: weeklyRow?.completed_at ?? null,
       recoveryCompletedDays: recoveryDays,
       recoveryTargetDays: 5,
@@ -600,7 +610,7 @@ export async function completeDaily(db: PlayerDatabase, account: FirebaseAccount
     rewardKey: `daily:${definitions.periodKey}:v1`, rewardType: 'daily', sourceId: definitions.daily.challenge_id, xp, coins, perfect,
     reward: dailySolution.reward,
     ...(existing?.status === 'completed' ? {} : {
-      progressStatement: db.prepare(`UPDATE live_player_daily_attempts SET status = 'completed', perfect_solve = ?, completed_at = COALESCE(completed_at, ?), updated_at = ? WHERE user_id = ? AND challenge_id = ? AND status <> 'completed'`).bind(perfect ? 1 : 0, now, now, account.uid, definitions.daily.challenge_id),
+      progressStatement: db.prepare(`UPDATE live_player_daily_attempts SET status = 'completed', draft_json = '{}', perfect_solve = ?, completed_at = COALESCE(completed_at, ?), updated_at = ? WHERE user_id = ? AND challenge_id = ? AND status <> 'completed'`).bind(perfect ? 1 : 0, now, now, account.uid, definitions.daily.challenge_id),
     }),
   });
   await maybeClaimWeeklyRecovery(db, account);
@@ -673,7 +683,7 @@ export async function completeWeeklyStage(db: PlayerDatabase, account: FirebaseA
   const nextStage = stageValue + 1;
   const completed = nextStage >= WEEKLY_STAGE_COUNT;
   const now = new Date().toISOString();
-  const progressStatement = db.prepare(`UPDATE live_player_weekly_progress SET current_stage = ?, completed_stages = ?, status = ?, score = score + ?, completed_at = CASE WHEN ? = 1 THEN COALESCE(completed_at, ?) ELSE completed_at END, started_at = COALESCE(started_at, ?), updated_at = ? WHERE user_id = ? AND week_id = ? AND current_stage = ? AND status <> 'completed'`).bind(nextStage, nextStage, completed ? 'completed' : 'in_progress', 25, completed ? 1 : 0, now, now, now, account.uid, definitions.weekId, stageValue);
+  const progressStatement = db.prepare(`UPDATE live_player_weekly_progress SET current_stage = ?, completed_stages = ?, status = ?, draft_json = '{}', score = score + ?, completed_at = CASE WHEN ? = 1 THEN COALESCE(completed_at, ?) ELSE completed_at END, started_at = COALESCE(started_at, ?), updated_at = ? WHERE user_id = ? AND week_id = ? AND current_stage = ? AND status <> 'completed'`).bind(nextStage, nextStage, completed ? 'completed' : 'in_progress', 25, completed ? 1 : 0, now, now, now, account.uid, definitions.weekId, stageValue);
   const perfect = !integer(row?.hints_used);
   if (!completed) {
     const update = await progressStatement.run();

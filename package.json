@@ -27,15 +27,24 @@
   },
   "private": true,
   "devDependencies": {
+    "@tanstack/react-query": "^5.101.4",
     "@types/node": "^25.9.3",
+    "@types/pg": "^8.21.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
+    "drizzle-orm": "^0.45.2",
+    "drizzle-zod": "^0.8.3",
+    "openai": "^6.49.0",
+    "p-limit": "^7.3.1",
+    "p-retry": "^7.1.1",
+    "pg": "^8.23.0",
     "prettier": "^3.8.1",
     "tailwindcss": "^4.3.1",
     "tsx": "^4.22.4",
     "typescript": "~5.9.2",
-    "vite": "^8.0.16"
+    "vite": "^8.0.16",
+    "zod": "^4.4.3"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.0",

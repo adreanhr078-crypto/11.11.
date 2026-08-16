@@ -9,6 +9,7 @@ import {
 import { useAuthStore } from '../auth/authStore';
 import { useLiveChallengeStore } from './liveChallengeStore';
 import { usePlayerProgressionStore } from '../player-progression/playerProgressionStore';
+import { useStoryPuzzleStore } from '../story-puzzles/storyPuzzleStore';
 import {
   LIVE_HINT_COSTS,
 } from '../../domain/live-challenges/liveChallengeEngine';
@@ -31,6 +32,34 @@ function statusLabel(status: string): string {
   return status.replace('_', ' ').toUpperCase();
 }
 
+function answerParts(answer: string): string[] {
+  return answer.split(',').map((part) => part.trim()).filter(Boolean);
+}
+
+function wiringAnswer(answer: string): Record<string, string> {
+  return Object.fromEntries(
+    answer.split('|')
+      .map((part) => part.split('=').map((value) => value.trim()))
+      .filter(([source, target]) => Boolean(source && target)) as Array<[string, string]>,
+  );
+}
+
+function liveAnswerIsComplete(
+  definition: LiveChallengePublicDefinition | null | undefined,
+  answer: string,
+): boolean {
+  if (!definition || !answer) return false;
+  if (definition.visual?.kind === 'memory-fragment') {
+    const pieces = answerParts(answer);
+    return pieces.length === definition.visual.rows * definition.visual.columns
+      && new Set(pieces).size === pieces.length;
+  }
+  if (definition.visual?.kind === 'wiring') {
+    return Object.keys(wiringAnswer(answer)).length === definition.visual.sources.length;
+  }
+  return true;
+}
+
 function VisualPuzzleBoard({
   definition,
   answer,
@@ -39,35 +68,32 @@ function VisualPuzzleBoard({
 }: {
   definition: LiveChallengePublicDefinition;
   answer: string;
-  onAnswerChange: (value: string) => void;
+  onAnswerChange: (value: string, ready?: boolean) => void;
   disabled?: boolean;
 }) {
   const visual = definition.visual;
   const [selectedPiece, setSelectedPiece] = useState<string | null>(null);
-  const [placement, setPlacement] = useState<string[]>([]);
-  const [connections, setConnections] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setSelectedPiece(null);
-    setPlacement(visual?.kind === 'memory-fragment'
-      ? Array.from({ length: visual.rows * visual.columns }, () => '')
-      : []);
-    setConnections({});
   }, [definition.id]);
 
   if (!visual) return null;
 
   if (visual.kind === 'memory-fragment') {
     const pieceById = new Map(visual.pieces.map((piece) => [piece.id, piece]));
+    const placement = Array.from({ length: visual.rows * visual.columns }, (_, index) => (
+      answerParts(answer)[index] ?? ''
+    ));
     const filled = placement.filter(Boolean).length;
     const placePiece = (slot: number) => {
       if (disabled || !selectedPiece) return;
       const next = placement.map((piece, index) => (
         index === slot ? selectedPiece : piece === selectedPiece ? '' : piece
       ));
-      setPlacement(next);
       setSelectedPiece(null);
-      onAnswerChange(next.every(Boolean) ? next.join(',') : '');
+      const nextAnswer = next.filter(Boolean).join(',');
+      onAnswerChange(nextAnswer, next.every(Boolean));
     };
     return (
       <div className="live-visual-puzzle live-visual-puzzle--memory" data-complete={filled === placement.length}>
@@ -112,20 +138,19 @@ function VisualPuzzleBoard({
 
   if (visual.kind === 'wiring') {
     const selectedSource = selectedPiece;
+    const connections = wiringAnswer(answer);
     const connect = (targetId: string) => {
       if (disabled || !selectedSource) return;
       const next = Object.fromEntries(
         Object.entries(connections).filter(([, connectedTarget]) => connectedTarget !== targetId),
       );
       next[selectedSource] = targetId;
-      setConnections(next);
       setSelectedPiece(null);
       const complete = visual.sources.every((source) => next[source.id]);
-      if (complete) {
-        onAnswerChange(visual.sources.map((source) => `${source.id}=${next[source.id]}`).join('|'));
-      } else {
-        onAnswerChange('');
-      }
+      onAnswerChange(
+        Object.entries(next).map(([source, target]) => `${source}=${target}`).join('|'),
+        complete,
+      );
     };
     return (
       <div className="live-visual-puzzle live-visual-puzzle--wiring">
@@ -181,7 +206,7 @@ function AnswerOptions({
 }: {
   definition: LiveChallengePublicDefinition;
   answer: string;
-  onAnswerChange: (value: string) => void;
+  onAnswerChange: (value: string, ready?: boolean) => void;
   disabled?: boolean;
 }) {
   if (definition.options.length === 0) return null;
@@ -207,22 +232,46 @@ export default function LiveChallengesScreen({
   const receipt = useLiveChallengeStore((state) => state.latestReceipt);
   const actions = useLiveChallengeStore((state) => state.actions);
   const refreshProfile = usePlayerProgressionStore((state) => state.actions.loadProfile);
+  const refreshStoryPuzzles = useStoryPuzzleStore((state) => state.actions.load);
   const audioEnabled = useUiPreferencesStore((state) => state.audioEnabled);
   const sfxVolume = useUiPreferencesStore((state) => state.sfxVolume);
   const [tab, setTab] = useState<'daily' | 'weekly'>('daily');
   const [answer, setAnswer] = useState('');
+  const [answerReady, setAnswerReady] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const activeTab = mode ?? tab;
+  const daily = snapshot?.daily;
+  const weekly = snapshot?.weekly;
+  const currentStage = useMemo(
+    () => weekly?.trial.stages[weekly.currentStage] ?? null,
+    [weekly],
+  );
 
   useEffect(() => {
     if (authStatus === 'signed-in' && status === 'idle') void actions.load();
   }, [actions, authStatus, status]);
 
   useEffect(() => {
-    setAnswer('');
+    const definition = activeTab === 'daily'
+      ? snapshot?.daily.challenge
+      : currentStage;
+    const restoredAnswer = activeTab === 'daily'
+      ? snapshot?.daily.draft.answer ?? ''
+      : snapshot?.weekly.draft.answer ?? '';
+    setAnswer(restoredAnswer);
+    setAnswerReady(liveAnswerIsComplete(definition, restoredAnswer));
     setHint(null);
-  }, [activeTab]);
+  }, [
+    activeTab,
+    currentStage,
+    snapshot?.daily.challenge,
+    snapshot?.daily.draft.answer,
+    snapshot?.daily.periodKey,
+    snapshot?.weekly.currentStage,
+    snapshot?.weekly.draft.answer,
+    snapshot?.weekly.weekId,
+  ]);
 
   useEffect(() => {
     if (receipt?.awarded && audioEnabled) {
@@ -235,29 +284,23 @@ export default function LiveChallengesScreen({
     if (receipt?.awarded && receipt.reward?.kind === 'avatar') {
       void refreshProfile();
     }
-  }, [receipt, refreshProfile]);
-
-  const daily = snapshot?.daily;
-  const weekly = snapshot?.weekly;
-  const currentStage = useMemo(
-    () => weekly?.trial.stages[weekly.currentStage] ?? null,
-    [weekly],
-  );
+    if (receipt?.awarded) void refreshStoryPuzzles(true);
+  }, [receipt, refreshProfile, refreshStoryPuzzles]);
 
   async function run(action: () => Promise<unknown>): Promise<void> {
     setBusy(true);
     try { await action(); } finally { setBusy(false); }
   }
 
-  function selectAnswer(value: string): void {
+  function selectAnswer(value: string, ready = Boolean(value)): void {
     setAnswer(value);
-    if (!value) return;
-    if (activeTab === 'daily') void actions.saveDailyDraft(value);
-    else void actions.saveWeeklyDraft(value);
+    setAnswerReady(ready);
+    if (activeTab === 'daily') void actions.saveDailyDraft(value || undefined);
+    else void actions.saveWeeklyDraft(value || undefined);
   }
 
   async function submit(): Promise<void> {
-    if (!answer) return;
+    if (!answer || !answerReady) return;
     primeRewardAudio(audioEnabled);
     if (activeTab === 'daily') {
       await run(async () => { await actions.completeDaily(answer); });
@@ -267,6 +310,7 @@ export default function LiveChallengesScreen({
       });
     }
     setAnswer('');
+    setAnswerReady(false);
   }
 
   if (authStatus !== 'signed-in') {
@@ -321,7 +365,7 @@ export default function LiveChallengesScreen({
             <VisualPuzzleBoard definition={daily.challenge} answer={answer} onAnswerChange={selectAnswer} disabled={daily.status === 'completed'} />
             <AnswerOptions definition={daily.challenge} answer={answer} onAnswerChange={selectAnswer} disabled={daily.status === 'completed'} />
             <div className="live-challenges__actions">
-              <GameButton variant="danger" onClick={() => void submit()} disabled={!answer || busy || daily.status === 'completed'}>
+              <GameButton variant="danger" onClick={() => void submit()} disabled={!answer || !answerReady || busy || daily.status === 'completed'}>
                 {daily.status === 'completed' ? 'SIGNAL COMPLETED' : 'STABILIZE SIGNAL'}
               </GameButton>
               {[0, 1, 2].map((index) => (
@@ -368,7 +412,7 @@ export default function LiveChallengesScreen({
                     </GameButton>
                   ))}
                 </div>
-                <GameButton variant="danger" onClick={() => void submit()} disabled={!answer || busy}>VERIFY STAGE</GameButton>
+                <GameButton variant="danger" onClick={() => void submit()} disabled={!answer || !answerReady || busy}>VERIFY STAGE</GameButton>
               </>
             ) : <p className="live-challenges__complete">WEEKLY TRIAL COMPLETE // SYSTEM RECORD UPDATED</p>}
           </HudPanel>

@@ -46,6 +46,8 @@ const LEGACY_SCREEN_ALIASES: Record<string, GameScreenId> = {
   overview: 'progress',
 };
 
+const SCREEN_HISTORY_STATE_KEY = '__elevenElevenScreen';
+
 function screenFromLocation(): GameScreenId {
   if (typeof window === 'undefined') return 'main-menu';
   const candidate = window.location.hash.replace(/^#\/?/, '');
@@ -57,9 +59,19 @@ function screenFromLocation(): GameScreenId {
     : 'main-menu';
 }
 
-function writeScreenLocation(screen: GameScreenId): void {
+function writeScreenLocation(
+  screen: GameScreenId,
+  mode: 'push' | 'replace' = 'push',
+): void {
   if (typeof window === 'undefined') return;
-  window.history.replaceState(null, '', `#/${screen}`);
+  const existingState = window.history.state;
+  const state = {
+    ...(existingState && typeof existingState === 'object' ? existingState : {}),
+    [SCREEN_HISTORY_STATE_KEY]: true,
+    screen,
+  };
+  if (mode === 'replace') window.history.replaceState(state, '', `#/${screen}`);
+  else window.history.pushState(state, '', `#/${screen}`);
 }
 
 export const useShellStore = create<ShellState>((set, get) => ({
@@ -73,7 +85,7 @@ export const useShellStore = create<ShellState>((set, get) => ({
       LEGACY_SCREEN_ALIASES[screen] ?? screen,
     ) as GameScreenId;
     const current = get().currentScreen;
-    writeScreenLocation(normalized);
+    writeScreenLocation(normalized, normalized === current ? 'replace' : 'push');
     if (normalized === current) {
       set({
         navigationCategory: null,
@@ -92,7 +104,7 @@ export const useShellStore = create<ShellState>((set, get) => ({
   },
   requestManhwaReader() {
     const current = get().currentScreen;
-    writeScreenLocation('memories');
+    writeScreenLocation('memories', current === 'memories' ? 'replace' : 'push');
     set({
       currentScreen: 'memories',
       previousScreen: current === 'memories'
@@ -108,7 +120,15 @@ export const useShellStore = create<ShellState>((set, get) => ({
   }),
   goBack() {
     const { previousScreen } = get();
-    writeScreenLocation(previousScreen ?? 'psychological-state');
+    if (
+      typeof window !== 'undefined'
+      && window.history.state?.[SCREEN_HISTORY_STATE_KEY]
+      && window.history.length > 1
+    ) {
+      window.history.back();
+      return;
+    }
+    writeScreenLocation(previousScreen ?? 'psychological-state', 'replace');
     set({
       currentScreen: previousScreen ?? 'psychological-state',
       previousScreen: null,
@@ -122,6 +142,37 @@ export const useShellStore = create<ShellState>((set, get) => ({
   openPause: () => set({ pauseOpen: true }),
   closePause: () => set({ pauseOpen: false }),
 }));
+
+function syncScreenFromLocation(): void {
+  const nextScreen = screenFromLocation();
+  const currentScreen = useShellStore.getState().currentScreen;
+  if (nextScreen === currentScreen) return;
+  useShellStore.setState({
+    currentScreen: nextScreen,
+    previousScreen: null,
+    navigationCategory: null,
+    pauseOpen: false,
+    manhwaReaderLaunchRequested: false,
+  });
+}
+
+if (typeof window !== 'undefined') {
+  const initialScreen = screenFromLocation();
+  const existingState = window.history.state;
+  if (!existingState?.[SCREEN_HISTORY_STATE_KEY]) {
+    window.history.replaceState(
+      {
+        ...(existingState && typeof existingState === 'object' ? existingState : {}),
+        [SCREEN_HISTORY_STATE_KEY]: true,
+        screen: initialScreen,
+      },
+      '',
+      `#/${initialScreen}`,
+    );
+  }
+  window.addEventListener('hashchange', syncScreenFromLocation);
+  window.addEventListener('popstate', syncScreenFromLocation);
+}
 
 interface UiPreferencesState {
   quality: QualityTier;

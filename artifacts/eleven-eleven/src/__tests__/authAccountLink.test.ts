@@ -25,9 +25,9 @@ describe('guest account linking', () => {
   it('links the existing anonymous Firebase identity instead of creating a new player', () => {
     const service = source('src/features/auth/authService.ts');
 
-    assert.match(service, /auth\?\.currentUser\?\.isAnonymous/);
-    assert.match(service, /linkWithCredential\(auth\.currentUser, credential\)/);
-    assert.match(service, /linkWithPopup\(auth\.currentUser, provider\)/);
+    assert.match(service, /guest\?\.isAnonymous/);
+    assert.match(service, /linkWithCredential\(guest, credential\)/);
+    assert.match(service, /linkWithPopup\(guest, provider\)/);
     assert.match(service, /onIdTokenChanged/);
     assert.doesNotMatch(service, /onAuthStateChanged/);
   });
@@ -40,5 +40,17 @@ describe('guest account linking', () => {
     assert.match(store, /'auth\/unauthorized-domain'/);
     assert.match(styles, /\.auth-account-link__methods/);
     assert.match(styles, /@media \(max-width: 34rem\)[\s\S]*\.auth-account-link__methods\s*\{\s*grid-template-columns: 1fr;/);
+  });
+
+  it('keeps auth retryable and bounds every Firebase operation', () => {
+    const client = source('src/infrastructure/firebase/firebaseClient.ts');
+    const service = source('src/features/auth/authService.ts');
+
+    assert.match(client, /clientPromise = null;[\s\S]*throw error/);
+    assert.match(client, /catch \{[\s\S]*persistenceReady = true/);
+    assert.match(service, /function runAuthOperation<T>/);
+    assert.match(service, /prepareAuthForOperation/);
+    assert.match(service, /email\.trim\(\)/);
+    assert.match(service, /Firebase Auth request timed out/);
   });
 });

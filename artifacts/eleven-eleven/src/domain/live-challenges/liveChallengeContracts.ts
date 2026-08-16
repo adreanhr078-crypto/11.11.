@@ -83,6 +83,12 @@ export interface LiveChallengePublicDefinition {
   stageCount?: number;
 }
 
+/** Player-owned, non-authoritative work in progress. The server validates it
+ * before persisting and never treats it as a reward or completion receipt. */
+export interface LiveChallengeDraft {
+  answer?: string;
+}
+
 export interface LiveDailySnapshot {
   status: LiveChallengeStatus;
   challenge: LiveChallengePublicDefinition;
@@ -91,6 +97,7 @@ export interface LiveDailySnapshot {
   nextResetAt: string;
   hintsUsed: number;
   perfectSolve: boolean;
+  draft: LiveChallengeDraft;
   completedAt: string | null;
 }
 
@@ -106,6 +113,7 @@ export interface LiveWeeklySnapshot {
   hintsUsed: number;
   currentStageHintsUsed: number;
   score: number;
+  draft: LiveChallengeDraft;
   completedAt: string | null;
   recoveryCompletedDays: number;
   recoveryTargetDays: 5;
