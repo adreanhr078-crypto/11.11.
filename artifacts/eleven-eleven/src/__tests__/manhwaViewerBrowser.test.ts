@@ -64,6 +64,52 @@ class FakeHistoryPort implements ManhwaViewerHistoryPort {
   }
 }
 
+class DeferredHistoryPort implements ManhwaViewerHistoryPort {
+  readonly entries = [{
+    state: { route: 'archive' },
+    url: 'https://game.test/archive',
+  }];
+
+  index = 0;
+
+  private pendingBack = false;
+
+  private readonly listeners = new Set<() => void>();
+
+  get locationHref(): string {
+    return this.entries[this.index]?.url ?? '';
+  }
+
+  get state(): unknown {
+    return this.entries[this.index]?.state;
+  }
+
+  pushState(state: unknown, url: string): void {
+    this.entries.splice(this.index + 1);
+    this.entries.push({ state: state as { route: string }, url });
+    this.index = this.entries.length - 1;
+  }
+
+  back(): void {
+    this.pendingBack = true;
+  }
+
+  flushBack(): void {
+    if (!this.pendingBack || this.index === 0) return;
+    this.pendingBack = false;
+    this.index -= 1;
+    for (const listener of [...this.listeners]) listener();
+  }
+
+  addPopStateListener(listener: () => void): void {
+    this.listeners.add(listener);
+  }
+
+  removePopStateListener(listener: () => void): void {
+    this.listeners.delete(listener);
+  }
+}
+
 function viewerSource(): string {
   return readFileSync(
     resolve(
@@ -156,6 +202,9 @@ describe('Manhwa Viewer unlocked-page boundary', () => {
 
     assert.ok(source.includes('const onRequestCloseRef = useRef(onRequestClose);'));
     assert.ok(source.includes('onRequestCloseRef.current = onRequestClose;'));
+    assert.ok(source.includes('const historyCleanupTimerRef = useRef<number | null>(null);'));
+    assert.ok(source.includes('window.clearTimeout(historyCleanupTimerRef.current);'));
+    assert.ok(source.includes('React Strict Mode replays effects in development.'));
     assert.ok(source.includes('historyMarker.open(requestClose);'));
     assert.ok(source.includes('[adapter, availableInitialPage, requestClose]'));
     assert.ok(screen.includes('onRequestClose={handleViewerRequestClose}'));
@@ -269,6 +318,25 @@ describe('Manhwa Viewer browser history marker', () => {
     unmountMarker.dispose();
     assert.equal(unmountPort.pushCount, 1);
     assert.equal(unmountPort.backCount, 1);
+  });
+
+  it('keeps the development Viewer open through a stale Strict Mode cleanup', () => {
+    const port = new DeferredHistoryPort();
+    const firstMount = new ManhwaViewerHistoryMarker(port);
+    let closeCount = 0;
+
+    firstMount.open(() => { closeCount += 100; });
+    firstMount.dispose();
+
+    const activeMount = new ManhwaViewerHistoryMarker(port);
+    activeMount.open(() => { closeCount += 1; });
+    port.flushBack();
+    assert.equal(closeCount, 0);
+
+    port.back();
+    port.flushBack();
+    assert.equal(closeCount, 1);
+    activeMount.dispose();
   });
 });
 

@@ -51,6 +51,12 @@ export class ManhwaViewerHistoryMarker {
 
   private readonly handlePopState = () => {
     if (!this.active) return;
+    // React Strict Mode mounts, cleans up, then mounts the Viewer again in
+    // development. The first cleanup's asynchronous history.back() can reach
+    // the second marker after it is active. An intermediate Viewer marker is
+    // not a player Back action, so leave the current session open until the
+    // browser reaches the non-viewer entry beneath it.
+    if (stateRecord(this.port?.state)[MANHWA_VIEWER_HISTORY_KEY]) return;
     this.active = false;
     this.port?.removePopStateListener(this.handlePopState);
     const callback = this.onBack;

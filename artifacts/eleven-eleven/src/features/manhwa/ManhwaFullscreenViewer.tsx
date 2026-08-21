@@ -89,6 +89,7 @@ export function ManhwaFullscreenViewer({
   const dialogRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number | null>(null);
   const historyMarkerRef = useRef<ManhwaViewerHistoryMarker | null>(null);
+  const historyCleanupTimerRef = useRef<number | null>(null);
   const onRequestCloseRef = useRef(onRequestClose);
   onRequestCloseRef.current = onRequestClose;
   const adapter = useMemo(
@@ -108,6 +109,7 @@ export function ManhwaFullscreenViewer({
 
   const closeViewer = useCallback(() => {
     historyMarkerRef.current?.close();
+    historyMarkerRef.current = null;
     requestClose();
   }, [requestClose]);
 
@@ -123,9 +125,12 @@ export function ManhwaFullscreenViewer({
     if (typeof document === 'undefined' || !availableInitialPage) return;
     const previousFocus = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
-    const historyMarker = new ManhwaViewerHistoryMarker(
-      createBrowserManhwaViewerHistoryPort(),
-    );
+    if (historyCleanupTimerRef.current !== null) {
+      window.clearTimeout(historyCleanupTimerRef.current);
+      historyCleanupTimerRef.current = null;
+    }
+    const historyMarker = historyMarkerRef.current
+      ?? new ManhwaViewerHistoryMarker(createBrowserManhwaViewerHistoryPort());
     historyMarkerRef.current = historyMarker;
     historyMarker.open(requestClose);
     document.body.style.overflow = 'hidden';
@@ -138,8 +143,17 @@ export function ManhwaFullscreenViewer({
 
     return () => {
       window.cancelAnimationFrame(frame);
-      historyMarker.dispose();
-      historyMarkerRef.current = null;
+      // React Strict Mode replays effects in development. Defer disposal for
+      // one task so the replay can retain the same browser-history marker;
+      // otherwise its asynchronous history.back() immediately closes the
+      // newly mounted reader on desktop development builds.
+      historyCleanupTimerRef.current = window.setTimeout(() => {
+        historyMarker.dispose();
+        if (historyMarkerRef.current === historyMarker) {
+          historyMarkerRef.current = null;
+        }
+        historyCleanupTimerRef.current = null;
+      }, 0);
       document.body.style.overflow = previousOverflow;
       void adapter.restoreLandscape();
       previousFocus?.focus();

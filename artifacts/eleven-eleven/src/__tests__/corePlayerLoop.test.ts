@@ -67,7 +67,8 @@ describe('Core Player Loop', () => {
     ]);
     assert.match(menu, /سجّل الدخول وابدأ/);
     assert.match(menu, /<AuthPanel open=\{authOpen\}/);
-    assert.match(onboarding, /navigate\('echo-mind'\)/);
+    assert.match(onboarding, /navigate\('main-menu'\)/);
+    assert.doesNotMatch(onboarding, /navigate\('echo-mind'\)/);
     assert.match(shell, /<CoreObjectiveCard/);
     assert.match(objectiveCard, /main-puzzle-solved/);
     assert.match(objectiveCard, /requestManhwaReader/);

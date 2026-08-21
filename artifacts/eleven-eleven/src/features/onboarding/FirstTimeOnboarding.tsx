@@ -527,9 +527,10 @@ export function FirstTimeOnboarding() {
     setFinishing(true);
     window.setTimeout(() => {
       setFinishing(false);
-      // The player meets Echo before choosing a destination.  The persistent
-      // objective card then explains the one meaningful next action.
-      navigate('echo-mind');
+      // Echo has already introduced the player's purpose during onboarding.
+      // Return to the main menu so the objective is visible before the player
+      // chooses an optional system such as Echo Mind.
+      navigate('main-menu');
     }, 900);
   };
 
