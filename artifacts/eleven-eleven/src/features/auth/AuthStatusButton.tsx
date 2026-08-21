@@ -6,7 +6,7 @@ import {
 } from '../../ui/design-system';
 import { GameIcon } from '../../ui/icons';
 import { playerAvatarSrc } from '../../ui/presentation/playerAvatarCatalog';
-import { useShellStore } from '../../app/shell/shellStore';
+import { useShellStore, useUiPreferencesStore } from '../../app/shell/shellStore';
 import { usePlayerProgressionStore } from '../player-progression/playerProgressionStore';
 import { useAuthStore } from './authStore';
 import { AuthPanel } from './AuthPanel';
@@ -19,13 +19,14 @@ interface AuthStatusButtonProps {
 function getButtonLabel(
   status: ReturnType<typeof useAuthStore.getState>['status'],
   user: ReturnType<typeof useAuthStore.getState>['user'],
+  locale: 'ar' | 'en',
 ): string {
-  if (status === 'checking') return 'الحساب';
-  if (status === 'unavailable') return 'تفعيل الحساب';
-  if (!user) return 'تسجيل الدخول';
+  if (status === 'checking') return locale === 'en' ? 'Account' : 'الحساب';
+  if (status === 'unavailable') return locale === 'en' ? 'Enable account' : 'تفعيل الحساب';
+  if (!user) return locale === 'en' ? 'Sign in' : 'تسجيل الدخول';
   return user.isAnonymous
-    ? 'ضيف'
-    : user.displayName || user.email || 'الحساب';
+    ? locale === 'en' ? 'Guest' : 'ضيف'
+    : user.displayName || user.email || (locale === 'en' ? 'Account' : 'الحساب');
 }
 
 export function AuthStatusButton({
@@ -36,12 +37,13 @@ export function AuthStatusButton({
   const status = useAuthStore((state) => state.status);
   const user = useAuthStore((state) => state.user);
   const shell = useShellStore();
+  const locale = useUiPreferencesStore((preferences) => preferences.locale);
   const profile = usePlayerProgressionStore((state) => state.profile);
   const currentPlayer = usePlayerProgressionStore((state) => state.currentPlayer);
-  const label = getButtonLabel(status, user);
+  const label = getButtonLabel(status, user, locale);
   const tooltip = user
-    ? 'إدارة حساب اللاعب'
-    : 'تسجيل الدخول وتجهيز الحفظ السحابي';
+    ? locale === 'en' ? 'Manage player account' : 'إدارة حساب اللاعب'
+    : locale === 'en' ? 'Sign in and prepare cloud save' : 'تسجيل الدخول وتجهيز الحفظ السحابي';
 
   const signedInLabel = profile?.username
     ?? currentPlayer?.username

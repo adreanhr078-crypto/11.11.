@@ -168,6 +168,7 @@ export type StoryPuzzleActivityKind =
   | 'secret-puzzle-solved'
   | 'perfect-solve'
   | 'hint-used'
+  | 'puzzle-attempt-rejected'
   | 'memory-shard-acquired'
   | 'all-chapter-shards-found'
   | 'all-20-shards-found'

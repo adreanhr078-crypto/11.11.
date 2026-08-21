@@ -20,6 +20,7 @@ import './features/player-sync/player-sync.css';
 import './features/echo-network/echo-network.css';
 import { LocaleDocumentBridge } from './app/LocaleDocumentBridge';
 import { TelemetryBridge } from './app/telemetry/TelemetryBridge';
+import { ExperienceCueAudioBridge } from './ui/presentation/ExperienceCueAudioBridge';
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
       <AuthBootstrap />
       <LocaleDocumentBridge />
       <TelemetryBridge />
+      <ExperienceCueAudioBridge />
       <PlayerSyncBootstrap />
       <ApplicationShell />
       <GameRuntimeBridge />

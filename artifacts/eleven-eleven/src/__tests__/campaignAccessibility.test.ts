@@ -19,7 +19,8 @@ describe('story puzzle interaction accessibility', () => {
     assert.equal(puzzleScreen.includes('<audio'), false);
     assert.equal(puzzleScreen.includes('setInterval'), false);
     assert.ok(puzzleScreen.includes('aria-modal="true"'));
-    assert.ok(puzzleScreen.includes('aria-label="تركيب الصورة / Image reconstruction"'));
+    assert.ok(puzzleScreen.includes("board: 'Image reconstruction'"));
+    assert.ok(puzzleScreen.includes('aria-label={imageCopy.board}'));
   });
 
   it('uses the final publication reader and does not keep a legacy unlock UI', () => {

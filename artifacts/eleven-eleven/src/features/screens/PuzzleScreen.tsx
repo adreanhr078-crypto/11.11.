@@ -47,6 +47,8 @@ import {
   primeRewardAudio,
 } from '../../infrastructure/audio/puzzleRewardAudio';
 import { requestEchoTransformationCinematic } from '../../ui/presentation/EchoTransformationCinematic';
+import { EchoPresence } from '../../ui/presentation/EchoPresence';
+import { emitExperienceCue } from '../../ui/presentation/experienceCues';
 import './story-puzzle-experience.css';
 
 const EMPTY_STORY_PUZZLE_ENTRIES: readonly StoryPuzzleSnapshotEntry[] = Object.freeze([]);
@@ -70,19 +72,19 @@ function defaultDraft(puzzle: StoryPuzzleDefinition): StoryPuzzleDraft {
   if (puzzle.mechanic === 'matrix') {
     return {
       ...emptyDraft(),
-      rotations: { tile1: 1, tile2: 2, tile3: 3, tile4: 0 },
+      rotations: {},
     };
   }
   if (puzzle.mechanic === 'layer-alignment') {
     return {
       ...emptyDraft(),
-      rotations: { layer1: 3, layer2: 0, layer3: 1, layer4: 0 },
+      rotations: {},
     };
   }
   if (puzzle.mechanic === 'load-balancing') {
     return {
       ...emptyDraft(),
-      assignments: { power: '30', data: '40', cooling: '20' },
+      assignments: {},
     };
   }
   if (!puzzle.image) return emptyDraft();
@@ -182,9 +184,31 @@ function draftReadiness(
   draft: StoryPuzzleDraft,
   tokenLimit?: number,
   stageOptions?: readonly StoryPuzzleOption[],
+  locale: 'ar' | 'en' = 'ar',
 ): { ready: boolean; message: string } {
   const limit = sequenceLimit(mechanic, tokenLimit);
   const complete = (ready: boolean, message: string) => ({ ready, message });
+  if (locale === 'en') {
+    if (mechanic === 'signal') {
+      return complete(
+        draft.tokens.length === 2,
+        'Choose one reading and one channel, then submit them to the record for verification.',
+      );
+    }
+    if (mechanic === 'image-reconstruction') {
+      const count = (puzzle.image?.rows ?? 0) * (puzzle.image?.columns ?? 0);
+      return complete(
+        new Set(draft.imageOrder).size === count && draft.imageOrder.length === count,
+        'Arrange every shard as you see it, then submit the record for verification. Piece correctness remains hidden until submission.',
+      );
+    }
+    if (mechanic === 'sequence') {
+      return complete(
+        draft.tokens.length === limit,
+        `Place the ${limit} symbols in the order supported by the record.`,
+      );
+    }
+  }
   switch (mechanic) {
     case 'signal':
       return complete(
@@ -207,21 +231,21 @@ function draftReadiness(
       return complete(assignmentSources(mechanic).every((source) => Boolean(draft.assignments[source])), 'طابق القنوات الثلاث مع أشكالها.');
     case 'matrix':
       return complete(
-        Object.entries(puzzle.rotationGoal ?? {}).every(([tile, target]) => draft.rotations[tile] === target),
-        'دوّر العقد حتى تتوهج الوصلات الأربع باللون السماوي.',
+        Object.keys(puzzle.rotationGoal ?? {}).every((tile) => draft.rotations[tile] !== undefined),
+        'دوّر كل عقدة، ثم أرسل محاولتك للتحقق الخادمي.',
       );
     case 'layer-alignment':
       return complete(
-        Object.entries(puzzle.rotationGoal ?? {}).every(([layer, target]) => draft.rotations[layer] === target),
-        'اضبط الأطوار حتى تصبح فواصل الطبقات مستقرة.',
+        Object.keys(puzzle.rotationGoal ?? {}).every((layer) => draft.rotations[layer] !== undefined),
+        'اضبط كل طبقة، ثم أرسل محاولتك للتحقق الخادمي.',
       );
     case 'load-balancing': {
       const values = ['power', 'data', 'cooling'].map((channel) => Number(draft.assignments[channel] ?? 0));
       return complete(
-        values[0] === 40 && values[1] === 30 && values[2] === 30,
+        ['power', 'data', 'cooling'].every((channel) => draft.assignments[channel] !== undefined),
         values.reduce((sum, value) => sum + value, 0) !== 100
-          ? 'اجعل مجموع القنوات 100%.'
-          : 'المجموع صحيح؛ اجعل البيانات والتبريد متساويين والطاقة أعلى بعشر نقاط.',
+          ? 'اجعل مجموع القنوات 100% ثم أرسل المحاولة للتحقق.'
+          : 'المجموع مؤقت؛ أرسل المحاولة لمعرفة ما يحتاج إلى ضبط.',
       );
     }
     case 'visual-forensics':
@@ -251,13 +275,83 @@ function sourceOptions(puzzle: StoryPuzzleDefinition): readonly StoryPuzzleOptio
   ];
 }
 
-function statusLabel(status: StoryPuzzleSnapshotEntry['status']): string {
+function statusLabel(status: StoryPuzzleSnapshotEntry['status'], locale: 'ar' | 'en'): string {
+  if (locale === 'en') {
+    return {
+      available: 'AVAILABLE',
+      in_progress: 'IN PROGRESS',
+      completed: 'COMPLETE',
+      locked: 'LOCKED',
+      hidden: 'HIDDEN SIGNAL',
+    }[status];
+  }
   switch (status) {
     case 'available': return 'متاح';
     case 'in_progress': return 'قيد الاستعادة';
     case 'completed': return 'مكتمل';
     case 'locked': return 'مقفل';
     default: return 'إشارة مخفية';
+  }
+}
+
+function retryGuidance(mechanic: StoryPuzzleMechanic, locale: 'ar' | 'en'): string {
+  if (locale === 'en') {
+    switch (mechanic) {
+      case 'signal':
+        return 'Read the wave shape first, then reconsider the channel. Change only one choice at a time.';
+      case 'image-reconstruction':
+        return 'Anchor the outer edges first, then review one piece and its rotation before making another swap.';
+      case 'memory-grid':
+        return 'Replay the rhythm in short passes; do not replace the whole sequence at once.';
+      case 'pattern-scan':
+      case 'visual-forensics':
+        return 'Inspect the relation inside each element, not its color or position alone.';
+      case 'evidence':
+      case 'contradiction':
+      case 'deduction':
+        return 'Return to one clue and identify what it proves before changing your choice.';
+      case 'matrix':
+      case 'layer-alignment':
+        return 'Choose one stable reference, then adjust one element at a time.';
+      case 'wiring':
+      case 'color-routing':
+      case 'load-balancing':
+        return 'Lock one clear constraint first, then observe what it changes in the remaining route.';
+      case 'data-route':
+      case 'cipher':
+      case 'mirror-code':
+        return 'Begin with one confirmed point in the reference, then verify only the next step.';
+      default:
+        return 'Review one clue, then change one choice in your next attempt.';
+    }
+  }
+  switch (mechanic) {
+    case 'signal':
+      return 'اقرأ شكل النبضة أولًا، ثم راجع اختيار القناة. غيّر اختيارًا واحدًا فقط.';
+    case 'image-reconstruction':
+      return 'ثبّت الحواف أولًا، ثم راجع قطعة واحدة واتجاهها قبل أي تبديل جديد.';
+    case 'memory-grid':
+      return 'أعِد الإيقاع على دفعات قصيرة؛ لا تغيّر التسلسل كله دفعةً واحدة.';
+    case 'pattern-scan':
+    case 'visual-forensics':
+      return 'افحص العلاقة داخل كل عنصر، لا اللون أو الموضع وحده.';
+    case 'evidence':
+    case 'contradiction':
+    case 'deduction':
+      return 'ارجع إلى دليل واحد وحدد ما الذي يثبته قبل تغيير اختيارك.';
+    case 'matrix':
+    case 'layer-alignment':
+      return 'اختر مرجعًا ثابتًا ثم اضبط عنصرًا واحدًا في كل مرة.';
+    case 'wiring':
+    case 'color-routing':
+    case 'load-balancing':
+      return 'ثبّت قيدًا واحدًا واضحًا أولًا، ثم راقب أثره على بقية المسار.';
+    case 'data-route':
+    case 'cipher':
+    case 'mirror-code':
+      return 'ابدأ من نقطة مؤكدة في المرجع، ثم راجع ترتيب الخطوة التالية فقط.';
+    default:
+      return 'راجع دليلًا واحدًا فقط، ثم غيّر اختيارًا واحدًا في المحاولة التالية.';
   }
 }
 
@@ -286,16 +380,8 @@ function assignmentTargets(mechanic: StoryPuzzleMechanic): StoryPuzzleOption[] {
 }
 
 function recordSignal(optionId: string): string {
-  const signals: Record<string, string> = {
-    cam07: 'CAMERA SYNC // TIMESTAMP CONSISTENT',
-    cam03: 'CAMERA SYNC // OFFSET DETECTED',
-    cam11: 'CAMERA SYNC // DUPLICATE RECORD',
-    r01: 'RECORD ORDER // WITHIN PROTOCOL',
-    r02: 'RECORD ORDER // PARTIAL MATCH',
-    r03: 'RECORD ORDER // TEMPORAL CONFLICT',
-    '1111': 'TIME MARK // VERIFIED',
-  };
-  return signals[optionId] ?? `EVIDENCE NODE // ${optionId.toUpperCase()}`;
+  void optionId;
+  return 'EVIDENCE NODE // INSPECT SOURCE RECORD';
 }
 
 function EvidenceBoard({
@@ -311,6 +397,7 @@ function EvidenceBoard({
   onChange: (next: StoryPuzzleDraft) => void;
   disabled: boolean;
 }) {
+  const locale = useUiPreferencesStore((state) => state.locale);
   const selected = draft.tokens;
   const maximum = mechanic === 'deduction' ? 3 : 1;
   return (
@@ -336,8 +423,8 @@ function EvidenceBoard({
             })}
           >
             <small>NODE {String(index + 1).padStart(2, '0')}</small>
-            <strong>{option.label.ar}</strong>
-            {option.detail && <span>{option.detail.ar}</span>}
+            <strong>{option.label[locale]}</strong>
+            {option.detail && <span>{option.detail[locale]}</span>}
             <span>{recordSignal(option.id)}</span>
           </button>
         ))}
@@ -350,17 +437,18 @@ function EvidenceBoard({
 }
 
 function PuzzleReference({ reference }: { reference?: StoryPuzzleReference }) {
+  const locale = useUiPreferencesStore((state) => state.locale);
   if (!reference) return null;
   return (
-    <section className="story-puzzle-reference" aria-label={reference.title.ar}>
+    <section className="story-puzzle-reference" aria-label={reference.title[locale]}>
       <header>
         <BookOpenCheck aria-hidden="true" />
-        <span>{reference.title.ar}</span>
+        <span>{reference.title[locale]}</span>
         <small>FIELD NOTES</small>
       </header>
       <ul>
         {reference.entries.map((entry, index) => (
-          <li key={`${entry.en}-${index}`}>{entry.ar}</li>
+          <li key={`${entry.en}-${index}`}>{entry[locale]}</li>
         ))}
       </ul>
     </section>
@@ -372,17 +460,18 @@ function PatternScanBoard({
   onChange,
   disabled,
 }: Pick<PuzzleMechanicProps, 'draft' | 'onChange' | 'disabled'>) {
-  const cells = Array.from({ length: 12 }, (_, index) => {
-    const row = String.fromCharCode(65 + Math.floor(index / 3));
-    return `${row}${(index % 3) + 1}`.toLowerCase();
-  });
+  const cells = [
+    ['a1', '↗'], ['a2', '↗'], ['a3', '↗'],
+    ['b1', '↗'], ['b2', '↗'], ['b3', '↗'],
+    ['c1', '↗'], ['c2', '↗'], ['c3', '↗'],
+    ['d1', '↗'], ['d2', '↗'], ['d3', '↘'],
+  ] as const;
   return (
     <section className="story-pattern-scan" aria-label="Anomaly pattern scanner">
       <header><ScanLine aria-hidden="true" /> PATTERN SCAN // FIND THE DIRECTIONAL BREACH</header>
       <div>
-        {cells.map((cell) => {
+        {cells.map(([cell, direction]) => {
           const display = cell.toUpperCase();
-          const direction = cell === 'd3' ? '↘' : '↗';
           return (
             <button
               key={cell}
@@ -417,6 +506,7 @@ function DataRouteBoard({
   disabled: boolean;
   tokenLimit?: number;
 }) {
+  const locale = useUiPreferencesStore((state) => state.locale);
   const maximum = tokenLimit ?? 4;
   return (
     <section className="story-data-route" aria-label="Data routing graph">
@@ -439,8 +529,8 @@ function DataRouteBoard({
               tokens: selectedTokens(draft.tokens, option.id, maximum),
             })}
           >
-            <strong>{option.label.ar}</strong>
-            {option.detail && <small>{option.detail.ar}</small>}
+            <strong>{option.label[locale]}</strong>
+            {option.detail && <small>{option.detail[locale]}</small>}
           </button>
         ))}
       </div>
@@ -469,6 +559,22 @@ function ImageReconstructionBoard({
   onChange,
   disabled,
 }: ImageReconstructionBoardProps) {
+  const locale = useUiPreferencesStore((state) => state.locale);
+  const imageCopy = locale === 'ar'
+    ? {
+      board: 'تركيب الصورة',
+      piece: 'قطعة',
+      rotate: 'تدوير القطعة',
+      instruction: 'اسحب القطع أو اضغط قطعتين لتبديلهما.',
+      rotationHint: 'استخدم رمز التدوير عند الحاجة.',
+    }
+    : {
+      board: 'Image reconstruction',
+      piece: 'Piece',
+      rotate: 'Rotate piece',
+      instruction: 'Drag pieces, or select two pieces to swap them.',
+      rotationHint: 'Use the rotation control when needed.',
+    };
   const image = puzzle.image!;
   const count = image.rows * image.columns;
   const pieces = draft.imageOrder.length === count ? draft.imageOrder : shuffledPieces(count);
@@ -497,7 +603,7 @@ function ImageReconstructionBoard({
   };
 
   return (
-    <section className="story-image-puzzle" aria-label="تركيب الصورة / Image reconstruction">
+    <section className="story-image-puzzle" aria-label={imageCopy.board}>
       <div
         className="story-image-puzzle__grid"
         style={{
@@ -537,7 +643,7 @@ function ImageReconstructionBoard({
                 type="button"
                 className="story-image-puzzle__art"
                 disabled={disabled}
-                aria-label={`قطعة ${sourceIndex + 1}`}
+                aria-label={`${imageCopy.piece} ${sourceIndex + 1}`}
                 style={{
                   backgroundImage: `url(${image.src})`,
                   backgroundSize: `${image.columns * 100}% ${image.rows * 100}%`,
@@ -554,7 +660,7 @@ function ImageReconstructionBoard({
                     event.stopPropagation();
                     rotatePiece(pieceId);
                   }}
-                  aria-label={`تدوير القطعة ${sourceIndex + 1}`}
+                  aria-label={`${imageCopy.rotate} ${sourceIndex + 1}`}
                 >
                   <RotateCcw aria-hidden="true" />
                 </button>
@@ -563,7 +669,7 @@ function ImageReconstructionBoard({
           );
         })}
       </div>
-      <p>اسحب القطع أو اضغط قطعتين لتبديلهما. {image.allowRotation ? 'استخدم رمز التدوير عند الحاجة.' : ''}</p>
+      <p>{imageCopy.instruction} {image.allowRotation ? imageCopy.rotationHint : ''}</p>
     </section>
   );
 }
@@ -598,14 +704,12 @@ function LayerAlignmentBoard({
       <div className="story-layer-board__viewport">
         {layers.map((layerId, index) => {
           const phase = draft.rotations[layerId] ?? 0;
-          const aligned = puzzle.rotationGoal?.[layerId] === phase;
           return (
             <button
               key={layerId}
               type="button"
               disabled={disabled}
               data-phase={phase}
-              data-aligned={aligned}
               onClick={() => onChange({
                 ...draft,
                 rotations: {
@@ -623,7 +727,7 @@ function LayerAlignmentBoard({
                   transform: `translateX(${(phase - 1.5) * 3.5}%)`,
                 }}
               />
-              <span>L{index + 1} // PHASE {phase} {aligned ? '// LOCKED' : '// DRIFT'}</span>
+              <span>L{index + 1} // PHASE {phase}</span>
             </button>
           );
         })}
@@ -646,11 +750,8 @@ function LoadBalancingBoard({
   const total = channels.reduce((sum, channel) => (
     sum + Number(draft.assignments[channel.id] ?? 0)
   ), 0);
-  const exactBalance = draft.assignments.power === '40'
-    && draft.assignments.data === '30'
-    && draft.assignments.cooling === '30';
   return (
-    <section className="story-load-board" data-stable={exactBalance} aria-label="موازنة حمل النظام">
+    <section className="story-load-board" aria-label="موازنة حمل النظام">
       <header>
         <Activity aria-hidden="true" />
         <span>EMERGENCY LOAD // <strong>{total}%</strong></span>
@@ -680,11 +781,9 @@ function LoadBalancingBoard({
           );
         })}
       </div>
-      <p>{exactBalance
-        ? 'الحمل الكلي والعلاقة بين القنوات مستقران.'
-        : total === 100
-          ? 'المجموع صحيح؛ اجعل DATA وCOOL متساويين وPWR أعلى بعشر نقاط.'
-          : `اضبط القنوات: الفرق عن الاستقرار ${Math.abs(100 - total)}%.`}</p>
+      <p>{total === 100
+        ? 'المجموع مكتمل؛ أرسل المحاولة لترى نتيجة الفحص.'
+        : `اضبط القنوات: الفرق عن الاستقرار ${Math.abs(100 - total)}%.`}</p>
     </section>
   );
 }
@@ -716,9 +815,22 @@ const SIGNAL_CHANNELS = [
   { id: 'channel-13', code: '13', noise: 'نبضة تشويش تنزلق قرب نهاية القياس.' },
 ] as const;
 
+const SIGNAL_PROBE_DESCRIPTIONS_EN: Record<string, string> = {
+  '42': 'The wave crest and trough do not mirror around the center line; this reading is biased.',
+  '58': 'The two crests and two troughs sit equally far from the center line.',
+  '74': 'The trough is wider than the crest; this reading is unstable.',
+};
+
+const SIGNAL_CHANNEL_NOISE_EN: Record<string, string> = {
+  'channel-07': 'Two interference pulses cross the channel.',
+  'channel-11': 'No interference pulse crosses the measurement line.',
+  'channel-13': 'An interference pulse slips near the end of the measurement.',
+};
+
 function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, draft, onChange, disabled }: PuzzleMechanicProps) {
   const options = stageOptions ?? sourceOptions(puzzle);
   const reducedMotion = useUiPreferencesStore((state) => state.motion === 'reduced');
+  const locale = useUiPreferencesStore((state) => state.locale);
   const [memoryPreview, setMemoryPreview] = useState(mechanic === 'memory-grid');
   const [memoryReplay, setMemoryReplay] = useState(0);
   const [memoryPulseIndex, setMemoryPulseIndex] = useState(0);
@@ -751,10 +863,25 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, d
   if (mechanic === 'signal') {
     const frequency = draft.tokens[0] ?? '';
     const channel = draft.tokens[1] ?? '';
+    const signalCopy = locale === 'ar'
+      ? {
+        board: 'لوحة معايرة الإشارة',
+        instruction: 'اختر القراءة المتوازنة، ثم القناة التي لا يقطعها التشويش. لا تُكشف صحة الاختيار قبل التحقق الخادمي.',
+        readings: 'قراءات التردد',
+        channel: 'قناة الإشارة',
+        reading: 'القراءة',
+      }
+      : {
+        board: 'Signal calibration board',
+        instruction: 'Choose the balanced reading, then the channel without interference. Your choice is not revealed as correct until the server verifies it.',
+        readings: 'Frequency readings',
+        channel: 'Signal channel',
+        reading: 'Reading',
+      };
     return (
-      <section className="story-signal-board" aria-label="لوحة معايرة الإشارة">
-        <p className="story-signal-board__instruction">اختر القراءة المتوازنة، ثم القناة التي لا يقطعها التشويش. لا تُكشف صحة الاختيار قبل التحقق الخادمي.</p>
-        <div className="story-signal-board__probes" role="group" aria-label="قراءات التردد">
+      <section className="story-signal-board" aria-label={signalCopy.board}>
+        <p className="story-signal-board__instruction">{signalCopy.instruction}</p>
+        <div className="story-signal-board__probes" role="group" aria-label={signalCopy.readings}>
           {SIGNAL_PROBES.map((probe) => (
             <button
               key={probe.frequency}
@@ -762,15 +889,18 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, d
               disabled={disabled}
               data-selected={frequency === probe.frequency}
               aria-pressed={frequency === probe.frequency}
-              aria-label={`القراءة ${probe.scan}، ${probe.frequency}. ${probe.description}`}
-              onClick={() => onChange({ ...draft, tokens: [probe.frequency, channel || 'channel-07'] })}
+              aria-label={`${signalCopy.reading} ${probe.scan}, ${probe.frequency}. ${locale === 'en' ? SIGNAL_PROBE_DESCRIPTIONS_EN[probe.frequency] : probe.description}`}
+              onClick={() => onChange({
+                ...draft,
+                tokens: [frequency === probe.frequency ? '' : probe.frequency, channel].filter(Boolean),
+              })}
             >
               <svg viewBox="0 0 120 54" aria-hidden="true"><path d="M0 27 H120" /><path d={probe.path} /></svg>
               <strong dir="ltr">SCAN {probe.scan} // {probe.frequency}</strong>
             </button>
           ))}
         </div>
-        <div className="story-choice-row" role="group" aria-label="قناة الإشارة">
+        <div className="story-choice-row" role="group" aria-label={signalCopy.channel}>
           {SIGNAL_CHANNELS.map((candidate) => (
             <button
               key={candidate.id}
@@ -778,9 +908,12 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, d
               disabled={disabled}
               data-selected={channel === candidate.id}
               aria-pressed={channel === candidate.id}
-              onClick={() => onChange({ ...draft, tokens: [frequency || '42', candidate.id] })}
+              onClick={() => onChange({
+                ...draft,
+                tokens: [frequency, channel === candidate.id ? '' : candidate.id].filter(Boolean),
+              })}
             >
-              <strong dir="ltr">CH-{candidate.code}</strong><small>{candidate.noise}</small>
+              <strong dir="ltr">CH-{candidate.code}</strong><small>{locale === 'en' ? SIGNAL_CHANNEL_NOISE_EN[candidate.id] : candidate.noise}</small>
             </button>
           ))}
         </div>
@@ -815,7 +948,7 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, d
                     assignments[source] = target.id;
                     onChange({ ...draft, assignments });
                   }}
-                >{target.label.ar}</button>
+                >{target.label[locale]}</button>
               ))}
             </div>
           </article>
@@ -830,13 +963,12 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, d
       <section className="story-matrix-board" aria-label="System matrix">
         {tiles.map((tile, index) => {
           const rotation = draft.rotations[tile] ?? ((index + 1) % 4);
-          const aligned = puzzle.rotationGoal?.[tile] === rotation;
           return (
             <button
-              key={tile} type="button" disabled={disabled} data-rotation={rotation} data-aligned={aligned}
+              key={tile} type="button" disabled={disabled} data-rotation={rotation}
               onClick={() => onChange({ ...draft, rotations: { ...draft.rotations, [tile]: (rotation + 1) % 4 } })}
               aria-label={`تدوير عقدة ${index + 1}`}
-            ><i /><i /><span>{aligned ? 'LOCK' : `R${rotation}`}</span></button>
+            ><i /><i /><span>R{rotation}</span></button>
           );
         })}
       </section>
@@ -849,18 +981,17 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, d
     return (
       <section className="story-forensics-board" aria-label="Visual forensics scanner">
         <div className="story-forensics-board__record">
-          {source && <img src={source} alt={puzzle.image?.alt.ar} loading="lazy" />}
+          {source && <img src={source} alt={puzzle.image?.alt[locale]} loading="lazy" />}
           <ScanLine aria-hidden="true" />
           {options.map((option, index) => (
             <button
               key={option.id} type="button" disabled={disabled}
               data-selected={selected.includes(option.id)}
-              data-anomaly={option.id === 'x2' || option.id === 'z1'}
               style={{ '--point': index } as CSSProperties}
               onClick={() => onChange({ ...draft, tokens: selectedTokens(selected, option.id, 2) })}
             >
               <strong>{option.id.toUpperCase()}</strong>
-              {option.detail && <small>{option.detail.ar}</small>}
+              {option.detail && <small>{option.detail[locale]}</small>}
             </button>
           ))}
         </div>
@@ -936,8 +1067,8 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, d
             onClick={() => onChange({ ...draft, tokens: selectedTokens(selected, option.id, limit, repeatable) })}
           >
             {option.symbol && <i>{option.symbol}</i>}
-            <strong>{option.label.ar}</strong>
-            {option.detail && <small>{option.detail.ar}</small>}
+            <strong>{option.label[locale]}</strong>
+            {option.detail && <small>{option.detail[locale]}</small>}
             <small>{option.label.en}</small>
           </button>
         ))}
@@ -949,10 +1080,15 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, d
 
 function RewardMoment({ onDismiss }: { onDismiss: () => void }) {
   const reward = useStoryPuzzleStore((state) => state.latestReward);
+  const locale = useUiPreferencesStore((state) => state.locale);
   const dialogRef = useRef<HTMLDivElement>(null);
   const continueRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     if (!reward?.awarded) return undefined;
+    previousFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
     const frame = window.requestAnimationFrame(() => continueRef.current?.focus());
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -980,6 +1116,8 @@ function RewardMoment({ onDismiss }: { onDismiss: () => void }) {
     return () => {
       window.cancelAnimationFrame(frame);
       document.removeEventListener('keydown', onKeyDown);
+      previousFocusRef.current?.focus();
+      previousFocusRef.current = null;
     };
   }, [onDismiss, reward?.awarded]);
   if (!reward?.awarded) return null;
@@ -988,16 +1126,23 @@ function RewardMoment({ onDismiss }: { onDismiss: () => void }) {
     <div ref={dialogRef} className="story-reward-moment" role="dialog" aria-modal="true" aria-labelledby="story-reward-title" aria-describedby="story-reward-description">
       <div className="story-reward-moment__shard"><Sparkles aria-hidden="true" /></div>
       <section>
+        <EchoPresence
+          className="story-reward-moment__echo"
+          variant="mini"
+          label="Echo"
+          showTelemetry={false}
+          eager
+        />
         <small>SYSTEM MEMORY FRAGMENT DETECTED</small>
         <h2 id="story-reward-title">تم اكتساب شظية ذاكرة</h2>
-        <p id="story-reward-description">{puzzle?.completionMessage.ar ?? 'تمت الاستعادة.'}</p>
+        <p id="story-reward-description">{puzzle?.completionMessage[locale] ?? (locale === 'ar' ? 'تمت الاستعادة.' : 'Recovery complete.')}</p>
         <dl>
           <div><dt>XP</dt><dd>+{reward.xpGranted}</dd></div>
           <div><dt>SHARD</dt><dd dir="ltr">{reward.snapshot.shardCount} / 20</dd></div>
         </dl>
         <div className="story-reward-moment__echo-impact">
           <Activity aria-hidden="true" />
-          <span><small>ECHO RESONANCE</small><strong>+{reward.echoImpact.amount} · {reward.echoImpact.label.ar}</strong></span>
+          <span><small>ECHO RESONANCE</small><strong>+{reward.echoImpact.amount} · {reward.echoImpact.label[locale]}</strong></span>
         </div>
         {reward.perfectBonusCoins > 0 && <strong className="story-reward-moment__perfect">PERFECT SOLVE +{reward.perfectBonusCoins} COINS</strong>}
         <button ref={continueRef} type="button" onClick={onDismiss}>متابعة</button>
@@ -1012,12 +1157,63 @@ export default function PuzzleScreen() {
   const snapshot = useStoryPuzzleStore((state) => state.snapshot);
   const error = useStoryPuzzleStore((state) => state.error);
   const latestReward = useStoryPuzzleStore((state) => state.latestReward);
+  const latestActivity = useStoryPuzzleStore((state) => state.latestActivity);
   const actions = useStoryPuzzleStore((state) => state.actions);
   const loadCollection = useCollectionStore((state) => state.actions.load);
   const loadProfile = usePlayerProgressionStore((state) => state.actions.loadProfile);
   const loadLeaderboard = usePlayerProgressionStore((state) => state.actions.loadLeaderboard);
   const audioEnabled = useUiPreferencesStore((state) => state.audioEnabled);
   const sfxVolume = useUiPreferencesStore((state) => state.sfxVolume);
+  const locale = useUiPreferencesStore((state) => state.locale);
+  const screenCopy = locale === 'ar'
+    ? {
+      gateTitle: 'قناة الألغاز محمية',
+      gateDetail: 'سجّل الدخول لربط أدلة المانهوا وسجل الاستعادة بحسابك.',
+      title: 'ألغاز القصة',
+      indexLabel: 'قائمة ألغاز القصة',
+      discovery: 'إشارة سرية قابلة للاكتشاف',
+      unlockChannel: 'اضغط لفك القناة',
+      replayCinematic: 'إعادة مشهد التحول',
+      missionLabel: 'هدف هذه الخطوة',
+      missionTitle: 'الهدف الآن',
+      missionDetail: 'بعد التحقق الخادمي: تُحفظ المكافأة، يرد Echo، ويظهر الدليل التالي.',
+      evidencePage: (page: number) => `الدليل في الصفحة ${page}`,
+      blockedByPuzzle: (title: string, page: number) => `أكمل أولًا لغز «${title}»، ثم تابع قراءة المانهوا بالترتيب حتى الصفحة ${page}.`,
+      blockedByPage: (page: number) => `افتح المانهوا واقرأ حتى الصفحة ${page}؛ سيُسجّل الدليل تلقائيًا بعد تحميل الصفحة بنجاح.`,
+      continueManhwa: 'متابعة المانهوا',
+      stage: (index: number) => `الانتقال إلى المرحلة ${index}`,
+      confirmStage: 'تثبيت المرحلة',
+      verify: 'تحقق من الاستعادة',
+      save: 'حفظ الآن',
+      retry: 'إعادة المحاولة',
+      echoRetry: 'ملاحظة Echo بعد المحاولة',
+      hints: 'تلميحات اللغز',
+      hintDetail: 'استخدام التلميح لا يلغي XP أو الشظية؛ يلغي فقط مكافأة الحل المثالي.',
+    }
+    : {
+      gateTitle: 'Puzzle channel protected',
+      gateDetail: 'Sign in to connect Manhwa evidence and the recovery record to your account.',
+      title: 'Story Puzzles',
+      indexLabel: 'Story puzzle index',
+      discovery: 'A secret signal is ready to discover',
+      unlockChannel: 'Select to unlock the channel',
+      replayCinematic: 'Replay transformation scene',
+      missionLabel: 'Objective for this step',
+      missionTitle: 'Objective now',
+      missionDetail: 'After server verification: the reward is recorded, Echo responds, and the next clue appears.',
+      evidencePage: (page: number) => `Evidence is on page ${page}`,
+      blockedByPuzzle: (title: string, page: number) => `Complete “${title}” first, then continue reading the Manhwa in order through page ${page}.`,
+      blockedByPage: (page: number) => `Open the Manhwa and read through page ${page}. The evidence is recorded automatically after the page loads successfully.`,
+      continueManhwa: 'Continue the Manhwa',
+      stage: (index: number) => `Go to stage ${index}`,
+      confirmStage: 'Confirm stage',
+      verify: 'Verify recovery',
+      save: 'Save now',
+      retry: 'Try again',
+      echoRetry: 'Echo note after this attempt',
+      hints: 'Puzzle hints',
+      hintDetail: 'Using a hint does not remove XP or the shard; it only removes the perfect-solve bonus.',
+    };
   const requestManhwaReader = useShellStore(
     (state) => state.requestManhwaReader,
   );
@@ -1056,10 +1252,11 @@ export default function PuzzleScreen() {
       activeDraft,
       currentStage.tokenLimit,
       currentStage.options,
+      locale,
     )
     : selectedPuzzle.mechanic === 'multi-stage' || selectedPuzzle.mechanic === 'breach-protocol'
       ? { ready: false, message: 'انتقل إلى المرحلة الحالية لإكمال اللغز.' }
-      : draftReadiness(selectedPuzzle, selectedPuzzle.mechanic, draft);
+      : draftReadiness(selectedPuzzle, selectedPuzzle.mechanic, draft, undefined, undefined, locale);
   const missingPrerequisite = selectedPuzzle.prerequisitePuzzleIds
     .map((puzzleId) => STORY_PUZZLE_BY_ID[puzzleId])
     .find((puzzle) => (
@@ -1075,6 +1272,15 @@ export default function PuzzleScreen() {
       if (next) setSelectedPuzzleId(next.id);
     }
   }, [entryById, selectedPuzzleId, visiblePuzzles]);
+
+  useEffect(() => {
+    if (
+      selectedEntry.status === 'available'
+      || selectedEntry.status === 'in_progress'
+    ) {
+      emitExperienceCue({ name: 'puzzle-armed', sourceId: selectedPuzzle.id });
+    }
+  }, [selectedEntry.status, selectedPuzzle.id]);
 
   useEffect(() => {
     const entry = entryById.get(selectedPuzzle.id);
@@ -1134,6 +1340,7 @@ export default function PuzzleScreen() {
     setBusy(true);
     const receipt = await actions.complete(selectedPuzzle.id, draft);
     if (receipt?.awarded) {
+      emitExperienceCue({ name: 'puzzle-reward', sourceId: selectedPuzzle.id });
       if (audioEnabled) playPuzzleCompletionSound(sfxVolume);
       void loadProfile();
       void loadLeaderboard(true);
@@ -1142,7 +1349,7 @@ export default function PuzzleScreen() {
   };
 
   const advanceStage = async () => {
-    if (!currentStage) return;
+    if (!currentStage || !activeReadiness.ready) return;
     const nextIndex = Math.min(stageIndex + 1, stageDrafts.length - 1);
     const next = composeStageDraft(draft, nextIndex, stageDrafts);
     queueSave(next);
@@ -1165,8 +1372,8 @@ export default function PuzzleScreen() {
     return (
       <section className="story-puzzle-gate">
         <LockKeyhole aria-hidden="true" />
-        <h1>قناة الألغاز محمية</h1>
-        <p>سجّل الدخول لربط أدلة المانهوا وسجل الاستعادة بحسابك.</p>
+        <h1>{screenCopy.gateTitle}</h1>
+        <p>{screenCopy.gateDetail}</p>
       </section>
     );
   }
@@ -1174,7 +1381,7 @@ export default function PuzzleScreen() {
   return (
     <div className="story-puzzle-screen" data-mechanic={selectedPuzzle.mechanic}>
       <header className="story-puzzle-screen__header">
-        <div><small>11.11 // STORY INTERFERENCE</small><h1>ألغاز القصة</h1></div>
+        <div><small>11.11 // STORY INTERFERENCE</small><h1>{screenCopy.title}</h1></div>
         <dl>
           <div><dt>MAIN PATH</dt><dd dir="ltr">{snapshot?.mainCompletedCount ?? 0} / 14</dd></div>
           <div><dt>MEMORY SHARDS</dt><dd dir="ltr">{snapshot?.shardCount ?? 0} / 20</dd></div>
@@ -1183,7 +1390,7 @@ export default function PuzzleScreen() {
         </dl>
       </header>
 
-      <aside className="story-puzzle-index" aria-label="قائمة ألغاز القصة">
+      <aside className="story-puzzle-index" aria-label={screenCopy.indexLabel}>
         {discoverableSecretIds.map((secretId) => {
           const secret = STORY_PUZZLE_BY_ID[secretId];
           if (!secret) return null;
@@ -1197,8 +1404,8 @@ export default function PuzzleScreen() {
             >
               <span><Crosshair aria-hidden="true" /></span>
               <i>
-                <strong>إشارة سرية قابلة للاكتشاف</strong>
-                <small>PAGE {secret.source.globalPageNumber} // اضغط لفك القناة</small>
+                <strong>{screenCopy.discovery}</strong>
+                <small>PAGE {secret.source.globalPageNumber} // {screenCopy.unlockChannel}</small>
               </i>
             </button>
           );
@@ -1212,7 +1419,7 @@ export default function PuzzleScreen() {
               data-status={status} disabled={status === 'locked'} onClick={() => selectPuzzle(puzzle)}
             >
               <span>{status === 'completed' ? <Check aria-hidden="true" /> : puzzle.classification === 'secret' ? <Crosshair aria-hidden="true" /> : String(puzzle.order).padStart(2, '0')}</span>
-              <i><strong>{puzzle.classification === 'secret' && status === 'hidden' ? '///' : puzzle.title.ar}</strong><small>{puzzle.classification === 'secret' ? 'SECRET SIGNAL' : `CHAPTER ${puzzle.chapterId.slice(-1)}`}</small></i>
+              <i><strong>{puzzle.classification === 'secret' && status === 'hidden' ? '///' : puzzle.title[locale]}</strong><small>{puzzle.classification === 'secret' ? 'SECRET SIGNAL' : `CHAPTER ${puzzle.chapterId.slice(-1)}`}</small></i>
               {status === 'locked' && <LockKeyhole aria-hidden="true" />}
             </button>
           );
@@ -1223,10 +1430,10 @@ export default function PuzzleScreen() {
         <section className="story-puzzle-console">
           <header>
             <span><Activity aria-hidden="true" /> {selectedPuzzle.classification === 'secret' ? 'ANOMALY CHANNEL' : 'SYSTEM CHANNEL'}</span>
-            <small>PUZZLE {String(selectedPuzzle.order).padStart(2, '0')} // {statusLabel(selectedEntry.status)}</small>
+            <small>PUZZLE {String(selectedPuzzle.order).padStart(2, '0')} // {statusLabel(selectedEntry.status, locale)}</small>
           </header>
           <div className="story-puzzle-console__title">
-            <div><small>{selectedPuzzle.mechanic.replace('-', ' ').toUpperCase()}</small><h2>{selectedPuzzle.title.ar}</h2><p>{selectedPuzzle.objective.ar}</p></div>
+            <div><small>{selectedPuzzle.mechanic.replace('-', ' ').toUpperCase()}</small><h2>{selectedPuzzle.title[locale]}</h2><p>{selectedPuzzle.objective[locale]}</p></div>
             <span className="story-puzzle-console__page">SOURCE // {String(selectedPuzzle.source.globalPageNumber).padStart(2, '0')}</span>
             {selectedPuzzle.cinematicStageId && selectedEntry.status !== 'locked' && (
               <button
@@ -1234,35 +1441,37 @@ export default function PuzzleScreen() {
                 className="story-puzzle-console__cinematic"
                 onClick={() => requestEchoTransformationCinematic(selectedPuzzle.cinematicStageId!)}
               >
-                <Clapperboard aria-hidden="true" /> إعادة مشهد التحول
+                <Clapperboard aria-hidden="true" /> {screenCopy.replayCinematic}
               </button>
             )}
           </div>
           <PuzzleReference reference={selectedPuzzle.reference} />
 
+          {selectedEntry.status !== 'locked' && selectedEntry.status !== 'completed' && (
+            <section className="story-puzzle-console__mission" aria-label={screenCopy.missionLabel}>
+              <span><Sparkles aria-hidden="true" /> {screenCopy.missionTitle}</span>
+              <p>{selectedPuzzle.brief?.[locale] ?? selectedPuzzle.objective[locale]}</p>
+              <small>{screenCopy.missionDetail}</small>
+            </section>
+          )}
+
           {selectedEntry.status === 'locked' ? (
             <div className="story-puzzle-console__locked">
               <LockKeyhole aria-hidden="true" />
-              <strong>الدليل في الصفحة {selectedPuzzle.source.globalPageNumber}</strong>
+              <strong>{screenCopy.evidencePage(selectedPuzzle.source.globalPageNumber)}</strong>
               {missingPrerequisite ? (
-                <p>
-                  أكمل أولًا لغز «{missingPrerequisite.title.ar}»، ثم تابع قراءة المانهوا
-                  بالترتيب حتى الصفحة {selectedPuzzle.source.globalPageNumber}.
-                </p>
+                <p>{screenCopy.blockedByPuzzle(missingPrerequisite.title[locale], selectedPuzzle.source.globalPageNumber)}</p>
               ) : (
-                <p>
-                  افتح المانهوا واقرأ حتى الصفحة {selectedPuzzle.source.globalPageNumber}؛
-                  سيُسجّل الدليل تلقائيًا بعد تحميل الصفحة بنجاح.
-                </p>
+                <p>{screenCopy.blockedByPage(selectedPuzzle.source.globalPageNumber)}</p>
               )}
               <button type="button" onClick={requestManhwaReader}>
-                <BookOpenCheck aria-hidden="true" /> متابعة المانهوا
+                <BookOpenCheck aria-hidden="true" /> {screenCopy.continueManhwa}
               </button>
             </div>
           ) : selectedEntry.status === 'completed' ? (
             <div className="story-puzzle-console__completed">
-              <Check aria-hidden="true" /><h3>{selectedPuzzle.completionMessage.ar}</h3><p>{selectedEntry.perfectSolve ? 'تمت الاستعادة دون استخدام تلميحات.' : 'تم حفظ الاستعادة في السجل الخادمي.'}</p>
-              {selectedPuzzle.image && <img src={selectedPuzzle.image.src} alt={selectedPuzzle.image.alt.ar} loading="lazy" />}
+              <Check aria-hidden="true" /><h3>{selectedPuzzle.completionMessage[locale]}</h3><p>{selectedEntry.perfectSolve ? (locale === 'ar' ? 'تمت الاستعادة دون استخدام تلميحات.' : 'Recovery completed without hints.') : (locale === 'ar' ? 'تم حفظ الاستعادة في السجل الخادمي.' : 'The recovery is saved in the server record.')}</p>
+              {selectedPuzzle.image && <img src={selectedPuzzle.image.src} alt={selectedPuzzle.image.alt[locale]} loading="lazy" />}
             </div>
           ) : (
             <>
@@ -1275,13 +1484,16 @@ export default function PuzzleScreen() {
                       type="button"
                       data-active={index === stageIndex}
                       data-complete={index < stageIndex}
-                      aria-label={`الانتقال إلى المرحلة ${index + 1}`}
+                      disabled={index > stageIndex || busy}
+                      aria-label={screenCopy.stage(index + 1)}
                       aria-current={index === stageIndex ? 'step' : undefined}
-                      onClick={() => queueSave(composeStageDraft(draft, index, stageDrafts))}
+                      onClick={() => {
+                        if (index <= stageIndex) queueSave(composeStageDraft(draft, index, stageDrafts));
+                      }}
                     >{index + 1}</button>
                   ))}</div>
-                  <strong>{currentStage.objective.ar}</strong>
-                  {currentStage.clue && <p>{currentStage.clue.ar}</p>}
+                  <strong>{currentStage.objective[locale]}</strong>
+                  {currentStage.clue && <p>{currentStage.clue[locale]}</p>}
                 </div>
               )}
               <PuzzleMechanic
@@ -1301,19 +1513,25 @@ export default function PuzzleScreen() {
               </p>
               <div className="story-puzzle-console__actions">
                 {currentStage && stageIndex < stageDrafts.length - 1 ? (
-                  <button type="button" disabled={busy || !activeReadiness.ready} onClick={() => void advanceStage()}>تثبيت المرحلة <ChevronLeft aria-hidden="true" /></button>
+                  <button type="button" disabled={busy || !activeReadiness.ready} onClick={() => void advanceStage()}>{screenCopy.confirmStage} <ChevronLeft aria-hidden="true" /></button>
                 ) : (
-                  <button type="button" disabled={busy || !activeReadiness.ready} onClick={() => void complete()}><Zap aria-hidden="true" /> تحقق من الاستعادة</button>
+                  <button type="button" disabled={busy || !activeReadiness.ready} onClick={() => void complete()}><Zap aria-hidden="true" /> {screenCopy.verify}</button>
                 )}
-                <button type="button" className="story-puzzle-console__quiet" disabled={busy} onClick={() => void saveNow()}>حفظ الآن</button>
-                <button type="button" className="story-puzzle-console__quiet" disabled={busy} onClick={resetPuzzle}><RotateCcw aria-hidden="true" /> إعادة المحاولة</button>
+                <button type="button" className="story-puzzle-console__quiet" disabled={busy} onClick={() => void saveNow()}>{screenCopy.save}</button>
+                <button type="button" className="story-puzzle-console__quiet" disabled={busy} onClick={resetPuzzle}><RotateCcw aria-hidden="true" /> {screenCopy.retry}</button>
               </div>
             </>
           )}
-          {error && <p className="story-puzzle-console__error"><TriangleAlert aria-hidden="true" /> {error}</p>}
+          {error && <p className="story-puzzle-console__error" role="alert"><TriangleAlert aria-hidden="true" /> {error}</p>}
+          {latestActivity?.kind === 'puzzle-attempt-rejected' && latestActivity.puzzleId === selectedPuzzle.id && (
+            <aside className="story-puzzle-console__echo-retry" aria-label={screenCopy.echoRetry} role="status" aria-live="polite">
+              <EchoPresence variant="mini" showTelemetry={false} label="Echo" />
+              <p><strong>Echo:</strong> {locale === 'ar' ? 'لم تُحسم الإشارة بعد.' : 'The signal is not resolved yet.'} {retryGuidance(currentStage?.mechanic ?? selectedPuzzle.mechanic, locale)}</p>
+            </aside>
+          )}
         </section>
 
-        <aside className="story-puzzle-hints" aria-label="تلميحات اللغز">
+        <aside className="story-puzzle-hints" aria-label={screenCopy.hints}>
           <header><CircleHelp aria-hidden="true" /><span>ASSISTANCE CHANNEL</span></header>
           {selectedPuzzle.hints.map((hint, index) => {
             const unlocked = selectedEntry.unlockedHintIndexes.includes(index);
@@ -1322,11 +1540,11 @@ export default function PuzzleScreen() {
             return (
               <article key={index} data-unlocked={unlocked}>
                 <small>HINT {String(index + 1).padStart(2, '0')} <strong>{cost === 0 ? 'FREE' : `${cost} ◉`}</strong></small>
-                {unlocked ? <p>{hint.ar}</p> : <button type="button" disabled={busy || !preceding || selectedEntry.status === 'locked'} onClick={() => void actions.unlockHint(selectedPuzzle.id, index)}>فتح التلميح</button>}
+                {unlocked ? <p>{hint[locale]}</p> : <button type="button" disabled={busy || !preceding || selectedEntry.status === 'locked'} onClick={() => void actions.unlockHint(selectedPuzzle.id, index)}>{locale === 'ar' ? 'فتح التلميح' : 'Open hint'}</button>}
               </article>
             );
           })}
-          <footer><ScanLine aria-hidden="true" /> استخدام التلميح لا يلغي XP أو الشظية؛ يلغي فقط مكافأة الحل المثالي.</footer>
+          <footer><ScanLine aria-hidden="true" /> {screenCopy.hintDetail}</footer>
         </aside>
       </main>
 

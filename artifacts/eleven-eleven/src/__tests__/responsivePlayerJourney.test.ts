@@ -29,8 +29,15 @@ describe('responsive player journey contract', () => {
     assert.match(shellCss, /data-has-objective/);
     assert.match(shellCss, /flex-direction: column/);
     assert.match(onboardingCss, /overflow-y: auto/);
+    assert.match(onboardingCss, /main-menu-world-v1\.webp/);
+    assert.match(onboardingCss, /main-menu-world-v1\.png/);
     assert.match(menuCss, /thumb-reachable layer/);
+    assert.match(menuCss, /portrait-signal-void-v1\.webp/);
     assert.match(menuCss, /portrait-signal-void-v1\.png/);
+    const visualAssets = await readFile(new URL('../ui/presentation/visualAssets.ts', import.meta.url), 'utf8');
+    assert.match(visualAssets, /echo-portrait-v1\.webp/);
+    assert.match(visualAssets, /echo-fullbody-normal-v2\.webp/);
+    assert.match(visualAssets, /echo-fullbody-corrupted-v1\.webp/);
   });
 
   it('does not continue to advertise a landscape-only mobile journey', async () => {

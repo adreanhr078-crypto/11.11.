@@ -35,6 +35,7 @@ import {
   getCharacterMomentReadModels,
   type CharacterMomentReadModel,
 } from '../../domain/characters/characterAttachment';
+import type { NetworkLocale } from '../../domain/echo-network/contracts';
 
 export interface DashboardReadModel {
   chapter: {
@@ -98,6 +99,7 @@ function createStoryPuzzleProgress(
 export function createDashboardReadModel(
   state: GameState,
   storyPuzzleSnapshot: StoryPuzzleSnapshot | null = null,
+  locale: NetworkLocale = 'ar',
 ): DashboardReadModel {
   const chapter = CHAPTER_DEFINITIONS.find(
     (item) => item.id === state.progression.currentChapterId,
@@ -112,8 +114,8 @@ export function createDashboardReadModel(
   return {
     chapter: {
       id: chapter?.id ?? state.progression.currentChapterId,
-      title: chapter?.title.ar ?? 'فصل غير معنْون',
-      description: chapter?.description.ar ?? 'بانتظار بيانات الفصل.',
+      title: chapter?.title[locale] ?? (locale === 'en' ? 'Untitled chapter' : 'فصل غير معنْون'),
+      description: chapter?.description[locale] ?? (locale === 'en' ? 'Waiting for chapter data.' : 'بانتظار بيانات الفصل.'),
       progress: puzzleProgress.progress,
     },
     echoStatus: createEchoStatusReadModel(state.progressionState),

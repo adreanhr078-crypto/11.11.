@@ -2,6 +2,7 @@ import { env, runInDurableObject, SELF } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import type { RealtimeEnvelope, RealtimeTicketPayload } from '../../../src/domain/echo-network/contracts';
 import { signRealtimeTicket } from '../../../src/domain/echo-network/realtimeTicket';
+import { persistQueuedResult } from '../src/index';
 import { participantReward, sealReceipt } from '../src/receipt';
 
 const SECRET = 'test-realtime-secret-that-is-longer-than-thirty-two-characters';
@@ -67,6 +68,160 @@ async function installPartySafetySchema(): Promise<void> {
   ]);
 }
 
+async function installResultPersistenceSchema(): Promise<void> {
+  await env.PLAYER_DB.batch([
+    env.PLAYER_DB.prepare(`
+      CREATE TABLE IF NOT EXISTS player_progression (
+        user_id TEXT PRIMARY KEY,
+        username TEXT NOT NULL,
+        total_xp INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `),
+    env.PLAYER_DB.prepare(`
+      CREATE TABLE IF NOT EXISTS network_player_milestones (
+        user_id TEXT PRIMARY KEY,
+        casual_chess_completed INTEGER NOT NULL DEFAULT 0,
+        community_rules_version INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL
+      )
+    `),
+    env.PLAYER_DB.prepare(`
+      CREATE TABLE IF NOT EXISTS network_match_receipts (
+        receipt_id TEXT PRIMARY KEY,
+        match_id TEXT NOT NULL UNIQUE,
+        mode TEXT NOT NULL,
+        status TEXT NOT NULL,
+        winner_uid TEXT,
+        duration_ms INTEGER NOT NULL,
+        completed_at TEXT NOT NULL,
+        integrity_hash TEXT NOT NULL,
+        receipt_json TEXT NOT NULL,
+        recorded_at TEXT NOT NULL
+      )
+    `),
+    env.PLAYER_DB.prepare(`
+      CREATE TABLE IF NOT EXISTS network_match_participants (
+        match_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        outcome TEXT NOT NULL,
+        participation_ms INTEGER NOT NULL,
+        reward_key TEXT NOT NULL,
+        xp_amount INTEGER NOT NULL,
+        PRIMARY KEY (match_id, user_id)
+      )
+    `),
+    env.PLAYER_DB.prepare(`
+      CREATE TABLE IF NOT EXISTS xp_reward_events (
+        user_id TEXT NOT NULL,
+        reward_key TEXT NOT NULL,
+        source_type TEXT NOT NULL,
+        source_id TEXT NOT NULL,
+        xp_amount INTEGER NOT NULL,
+        granted_at TEXT NOT NULL,
+        PRIMARY KEY (user_id, reward_key)
+      )
+    `),
+    env.PLAYER_DB.prepare(`
+      CREATE TABLE IF NOT EXISTS network_cosmetic_unlock_events (
+        user_id TEXT NOT NULL,
+        cosmetic_id TEXT NOT NULL,
+        source_type TEXT NOT NULL,
+        source_id TEXT NOT NULL,
+        unlocked_at TEXT NOT NULL,
+        PRIMARY KEY (user_id, cosmetic_id)
+      )
+    `),
+    env.PLAYER_DB.prepare(`
+      CREATE TABLE IF NOT EXISTS player_character_bond_events (
+        user_id TEXT NOT NULL,
+        event_key TEXT NOT NULL,
+        character_id TEXT NOT NULL,
+        source_type TEXT NOT NULL,
+        source_id TEXT NOT NULL,
+        bond_points INTEGER NOT NULL,
+        recorded_at TEXT NOT NULL,
+        PRIMARY KEY (user_id, event_key)
+      )
+    `),
+    env.PLAYER_DB.prepare(`
+      CREATE TABLE IF NOT EXISTS chess_ratings (
+        user_id TEXT NOT NULL,
+        speed TEXT NOT NULL,
+        rating REAL NOT NULL,
+        deviation REAL NOT NULL,
+        volatility REAL NOT NULL,
+        games_played INTEGER NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (user_id, speed)
+      )
+    `),
+    env.PLAYER_DB.prepare(`
+      CREATE TABLE IF NOT EXISTS chess_rating_events (
+        match_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        speed TEXT NOT NULL,
+        rating_before REAL NOT NULL,
+        deviation_before REAL NOT NULL,
+        volatility_before REAL NOT NULL,
+        rating_after REAL NOT NULL,
+        deviation_after REAL NOT NULL,
+        volatility_after REAL NOT NULL,
+        recorded_at TEXT NOT NULL,
+        PRIMARY KEY (match_id, user_id)
+      )
+    `),
+  ]);
+}
+
+async function queuedChessResult(input: {
+  matchId: string;
+  alphaUid: string;
+  betaUid: string;
+  mode?: 'chess_casual' | 'chess_ranked_blitz';
+  status?: 'completed' | 'resigned';
+  durationMs?: number;
+  participationMs?: number;
+}) {
+  const status = input.status ?? 'completed';
+  const winnerUid = input.alphaUid;
+  const receipt = await sealReceipt(SECRET, {
+    version: 1,
+    receiptId: crypto.randomUUID(),
+    matchId: input.matchId,
+    mode: input.mode ?? 'chess_casual',
+    context: { caseId: null, variant: 'standard' },
+    status,
+    participants: [
+      {
+        uid: input.alphaUid,
+        outcome: 'win',
+        participationMs: input.participationMs ?? 95_000,
+      },
+      {
+        uid: input.betaUid,
+        outcome: 'loss',
+        participationMs: input.participationMs ?? 95_000,
+      },
+    ],
+    winnerUid,
+    durationMs: input.durationMs ?? 95_000,
+    rewards: [
+      participantReward(input.matchId, input.alphaUid, 45),
+      participantReward(input.matchId, input.betaUid, 30),
+    ],
+    completedAt: new Date().toISOString(),
+  });
+  return {
+    receipt,
+    profiles: [
+      { uid: input.alphaUid, displayName: 'Alpha' },
+      { uid: input.betaUid, displayName: 'Beta' },
+    ],
+  };
+}
+
 function nextEnvelope(socket: WebSocket): Promise<RealtimeEnvelope> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('Timed out waiting for realtime event.')), 3_000);
@@ -112,6 +267,84 @@ describe('Echo realtime Worker', () => {
       status: 'ok',
       protocol: 1,
     });
+  });
+
+  it('makes duplicate Queue delivery idempotent before XP or bond presentation can repeat', async () => {
+    await installResultPersistenceSchema();
+    const result = await queuedChessResult({
+      matchId: 'match_duplicate_queue_delivery',
+      alphaUid: 'queue-duplicate-alpha',
+      betaUid: 'queue-duplicate-beta',
+    });
+
+    await persistQueuedResult(env, result);
+    await persistQueuedResult(env, result);
+
+    await expect(env.PLAYER_DB.prepare(`
+      SELECT COUNT(*) AS total FROM network_match_receipts WHERE match_id = ?
+    `).bind(result.receipt.matchId).first<{ total: number }>()).resolves.toMatchObject({ total: 1 });
+    await expect(env.PLAYER_DB.prepare(`
+      SELECT COUNT(*) AS total FROM xp_reward_events
+      WHERE user_id IN (?, ?)
+    `).bind('queue-duplicate-alpha', 'queue-duplicate-beta').first<{ total: number }>()).resolves.toMatchObject({ total: 2 });
+    await expect(env.PLAYER_DB.prepare(`
+      SELECT COUNT(*) AS total FROM player_character_bond_events
+      WHERE user_id IN (?, ?)
+    `).bind('queue-duplicate-alpha', 'queue-duplicate-beta').first<{ total: number }>()).resolves.toMatchObject({ total: 2 });
+  });
+
+  it('records an early resignation for audit without granting XP, bond, or rating', async () => {
+    await installResultPersistenceSchema();
+    const result = await queuedChessResult({
+      matchId: 'match_early_resignation',
+      alphaUid: 'early-resign-alpha',
+      betaUid: 'early-resign-beta',
+      mode: 'chess_ranked_blitz',
+      status: 'resigned',
+      durationMs: 30_000,
+      participationMs: 20_000,
+    });
+
+    await persistQueuedResult(env, result);
+
+    await expect(env.PLAYER_DB.prepare(`
+      SELECT COUNT(*) AS total FROM network_match_receipts WHERE match_id = ?
+    `).bind(result.receipt.matchId).first<{ total: number }>()).resolves.toMatchObject({ total: 1 });
+    await expect(env.PLAYER_DB.prepare(`
+      SELECT COUNT(*) AS total FROM xp_reward_events
+      WHERE user_id IN (?, ?)
+    `).bind('early-resign-alpha', 'early-resign-beta').first<{ total: number }>()).resolves.toMatchObject({ total: 0 });
+    await expect(env.PLAYER_DB.prepare(`
+      SELECT COUNT(*) AS total FROM chess_rating_events
+      WHERE user_id IN (?, ?)
+    `).bind('early-resign-alpha', 'early-resign-beta').first<{ total: number }>()).resolves.toMatchObject({ total: 0 });
+  });
+
+  it('keeps only the first three daily ranked rematches between one pair rewardable', async () => {
+    await installResultPersistenceSchema();
+    const alphaUid = 'pair-limit-alpha';
+    const betaUid = 'pair-limit-beta';
+    for (let index = 1; index <= 4; index += 1) {
+      await persistQueuedResult(env, await queuedChessResult({
+        matchId: `match_pair_limit_${index}`,
+        alphaUid,
+        betaUid,
+        mode: 'chess_ranked_blitz',
+      }));
+    }
+
+    await expect(env.PLAYER_DB.prepare(`
+      SELECT COUNT(*) AS total FROM network_match_receipts
+      WHERE match_id LIKE 'match_pair_limit_%'
+    `).first<{ total: number }>()).resolves.toMatchObject({ total: 4 });
+    await expect(env.PLAYER_DB.prepare(`
+      SELECT COUNT(*) AS total FROM xp_reward_events
+      WHERE user_id IN (?, ?)
+    `).bind(alphaUid, betaUid).first<{ total: number }>()).resolves.toMatchObject({ total: 6 });
+    await expect(env.PLAYER_DB.prepare(`
+      SELECT COUNT(*) AS total FROM chess_rating_events
+      WHERE user_id IN (?, ?)
+    `).bind(alphaUid, betaUid).first<{ total: number }>()).resolves.toMatchObject({ total: 6 });
   });
 
   it('rejects a signed ticket when its target does not match the route', async () => {

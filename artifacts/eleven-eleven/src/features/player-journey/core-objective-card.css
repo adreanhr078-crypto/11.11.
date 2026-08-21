@@ -23,7 +23,12 @@
   inset: 0;
   z-index: -1;
   opacity: 0.26;
-  background: linear-gradient(90deg, rgb(4 6 9 / 88%), transparent 72%), url('/assets/ui/core-loop/memory-objective-v1.png') center / cover;
+  background:
+    linear-gradient(90deg, rgb(4 6 9 / 88%), transparent 72%),
+    image-set(
+      url('/assets/ui/core-loop/memory-objective-v1.webp') type('image/webp'),
+      url('/assets/ui/core-loop/memory-objective-v1.png') type('image/png')
+    ) center / cover;
 }
 
 .core-objective-card__signal,

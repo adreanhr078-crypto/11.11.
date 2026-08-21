@@ -167,7 +167,7 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
   async queue(batch: MessageBatch<unknown>): Promise<void> {
     for (const message of batch.messages) {
       try {
-        await this.persistQueuedResult(message.body);
+        await persistQueuedResult(this.env, message.body);
         message.ack();
       } catch (error) {
         if (error instanceof PermanentQueueError) {
@@ -432,4 +432,16 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
       indexes: [receipt.matchId],
     });
   }
+}
+
+/**
+ * The Queue delivery contract is at-least-once. Keeping this path callable
+ * outside the event entrypoint lets the Workers test environment exercise the
+ * exact same D1 transaction for duplicate deliveries and farming limits.
+ */
+export async function persistQueuedResult(env: Env, value: unknown): Promise<void> {
+  const handler = EchoRealtimeWorker.prototype as unknown as {
+    persistQueuedResult(value: unknown): Promise<void>;
+  };
+  return handler.persistQueuedResult.call({ env }, value);
 }

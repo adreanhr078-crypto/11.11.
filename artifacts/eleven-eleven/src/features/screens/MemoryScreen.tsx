@@ -24,7 +24,7 @@ import { useGameStore } from '../../stores/gameStore';
 import { usePlayerProgressionStore } from '../player-progression/playerProgressionStore';
 import { useAuthStore } from '../auth/authStore';
 import { useStoryPuzzleStore } from '../story-puzzles/storyPuzzleStore';
-import { useShellStore } from '../../app/shell/shellStore';
+import { useShellStore, useUiPreferencesStore } from '../../app/shell/shellStore';
 import {
   GameButton,
   GlassPanel,
@@ -32,12 +32,23 @@ import {
 import { ManhwaFullscreenViewer } from '../manhwa/ManhwaFullscreenViewer';
 import './manhwa-archive.css';
 import { recordEchoPresenceActivity } from '../../application/ui/echoPresenceActivityStore';
+import { emitExperienceCue } from '../../ui/presentation/experienceCues';
 import {
   deriveStoryPuzzleManhwaAccess,
 } from '../../domain/manhwa/storyPuzzleManhwaAccess';
 import { STORY_PUZZLE_BY_ID } from '../../content/puzzles/storyPuzzleCatalog';
 
-function pageKindLabel(pageKind: string): string {
+const MEMORY_COPY = {
+  ar: { title: 'المانهوا', read: 'صفحات مقروءة', progress: 'التقدم الكلي', revealed: 'صفحات مكشوفة', gate: 'مسار كشف صفحات المانهوا', window: 'نافذة القراءة الحالية: الصفحة', readUntil: 'اقرأ الصفحات بالترتيب حتى الصفحة', thenSolve: 'ثم حل', revealNext: 'لكشف الدفعة التالية.', complete: 'اكتمل المسار الرئيسي وأصبحت النسخة كاملة متاحة للقراءة.', choose: 'اختر الفصل', previous: 'اقرأ الصفحة السابقة أولًا', locked: 'مقفل حتى إكمال لغز القصة السابق', completed: 'مكتمل', lockedLabel: 'مقفل', continue: 'متابعة القراءة — الصفحة', approved: 'النسخة النهائية المعتمدة', previousPage: 'الصفحة السابقة', nextPage: 'الصفحة التالية', open: 'فتح القارئ', timeline: 'تقدم الفصول', drag: 'اسحب داخل القارئ للتنقل بين الصفحات', page: 'الصفحة', requiresPrevious: 'تتطلب قراءة الصفحة السابقة', requiresPuzzle: 'تتطلب حل لغز القصة', nextPageUnavailable: 'تعذر تحديد الصفحة التالية. حاول فتح القارئ مرة أخرى.', pageRecorded: 'تم تسجيل قراءة الصفحة', chapterRecorded: 'واكتملت مكافأة XP مرة واحدة.' },
+  en: { title: 'Manhwa', read: 'pages read', progress: 'overall progress', revealed: 'pages revealed', gate: 'Manhwa page-unlock path', window: 'Current reading window: page', readUntil: 'Read in order through page', thenSolve: 'then solve', revealNext: 'to reveal the next group.', complete: 'The main path is complete; the full edition is ready to read.', choose: 'Choose chapter', previous: 'Read the previous page first', locked: 'Locked until the previous story puzzle is complete', completed: 'Complete', lockedLabel: 'Locked', continue: 'Continue reading — page', approved: 'Final approved edition', previousPage: 'Previous page', nextPage: 'Next page', open: 'Open reader', timeline: 'Chapter progress', drag: 'Drag inside the reader to move between pages', page: 'Page', requiresPrevious: 'requires reading the previous page', requiresPuzzle: 'requires solving the story puzzle', nextPageUnavailable: 'Could not determine the next page. Try opening the reader again.', pageRecorded: 'Reading recorded for page', chapterRecorded: 'and its XP reward was recorded once.' },
+} as const;
+
+function pageKindLabel(pageKind: string, locale: 'ar' | 'en'): string {
+  if (locale === 'en') {
+    switch (pageKind) {
+      case 'cover': return 'Cover'; case 'credits': return 'Credits'; case 'chapter-cover': return 'Chapter cover'; case 'teaser': return 'Next-part teaser'; case 'back-cover': return 'Back cover'; default: return 'Manhwa page';
+    }
+  }
   switch (pageKind) {
     case 'cover': return 'الغلاف';
     case 'credits': return 'الحقوق والاعتمادات';
@@ -49,6 +60,8 @@ function pageKindLabel(pageKind: string): string {
 }
 
 export default function MemoryScreen() {
+  const locale = useUiPreferencesStore((state) => state.locale);
+  const copy = MEMORY_COPY[locale];
   const progressionState = useGameStore((state) => state.progressionState);
   const viewManhwaPage = useGameStore((state) => state.actions.viewManhwaPage);
   const recordReadingProgress = useGameStore(
@@ -148,6 +161,7 @@ export default function MemoryScreen() {
     if (!page || !readerPageIds.has(page.id)) return;
     setActivePageNumber(page.globalPageNumber);
     setViewerPageId(page.id);
+    emitExperienceCue({ name: 'manhwa-open', sourceId: page.id });
   }, [readerPageIds]);
 
   const handleViewerRequestClose = useCallback(() => {
@@ -159,7 +173,7 @@ export default function MemoryScreen() {
     consumeReaderLaunch();
     const pageToOpen = firstUnreadPage ?? activePage;
     if (!pageToOpen || !readerPageIds.has(pageToOpen.id)) {
-      setAnnouncement('تعذر تحديد الصفحة التالية. حاول فتح القارئ مرة أخرى.');
+      setAnnouncement(copy.nextPageUnavailable);
       return;
     }
     openViewer(pageToOpen.id);
@@ -169,6 +183,7 @@ export default function MemoryScreen() {
     firstUnreadPage,
     openViewer,
     readerLaunchRequested,
+    copy.nextPageUnavailable,
     readerPageIds,
   ]);
 
@@ -205,7 +220,7 @@ export default function MemoryScreen() {
       || progressionState.manhwa.completedChapterIds.includes(pageChapter.chapterId)
     ) {
       if (viewResult.success && !viewResult.alreadyViewed) {
-        setAnnouncement(`تم تسجيل قراءة الصفحة ${page.globalPageNumber}.`);
+        setAnnouncement(`${copy.pageRecorded} ${page.globalPageNumber}.`);
       }
       return;
     }
@@ -229,7 +244,7 @@ export default function MemoryScreen() {
           sourceId: pageChapter.chapterId,
         });
       }
-      setAnnouncement(`اكتمل ${pageChapter.title.ar} وتم تسجيل مكافأة XP مرة واحدة.`);
+      setAnnouncement(`${pageChapter.title[locale]} ${copy.chapterRecorded}`);
       await Promise.allSettled([
         loadProfile(),
         loadLeaderboard(true),
@@ -239,9 +254,12 @@ export default function MemoryScreen() {
     activeChapter,
     authStatus,
     claimManhwaStoryCheckpoint,
+    copy.chapterRecorded,
+    copy.pageRecorded,
     claimManhwaChapterReward,
     loadLeaderboard,
     loadProfile,
+    locale,
     markChapterCompleted,
     progressionState.manhwa.completedChapterIds,
     recordReadingProgress,
@@ -258,39 +276,39 @@ export default function MemoryScreen() {
   };
 
   return (
-    <div className="shell-screen manhwa-archive final-manhwa-reader" dir="rtl">
+    <div className="shell-screen manhwa-archive final-manhwa-reader" dir={locale === 'ar' ? 'rtl' : 'ltr'}>
       <header className="shell-screen-heading manhwa-archive__heading final-manhwa-reader__heading">
         <span className="shell-screen-code">03</span>
         <span>
           <small>11.11 // FINAL PUBLICATION // 71 PAGES</small>
-          <h1>المانهوا</h1>
+          <h1>{copy.title}</h1>
           <p lang="en">Final approved reading archive</p>
         </span>
-        <div className="final-manhwa-reader__summary" aria-label="تقدم قراءة المانهوا">
+        <div className="final-manhwa-reader__summary" aria-label={copy.progress}>
           <span>
             <strong>{viewedCount}/{FINAL_MANHWA_PAGES.length}</strong>
-            <small>صفحات مقروءة</small>
+            <small>{copy.read}</small>
           </span>
           <span>
             <strong>{progressPercent}%</strong>
-            <small>التقدم الكلي</small>
+            <small>{copy.progress}</small>
           </span>
           <span>
             <strong>{accessiblePages.length}/71</strong>
-            <small>صفحات مكشوفة</small>
+            <small>{copy.revealed}</small>
           </span>
         </div>
       </header>
 
-      <section className="final-manhwa-reader__gate" aria-label="مسار كشف صفحات المانهوا">
-        <span><BookOpen aria-hidden="true" /> نافذة القراءة الحالية: الصفحة 01—{String(manhwaAccess.maxAccessibleGlobalPage).padStart(2, '0')}</span>
+      <section className="final-manhwa-reader__gate" aria-label={copy.gate}>
+        <span><BookOpen aria-hidden="true" /> {copy.window} 01—{String(manhwaAccess.maxAccessibleGlobalPage).padStart(2, '0')}</span>
         {nextGatePuzzle ? (
           <p>
-            اقرأ الصفحات بالترتيب حتى الصفحة <strong>{nextGatePuzzle.source.globalPageNumber}</strong>،
-            ثم حل <strong>«{nextGatePuzzle.title.ar}»</strong> لكشف الدفعة التالية.
+            {copy.readUntil} <strong>{nextGatePuzzle.source.globalPageNumber}</strong>,
+            {` ${copy.thenSolve} `}<strong>«{nextGatePuzzle.title[locale]}»</strong> {copy.revealNext}
           </p>
         ) : (
-          <p><CheckCircle2 aria-hidden="true" /> اكتمل المسار الرئيسي وأصبحت النسخة كاملة متاحة للقراءة.</p>
+          <p><CheckCircle2 aria-hidden="true" /> {copy.complete}</p>
         )}
       </section>
 
@@ -303,7 +321,7 @@ export default function MemoryScreen() {
           className="final-manhwa-reader__chapters"
           tone="memory"
           eyebrow="CHAPTER SELECT // 01—04"
-          title="اختر الفصل"
+          title={copy.choose}
         >
           <div className="final-manhwa-reader__chapter-list">
             {FINAL_MANHWA_CHAPTERS.map((chapter) => {
@@ -331,18 +349,18 @@ export default function MemoryScreen() {
                     {String(chapter.order).padStart(2, '0')}
                   </span>
                   <span className="final-manhwa-reader__chapter-copy">
-                    <strong>{chapter.title.ar}</strong>
+                    <strong>{chapter.title[locale]}</strong>
                     <small>
                       {chapterReadable
                         ? `${chapter.startPage}—${Math.min(chapter.endPage, manhwaAccess.maxAccessibleGlobalPage)} // ${chapterViewed}/${chapterPages.length}`
                         : chapterUnlocked
-                          ? 'اقرأ الصفحة السابقة أولًا'
-                          : 'مقفل حتى إكمال لغز القصة السابق'}
+                          ? copy.previous
+                          : copy.locked}
                     </small>
                   </span>
                   {chapterReadable
-                    ? chapterComplete && <CheckCircle2 aria-label="مكتمل" />
-                    : <LockKeyhole aria-label="مقفل" />}
+                    ? chapterComplete && <CheckCircle2 aria-label={copy.completed} />
+                    : <LockKeyhole aria-label={copy.lockedLabel} />}
                 </button>
               );
             })}
@@ -353,7 +371,7 @@ export default function MemoryScreen() {
               leadingIcon={<Clock3 />}
               onClick={() => openViewer(continuePage.id)}
             >
-              متابعة القراءة — الصفحة {continuePage.globalPageNumber}
+              {copy.continue} {continuePage.globalPageNumber}
             </GameButton>
           )}
         </GlassPanel>
@@ -361,14 +379,14 @@ export default function MemoryScreen() {
         <GlassPanel
           className="final-manhwa-reader__preview"
           tone="memory"
-          eyebrow={`PAGE ${String(activePage.globalPageNumber).padStart(2, '0')} // ${pageKindLabel(activePage.pageKind)}`}
-          title={activePage.title.ar}
+          eyebrow={`PAGE ${String(activePage.globalPageNumber).padStart(2, '0')} // ${pageKindLabel(activePage.pageKind, locale)}`}
+          title={activePage.title[locale]}
         >
           <article className="final-manhwa-reader__stage-card">
             <div className="final-manhwa-reader__preview-image-wrap">
               <img
                 src={activePage.imageSrc}
-                alt={activePage.accessibleDescription.ar}
+                alt={activePage.accessibleDescription[locale]}
                 loading="eager"
                 decoding="async"
               />
@@ -376,16 +394,16 @@ export default function MemoryScreen() {
             </div>
             <div className="final-manhwa-reader__preview-copy">
               <span className="final-manhwa-reader__status">
-                <BookOpen aria-hidden="true" /> النسخة النهائية المعتمدة
+                <BookOpen aria-hidden="true" /> {copy.approved}
               </span>
-              <p>{activePage.accessibleDescription.ar}</p>
+              <p>{activePage.accessibleDescription[locale]}</p>
               <div className="final-manhwa-reader__controls">
                 <GameButton
                   variant="ghost"
                   size="icon"
                   disabled={activePage.globalPageNumber <= 1}
                   onClick={() => jumpToPage(activePage.globalPageNumber - 1)}
-                  aria-label="الصفحة السابقة"
+                  aria-label={copy.previousPage}
                 >
                   <ChevronRight />
                 </GameButton>
@@ -394,14 +412,14 @@ export default function MemoryScreen() {
                   leadingIcon={<Maximize2 />}
                   onClick={() => openViewer(activePage.id)}
                 >
-                  فتح القارئ
+                  {copy.open}
                 </GameButton>
                 <GameButton
                   variant="ghost"
                   size="icon"
                   disabled={activePage.globalPageNumber >= maxSequentialPage}
                   onClick={() => jumpToPage(activePage.globalPageNumber + 1)}
-                  aria-label="الصفحة التالية"
+                  aria-label={copy.nextPage}
                 >
                   <ChevronLeft />
                 </GameButton>
@@ -411,7 +429,7 @@ export default function MemoryScreen() {
         </GlassPanel>
       </div>
 
-      <section className="final-manhwa-reader__timeline" aria-label="تقدم الفصول">
+      <section className="final-manhwa-reader__timeline" aria-label={copy.timeline}>
         <div className="final-manhwa-reader__timeline-track">
           {FINAL_MANHWA_PAGES.map((page) => (
             <button
@@ -425,14 +443,14 @@ export default function MemoryScreen() {
               disabled={!readerPageIds.has(page.id)}
               onClick={() => jumpToPage(page.globalPageNumber)}
               aria-label={readerPageIds.has(page.id)
-                ? `الصفحة ${page.globalPageNumber}`
+                ? `${copy.page} ${page.globalPageNumber}`
                 : accessiblePageIds.has(page.id)
-                  ? `الصفحة ${page.globalPageNumber} تتطلب قراءة الصفحة السابقة`
-                  : `الصفحة ${page.globalPageNumber} تتطلب حل لغز القصة`}
+                  ? `${copy.page} ${page.globalPageNumber} ${copy.requiresPrevious}`
+                  : `${copy.page} ${page.globalPageNumber} ${copy.requiresPuzzle}`}
             />
           ))}
         </div>
-        <span>اسحب داخل القارئ للتنقل بين الصفحات</span>
+        <span>{copy.drag}</span>
       </section>
 
       {viewerPageId && (

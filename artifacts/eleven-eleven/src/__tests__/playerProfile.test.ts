@@ -78,7 +78,7 @@ describe('player profile identity and authority', () => {
   });
 
   it('maps the selected Avatar to its own Profile presentation', () => {
-    assert.equal(playerAvatarPresentationSrc('echo'), '/assets/characters/echo-fullbody-normal-v2.png');
+    assert.equal(playerAvatarPresentationSrc('echo'), '/assets/characters/echo-fullbody-normal-v2.webp');
     assert.notEqual(
       playerAvatarPresentationSrc('silver_signal'),
       playerAvatarPresentationSrc('echo'),

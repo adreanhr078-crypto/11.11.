@@ -44,17 +44,74 @@ import { AuthStatusButton } from '../../features/auth/AuthStatusButton';
 import { useStoryPuzzleStore } from '../../features/story-puzzles/storyPuzzleStore';
 import { CoreObjectiveCard } from '../../features/player-journey/CoreObjectiveCard';
 
+const ENGLISH_CATEGORY_COPY: Record<string, { label: string; shortLabel: string; description: string }> = {
+  story: {
+    label: 'Home',
+    shortLabel: 'Home',
+    description: 'Echo status, the journey gateway, and story-connected files.',
+  },
+  memory: {
+    label: 'Manhwa',
+    shortLabel: 'Manhwa',
+    description: 'Read the Manhwa archive and unlock pages with memory shards.',
+  },
+  puzzles: {
+    label: 'Puzzles',
+    shortLabel: 'Puzzles',
+    description: 'Solve story nodes and reconstruct missing events.',
+  },
+  network: {
+    label: 'Echo Network',
+    shortLabel: 'Network',
+    description: 'Chess, co-op, seasons, and the signal community in one place.',
+  },
+};
+
+const ENGLISH_SCREEN_COPY: Record<string, { label: string; description: string }> = {
+  memories: {
+    label: 'Manhwa archive',
+    description: 'Manhwa Archive // open and locked pages.',
+  },
+  puzzles: {
+    label: '11:11 Puzzle Hub',
+    description: 'Story path, Daily Signal, and Weekly System Trial.',
+  },
+};
+
+function localizedCategory(
+  locale: 'ar' | 'en',
+  category: { id: string; label: string; shortLabel: string; description: string },
+) {
+  return locale === 'en'
+    ? ENGLISH_CATEGORY_COPY[category.id] ?? category
+    : category;
+}
+
+function localizedScreen(
+  locale: 'ar' | 'en',
+  screen: { id: string; label: string; description: string },
+) {
+  return locale === 'en'
+    ? ENGLISH_SCREEN_COPY[screen.id] ?? screen
+    : screen;
+}
+
 export function ApplicationShell() {
   const shell = useShellStore();
   const preferences = useUiPreferencesStore();
   const storyPuzzleSnapshot = useStoryPuzzleStore((state) => state.snapshot);
   const chapterTitle = useGameStore(
-    (state) => createDashboardReadModel(state, storyPuzzleSnapshot).chapter.title,
+    (state) => createDashboardReadModel(
+      state,
+      storyPuzzleSnapshot,
+      preferences.locale,
+    ).chapter.title,
   );
   const campaignProgress = useGameStore(
     (state) => createDashboardReadModel(
       state,
       storyPuzzleSnapshot,
+      preferences.locale,
     ).puzzleProgress.progress,
   );
   const unviewedManhwaPages = useGameStore((state) => (
@@ -70,6 +127,9 @@ export function ApplicationShell() {
   const categoryScreens = getCategoryScreens(openCategory.id);
   const currentCategoryScreens = getCategoryScreens(currentCategory.id);
   const currentCategoryHasMenu = currentCategoryScreens.length > 1;
+  const currentCategoryCopy = localizedCategory(preferences.locale, currentCategory);
+  const currentScreenCopy = localizedScreen(preferences.locale, definition);
+  const openCategoryCopy = localizedCategory(preferences.locale, openCategory);
   const Screen = definition.component;
   const isMainMenu = shell.currentScreen === 'main-menu';
   const isGameplay = shell.currentScreen === 'play'
@@ -94,7 +154,11 @@ export function ApplicationShell() {
       data-ui-system="cinematic-shell-v2"
     >
       <PremiumAtmosphere />
-      <a className="application-shell__skip-link" href="#player-content">تجاوز عناصر الواجهة إلى المحتوى</a>
+      <a className="application-shell__skip-link" href="#player-content">
+        {preferences.locale === 'en'
+          ? 'Skip interface controls to content'
+          : 'تجاوز عناصر الواجهة إلى المحتوى'}
+      </a>
       <GameSafeArea className="application-shell__safe">
         {!isMainMenu && !isGameplay && (
           <header className="application-shell__topbar">
@@ -107,16 +171,18 @@ export function ApplicationShell() {
                 }
               }}
               disabled={!currentCategoryHasMenu}
-              aria-label={`فتح قائمة ${currentCategory.label}`}
-              title={currentCategory.description}
+               aria-label={preferences.locale === 'en'
+                 ? `Open ${currentCategoryCopy.label} menu`
+                 : `فتح قائمة ${currentCategoryCopy.label}`}
+               title={currentCategoryCopy.description}
             >
               <i data-tone={definition.tone}>
                 <GameIcon id={definition.iconId} />
                 <small>{definition.code}</small>
               </i>
               <span>
-                <small>{currentCategory.label}</small>
-                <strong>{definition.label}</strong>
+                 <small>{currentCategoryCopy.label}</small>
+                 <strong>{currentScreenCopy.label}</strong>
               </span>
             </button>
 
@@ -136,24 +202,24 @@ export function ApplicationShell() {
                 variant="ghost"
                 className="application-shell__auth-control"
               />
-              <GameTooltip label="الإعدادات">
+              <GameTooltip label={preferences.locale === 'en' ? 'Settings' : 'الإعدادات'}>
                 <GameButton
                   className="application-shell__utility-control"
                   variant="secondary"
                   leadingIcon={<GameIcon id="screen-settings" />}
                   onClick={() => shell.navigate('settings')}
                 >
-                  الإعدادات
+                  {preferences.locale === 'en' ? 'Settings' : 'الإعدادات'}
                 </GameButton>
               </GameTooltip>
-              <GameTooltip label="قائمة الإيقاف">
+              <GameTooltip label={preferences.locale === 'en' ? 'Pause menu' : 'قائمة الإيقاف'}>
                 <GameButton
                   className="application-shell__utility-control"
                   variant="ghost"
                   leadingIcon={<GameIcon id="utility-pause" />}
                   onClick={shell.openPause}
                 >
-                  إيقاف
+                  {preferences.locale === 'en' ? 'Pause' : 'إيقاف'}
                 </GameButton>
               </GameTooltip>
             </div>
@@ -172,7 +238,7 @@ export function ApplicationShell() {
               <GameLoadingScreen
                 fullscreen={false}
                 title="11:11"
-                message="تهيئة قناة العرض"
+                 message={preferences.locale === 'en' ? 'Preparing the display channel' : 'تهيئة قناة العرض'}
               />
             )}
           >
@@ -189,10 +255,12 @@ export function ApplicationShell() {
         {!isMainMenu && !isGameplay && (
           <nav
             className="application-shell__navigation"
-            aria-label="التنقل الرئيسي"
+             aria-label={preferences.locale === 'en' ? 'Primary navigation' : 'التنقل الرئيسي'}
           >
-            {PRIMARY_NAVIGATION_CATEGORIES.map((category) => (
-              <button
+             {PRIMARY_NAVIGATION_CATEGORIES.map((category) => {
+               const categoryCopy = localizedCategory(preferences.locale, category);
+               return (
+               <button
                 key={category.id}
                 type="button"
                 data-navigation-category={category.id}
@@ -209,15 +277,17 @@ export function ApplicationShell() {
                   }
                   shell.navigate(category.landingScreenId);
                 }}
-                aria-label={`${category.label}: ${category.description}${
-                  category.id === 'memory' && unviewedManhwaPages > 0
-                    ? `، ${unviewedManhwaPages} صفحة مانهوا جديدة`
-                    : ''
-                }`}
-                title={category.description}
+                 aria-label={`${categoryCopy.label}: ${categoryCopy.description}${
+                   category.id === 'memory' && unviewedManhwaPages > 0
+                     ? preferences.locale === 'en'
+                       ? `, ${unviewedManhwaPages} new Manhwa page${unviewedManhwaPages === 1 ? '' : 's'}`
+                       : `، ${unviewedManhwaPages} صفحة مانهوا جديدة`
+                     : ''
+                 }`}
+                 title={categoryCopy.description}
               >
                 <GameIcon id={category.iconId} />
-                <span>{category.shortLabel}</span>
+                 <span>{categoryCopy.shortLabel}</span>
                 {category.id === 'memory' && unviewedManhwaPages > 0 && (
                   <i
                     className="application-shell__navigation-badge"
@@ -226,8 +296,9 @@ export function ApplicationShell() {
                     {unviewedManhwaPages}
                   </i>
                 )}
-              </button>
-            ))}
+               </button>
+               );
+             })}
           </nav>
         )}
       </GameSafeArea>
@@ -235,20 +306,22 @@ export function ApplicationShell() {
       <GameDrawer
         open={shell.navigationCategory !== null}
         onClose={shell.closeNavigation}
-        title={openCategory.label}
+         title={openCategoryCopy.label}
         side="end"
         tone={openCategory.tone}
       >
         <div className="application-shell__drawer-intro">
           <GameIconLabel
             iconId={openCategory.iconId}
-            label={openCategory.label}
-            description={openCategory.description}
+             label={openCategoryCopy.label}
+             description={openCategoryCopy.description}
           />
         </div>
         <div className="application-shell__drawer-list">
-          {categoryScreens.map((screen) => (
-            <GameButton
+           {categoryScreens.map((screen) => {
+             const screenCopy = localizedScreen(preferences.locale, screen);
+             return (
+             <GameButton
               key={screen.id}
               variant={
                 shell.currentScreen === screen.id
@@ -260,11 +333,12 @@ export function ApplicationShell() {
               onClick={() => shell.navigate(screen.id)}
             >
               <span className="application-shell__drawer-item-copy">
-                <strong>{screen.label}</strong>
-                <small>{screen.description}</small>
+                 <strong>{screenCopy.label}</strong>
+                 <small>{screenCopy.description}</small>
               </span>
-            </GameButton>
-          ))}
+             </GameButton>
+             );
+           })}
         </div>
       </GameDrawer>
 

@@ -8,7 +8,7 @@ import {
 } from '../../ui/design-system';
 import { GameIcon } from '../../ui/icons';
 import { createDashboardReadModel } from '../../application/ui/gameUiReadModels';
-import { useShellStore } from '../../app/shell/shellStore';
+import { useShellStore, useUiPreferencesStore } from '../../app/shell/shellStore';
 import {
   PlayerResourceCounters,
 } from '../../app/shell/PlayerResourceCounters';
@@ -22,9 +22,60 @@ import { useAuthStore } from '../auth/authStore';
 import { useStoryPuzzleStore } from '../story-puzzles/storyPuzzleStore';
 import { deriveCorePlayerObjective } from '../../application/player-journey/corePlayerLoop';
 
+const MAIN_MENU_COPY = {
+  ar: {
+    ariaLabel: 'القائمة الرئيسية',
+    scene: 'المشهد السينمائي',
+    identity: 'أنت لست مجرد ذكريات.',
+    identityStrong: 'أنت الحقيقة التي تحاول استعادتها.',
+    resume: 'استعادة الاتصال',
+    start: 'ابدأ الرحلة',
+    identityFirst: 'ثبّت هويتك أولًا',
+    signIn: 'سجّل الدخول وابدأ',
+    memories: 'الذكريات',
+    network: 'شبكة Echo',
+    newGame: 'لعبة جديدة',
+    nextStep: 'خطوتك التالية',
+    signInExplainer: 'تسجيل الدخول يربط دليلك بحسابك',
+    signInDetail: 'يمكنك إنشاء حساب أو متابعة كضيف، ثم ستقابل Echo قبل أول دليل.',
+    interactiveAudio: 'مؤثرات تفاعلية متاحة · الصوت المؤلف قيد الإضافة',
+    resetEyebrow: 'إعادة تهيئة الذاكرة',
+    resetTitle: 'بدء رحلة جديدة؟',
+    resetDescription: 'سيتم مسح التقدم المحلي الحالي بعد التأكيد. لا يمكن التراجع عن هذا الإجراء.',
+    cancel: 'إلغاء',
+    confirmReset: 'بدء لعبة جديدة',
+    resetNote: 'هذا يعيد حالة اللاعب فقط ويحافظ على بنية المحتوى والأنظمة كما هي.',
+  },
+  en: {
+    ariaLabel: 'Main menu',
+    scene: 'Cinematic scene',
+    identity: 'You are not only memories.',
+    identityStrong: 'You are the truth trying to return.',
+    resume: 'Restore the connection',
+    start: 'Begin the journey',
+    identityFirst: 'Secure your identity first',
+    signIn: 'Sign in and begin',
+    memories: 'Memories',
+    network: 'Echo Network',
+    newGame: 'New game',
+    nextStep: 'Your next step',
+    signInExplainer: 'Sign-in connects your evidence to an account',
+    signInDetail: 'Create an account or continue as a guest; then Echo will meet you before your first clue.',
+    interactiveAudio: 'Interactive effects are available · composed music is coming',
+    resetEyebrow: 'Memory reset',
+    resetTitle: 'Begin a new journey?',
+    resetDescription: 'Your current local progress will be cleared after confirmation. This cannot be undone.',
+    cancel: 'Cancel',
+    confirmReset: 'Start new game',
+    resetNote: 'This resets player state only; it preserves content and system structure.',
+  },
+} as const;
+
 export default function MainMenuScreen() {
   const state = useGameStore();
   const navigate = useShellStore((shell) => shell.navigate);
+  const locale = useUiPreferencesStore((preferences) => preferences.locale);
+  const copy = MAIN_MENU_COPY[locale];
   const storyPuzzleSnapshot = useStoryPuzzleStore((store) => store.snapshot);
   const requestManhwaReader = useShellStore((shell) => shell.requestManhwaReader);
   const authStatus = useAuthStore((store) => store.status);
@@ -35,8 +86,8 @@ export default function MainMenuScreen() {
     [state, storyPuzzleSnapshot],
   );
   const objective = useMemo(
-    () => deriveCorePlayerObjective(storyPuzzleSnapshot),
-    [storyPuzzleSnapshot],
+    () => deriveCorePlayerObjective(storyPuzzleSnapshot, locale),
+    [locale, storyPuzzleSnapshot],
   );
   const signedIn = authStatus === 'signed-in';
 
@@ -58,7 +109,8 @@ export default function MainMenuScreen() {
       className="shell-main-menu"
       overlay="strong"
       safeContent
-      aria-label="القائمة الرئيسية"
+      aria-label={copy.ariaLabel}
+      dir={locale === 'ar' ? 'rtl' : 'ltr'}
     >
       <div
         className="shell-main-menu__world"
@@ -91,7 +143,7 @@ export default function MainMenuScreen() {
       <header className="shell-main-menu__utility shell-main-menu__utility--minimal">
         <span className="shell-main-menu__scene-title">
           <span className="shell-screen-code">01</span>
-          <strong>المشهد السينمائي</strong>
+          <strong>{copy.scene}</strong>
         </span>
         <PlayerResourceCounters className="shell-main-menu__resources" />
         <AuthStatusButton
@@ -106,8 +158,8 @@ export default function MainMenuScreen() {
         <p>ECHOES OF THE FORGOTTEN</p>
         <span className="shell-main-menu__line" aria-hidden="true" />
         <blockquote>
-          أنت لست مجرد ذكريات.
-          <strong> أنت الحقيقة التي تحاول استعادتها.</strong>
+          {copy.identity}
+          <strong> {copy.identityStrong}</strong>
         </blockquote>
       </section>
 
@@ -117,8 +169,8 @@ export default function MainMenuScreen() {
           tone="danger"
           eyebrow="Echo Channel"
           title={signedIn
-            ? model.hasJourneyProgress ? 'استعادة الاتصال' : 'ابدأ الرحلة'
-            : 'ثبّت هويتك أولًا'}
+            ? model.hasJourneyProgress ? copy.resume : copy.start
+            : copy.identityFirst}
         >
           <GameButton
             size="lg"
@@ -128,20 +180,20 @@ export default function MainMenuScreen() {
               : 'category-characters'} />}
             onClick={continueJourney}
           >
-            {signedIn ? objective.actionLabel : 'سجّل الدخول وابدأ'}
+            {signedIn ? objective.actionLabel : copy.signIn}
           </GameButton>
           <div className="shell-main-menu__secondary-actions">
             <GameButton
               variant="secondary"
               onClick={() => navigate('memories')}
             >
-              الذكريات
+              {copy.memories}
             </GameButton>
             <GameButton
               variant="secondary"
               onClick={() => navigate('echo-network')}
             >
-              شبكة Echo
+              {copy.network}
             </GameButton>
             <GameButton
               variant="ghost"
@@ -153,13 +205,13 @@ export default function MainMenuScreen() {
               variant="ghost"
               onClick={() => setConfirmNewGame(true)}
             >
-              لعبة جديدة
+              {copy.newGame}
             </GameButton>
           </div>
           <div className="shell-main-menu__checkpoint">
-            <span>خطوتك التالية</span>
-            <strong>{signedIn ? objective.title : 'تسجيل الدخول يربط دليلك بحسابك'}</strong>
-            <small>{signedIn ? objective.detail : 'يمكنك إنشاء حساب أو متابعة كضيف، ثم ستقابل Echo قبل أول دليل.'}</small>
+            <span>{copy.nextStep}</span>
+            <strong>{signedIn ? objective.title : copy.signInExplainer}</strong>
+            <small>{signedIn ? objective.detail : copy.signInDetail}</small>
           </div>
         </GlassPanel>
       </div>
@@ -168,16 +220,16 @@ export default function MainMenuScreen() {
         <span>Mobile Browser Interface</span>
         <span className="shell-main-menu__audio-signal">
           <i /><i /><i /><i /><i /><i /><i /><i />
-          مؤثرات تفاعلية متاحة · الصوت المؤلف قيد الإضافة
+          {copy.interactiveAudio}
         </span>
       </footer>
 
       <GameModal
         open={confirmNewGame}
         onClose={() => setConfirmNewGame(false)}
-        eyebrow="إعادة تهيئة الذاكرة"
-        title="بدء رحلة جديدة؟"
-        description="سيتم مسح التقدم المحلي الحالي بعد التأكيد. لا يمكن التراجع عن هذا الإجراء."
+        eyebrow={copy.resetEyebrow}
+        title={copy.resetTitle}
+        description={copy.resetDescription}
         tone="danger"
         footer={(
           <>
@@ -185,19 +237,19 @@ export default function MainMenuScreen() {
               variant="ghost"
               onClick={() => setConfirmNewGame(false)}
             >
-              إلغاء
+              {copy.cancel}
             </GameButton>
             <GameButton
               variant="danger"
               onClick={() => state.actions.resetGame()}
             >
-              بدء لعبة جديدة
+              {copy.confirmReset}
             </GameButton>
           </>
         )}
       >
         <p className="shell-modal-note">
-          هذا يعيد حالة اللاعب فقط ويحافظ على بنية المحتوى والأنظمة كما هي.
+          {copy.resetNote}
         </p>
       </GameModal>
       <AuthPanel open={authOpen} onClose={() => setAuthOpen(false)} />

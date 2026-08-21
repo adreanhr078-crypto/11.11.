@@ -483,8 +483,9 @@
 
 .auth-form__forgot {
   justify-self: start;
+  min-height: 2.75rem;
   border: 0;
-  padding: 0;
+  padding: 0.25rem 0.45rem;
   color: var(--gds-text-secondary);
   background: transparent;
   font-size: 0.72rem;
@@ -985,19 +986,35 @@
   }
 
   .auth-card {
-    padding: 1.5rem 1rem 1.2rem;
+    padding: 1.2rem 1rem 1rem;
+  }
+
+  .auth-card__heading {
+    margin-bottom: 0.8rem;
+  }
+
+  .auth-card__modes {
+    margin-bottom: 0.7rem;
+  }
+
+  .auth-form {
+    gap: 0.65rem;
+  }
+
+  .auth-card__divider {
+    margin: 0.7rem 0 0.6rem;
   }
 
   .auth-brand {
-    min-height: 12rem;
+    min-height: 6.5rem;
   }
 
   .auth-brand__number-wrap {
-    min-height: 6rem;
+    min-height: 4.25rem;
   }
 
   .auth-brand__number {
-    font-size: 4.35rem;
+    font-size: 3.45rem;
   }
 
   .auth-providers {
@@ -1012,7 +1029,7 @@
     grid-template-columns: 1fr;
   }
 
-  .auth-experience__footer span:first-child {
+  .auth-experience__footer {
     display: none;
   }
 }

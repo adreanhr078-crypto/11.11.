@@ -19,6 +19,16 @@ export default defineConfig({
     outDir: 'dist',
     rollupOptions: {
       input: path.resolve(__dirname, 'index.html'),
+      output: {
+        manualChunks(id) {
+          // Phaser and Three are reached only through lazy gameplay screens.
+          // Keep their engine code separate without pulling React/Fiber into
+          // the first-player entry chunk.
+          if (id.includes('/node_modules/phaser/')) return 'phaser-runtime';
+          if (id.includes('/node_modules/three/')) return 'three-runtime';
+          return undefined;
+        },
+      },
     },
   },
   optimizeDeps: {

@@ -248,6 +248,7 @@
 }
 
 .onboarding-welcome,
+.onboarding-mission,
 .onboarding-identity,
 .onboarding-loading {
   display: grid;
@@ -262,6 +263,7 @@
 }
 
 .onboarding-welcome h1,
+.onboarding-mission h1,
 .onboarding-identity h1,
 .onboarding-loading h1 {
   max-width: 36rem;
@@ -290,6 +292,7 @@
 }
 
 .onboarding-welcome p,
+.onboarding-mission__intro,
 .onboarding-identity__intro,
 .onboarding-loading p {
   margin: 0;
@@ -315,6 +318,64 @@
 
 .onboarding-welcome__signal i:nth-child(2) { animation-delay: 160ms; }
 .onboarding-welcome__signal i:nth-child(3) { animation-delay: 320ms; }
+
+.onboarding-mission {
+  align-content: center;
+}
+
+.onboarding-mission__intro {
+  max-width: 38rem;
+  margin: 0;
+  color: #c5d5de;
+  font-size: clamp(0.85rem, 1.4vw, 1rem);
+  line-height: 1.85;
+}
+
+.onboarding-mission__steps {
+  display: grid;
+  gap: 0.55rem;
+  width: min(100%, 36rem);
+  margin-block: 0.15rem 0.35rem;
+}
+
+.onboarding-mission__steps article {
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 3.35rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgb(87 231 255 / 18%);
+  border-inline-start: 2px solid var(--onboarding-cyan);
+  background: linear-gradient(100deg, rgb(7 34 45 / 62%), rgb(1 8 15 / 30%));
+}
+
+.onboarding-mission__steps article > span {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid rgb(255 70 87 / 46%);
+  border-radius: 50%;
+  color: var(--onboarding-red);
+  font: 700 0.63rem var(--gds-font-mono);
+}
+
+.onboarding-mission__steps article > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.onboarding-mission__steps strong {
+  color: #f4f8ff;
+  font-size: 0.82rem;
+}
+
+.onboarding-mission__steps small {
+  color: #8da7b6;
+  font-size: 0.68rem;
+  line-height: 1.55;
+}
 
 .onboarding-primary-action,
 .onboarding-secondary-action,
@@ -586,7 +647,10 @@
   opacity: 0.42;
   background:
     linear-gradient(90deg, #010307 0%, transparent 40%, rgb(3 36 52 / 34%) 100%),
-    url('/assets/environments/main-menu-world-v1.png') center / cover;
+    image-set(
+      url('/assets/environments/main-menu-world-v1.webp') type('image/webp'),
+      url('/assets/environments/main-menu-world-v1.png') type('image/png')
+    ) center / cover;
   mask-image: linear-gradient(90deg, transparent 0, black 25%, black 85%, transparent 100%);
 }
 
@@ -649,6 +713,40 @@
   filter: brightness(0.82) contrast(1.1) saturate(0.96) drop-shadow(0 0 2.4rem rgb(87 231 255 / 17%));
   user-select: none;
 }
+
+/* A small collar specimen mark makes Echo's experimental origin legible in
+ * the first-contact silhouette without turning the character art into UI. */
+.onboarding-echo-stage__experiment-mark {
+  position: absolute;
+  z-index: 2;
+  top: 17.6%;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.16rem;
+  min-width: 3.4rem;
+  min-height: 0.8rem;
+  padding: 0.08rem 0.2rem;
+  border: 1px solid rgb(255 70 87 / 70%);
+  border-radius: 0.08rem;
+  color: #f7e8e6;
+  background: rgb(12 4 8 / 86%);
+  box-shadow: 0 0 0.8rem rgb(255 70 87 / 28%);
+  font: 800 0.38rem/1 var(--gds-font-mono);
+  letter-spacing: 0.08em;
+  transform: translateX(-50%) rotate(-3deg);
+  pointer-events: none;
+}
+
+.onboarding-echo-stage__experiment-mark i {
+  width: 0.55rem;
+  height: 0.34rem;
+  border-block: 1px solid rgb(87 231 255 / 78%);
+  background: repeating-linear-gradient(90deg, transparent 0 1px, rgb(87 231 255 / 86%) 1px 2px);
+}
+
+.onboarding-echo-stage__experiment-mark b { font: inherit; }
 
 .onboarding-echo-stage__grade,
 .onboarding-echo-stage__scan,
@@ -842,9 +940,11 @@
   .onboarding-panel { min-height: 0; padding: 0.9rem 1.2rem; }
   .onboarding-panel__topline { top: 0.8rem; right: 1.2rem; left: 1.2rem; padding-bottom: 0.4rem; }
   .onboarding-welcome,
+  .onboarding-mission,
   .onboarding-identity,
   .onboarding-loading { gap: 0.45rem; padding-top: 2rem; }
   .onboarding-welcome h1 { font-size: clamp(1.45rem, 4.5vw, 2.3rem); }
+  .onboarding-mission h1 { font-size: clamp(1.35rem, 4.2vw, 2.1rem); }
   .onboarding-identity h1 { font-size: clamp(1.35rem, 3.6vw, 2rem); }
   .onboarding-welcome p,
   .onboarding-identity__intro { font-size: 0.72rem; }
@@ -852,6 +952,7 @@
   .onboarding-primary-action { min-height: 2.25rem; margin-top: 0.15rem; padding: 0.4rem 0.8rem; font-size: 0.85rem; }
   .onboarding-hint { font-size: 0.48rem; }
   .onboarding-echo-stage__telemetry { top: 7%; }
+  .onboarding-echo-stage__experiment-mark { top: 16%; }
   .onboarding-echo-stage__quote { bottom: 18%; }
   .onboarding-echo-stage__avatar-readout { bottom: 4%; }
   .onboarding-footer { min-height: 1.75rem; font-size: 0.4rem; }
@@ -923,6 +1024,7 @@
   }
 
   .onboarding-welcome,
+  .onboarding-mission,
   .onboarding-identity,
   .onboarding-loading {
     gap: 0.8rem;

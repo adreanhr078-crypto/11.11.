@@ -23,10 +23,10 @@ export interface EchoStatePresentationAssets {
  * and are intentionally kept outside the gameplay content registries.
  */
 export const ECHO_PRESENTATION_ASSETS: EchoPresentationAssetSet = {
-  portrait: '/assets/characters/echo-portrait-v1.png',
-  fullBodyNormal: '/assets/characters/echo-fullbody-normal-v2.png',
+  portrait: '/assets/characters/echo-portrait-v1.webp',
+  fullBodyNormal: '/assets/characters/echo-fullbody-normal-v2.webp',
   fullBodyCorrupted:
-    '/assets/characters/echo-fullbody-corrupted-v1.png',
+    '/assets/characters/echo-fullbody-corrupted-v1.webp',
   fallbackLabel: 'Echo',
 };
 
@@ -95,6 +95,6 @@ export interface EnvironmentPresentationAssetSet {
 
 export const ENVIRONMENT_PRESENTATION_ASSETS:
 EnvironmentPresentationAssetSet = {
-  mainMenuWorld: '/assets/environments/main-menu-world-v1.png',
+  mainMenuWorld: '/assets/environments/main-menu-world-v1.webp',
   memoryLaboratory: '/assets/environments/memory-lab-v1.png',
 };

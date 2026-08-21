@@ -130,7 +130,8 @@ describe('Manhwa Viewer unlocked-page boundary', () => {
       false,
     );
     assert.ok(source.includes("setLoadState('error')"));
-    assert.ok(source.includes('The page was not recorded'));
+    assert.ok(source.includes('Could not load this page'));
+    assert.ok(source.includes('errorDetail'));
     assert.equal(
       [...screen.matchAll(/viewManhwaPage\(page\.id\)/g)].length,
       1,

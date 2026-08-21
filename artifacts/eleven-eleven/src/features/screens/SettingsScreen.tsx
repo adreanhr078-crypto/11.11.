@@ -41,7 +41,7 @@ export default function SettingsScreen() {
       <header className="shell-screen-heading">
         <span className="shell-screen-code">12</span>
         <span>
-          <small>DEVICE PROFILE // ANDROID LANDSCAPE</small>
+          <small>DEVICE PROFILE // RESPONSIVE WEB</small>
           <h1>إعدادات التجربة</h1>
         </span>
       </header>
@@ -262,7 +262,7 @@ export default function SettingsScreen() {
           </div>
           <div>
             <dt>الأداء الصوتي</dt>
-            <dd>日本語 · ثابت للحلقات</dd>
+            <dd>غير متاح بعد · المؤثرات النظامية متاحة</dd>
           </div>
           <div>
             <dt>الترجمة</dt>

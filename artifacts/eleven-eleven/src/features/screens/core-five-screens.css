@@ -4083,6 +4083,132 @@
   border-inline-start: 1px solid rgb(255 255 255 / 10%);
 }
 
+/* First-contact mission brief: a calm explanation before the player is asked
+ * to type. It is intentionally HTML so the journey remains readable without
+ * the decorative Echo layer. */
+.echo-first-contact {
+  position: relative;
+  display: grid;
+  gap: 0.65rem;
+  margin-block-end: 0.8rem;
+  padding: 0.85rem 0.95rem;
+  overflow: hidden;
+  border: 1px solid rgb(87 231 255 / 24%);
+  border-inline-start: 2px solid var(--gds-cyan-400);
+  background:
+    linear-gradient(90deg, rgb(4 29 39 / 88%), rgb(3 8 14 / 78%)),
+    url('/assets/ui/core-loop/puzzle-reward-signal-v1.webp') right center / cover;
+  box-shadow: inset 0 0 2rem rgb(87 231 255 / 5%);
+}
+
+.echo-first-contact::after {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 0 56%, rgb(255 70 87 / 8%), transparent 82%);
+  content: "";
+}
+
+.echo-first-contact header,
+.echo-first-contact p,
+.echo-first-contact__steps,
+.echo-first-contact button {
+  position: relative;
+  z-index: 1;
+}
+
+.echo-first-contact header {
+  display: grid;
+  gap: 0.22rem;
+}
+
+.echo-first-contact header span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--gds-gold-400);
+  font: 700 var(--gds-type-2xs) var(--gds-font-mono);
+  letter-spacing: 0.08em;
+}
+
+.echo-first-contact header span i {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--gds-cyan-400);
+  box-shadow: 0 0 0.75rem var(--gds-cyan-400);
+}
+
+.echo-first-contact header strong {
+  color: var(--gds-text-primary);
+  font-size: var(--gds-type-md);
+}
+
+.echo-first-contact p {
+  max-width: 48rem;
+  margin: 0;
+  color: var(--gds-text-secondary);
+  font-size: var(--gds-type-xs);
+  line-height: 1.7;
+}
+
+.echo-first-contact__steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.echo-first-contact__steps span {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: 0.42rem 0.5rem;
+  border: 1px solid rgb(255 255 255 / 10%);
+  color: var(--gds-text-secondary);
+  font-size: var(--gds-type-2xs);
+}
+
+.echo-first-contact__steps svg,
+.echo-first-contact__steps > span > i {
+  flex: 0 0 auto;
+  width: 0.9rem;
+  color: var(--gds-cyan-300);
+}
+
+.echo-first-contact__steps > span > i {
+  font-style: normal;
+  text-align: center;
+}
+
+.echo-first-contact button {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.45rem;
+  padding-inline: 0.75rem;
+  border: 1px solid rgb(229 85 94 / 62%);
+  border-radius: var(--gds-radius-xs);
+  color: #fff4e8;
+  background: rgb(137 34 44 / 78%);
+  font: 800 var(--gds-type-xs) var(--gds-font-body);
+  cursor: pointer;
+}
+
+.echo-first-contact button:hover,
+.echo-first-contact button:focus-visible { background: rgb(184 48 60 / 92%); }
+.echo-first-contact button:focus-visible { outline: 2px solid var(--gds-cyan-300); outline-offset: 0.16rem; }
+
+@media (max-width: 42rem) {
+  .echo-first-contact__steps { grid-template-columns: 1fr; }
+  .echo-first-contact { background-position: 120% center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .echo-first-contact { background-image: linear-gradient(90deg, rgb(4 29 39 / 94%), rgb(3 8 14 / 90%)); }
+}
+
 /* The opening remains cinematic in portrait, but the player controls own a
  * clear, thumb-reachable layer rather than being compressed beside Echo. */
 @media (max-width: 48rem) and (orientation: portrait) {
@@ -4090,7 +4216,10 @@
     background:
       linear-gradient(180deg, rgb(2 3 6 / 24%), rgb(2 3 6 / 76%)),
       radial-gradient(circle at 50% 18%, rgb(var(--core-red) / 16%), transparent 28%),
-      url('/assets/ui/mobile/portrait-signal-void-v1.png') center / cover;
+      image-set(
+        url('/assets/ui/mobile/portrait-signal-void-v1.webp') type('image/webp'),
+        url('/assets/ui/mobile/portrait-signal-void-v1.png') type('image/png')
+      ) center / cover;
   }
 
   .shell-main-menu .gds-cinematic-frame__content {

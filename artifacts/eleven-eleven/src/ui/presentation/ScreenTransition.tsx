@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
+import { emitExperienceCue } from './experienceCues';
 
 export interface ScreenTransitionProps {
   screenId: string;
@@ -9,6 +10,10 @@ export function ScreenTransition({
   screenId,
   children,
 }: ScreenTransitionProps) {
+  useEffect(() => {
+    emitExperienceCue({ name: 'screen-enter', screenId });
+  }, [screenId]);
+
   return (
     <div
       key={screenId}

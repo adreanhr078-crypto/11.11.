@@ -21,9 +21,39 @@ import {
   createManhwaViewerPlatformAdapter,
   type ManhwaViewerPlatformAdapter,
 } from '../../infrastructure/browser/manhwaViewerPlatformAdapter';
+import { useUiPreferencesStore } from '../../app/shell/shellStore';
 import { GameButton } from '../../ui/design-system';
 
 type ViewerLoadState = 'loading' | 'ready' | 'error';
+
+const VIEWER_COPY = {
+  ar: {
+    viewerLabel: 'عارض المانهوا',
+    close: 'إغلاق عارض المانهوا',
+    loading: 'جارٍ تحميل الصفحة',
+    loadingDetail: 'Loading page…',
+    error: 'تعذر تحميل الصفحة',
+    errorDetail: 'لم تُسجّل الصفحة. تحقّق من الأصل ثم أعد المحاولة.',
+    retry: 'إعادة المحاولة',
+    previous: 'السابقة',
+    next: 'التالية',
+    page: 'الصفحة',
+    of: 'من',
+  },
+  en: {
+    viewerLabel: 'Manhwa reader',
+    close: 'Close Manhwa reader',
+    loading: 'Loading page',
+    loadingDetail: 'The record is opening…',
+    error: 'Could not load this page',
+    errorDetail: 'This record could not be opened. Check the connection and try again.',
+    retry: 'Try again',
+    previous: 'Previous',
+    next: 'Next',
+    page: 'Page',
+    of: 'of',
+  },
+} as const;
 
 const FOCUSABLE_SELECTOR = [
   'button:not([disabled])',
@@ -46,6 +76,8 @@ export function ManhwaFullscreenViewer({
   onSuccessfulImageLoad,
   platformAdapter,
 }: ManhwaFullscreenViewerProps) {
+  const locale = useUiPreferencesStore((state) => state.locale);
+  const copy = VIEWER_COPY[locale];
   const availableInitialPage = pages.some(
     (page) => page.id === initialPageId,
   )
@@ -159,18 +191,24 @@ export function ManhwaFullscreenViewer({
   }
 
   return createPortal(
-    <div className="manhwa-viewer-overlay" data-load-state={loadState}>
+    <div
+      className="manhwa-viewer-overlay"
+      data-load-state={loadState}
+      data-page-index={currentIndex + 1}
+      dir={locale === 'ar' ? 'rtl' : 'ltr'}
+      lang={locale}
+    >
       <div
         ref={dialogRef}
         className="manhwa-viewer"
         role="dialog"
         aria-modal="true"
-        aria-label={`عارض المانهوا، الصفحة ${currentPage.globalPageNumber}`}
+        aria-label={`${copy.viewerLabel}, ${copy.page} ${currentPage.globalPageNumber}`}
       >
         <header className="manhwa-viewer__toolbar">
           <span>
             <small>11.11 // FINAL PUBLICATION</small>
-            <strong>{currentPage.title.ar}</strong>
+            <strong>{currentPage.title[locale]}</strong>
             <em>
               {currentPage.chapterId === 'chapter_0'
                 ? 'BOOK'
@@ -181,7 +219,7 @@ export function ManhwaFullscreenViewer({
             variant="ghost"
             size="icon"
             onClick={closeViewer}
-            aria-label="إغلاق عارض المانهوا"
+            aria-label={copy.close}
           >
             <X />
           </GameButton>
@@ -206,7 +244,7 @@ export function ManhwaFullscreenViewer({
           <img
             key={`${currentPage.id}-${retryKey}`}
             src={currentPage.imageSrc}
-            alt={currentPage.accessibleDescription.ar}
+            alt={currentPage.accessibleDescription[locale]}
             decoding="async"
             hidden={loadState === 'error'}
             onLoad={() => {
@@ -222,15 +260,15 @@ export function ManhwaFullscreenViewer({
           {loadState === 'loading' && (
             <div className="manhwa-viewer__status" role="status" aria-live="polite">
               <span aria-hidden="true" />
-              <strong>جارٍ تحميل الصفحة</strong>
-              <small lang="en">Loading page…</small>
+              <strong>{copy.loading}</strong>
+              <small>{copy.loadingDetail}</small>
             </div>
           )}
 
           {loadState === 'error' && (
             <div className="manhwa-viewer__status" role="alert" aria-live="assertive">
-              <strong>تعذر تحميل الصفحة</strong>
-              <small lang="en">The page was not recorded. Check the asset and try again.</small>
+              <strong>{copy.error}</strong>
+              <small>{copy.errorDetail}</small>
               <GameButton
                 variant="memory"
                 leadingIcon={<RotateCcw />}
@@ -240,7 +278,7 @@ export function ManhwaFullscreenViewer({
                   void adapter.requestPortrait();
                 }}
               >
-                إعادة المحاولة
+                {copy.retry}
               </GameButton>
             </div>
           )}
@@ -249,22 +287,23 @@ export function ManhwaFullscreenViewer({
         <footer className="manhwa-viewer__navigation">
           <GameButton
             variant="ghost"
-            leadingIcon={<ChevronRight />}
+            leadingIcon={locale === 'ar' ? <ChevronRight /> : <ChevronLeft />}
             disabled={!previousPage}
             onClick={() => navigateTo(previousPage?.id)}
           >
-            السابقة
+            {copy.previous}
           </GameButton>
           <span aria-live="polite">
-            {currentPage.globalPageNumber} / {pages.length}
+            {currentIndex + 1} / {pages.length}
+            <small> · {copy.page} {currentPage.globalPageNumber} {copy.of} 71</small>
           </span>
           <GameButton
             variant="ghost"
-            trailingIcon={<ChevronLeft />}
+            trailingIcon={locale === 'ar' ? <ChevronLeft /> : <ChevronRight />}
             disabled={!nextPage}
             onClick={() => navigateTo(nextPage?.id)}
           >
-            التالية
+            {copy.next}
           </GameButton>
         </footer>
       </div>

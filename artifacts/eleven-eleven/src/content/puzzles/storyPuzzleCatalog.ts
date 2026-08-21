@@ -86,7 +86,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
     id: 'story_puzzle_04_circuit_restore', order: 4, chapterId: 'chapter_2', classification: 'main',
     title: text('استعادة الدائرة', 'Circuit Restore'), objective: text('أوصل الطاقة والبيانات والذاكرة إلى أطرافها الصحيحة.', 'Connect power, data, and memory to compatible terminals.'),
     mechanic: 'wiring', difficulty: 'standard', source: { pageId: 'manhwa_ch02_page_03', globalPageNumber: 14 }, prerequisitePuzzleIds: ['story_puzzle_02_system_sequence'],
-    hints: [text('كل طرف يحمل رمزًا بالإضافة إلى لونه.', 'Each terminal has a symbol as well as a color.'), text('لا تمرر الذاكرة عبر طرف الطاقة.', 'Do not route memory through the power terminal.'), text('صِل: الطاقة إلى ⌁، البيانات إلى ⌘، الذاكرة إلى ◇.', 'Connect power to ⌁, data to ⌘, memory to ◇.')],
+    hints: [text('كل طرف يحمل رمزًا بالإضافة إلى لونه.', 'Each terminal has a symbol as well as a color.'), text('لا تمرر الذاكرة عبر طرف الطاقة.', 'Do not route memory through the power terminal.'), text('ثبّت وصلة واحدة من خلال الرمز، ثم استخدم الاستبعاد للوصلتين المتبقيتين.', 'Lock one connection by its symbol, then use elimination for the remaining two.')],
     completionMessage: text('تمت استعادة الدائرة.', 'Circuit restored.'),
     brief: text('أعد تشغيل الجناح دون أن ترسل ذاكرة Echo إلى منفذ الطاقة.', 'Restart the ward without sending Echo’s memory into the power port.'),
     reference: {
@@ -106,7 +106,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
     id: 'story_puzzle_05_color_protocol', order: 5, chapterId: 'chapter_2', classification: 'secret',
     title: text('بروتوكول الألوان', 'Color Protocol'), objective: text('طابق القنوات بواسطة الرمز والشكل، وليس اللون وحده.', 'Match channels using symbol and shape, not color alone.'),
     mechanic: 'color-routing', difficulty: 'standard', source: { pageId: 'manhwa_ch02_page_05', globalPageNumber: 16 }, prerequisitePuzzleIds: ['story_puzzle_04_circuit_restore'], anomalyHostPuzzleId: 'story_puzzle_04_circuit_restore',
-    hints: [text('اللون وحده ليس دليلًا كافيًا.', 'Color alone is not enough.'), text('ابحث عن الرمز المتكرر على الطرفين.', 'Find the repeated symbol on both ends.'), text('طابق: △ مع △، □ مع □، ○ مع ○.', 'Match: △ to △, □ to □, ○ to ○.')],
+    hints: [text('اللون وحده ليس دليلًا كافيًا.', 'Color alone is not enough.'), text('ابحث عن الرمز المتكرر على الطرفين.', 'Find the repeated symbol on both ends.'), text('ثبّت التطابقات التي يدعمها الرمز نفسه؛ لا تعتمد على ترتيب البطاقات.', 'Commit the matches supported by the shared symbol; do not rely on card order.')],
     completionMessage: text('تمت مزامنة بروتوكول الألوان.', 'Color protocol synchronized.'),
     brief: text('اللون تغيّر، لكن شكل الإشارة لم يتغير. اعثر على الهوية التي لا يمكن تزويرها.', 'The color changed, but the signal shape did not. Find the identity that cannot be forged.'),
     reference: {
@@ -126,7 +126,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
     id: 'story_puzzle_06_cipher_decoder', order: 6, chapterId: 'chapter_2', classification: 'main',
     title: text('فك الشفرة', 'Cipher Decoder'), objective: text('فك رسالة النظام عبر مفتاح الرموز المتاح.', 'Decode the system message using its visible symbol key.'),
     mechanic: 'cipher', difficulty: 'standard', source: { pageId: 'manhwa_ch02_page_06', globalPageNumber: 17 }, prerequisitePuzzleIds: ['story_puzzle_04_circuit_restore'],
-    hints: [text('اقرأ المفتاح من اليسار إلى اليمين.', 'Read the key from left to right.'), text('الرمز ◇ يمثل الحرف الثالث في المفتاح.', '◇ represents the third key position.'), text('أدخل التسلسل 3-1-1.', 'Enter sequence 3-1-1.')],
+    hints: [text('اقرأ المفتاح من اليسار إلى اليمين.', 'Read the key from left to right.'), text('الرمز ◇ يمثل الحرف الثالث في المفتاح.', '◇ represents the third key position.'), text('اكتب موضع كل رمز أولًا، ثم حوّل المواضع إلى تسلسل بدل تخمين أرقام منفصلة.', 'Write down each symbol’s position first, then convert the positions into a sequence instead of guessing isolated numbers.')],
     completionMessage: text('تم فك تشفير الرسالة.', 'Message decoded.'),
     brief: text('وصلت رسالة قصيرة من جهاز لا يفترض أن يكون مستيقظًا. فكّها قبل أن تنقطع.', 'A short message arrived from a device that should be asleep. Decode it before it cuts out.'),
     reference: {
@@ -147,7 +147,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
     id: 'story_puzzle_07_evidence_protocol', order: 7, chapterId: 'chapter_2', classification: 'main',
     title: text('بروتوكول الأدلة', 'Evidence Protocol'), objective: text('ثبت الاستنتاج الذي تدعمه السجلات المتاحة.', 'Choose the conclusion supported by the available records.'),
     mechanic: 'evidence', difficulty: 'standard', source: { pageId: 'manhwa_ch02_page_10', globalPageNumber: 21 }, prerequisitePuzzleIds: ['story_puzzle_06_cipher_decoder'],
-    hints: [text('لا تبحث عن أكثر سجل درامي؛ ابحث عن المتوافق.', 'Choose consistency, not the most dramatic log.'), text('قارن الطابع الزمني مع معرّف الكاميرا.', 'Compare the timestamp with the camera identifier.'), text('السجل CAM-07 هو الدليل المتوافق.', 'CAM-07 is the consistent record.')],
+    hints: [text('لا تبحث عن أكثر سجل درامي؛ ابحث عن المتوافق.', 'Choose consistency, not the most dramatic log.'), text('قارن الطابع الزمني مع معرّف الكاميرا.', 'Compare the timestamp with the camera identifier.'), text('استبعد أي سجل يكسر علاقة المعرف بالزمن؛ السجل المتبقي هو الدليل الذي تحتاجه.', 'Eliminate the record that breaks the identifier-to-time relationship; the remaining record is your evidence.')],
     completionMessage: text('تم اعتماد الدليل.', 'Evidence accepted.'),
     brief: text('ثلاث كاميرات تروي ثلاث قصص. لا تبحث عن القصة الأكثر إثارة؛ ابحث عن السجل الذي يتسق مع الزمن.', 'Three cameras tell three stories. Ignore the most dramatic one; find the record that agrees with the timeline.'),
     reference: {
@@ -168,7 +168,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
     id: 'story_puzzle_08_pattern_breach', order: 8, chapterId: 'chapter_2', classification: 'secret',
     title: text('خرق النمط', 'Pattern Breach'), objective: text('اعثر على الشذوذ الوحيد في النمط البصري.', 'Locate the single visual anomaly in the pattern.'),
     mechanic: 'pattern-scan', difficulty: 'standard', source: { pageId: 'manhwa_ch02_page_14', globalPageNumber: 25 }, prerequisitePuzzleIds: ['story_puzzle_07_evidence_protocol'], anomalyHostPuzzleId: 'story_puzzle_07_evidence_protocol',
-    hints: [text('الشذوذ ليس لونًا فقط؛ اتجاهه مختلف.', 'The anomaly differs by direction, not only color.'), text('افحص الصف السفلي قبل أي صف آخر.', 'Inspect the bottom row first.'), text('اختر العقدة D3.', 'Select node D3.')],
+    hints: [text('الشذوذ ليس لونًا فقط؛ اتجاهه مختلف.', 'The anomaly differs by direction, not only color.'), text('افحص الصف السفلي قبل أي صف آخر.', 'Inspect the bottom row first.'), text('قارن اتجاه كل سهم في الصف السفلي بجاريه؛ لا تختَر عقدة لأن اسمها يبدو مميزًا.', 'Compare every arrow in the bottom row with its neighbors; do not choose a node because its name looks distinctive.')],
     completionMessage: text('تم رصد الشذوذ.', 'Anomaly detected.'),
     brief: text('النمط يكرر اتجاهًا واحدًا، لكن عينًا واحدة تنظر عكسه.', 'The pattern repeats one direction, but one eye is looking the other way.'),
     reference: {
@@ -184,7 +184,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
     id: 'story_puzzle_09_timeline_recovery', order: 9, chapterId: 'chapter_3', classification: 'main',
     title: text('استعادة الخط الزمني', 'Timeline Recovery'), objective: text('رتب السجلات كي يستعيد النظام تسلسلها.', 'Reorder the logs to restore their sequence.'),
     mechanic: 'timeline', difficulty: 'standard', source: { pageId: 'manhwa_ch03_page_02', globalPageNumber: 30 }, prerequisitePuzzleIds: ['story_puzzle_07_evidence_protocol'],
-    hints: [text('ابدأ من الطابع الزمني الأقل.', 'Begin with the earliest timestamp.'), text('السجل المعطوب لا يسبق سجل الاستيقاظ.', 'The corrupted log cannot precede the awakening record.'), text('رتّب: 12:00، 12:01، 12:03، 12:04.', 'Order: 12:00, 12:01, 12:03, 12:04.')],
+    hints: [text('ابدأ من الطابع الزمني الأقل.', 'Begin with the earliest timestamp.'), text('السجل المعطوب لا يسبق سجل الاستيقاظ.', 'The corrupted log cannot precede the awakening record.'), text('ثبّت البداية والنهاية، ثم ضع السجل المعطوب بعد الاستيقاظ فقط.', 'Anchor the beginning and end, then place the corrupted record only after the awakening.')],
     completionMessage: text('تمت استعادة الخط الزمني.', 'Timeline recovered.'),
     brief: text('ثلاث دقائق اختفت من سجل الاستيقاظ. أعدها إلى مكانها قبل أن يكتب النظام روايته.', 'Three minutes vanished from the awakening log. Put them back before the system writes its own version.'),
     reference: {
@@ -200,7 +200,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
     id: 'story_puzzle_10_memory_grid', order: 10, chapterId: 'chapter_3', classification: 'main',
     title: text('شبكة الذاكرة', 'Memory Grid'), objective: text('أعد النمط الذي ظهر قبل تشويش الشبكة.', 'Repeat the pattern shown before grid corruption.'),
     mechanic: 'memory-grid', difficulty: 'advanced', source: { pageId: 'manhwa_ch03_page_07', globalPageNumber: 35 }, prerequisitePuzzleIds: ['story_puzzle_09_timeline_recovery'],
-    hints: [text('الترتيب مهم، وليس عدد العقد فقط.', 'Order matters, not only the selected nodes.'), text('النمط يكوّن قطريًا ثم يعود إلى الوسط.', 'The pattern moves diagonally, then returns to center.'), text('المسار: A1، B2، C3، B2.', 'Path: A1, B2, C3, B2.')],
+    hints: [text('الترتيب مهم، وليس عدد العقد فقط.', 'Order matters, not only the selected nodes.'), text('النمط يكوّن قطريًا ثم يعود إلى الوسط.', 'The pattern moves diagonally, then returns to center.'), text('اتبع القطر خطوة خطوة، ثم ارجع إلى العقدة التي قطعت منتصفه سابقًا.', 'Follow the diagonal one step at a time, then return to the node that previously crossed its middle.')],
     completionMessage: text('استعادت الشبكة نمط الذاكرة.', 'Memory grid restored.'),
     brief: text('الذاكرة لا تعرض الصورة كاملة؛ تمنحك أربع نبضات فقط. احفظ الإيقاع لا الشكل.', 'Memory shows only four pulses. Remember the rhythm, not the picture.'),
     reference: {
@@ -216,7 +216,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
     id: 'story_puzzle_11_data_route_zero', order: 11, chapterId: 'chapter_3', classification: 'secret',
     title: text('مسار البيانات صفر', 'Data Route Zero'), objective: text('أوصل الحزمة عبر الشبكة دون عبور العقدة المعطوبة.', 'Route the packet without crossing the corrupted node.'),
     mechanic: 'data-route', difficulty: 'advanced', source: { pageId: 'manhwa_ch03_page_07', globalPageNumber: 35 }, prerequisitePuzzleIds: ['story_puzzle_10_memory_grid'], anomalyHostPuzzleId: 'story_puzzle_10_memory_grid',
-    hints: [text('العقدة ذات الوميض الأحمر ليست صالحة.', 'The red-pulsing node is unavailable.'), text('المسار القصير ليس دائمًا آمنًا.', 'The shortest route is not always safe.'), text('اختر المسار A → C → D → F.', 'Choose path A → C → D → F.')],
+    hints: [text('العقدة ذات الوميض الأحمر ليست صالحة.', 'The red-pulsing node is unavailable.'), text('المسار القصير ليس دائمًا آمنًا.', 'The shortest route is not always safe.'), text('ارسم طريقين محتملين بعد استبعاد العقدة الحمراء، ثم اختر الطريق الذي يبقي كل وصلة موثقة.', 'Sketch the two candidate routes after excluding the red node, then choose the one that keeps every link verified.')],
     completionMessage: text('تم تأمين مسار البيانات.', 'Data route secured.'),
     brief: text('العقدة الحمراء تقطع الطريق الأقصر. اختر طريقًا أطول، لكنه يعود حيًا.', 'The red node cuts the shortest route. Choose the longer path that comes back alive.'),
     reference: {
@@ -240,7 +240,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
     id: 'story_puzzle_12_mirror_code', order: 12, chapterId: 'chapter_3', classification: 'main',
     title: text('شفرة المرآة', 'Mirror Code'), objective: text('اعكس القاعدة ثم أعد بناء رمز الدخول.', 'Apply the mirror rule to reconstruct the access code.'),
     mechanic: 'mirror-code', difficulty: 'advanced', source: { pageId: 'manhwa_ch03_page_12', globalPageNumber: 40 }, prerequisitePuzzleIds: ['story_puzzle_10_memory_grid'],
-    hints: [text('اقلب الترتيب قبل قراءة القيم.', 'Reverse the order before reading values.'), text('القيمة الوسطى لا تتغير.', 'The middle value does not change.'), text('اختر 4-1-4.', 'Choose 4-1-4.')],
+    hints: [text('اقلب الترتيب قبل قراءة القيم.', 'Reverse the order before reading values.'), text('القيمة الوسطى لا تتغير.', 'The middle value does not change.'), text('اعكس الطرفين حول القيمة الوسطى، ثم اقرأ الناتج كرمز واحد لا كثلاث اختيارات مستقلة.', 'Mirror the outer values around the unchanged middle, then read the result as one code rather than three separate choices.')],
     completionMessage: text('تمت معايرة شفرة المرآة.', 'Mirror code calibrated.'),
     brief: text('المرآة لا تقلب الأرقام فقط؛ إنها تختبر ما إذا كنت تميّز القاعدة من انعكاسها.', 'The mirror does not simply flip numbers; it tests whether you can separate a rule from its reflection.'),
     reference: {
@@ -257,7 +257,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
     id: 'story_puzzle_13_visual_forensics', order: 13, chapterId: 'chapter_3', classification: 'main',
     title: text('التحليل البصري', 'Visual Forensics'), objective: text('افحص السجل البصري وحدد المواضع غير المتوافقة.', 'Scan the visual record and identify inconsistent regions.'),
     mechanic: 'visual-forensics', difficulty: 'advanced', source: { pageId: 'manhwa_ch03_page_17', globalPageNumber: 45 }, prerequisitePuzzleIds: ['story_puzzle_12_mirror_code'],
-    hints: [text('استخدم التكبير قبل تثبيت أي نتيجة.', 'Use zoom before locking a finding.'), text('ابحث عن موضعين لا يطابقان إيقاع الواجهة.', 'Look for two regions that break the interface rhythm.'), text('المواضع الصحيحة: X2 و Z1.', 'Correct regions: X2 and Z1.')],
+    hints: [text('استخدم التكبير قبل تثبيت أي نتيجة.', 'Use zoom before locking a finding.'), text('ابحث عن موضعين لا يطابقان إيقاع الواجهة.', 'Look for two regions that break the interface rhythm.'), text('افحص التكرار والمحاذاة معًا: الشذوذ الحقيقي يكسر نمطًا بصريًا، لا مجرد لون مختلف.', 'Inspect repetition and alignment together: a real anomaly breaks a visual pattern, not merely a different color.')],
     completionMessage: text('تمت مطابقة الأدلة البصرية.', 'Visual evidence matched.'),
     brief: text('الصورة تبدو سليمة حتى تلاحظ إيقاعين لا ينتميان إليها. علّم موضعيهما.', 'The image looks intact until you notice two rhythms that do not belong. Mark both.'),
     reference: {
@@ -279,7 +279,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
     id: 'story_puzzle_14_system_matrix', order: 14, chapterId: 'chapter_3', classification: 'secret',
     title: text('مصفوفة النظام', 'System Matrix'), objective: text('دوّر العقد حتى تكتمل المصفوفة.', 'Rotate nodes until the matrix is connected.'),
     mechanic: 'matrix', difficulty: 'advanced', source: { pageId: 'manhwa_ch03_page_22', globalPageNumber: 50 }, prerequisitePuzzleIds: ['story_puzzle_13_visual_forensics'], anomalyHostPuzzleId: 'story_puzzle_13_visual_forensics',
-    hints: [text('كل عقدة تحتاج إلى اتجاهين متوافقين.', 'Each node needs two compatible directions.'), text('ثبّت الزوايا قبل المركز.', 'Lock the corners before the center.'), text('التدوير الصحيح من اليسار لليمين: 1، 2، 0، 3.', 'Correct rotations left-to-right: 1, 2, 0, 3.')],
+    hints: [text('كل عقدة تحتاج إلى اتجاهين متوافقين.', 'Each node needs two compatible directions.'), text('ثبّت الزوايا قبل المركز.', 'Lock the corners before the center.'), text('ابدأ بالزاوية التي لها وصلة خارجية وحيدة، ثم استخدم الوصلات المثبتة لتحديد دوران الجيران.', 'Start with the corner that has a single outward connection, then use fixed links to determine neighboring rotations.')],
     completionMessage: text('اكتملت مصفوفة النظام.', 'System matrix connected.'),
     brief: text('المصفوفة ليست أربعة أزرار؛ إنها شبكة واحدة. كل وصلة غير متطابقة تعيد التشويش.', 'The matrix is not four buttons; it is one network. Every mismatched seam returns the interference.'),
     reference: {
@@ -296,7 +296,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
     id: 'story_puzzle_15_system_breach', order: 15, chapterId: 'chapter_3', classification: 'main',
     title: text('اختراق النظام', 'System Breach'), objective: text('أكمل قنوات الاختراق الثلاث دون فقدان حالة التقدم.', 'Complete the three breach channels without losing progress.'),
     mechanic: 'breach-protocol', difficulty: 'final', source: { pageId: 'manhwa_ch03_page_26', globalPageNumber: 54 }, prerequisitePuzzleIds: ['story_puzzle_13_visual_forensics'],
-    hints: [text('أكمل كل قناة قبل الانتقال للتالية.', 'Complete each channel before continuing.'), text('المرحلة الثانية تستخدم ناتج الإشارة الأولى.', 'Stage two uses the first signal output.'), text('التسلسل: 11، ◇، ACCESS.', 'Sequence: 11, ◇, ACCESS.')],
+    hints: [text('أكمل كل قناة قبل الانتقال للتالية.', 'Complete each channel before continuing.'), text('المرحلة الثانية تستخدم ناتج الإشارة الأولى.', 'Stage two uses the first signal output.'), text('دوّن ناتج كل مرحلة قبل فتح التالية؛ المرحلة اللاحقة لا تلغي الدليل الذي ثبتّه سابقًا.', 'Record each stage result before opening the next; a later stage does not overwrite evidence you already verified.')],
     completionMessage: text('تم تجاوز حاجز النظام.', 'System barrier breached.'),
     brief: text('ثلاث طبقات من الحماية، وثلاث طرق مختلفة لقول «اتركني خارجًا». اخترقها دون فقدان الخيط.', 'Three security layers, each asking you to leave. Breach them without losing the thread.'),
     reference: {
@@ -316,7 +316,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
     id: 'story_puzzle_16_memory_reconstruction', order: 16, chapterId: 'chapter_4', classification: 'main',
     title: text('محاذاة طبقات الذاكرة', 'Memory Layer Alignment'), objective: text('اضبط أطوار الطبقات الأربع حتى يتطابق السجل البصري.', 'Align four memory layers until the visual record locks.'),
     mechanic: 'layer-alignment', difficulty: 'final', source: { pageId: 'manhwa_ch04_page_02', globalPageNumber: 56, requiredCanonEventId: 'manhwa_chapter_04_black_coronation' }, prerequisitePuzzleIds: ['story_puzzle_15_system_breach'],
-    hints: [text('راقب خط الفصل بين كل طبقتين بدل الصورة كاملة.', 'Watch the seam between adjacent layers, not the whole image.'), text('الطبقة الثانية ثابتة؛ اضبط ما حولها.', 'Layer two is already stable; align the others around it.'), text('الأطوار من الأعلى للأسفل: 1، 0، 3، 2.', 'Phases top-to-bottom: 1, 0, 3, 2.')],
+    hints: [text('راقب خط الفصل بين كل طبقتين بدل الصورة كاملة.', 'Watch the seam between adjacent layers, not the whole image.'), text('الطبقة الثانية ثابتة؛ اضبط ما حولها.', 'Layer two is already stable; align the others around it.'), text('اترك الطبقة المرجعية كما هي، وغيّر طبقة واحدة في كل مرة حتى تستمر الحدود البصرية عبر الطبقات.', 'Leave the reference layer unchanged, and adjust one layer at a time until the visual seams continue across layers.')],
     completionMessage: text('تمت محاذاة طبقات الذاكرة.', 'Memory layers aligned.'),
     brief: text('الصفحة لا تعرض ذكرى واحدة؛ تعرض أربع طبقات من الحقيقة فوق بعضها.', 'The page does not show one memory; it shows four layers of truth stacked together.'),
     reference: {
@@ -334,7 +334,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
     id: 'story_puzzle_17_contradictory_records', order: 17, chapterId: 'chapter_4', classification: 'main',
     title: text('السجلات المتناقضة', 'Contradictory Records'), objective: text('اعزل السجل الذي لا يمكن أن يتوافق مع البقية.', 'Isolate the record that cannot coexist with the others.'),
     mechanic: 'contradiction', difficulty: 'final', source: { pageId: 'manhwa_ch04_page_04', globalPageNumber: 58, requiredCanonEventId: 'manhwa_chapter_04_lina_protocol' }, prerequisitePuzzleIds: ['story_puzzle_16_memory_reconstruction'],
-    hints: [text('سجل واحد يكسر قاعدة الزمن.', 'One record violates the time rule.'), text('قارن معرف البروتوكول مع ترتيبه.', 'Compare the protocol identifier with its order.'), text('السجل غير الممكن هو R-03.', 'The impossible record is R-03.')],
+    hints: [text('سجل واحد يكسر قاعدة الزمن.', 'One record violates the time rule.'), text('قارن معرف البروتوكول مع ترتيبه.', 'Compare the protocol identifier with its order.'), text('استبعد السجل الذي يطلب وقوع حدث بعد إغلاق القناة؛ لا يوجد تصحيح زمني مسموح هنا.', 'Eliminate the record that requires an event after the channel closed; no time correction is allowed here.')],
     completionMessage: text('تم عزل السجل المتناقض.', 'Contradictory record isolated.'),
     brief: text('السجلات متشابهة بما يكفي لخداع العين. ابحث عن الشاهد الذي يستحيل أن يكون حاضرًا.', 'The records look alike enough to fool the eye. Find the witness who could not have been present.'),
     reference: {
@@ -355,7 +355,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
     id: 'story_puzzle_18_emergency_reroute', order: 18, chapterId: 'chapter_4', classification: 'secret',
     title: text('موازنة الحمل الطارئة', 'Emergency Load Balance'), objective: text('اجعل المجموع 100%، والطاقة أعلى بـ10% من قناتين متساويتين.', 'Reach 100% with power 10% above two equal channels.'),
     mechanic: 'load-balancing', difficulty: 'final', source: { pageId: 'manhwa_ch04_page_06', globalPageNumber: 60, requiredCanonEventId: 'manhwa_chapter_04_lina_protocol' }, prerequisitePuzzleIds: ['story_puzzle_17_contradictory_records'], anomalyHostPuzzleId: 'story_puzzle_17_contradictory_records',
-    hints: [text('يجب أن يساوي مجموع القنوات 100%.', 'The three channels must total 100%.'), text('الطاقة تحمل النسبة الأعلى، والبيانات تساوي التبريد.', 'Power is highest; data equals cooling.'), text('التوزيع الآمن: طاقة 40، بيانات 30، تبريد 30.', 'Safe allocation: power 40, data 30, cooling 30.')],
+    hints: [text('يجب أن يساوي مجموع القنوات 100%.', 'The three channels must total 100%.'), text('الطاقة تحمل النسبة الأعلى، والبيانات تساوي التبريد.', 'Power is highest; data equals cooling.'), text('حوّل القناتين المتساويتين إلى قيمة واحدة، ثم اطرحها مرتين من المجموع لاختبار فرق الطاقة.', 'Treat the two equal channels as one value, then subtract it twice from the total to test the power difference.')],
     completionMessage: text('استقر الحمل الطارئ.', 'Emergency load stabilized.'),
     brief: text('تبقى دقيقة واحدة من الطاقة. وزّعها بحيث لا ينهار أي مسار عند وصول Echo.', 'One minute of power remains. Distribute it so no route collapses when Echo arrives.'),
     reference: {
@@ -370,7 +370,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
     id: 'story_puzzle_19_final_deduction', order: 19, chapterId: 'chapter_4', classification: 'main',
     title: text('الاستنتاج الأخير', 'Final Deduction'), objective: text('اربط الأدلة التي تحققت منها سابقًا دون تغيير الـCanon.', 'Synthesize verified evidence without changing Canon.'),
     mechanic: 'deduction', difficulty: 'final', source: { pageId: 'manhwa_ch04_page_08', globalPageNumber: 62, requiredCanonEventId: 'manhwa_chapter_04_black_echo_protocol' }, prerequisitePuzzleIds: ['story_puzzle_17_contradictory_records'],
-    hints: [text('الجواب يجمع إشارة وسجلًا وزمنًا.', 'The answer combines a signal, record, and time.'), text('اختر ثلاثة أدلة متوافقة، لا سجلًا منفردًا.', 'Choose three consistent pieces of evidence.'), text('ثبّت: 11:11، CAM-07، R-01.', 'Lock: 11:11, CAM-07, R-01.')],
+    hints: [text('الجواب يجمع إشارة وسجلًا وزمنًا.', 'The answer combines a signal, record, and time.'), text('اختر ثلاثة أدلة متوافقة، لا سجلًا منفردًا.', 'Choose three consistent pieces of evidence.'), text('ارجع إلى الأدلة التي نجت من الفحص السابق: واحد للزمن وواحد للكاميرا وواحد للترتيب، ثم ارفض السجل المعزول.', 'Return to the evidence that survived earlier checks: one for time, one for camera, and one for order, then reject the isolated record.')],
     completionMessage: text('تم تثبيت الاستنتاج.', 'Final deduction verified.'),
     brief: text('لا تبحث عن حقيقة جديدة. اجمع ثلاث حقائق نجت من الفحص، واترك الباقي نظرية.', 'Do not invent a new truth. Combine three facts that survived inspection, and leave the rest as theory.'),
     reference: {
@@ -393,7 +393,7 @@ export const STORY_PUZZLES: readonly StoryPuzzleDefinition[] = Object.freeze([
     id: 'story_puzzle_20_core_sequence', order: 20, chapterId: 'chapter_4', classification: 'main',
     title: text('تسلسل نواة 11.11', '11.11 Core Sequence'), objective: text('أكمل تسلسل النواة متعدد المراحل. لا يغيّر هذا أي نهاية أو تحول.', 'Complete the multi-stage core sequence. It does not alter any ending or transformation.'),
     mechanic: 'multi-stage', difficulty: 'final', source: { pageId: 'manhwa_ch04_page_15', globalPageNumber: 69, requiredCanonEventId: 'manhwa_chapter_04_black_echo_protocol' }, prerequisitePuzzleIds: ['story_puzzle_19_final_deduction'],
-    hints: [text('لا تحتاج إلى كل الأسرار لإكمال المسار الرئيسي.', 'The main path does not require every secret.'), text('كل مرحلة تعيد استخدام دليل موثق سابقًا.', 'Each stage reuses an earlier verified clue.'), text('المراحل: SYNC، ROUTE، 11-11، CORE.', 'Stages: SYNC, ROUTE, 11-11, CORE.')],
+    hints: [text('لا تحتاج إلى كل الأسرار لإكمال المسار الرئيسي.', 'The main path does not require every secret.'), text('كل مرحلة تعيد استخدام دليل موثق سابقًا.', 'Each stage reuses an earlier verified clue.'), text('ابدأ من الإشارة، ثم اتبع ترتيب الأدلة كما ظهر في رحلتك؛ لا تقفز إلى مرحلة لم يثبتها السجل بعد.', 'Begin with the signal, then follow the evidence order from your journey; do not jump to a stage the record has not verified yet.')],
     completionMessage: text('تمت مزامنة نواة 11.11.', '11.11 core synchronized.'),
     brief: text('كل ما تعلمته يعود الآن إلى النواة. لا توجد قفزة سحرية؛ هناك أربع خطوات موثقة.', 'Everything you learned returns to the core. There is no magic jump; there are four verified steps.'),
     reference: {

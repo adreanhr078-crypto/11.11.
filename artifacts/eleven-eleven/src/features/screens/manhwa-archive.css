@@ -458,6 +458,15 @@
   font: 600 var(--gds-type-2xs) var(--gds-font-mono);
 }
 
+.manhwa-viewer__navigation > span small {
+  color: var(--gds-text-secondary);
+  font: inherit;
+}
+
+.manhwa-viewer-overlay[data-load-state="ready"] .manhwa-viewer__stage > img {
+  animation: manhwa-viewer-page-ready 220ms var(--gds-ease-enter) both;
+}
+
 @keyframes manhwa-viewer-enter {
   from {
     opacity: 0;

@@ -63,7 +63,11 @@ function checkpointForPosition(x: number): AwakeningWardSaveState['lastCheckpoin
   return 'capsule';
 }
 
-function playFeedback(frequency = 220, duration = 0.09): void {
+function playFeedback(
+  frequency = 220,
+  duration = 0.09,
+  volume = 0.7,
+): void {
   try {
     const AudioContextConstructor = window.AudioContext;
     const context = new AudioContextConstructor();
@@ -71,7 +75,10 @@ function playFeedback(frequency = 220, duration = 0.09): void {
     const gain = context.createGain();
     oscillator.type = 'sine';
     oscillator.frequency.value = frequency;
-    gain.gain.setValueAtTime(0.025, context.currentTime);
+    gain.gain.setValueAtTime(
+      0.025 * Math.min(1, Math.max(0, volume)),
+      context.currentTime,
+    );
     gain.gain.exponentialRampToValueAtTime(
       0.0001,
       context.currentTime + duration,
@@ -127,6 +134,8 @@ export default function AwakeningWardScreen() {
   const requestHandlerRef = useRef<(id: WardInteractionId) => void>(() => {});
   const stateRef = useRef(useGameStore.getState().awakeningWard);
   const qualityPreference = useUiPreferencesStore((state) => state.quality);
+  const audioEnabled = useUiPreferencesStore((state) => state.audioEnabled);
+  const sfxVolume = useUiPreferencesStore((state) => state.sfxVolume);
   const showTelemetryPreference = useUiPreferencesStore(
     (state) => state.showTelemetry,
   );
@@ -187,10 +196,14 @@ export default function AwakeningWardScreen() {
 
   const closePuzzle = useCallback(() => setActivePuzzle(null), []);
 
+  const playUiFeedback = useCallback((frequency: number, duration: number) => {
+    if (audioEnabled) playFeedback(frequency, duration, sfxVolume);
+  }, [audioEnabled, sfxVolume]);
+
   const solvePuzzle = useCallback((event: WardProgressEvent) => {
     const changed = commitProgress(event);
     if (changed) {
-      playFeedback(event === 'restore-power' ? 330 : 260, 0.14);
+      playUiFeedback(event === 'restore-power' ? 330 : 260, 0.14);
       haptic([18, 30, 24]);
     }
     setMessage(
@@ -203,7 +216,7 @@ export default function AwakeningWardScreen() {
             : 'DRAWER RELEASED // CONTENT EXPOSED',
     );
     closePuzzle();
-  }, [closePuzzle, commitProgress]);
+  }, [closePuzzle, commitProgress, playUiFeedback]);
 
   const handleInteraction = useCallback((interactionId: WardInteractionId) => {
     const current = stateRef.current;
@@ -211,20 +224,20 @@ export default function AwakeningWardScreen() {
     haptic();
     if (!interactionRequirementsMet(current, interaction)) {
       setMessage(blockedMessage(current, interactionId));
-      playFeedback(105, 0.12);
+      playUiFeedback(105, 0.12);
       return;
     }
 
     if (interaction.puzzleId) {
       setActivePuzzle(interaction.puzzleId);
-      playFeedback(190, 0.07);
+      playUiFeedback(190, 0.07);
       return;
     }
 
     if (interactionId === 'awakening_clock') {
       commitProgress('inspect-clock');
       setMessage('11:11 // CLOCK SIGNAL LOGGED');
-      playFeedback(280, 0.1);
+      playUiFeedback(280, 0.1);
       return;
     }
     if (interactionId === 'awakening_keycard') {
@@ -232,7 +245,7 @@ export default function AwakeningWardScreen() {
       setMessage(changed
         ? 'KEYCARD A-07 ADDED TO INVENTORY'
         : 'الحقيبة ممتلئة. حرر خانة قبل أخذ البطاقة.');
-      playFeedback(changed ? 410 : 110, 0.1);
+      playUiFeedback(changed ? 410 : 110, 0.1);
       return;
     }
     if (interactionId === 'awakening_exit_reader') {
@@ -240,7 +253,7 @@ export default function AwakeningWardScreen() {
       if (changed) {
         setMessage('ACCESS GRANTED // A-07 OPEN');
         setCompletionOpen(true);
-        playFeedback(520, 0.2);
+        playUiFeedback(520, 0.2);
         haptic([24, 35, 24, 35, 40]);
       } else {
         setMessage(blockedMessage(current, interactionId));
@@ -260,7 +273,7 @@ export default function AwakeningWardScreen() {
         ? 'PROTOTYPE BATTERY STORED'
         : 'الحقيبة ممتلئة.');
     }
-  }, [commitProgress]);
+  }, [commitProgress, playUiFeedback]);
 
   requestHandlerRef.current = handleInteraction;
   stateRef.current = wardState;

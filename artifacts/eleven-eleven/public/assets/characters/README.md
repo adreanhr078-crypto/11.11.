@@ -1,7 +1,9 @@
 # Character Presentation Assets
 
-`echo-portrait-v1.png` is an original, replaceable presentation key art used by
-`EchoPresence`. It is not narrative content and does not define Echo's identity,
+The optimized runtime presentation assets are `echo-portrait-v1.webp`,
+`echo-fullbody-normal-v2.webp`, and `echo-fullbody-corrupted-v1.webp`.
+Their PNG counterparts remain lossless source fallbacks. None of these files is
+narrative content and none defines Echo's identity,
 stats, expressions, or gameplay state.
 
 Runtime emotion, corruption, scan, glitch, breathing, entry motion, and color

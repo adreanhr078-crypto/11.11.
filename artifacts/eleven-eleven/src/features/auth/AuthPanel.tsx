@@ -32,6 +32,7 @@ import {
   useCloudSaveStore,
   type CloudSaveStatus,
 } from '../cloud-save/cloudSaveStore';
+import { useUiPreferencesStore } from '../../app/shell/shellStore';
 import { useAuthStore } from './authStore';
 
 interface AuthPanelProps {
@@ -51,14 +52,29 @@ const FOCUSABLE_SELECTOR = [
 
 function displayUserName(
   user: ReturnType<typeof useAuthStore.getState>['user'],
+  locale: 'ar' | 'en',
 ): string {
-  if (!user) return 'لاعب غير متصل';
+  if (!user) return locale === 'en' ? 'Offline player' : 'لاعب غير متصل';
   return user.displayName || user.email || (
-    user.isAnonymous ? 'ضيف 11:11' : 'لاعب 11:11'
+    user.isAnonymous
+      ? locale === 'en' ? '11:11 guest' : 'ضيف 11:11'
+      : locale === 'en' ? '11:11 player' : 'لاعب 11:11'
   );
 }
 
-function cloudStatusCopy(status: CloudSaveStatus): string {
+function cloudStatusCopy(status: CloudSaveStatus, locale: 'ar' | 'en'): string {
+  if (locale === 'en') {
+    const labels: Record<CloudSaveStatus, string> = {
+      disabled: 'Cloud save is off',
+      connecting: 'Connecting your account save…',
+      pending: 'Changes are waiting to upload',
+      syncing: 'Saving your progress…',
+      synced: 'Progress saved to the cloud',
+      conflict: 'Two versions of this save need a choice',
+      error: 'Cloud save is temporarily unavailable',
+    };
+    return labels[status];
+  }
   const labels: Record<CloudSaveStatus, string> = {
     disabled: 'الحفظ السحابي متوقف',
     connecting: 'جارٍ الاتصال بحفظ الحساب...',
@@ -84,6 +100,7 @@ export function AuthPanel({ open, onClose }: AuthPanelProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const [accountLinkMode, setAccountLinkMode] = useState<AccountLinkMode>('choices');
+  const locale = useUiPreferencesStore((state) => state.locale);
   const {
     status,
     user,
@@ -104,6 +121,7 @@ export function AuthPanel({ open, onClose }: AuthPanelProps) {
     && email.trim().length > 3
     && !busy;
   const canLinkWithEmail = isGuest && canSubmit;
+  const closeLabel = locale === 'en' ? 'Close sign-in' : 'إغلاق شاشة تسجيل الدخول';
   const providerLabel = useMemo(() => {
     if (!user) return null;
     if (user.isAnonymous) return 'حساب ضيف';
@@ -233,10 +251,280 @@ export function AuthPanel({ open, onClose }: AuthPanelProps) {
     await runProviderAction(actions.linkAnonymousAccountWithGoogle);
   };
 
+  const englishContent = signedIn ? (
+    <div className="auth-profile">
+      <div className="auth-profile__avatar" aria-hidden="true">
+        {user?.photoURL ? (
+          <img src={user.photoURL} alt="" referrerPolicy="no-referrer" />
+        ) : (
+          <UserRound />
+        )}
+      </div>
+      <div className="auth-profile__copy">
+        <span>
+          {user?.isAnonymous
+            ? 'Guest account'
+            : user?.providerId === 'google.com'
+              ? 'Google'
+              : user?.providerId === 'password'
+                ? 'Email account'
+                : 'Connected account'}
+        </span>
+        <h2 id={titleId}>{displayUserName(user, 'en')}</h2>
+        {user?.email && <p>{user.email}</p>}
+      </div>
+
+      {isGuest && (
+        <section
+          className="auth-account-link"
+          aria-labelledby={`${titleId}-account-link`}
+        >
+          <div className="auth-account-link__heading">
+            <span className="auth-account-link__signal" aria-hidden="true">
+              <Link2 />
+            </span>
+            <div>
+              <span>ACCOUNT LINK // SECURE</span>
+              <h3 id={`${titleId}-account-link`}>Keep this journey</h3>
+              <p>
+                Link this guest account to keep your progress on both phone and
+                desktop. Linking never restarts your journey.
+              </p>
+            </div>
+          </div>
+
+          {accountLinkMode === 'email' ? (
+            <form className="auth-account-link__form" onSubmit={handleLinkWithEmail}>
+              <label className="auth-field" htmlFor={`${emailId}-link`}>
+                <span>New email address</span>
+                <div className="auth-field__control">
+                  <Mail aria-hidden="true" />
+                  <input
+                    id={`${emailId}-link`}
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="player@example.com"
+                    disabled={busy || !configured}
+                    required
+                  />
+                </div>
+              </label>
+              <label className="auth-field" htmlFor={`${passwordId}-link`}>
+                <span>Password</span>
+                <div className="auth-field__control">
+                  <LockKeyhole aria-hidden="true" />
+                  <input
+                    id={`${passwordId}-link`}
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="At least 6 characters"
+                    minLength={6}
+                    disabled={busy || !configured}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="auth-field__reveal"
+                    onClick={() => setShowPassword((visible) => !visible)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    title={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                  </button>
+                </div>
+              </label>
+              <label className="auth-field" htmlFor={`${nameId}-link`}>
+                <span>Player name (optional)</span>
+                <div className="auth-field__control">
+                  <UserRound aria-hidden="true" />
+                  <input
+                    id={`${nameId}-link`}
+                    autoComplete="nickname"
+                    value={displayName}
+                    onChange={(event) => setDisplayName(event.target.value)}
+                    placeholder="Echo Runner"
+                    disabled={busy || !configured}
+                  />
+                </div>
+              </label>
+              <div className="auth-account-link__actions">
+                <button
+                  type="submit"
+                  className="auth-action auth-action--primary"
+                  disabled={!canLinkWithEmail}
+                >
+                  <span>{busy ? 'Securing your account…' : 'Link email and keep journey'}</span>
+                  <Link2 aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="auth-account-link__back"
+                  disabled={busy}
+                  onClick={() => {
+                    setAccountLinkMode('choices');
+                    actions.clearError();
+                  }}
+                >
+                  Back to link choices
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="auth-account-link__methods">
+              <button
+                type="button"
+                className="auth-action auth-action--provider"
+                disabled={!configured || busy}
+                onClick={() => void handleLinkWithGoogle()}
+              >
+                <span className="auth-google-mark" aria-hidden="true">G</span>
+                <span>{busy ? 'Opening Google…' : 'Link with Google'}</span>
+              </button>
+              <button
+                type="button"
+                className="auth-action auth-action--provider"
+                disabled={!configured || busy}
+                onClick={openEmailAccountLink}
+              >
+                <Mail aria-hidden="true" />
+                <span>Link with email</span>
+              </button>
+            </div>
+          )}
+          {error && <p className="auth-card__error" role="alert">{error}</p>}
+        </section>
+      )}
+
+      <div className="auth-profile__ready" data-status={cloudSave.status}>
+        {cloudSave.status === 'error' ? <CloudOff aria-hidden="true" /> : <Cloud aria-hidden="true" />}
+        <span>{cloudStatusCopy(cloudSave.status, 'en')}</span>
+      </div>
+      {cloudSave.message && <p className="auth-profile__sync-message" role="status">{cloudSave.message}</p>}
+      {cloudSave.status === 'synced' && cloudSave.lastSyncedAt && (
+        <small className="auth-profile__sync-meta">
+          Revision {cloudSave.revision} · Last synced {new Date(cloudSave.lastSyncedAt).toLocaleString('en')}
+        </small>
+      )}
+      {cloudSave.status === 'conflict' && (
+        <div className="auth-profile__conflict-actions">
+          <button type="button" className="auth-action auth-action--provider" onClick={() => void resolveCloudConflictWithCloud()}>
+            <CloudDownload aria-hidden="true" />
+            <span>Use cloud version</span>
+          </button>
+          <button type="button" className="auth-action auth-action--provider" onClick={() => void resolveCloudConflictWithLocal()}>
+            <CloudUpload aria-hidden="true" />
+            <span>Keep this device</span>
+          </button>
+        </div>
+      )}
+      {cloudSave.status === 'error' && (
+        <button type="button" className="auth-profile__retry" onClick={() => void retryCloudSaveSync()}>
+          Retry connection
+        </button>
+      )}
+      <button
+        type="button"
+        className="auth-action auth-action--primary"
+        disabled={busy}
+        onClick={() => void runProviderAction(actions.signOut)}
+      >
+        <span>{busy ? 'Signing out…' : 'Sign out'}</span>
+        <ArrowLeft aria-hidden="true" />
+      </button>
+    </div>
+  ) : (
+    <>
+      <header className="auth-card__heading">
+        <span>ONLINE ID // PHASE 01</span>
+        <h2 id={titleId}>{mode === 'sign-in' ? 'Welcome back' : 'Begin your journey'}</h2>
+        <p>
+          {mode === 'sign-in'
+            ? 'Sign in to return to the signal.'
+            : 'Create your identity and preserve the trace of your journey.'}
+        </p>
+      </header>
+      <div className="auth-card__modes" role="tablist" aria-label="Account type">
+        <button type="button" role="tab" aria-selected={mode === 'sign-in'} data-active={mode === 'sign-in'} onClick={() => selectMode('sign-in')}>
+          Sign in
+        </button>
+        <button type="button" role="tab" aria-selected={mode === 'create'} data-active={mode === 'create'} onClick={() => selectMode('create')}>
+          New account
+        </button>
+      </div>
+      {!configured && (
+        <div className="auth-card__notice" role="status">
+          <ShieldCheck aria-hidden="true" />
+          <span>
+            Sign-in is not ready in this build. A saved journey and verified rewards stay unavailable until player identity is connected to the service.
+          </span>
+        </div>
+      )}
+      <form className="auth-form" onSubmit={handleSubmit}>
+        {mode === 'create' && (
+          <label className="auth-field" htmlFor={nameId}>
+            <span>Player name</span>
+            <div className="auth-field__control">
+              <UserRound aria-hidden="true" />
+              <input id={nameId} autoComplete="nickname" value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Echo Runner" disabled={busy || !configured} />
+            </div>
+          </label>
+        )}
+        <label className="auth-field" htmlFor={emailId}>
+          <span>Email address</span>
+          <div className="auth-field__control">
+            <Mail aria-hidden="true" />
+            <input id={emailId} type="email" inputMode="email" autoComplete="email" value={email} onChange={(event) => { setEmail(event.target.value); setResetSent(false); }} placeholder="player@example.com" disabled={busy || !configured} required />
+          </div>
+        </label>
+        <label className="auth-field" htmlFor={passwordId}>
+          <span>Password</span>
+          <div className="auth-field__control">
+            <LockKeyhole aria-hidden="true" />
+            <input id={passwordId} type={showPassword ? 'text' : 'password'} autoComplete={mode === 'create' ? 'new-password' : 'current-password'} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 6 characters" minLength={6} disabled={busy || !configured} required />
+            <button type="button" className="auth-field__reveal" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? 'Hide password' : 'Show password'} title={showPassword ? 'Hide password' : 'Show password'}>
+              {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+            </button>
+          </div>
+        </label>
+        {mode === 'sign-in' && (
+          <button type="button" className="auth-form__forgot" disabled={!canResetPassword} onClick={() => void handleResetPassword()}>
+            Forgot your password?
+          </button>
+        )}
+        {resetSent && <p className="auth-form__success" role="status">We sent a password-reset link to your email.</p>}
+        <button type="submit" className="auth-action auth-action--primary" disabled={!canSubmit}>
+          <span>{busy ? 'Connecting…' : mode === 'create' ? 'Create account' : 'Sign in'}</span>
+          <ArrowLeft aria-hidden="true" />
+        </button>
+      </form>
+      <div className="auth-card__divider"><span>or continue with</span></div>
+      <div className="auth-providers">
+        <button type="button" className="auth-action auth-action--provider" disabled={!configured || busy} onClick={() => void runProviderAction(actions.signInWithGoogle)}>
+          <span className="auth-google-mark" aria-hidden="true">G</span>
+          <span>Continue with Google</span>
+        </button>
+        <button type="button" className="auth-action auth-action--guest" disabled={!configured || busy} onClick={() => void runProviderAction(actions.continueAsGuest)}>
+          <UserRound aria-hidden="true" />
+          <span>Continue as guest</span>
+        </button>
+      </div>
+      {error && <p className="auth-card__error" role="alert">{error}</p>}
+      <footer className="auth-card__footer">
+        <ShieldCheck aria-hidden="true" />
+        <span>Sign-in data is protected by Firebase Authentication</span>
+      </footer>
+    </>
+  );
+
   if (!open || typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="auth-experience" dir="ltr">
+    <div className="auth-experience" dir={locale === 'ar' ? 'rtl' : 'ltr'}>
       <div
         className="auth-experience__world"
         style={{
@@ -262,15 +550,43 @@ export function AuthPanel({ open, onClose }: AuthPanelProps) {
             type="button"
             className="auth-experience__close"
             onClick={onClose}
-            aria-label="إغلاق شاشة تسجيل الدخول"
-            title="إغلاق"
+            aria-label={closeLabel}
+            title={locale === 'en' ? 'Close' : 'إغلاق'}
           >
             <X aria-hidden="true" />
           </button>
         </header>
 
         <main className="auth-experience__layout">
-          <section className="auth-brand" aria-label="هوية مشروع 11:11">
+          <section
+            className="auth-brand"
+            aria-label={locale === 'en' ? '11:11 project identity' : 'هوية مشروع 11:11'}
+          >
+            {locale === 'en' ? (
+              <>
+                <div className="auth-brand__signal" aria-hidden="true">
+                  <i />
+                  <i />
+                  <i />
+                </div>
+                <div className="auth-brand__number-wrap" aria-hidden="true">
+                  <span className="auth-brand__halo" />
+                  <strong className="auth-brand__number">11.11</strong>
+                  <span className="auth-brand__sweep" />
+                </div>
+                <p className="auth-brand__name">ELEVEN · ELEVEN</p>
+                <div className="auth-brand__message" dir="ltr">
+                  <span>The signal is waiting.</span>
+                  <strong>What will you remember?</strong>
+                </div>
+                <div className="auth-brand__status" dir="ltr">
+                  <span className="auth-brand__status-dot" aria-hidden="true" />
+                  <small>System status</small>
+                  <strong>{configured ? 'Connected' : 'Awaiting setup'}</strong>
+                </div>
+              </>
+            ) : (
+            <>
             <div className="auth-brand__signal" aria-hidden="true">
               <i />
               <i />
@@ -291,8 +607,16 @@ export function AuthPanel({ open, onClose }: AuthPanelProps) {
               <small>حالة النظام</small>
               <strong>{configured ? 'متصل' : 'بانتظار الإعداد'}</strong>
             </div>
+            </>
+            )}
           </section>
 
+          {locale === 'en' ? (
+            <section className="auth-card" dir="ltr">
+              <div className="auth-card__corner" aria-hidden="true" />
+              {englishContent}
+            </section>
+          ) : (
           <section className="auth-card" dir="rtl">
             <div className="auth-card__corner" aria-hidden="true" />
             {signedIn ? (
@@ -306,7 +630,7 @@ export function AuthPanel({ open, onClose }: AuthPanelProps) {
                 </div>
                 <div className="auth-profile__copy">
                   <span>{providerLabel}</span>
-                  <h2 id={titleId}>{displayUserName(user)}</h2>
+                  <h2 id={titleId}>{displayUserName(user, locale)}</h2>
                   {user.email && <p>{user.email}</p>}
                 </div>
                 {isGuest && (
@@ -449,7 +773,7 @@ export function AuthPanel({ open, onClose }: AuthPanelProps) {
                   {cloudSave.status === 'error'
                     ? <CloudOff aria-hidden="true" />
                     : <Cloud aria-hidden="true" />}
-                  <span>{cloudStatusCopy(cloudSave.status)}</span>
+                  <span>{cloudStatusCopy(cloudSave.status, locale)}</span>
                 </div>
                 {cloudSave.message && (
                   <p className="auth-profile__sync-message" role="status">
@@ -681,6 +1005,7 @@ export function AuthPanel({ open, onClose }: AuthPanelProps) {
               </>
             )}
           </section>
+          )}
         </main>
 
         <footer className="auth-experience__footer">

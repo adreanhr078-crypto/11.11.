@@ -8,7 +8,7 @@ const CHARACTER_ASSETS: Record<string, string> = {
   kenja: '/assets/avatars/rare-kenja-v1.webp',
   lina: '/assets/avatars/rare-lina-v1.webp',
   zero: '/assets/avatars/rare-zero-v1.webp',
-  echo: '/assets/characters/echo-portrait-v1.png',
+  echo: '/assets/characters/echo-portrait-v1.webp',
 };
 
 export function SeasonPanel({
@@ -34,7 +34,11 @@ export function SeasonPanel({
 
   return (
     <section className="echo-network-season" aria-labelledby="season-title">
-      <div className="echo-network-season__hero" style={{ backgroundImage: `url(${CHARACTER_ASSETS[current.focusCharacter]})` }}>
+      <div
+        className="echo-network-season__hero"
+        data-character={current.focusCharacter}
+        style={{ backgroundImage: `url(${CHARACTER_ASSETS[current.focusCharacter]})` }}
+      >
         <span><small>8-WEEK ARCHIVE-SAFE SEASON</small><h2 id="season-title">{season.title.ar}</h2><p>{current.title.ar} · الأسبوع {currentWeek}</p></span>
         <div><strong>{completed.size}/8</strong><small>قضايا موثقة</small></div>
       </div>
@@ -44,7 +48,11 @@ export function SeasonPanel({
           const done = completed.has(activity.id);
           return (
             <article key={activity.id} data-current={activity.week === currentWeek || undefined} data-complete={done || undefined}>
-              <span style={{ backgroundImage: `url(${CHARACTER_ASSETS[activity.focusCharacter]})` }} aria-hidden="true" />
+              <span
+                data-character={activity.focusCharacter}
+                style={{ backgroundImage: `url(${CHARACTER_ASSETS[activity.focusCharacter]})` }}
+                aria-hidden="true"
+              />
               <div><small>W{activity.week} · {activity.kind}</small><strong>{activity.title.ar}</strong><p>{activity.description.ar}</p></div>
               <i>{done ? '✓' : activity.week === currentWeek ? 'LIVE' : activity.week < currentWeek ? 'ARCHIVE' : 'LOCKED'}</i>
             </article>
@@ -63,7 +71,7 @@ export function SeasonPanel({
           <div className="echo-network-bonds">
             {Object.entries(CHARACTER_ASSETS).map(([character, image]) => (
               <div key={character}>
-                <span style={{ backgroundImage: `url(${image})` }} />
+                <span data-character={character} style={{ backgroundImage: `url(${image})` }} aria-hidden="true" />
                 <strong>{character.toUpperCase()}</strong>
                 <small>{bondByCharacter.get(character) ?? 0} resonance</small>
               </div>

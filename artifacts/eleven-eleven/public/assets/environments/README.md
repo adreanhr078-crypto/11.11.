@@ -3,7 +3,8 @@
 These images are replaceable visual plates. They contain no story state,
 dialogue, puzzle data, or authored narrative content.
 
-- `main-menu-world-v1.png`: animated main-menu background plate.
+- `main-menu-world-v1.webp`: optimized runtime main-menu background plate;
+  `main-menu-world-v1.png` remains its lossless source fallback.
 - `memory-lab-v1.png`: shared empty laboratory plate for cinematic and
   memory-reconstruction presentation.
 

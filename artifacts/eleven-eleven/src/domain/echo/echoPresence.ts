@@ -25,6 +25,7 @@ export type EchoPresenceTrigger =
   | 'secret_puzzle_solved'
   | 'perfect_solve'
   | 'hint_used'
+  | 'puzzle_attempt_rejected'
   | 'memory_shard_acquired'
   | 'all_chapter_shards_found'
   | 'major_canon_event'
@@ -114,6 +115,15 @@ export const ECHO_REACTIONS: readonly EchoReactionDefinition[] = Object.freeze([
     priority: 20,
     repeatPolicy: 'cooldown',
     acknowledgement: 'ASSISTANCE CHANNEL OPEN',
+    dialogueRef: null,
+    visualEffect: 'steady',
+  },
+  {
+    id: 'echo-attempt-rejected',
+    trigger: 'puzzle_attempt_rejected',
+    priority: 25,
+    repeatPolicy: 'cooldown',
+    acknowledgement: 'RECHECK THE EVIDENCE — I AM STILL HERE',
     dialogueRef: null,
     visualEffect: 'steady',
   },
@@ -289,6 +299,7 @@ function triggerForActivity(activity: StoryPuzzleActivity): EchoPresenceTrigger 
     case 'secret-puzzle-solved': return 'secret_puzzle_solved';
     case 'perfect-solve': return 'perfect_solve';
     case 'hint-used': return 'hint_used';
+    case 'puzzle-attempt-rejected': return 'puzzle_attempt_rejected';
     case 'all-20-shards-found': return 'all_20_shards_found';
     case 'live-challenge-completed': return 'live_challenge_completed';
     case 'all-chapter-shards-found': return 'all_chapter_shards_found';

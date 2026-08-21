@@ -95,7 +95,15 @@ export const useStoryPuzzleStore = create<StoryPuzzleStoreState>((set, get) => (
         set({ status: 'ready', snapshot, error: null });
         return snapshot;
       } catch (error) {
-        set({ error: friendlyError(error) });
+        const rejected = error instanceof PlayerProgressionApiError
+          && error.code === 'puzzle_not_verified';
+        set({
+          error: friendlyError(error),
+          latestActivity: rejected
+            ? { kind: 'puzzle-attempt-rejected', puzzleId, occurredAt: Date.now() }
+            : null,
+        });
+        if (rejected) recordEchoPresenceActivity({ kind: 'puzzle-attempt-rejected', puzzleId });
         return null;
       }
     },
@@ -121,7 +129,15 @@ export const useStoryPuzzleStore = create<StoryPuzzleStoreState>((set, get) => (
         recordEchoPresenceActivity({ kind, puzzleId });
         return receipt;
       } catch (error) {
-        set({ error: friendlyError(error) });
+        const rejected = error instanceof PlayerProgressionApiError
+          && error.code === 'puzzle_not_verified';
+        set({
+          error: friendlyError(error),
+          latestActivity: rejected
+            ? { kind: 'puzzle-attempt-rejected', puzzleId, occurredAt: Date.now() }
+            : null,
+        });
+        if (rejected) recordEchoPresenceActivity({ kind: 'puzzle-attempt-rejected', puzzleId });
         return null;
       }
     },

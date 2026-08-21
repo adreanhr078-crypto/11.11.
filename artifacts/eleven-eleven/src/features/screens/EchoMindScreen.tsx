@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Mic, Send, Trash2 } from 'lucide-react';
+import { BookOpenCheck, ChevronLeft, Mic, Puzzle, Send, Trash2 } from 'lucide-react';
 import { useGameStore } from '../../stores/gameStore';
 import {
   GameButton,
@@ -35,6 +35,7 @@ import {
 import {
   playEchoMindSignal,
 } from '../../infrastructure/audio/echoMindSignalAudio';
+import { useShellStore } from '../../app/shell/shellStore';
 
 interface ChatMessage {
   id: string;
@@ -110,6 +111,38 @@ function expressionLine(envelope: EchoMindTurnEnvelope): string {
   }
 }
 
+function FirstContactBrief({
+  locale,
+  onOpenManhwa,
+}: {
+  locale: EchoMindLocale;
+  onOpenManhwa: () => void;
+}) {
+  const english = locale === 'en';
+  return (
+    <section className="echo-first-contact" aria-label={english ? 'Your first mission' : 'مهمتك الأولى'}>
+      <header>
+        <span><i aria-hidden="true" /> {english ? 'FIRST SIGNAL // OBJECTIVE' : 'الإشارة الأولى // الهدف'}</span>
+        <strong>{english ? 'Follow the signal, not the noise.' : 'اتبع الإشارة، لا الضجيج.'}</strong>
+      </header>
+      <p>
+        {english
+          ? 'Echo is the mind inside the record. The Manhwa shows what happened; each puzzle lets you test what is true.'
+          : 'Echo هو الوعي العالق داخل السجل. المانهوا تُريك ما حدث، وكل لغز يسمح لك باختبار ما هو حقيقي.'}
+      </p>
+      <div className="echo-first-contact__steps" role="list">
+        <span role="listitem"><BookOpenCheck aria-hidden="true" />{english ? 'Read the next page' : 'اقرأ الصفحة التالية'}</span>
+        <span role="listitem"><Puzzle aria-hidden="true" />{english ? 'Solve the evidence' : 'حلّ الدليل'}</span>
+        <span role="listitem"><i aria-hidden="true">✦</i>{english ? 'Unlock Echo’s reply' : 'افتح ردّ Echo'}</span>
+      </div>
+      <button type="button" onClick={onOpenManhwa}>
+        {english ? 'Open the first page' : 'افتح الصفحة الأولى'}
+        <ChevronLeft aria-hidden="true" />
+      </button>
+    </section>
+  );
+}
+
 export default function EchoMindScreen() {
   const state = useGameStore();
   const model = useMemo(() => createEchoMindScreenReadModel(state), [state]);
@@ -118,6 +151,7 @@ export default function EchoMindScreen() {
     [state.progressionState],
   );
   const living = useEchoMindLivingStore();
+  const navigate = useShellStore((state) => state.navigate);
   const [draft, setDraft] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
     ...createInitialMessages(model.openingLine),
@@ -143,6 +177,7 @@ export default function EchoMindScreen() {
       message.speaker === 'echo'
       && !message.isTyping
     ))?.text ?? '';
+  const isFirstContact = living.turns.length === 0;
 
   useEffect(() => {
     const messagesElement = messagesRef.current;
@@ -462,6 +497,12 @@ export default function EchoMindScreen() {
           eyebrow="Conversation Log"
           title={activeLocale === 'en' ? 'Stay with Echo' : 'ابقَ مع Echo'}
         >
+          {isFirstContact && (
+            <FirstContactBrief
+              locale={activeLocale}
+              onOpenManhwa={() => navigate('memories')}
+            />
+          )}
           <div className="shell-echo-mind-screen__chat-shell">
             <div
               ref={messagesRef}
