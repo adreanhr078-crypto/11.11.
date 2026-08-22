@@ -663,7 +663,9 @@ export function useRealtimeRoom({ resumeMatch = false, locale = 'ar' }: UseRealt
       stateRef.current = awaitingSnapshot;
       setState(awaitingSnapshot);
       snapshotTimerRef.current = setTimeout(() => {
-        if (socketRef.current !== socket || stateRef.current.phase !== 'awaiting-snapshot') return;
+        if (socketRef.current !== socket
+          || !isConnectionIntentCurrent(intent)
+          || stateRef.current.phase !== 'awaiting-snapshot') return;
         const timedOut: RealtimeRoomState = {
           ...stateRef.current,
           phase: 'error',

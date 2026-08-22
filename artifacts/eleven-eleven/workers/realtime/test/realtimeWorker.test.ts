@@ -1104,6 +1104,16 @@ describe('Echo realtime Worker', () => {
         'SELECT ready FROM members ORDER BY uid',
       ).toArray()).toEqual([{ ready: 1 }, { ready: 1 }]);
     });
+    const resumed = await upgrade(`/v1/parties/${partyId}`, ticket({
+      uid: 'party-terminal-alpha', displayName: 'Terminal Alpha', roomId: partyId,
+    }));
+    expect(resumed.status).toBe(101);
+    const resumedEvents = envelopeReader(resumed.webSocket!);
+    resumed.webSocket!.accept();
+    await expect(resumedEvents.next()).resolves.toMatchObject({
+      type: 'match-found',
+      payload: { matchId: staleMatchId },
+    });
 
     // Terminal receipt persistence releases only this room's leases. The
     // lingering party record must then reset rather than re-sending its old ticket.
@@ -1155,6 +1165,7 @@ describe('Echo realtime Worker', () => {
     expect(recoveredBeta).toMatchObject({ type: 'match-found' });
     alpha.webSocket!.close(1000, 'test complete');
     beta.webSocket!.close(1000, 'test complete');
+    resumed.webSocket!.close(1000, 'test complete');
   });
 
   it('delivers the leader-selected Co-op case through the private-party match ticket', async () => {

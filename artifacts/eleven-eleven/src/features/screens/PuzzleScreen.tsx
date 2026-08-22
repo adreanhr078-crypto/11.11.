@@ -69,6 +69,23 @@ const EMPTY_STORY_PUZZLE_ENTRIES: readonly StoryPuzzleSnapshotEntry[] = Object.f
 const MATRIX_TILE_IDS = ['tile1', 'tile2', 'tile3', 'tile4'] as const;
 const MEMORY_LAYER_IDS = ['layer1', 'layer2', 'layer3', 'layer4'] as const;
 
+/**
+ * Preserve write order without moving puzzle authority into the browser.
+ * A caller still decides what to save; this only prevents an older response
+ * from reaching the store after a newer player action.
+ */
+export function enqueueSerializedDraftSave<T>(
+  chain: { current: Promise<unknown> },
+  save: () => Promise<T>,
+): Promise<T | null> {
+  const request = chain.current
+    .catch(() => undefined)
+    .then(save)
+    .catch(() => null);
+  chain.current = request;
+  return request;
+}
+
 const emptyDraft = (): StoryPuzzleDraft => ({
   stageIndex: 0,
   tokens: [],
@@ -2294,14 +2311,10 @@ export default function PuzzleScreen() {
     // Capture the exact draft at the time of the player action. Later local
     // interactions must enqueue a later write instead of mutating this one.
     const persistedDraft = cloneDraft(nextDraft);
-    const request = draftSaveChain.current
-      .catch(() => undefined)
-      .then(() => actions.saveDraft(puzzleId, persistedDraft, locale))
-      // Store actions already translate expected API failures to `null`, but
-      // keep the queue usable even if an unexpected transport failure escapes.
-      .catch(() => null);
-    draftSaveChain.current = request;
-    return request;
+    return enqueueSerializedDraftSave(
+      draftSaveChain,
+      () => actions.saveDraft(puzzleId, persistedDraft, locale),
+    );
   };
 
   const queueSave = (next: StoryPuzzleDraft) => {
