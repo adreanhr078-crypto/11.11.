@@ -21,7 +21,7 @@ describe('Story puzzle visual asset accessibility', () => {
     assert.match(screen, /No attempt can be sent until the record returns/);
     assert.match(screen, /disabled=\{interactionDisabled\}/);
     assert.match(screen, /assetStatus === 'failed'\s*\? imageCopy\.unavailableDetail/);
-    assert.match(screen, /if \(!actionReadiness\.ready\) return;/);
+    assert.match(screen, /!actionReadiness\.ready/);
     assert.match(screen, /onVisualAssetStateChange=\{visualAssetContext \? reportVisualAssetState : undefined\}/);
     assert.match(stylesheet, /\.story-puzzle-visual-fallback \{ display: grid;/);
     assert.match(stylesheet, /\.story-puzzle-visual-fallback button \{[\s\S]*?min-block-size: 3rem;/);
@@ -58,7 +58,7 @@ describe('Story puzzle visual asset accessibility', () => {
     assert.match(screen, /const hydratedPuzzleId = useRef<string \| null>\(null\);/);
     assert.match(screen, /if \(hydratedPuzzleId\.current === selectedPuzzle\.id\) return;/);
     assert.match(screen, /hydratedPuzzleId\.current = selectedPuzzle\.id;/);
-    assert.match(screen, /const openHint = async \(index: number\) => \{[\s\S]*?await actions\.saveDraft\(selectedPuzzle\.id, draft, locale\);[\s\S]*?await actions\.unlockHint\(selectedPuzzle\.id, index, locale\);/);
+    assert.match(screen, /const openHint = async \(index: number\) => \{[\s\S]*?await enqueueDraftSave\(selectedPuzzle\.id, draft\);[\s\S]*?await actions\.unlockHint\(selectedPuzzle\.id, index, locale\);/);
     assert.match(screen, /onClick=\{\(\) => void openHint\(index\)\}/);
   });
 
@@ -74,10 +74,55 @@ describe('Story puzzle visual asset accessibility', () => {
     );
 
     assert.match(screen, /const draftSaveChain = useRef<Promise<unknown>>\(Promise\.resolve\(\)\);/);
-    assert.match(screen, /const enqueueDraftSave = \(puzzleId: string, nextDraft: StoryPuzzleDraft\) => \{[\s\S]*?draftSaveChain\.current[\s\S]*?actions\.saveDraft\(puzzleId, persistedDraft, locale\)/);
+    assert.match(screen, /enqueueSerializedDraftSave\(\s*draftSaveChain,\s*\(\) => actions\.saveDraft\(puzzleId, persistedDraft, locale\),\s*\)/);
     assert.match(screen, /saveTimer\.current = window\.setTimeout\(\(\) => \{\s*saveTimer\.current = null;\s*void enqueueDraftSave\(puzzleId, next\);/);
     assert.match(openHint, /terminalPuzzleAction\.current = true;[\s\S]*?await enqueueDraftSave\(selectedPuzzle\.id, draft\);[\s\S]*?await actions\.unlockHint\(selectedPuzzle\.id, index, locale\);/);
     assert.match(complete, /terminalPuzzleAction\.current = true;[\s\S]*?await enqueueDraftSave\(selectedPuzzle\.id, draft\);[\s\S]*?await actions\.complete\(selectedPuzzle\.id, draft, locale\);/);
     assert.match(complete, /finally \{\s*terminalPuzzleAction\.current = false;\s*setBusy\(false\);\s*\}/);
+  });
+
+  it('keeps a deferred autosave ahead of the current draft and terminal receipt', async () => {
+    const { createServer } = await import('vite');
+    const server = await createServer({
+      server: { middlewareMode: true },
+      appType: 'custom',
+    });
+    try {
+      const screen = await server.ssrLoadModule('/src/features/screens/PuzzleScreen.tsx');
+      const enqueue = screen.enqueueSerializedDraftSave as <T>(
+        chain: { current: Promise<unknown> },
+        save: () => Promise<T>,
+      ) => Promise<T | null>;
+      const chain: { current: Promise<unknown> } = { current: Promise.resolve() };
+      const order: string[] = [];
+      let releaseAutosave: (value: string) => void = () => undefined;
+      const deferredAutosave = new Promise<string>((resolveAutosave) => {
+        releaseAutosave = resolveAutosave;
+      });
+
+      const autosave = enqueue(chain, async () => {
+        order.push('autosave');
+        return deferredAutosave;
+      });
+      const currentDraft = enqueue(chain, async () => {
+        order.push('current-draft');
+        return 'current-draft';
+      });
+      const receipt = currentDraft.then(async (saved) => {
+        if (!saved) return null;
+        order.push('completion');
+        return 'receipt';
+      });
+
+      await new Promise<void>((resolveTick) => setTimeout(resolveTick, 0));
+      assert.deepEqual(order, ['autosave']);
+      releaseAutosave('old-draft');
+      assert.equal(await autosave, 'old-draft');
+      assert.equal(await currentDraft, 'current-draft');
+      assert.equal(await receipt, 'receipt');
+      assert.deepEqual(order, ['autosave', 'current-draft', 'completion']);
+    } finally {
+      await server.close();
+    }
   });
 });
