@@ -29,9 +29,12 @@ type ViewerLoadState = 'loading' | 'ready' | 'error';
 const VIEWER_COPY = {
   ar: {
     viewerLabel: 'عارض المانهوا',
+    publication: '11.11 // النسخة النهائية',
+    book: 'الكتاب',
+    chapter: 'الفصل',
     close: 'إغلاق عارض المانهوا',
     loading: 'جارٍ تحميل الصفحة',
-    loadingDetail: 'Loading page…',
+    loadingDetail: 'يُفتح السجل…',
     error: 'تعذر تحميل الصفحة',
     errorDetail: 'لم تُسجّل الصفحة. تحقّق من الأصل ثم أعد المحاولة.',
     retry: 'إعادة المحاولة',
@@ -39,9 +42,16 @@ const VIEWER_COPY = {
     next: 'التالية',
     page: 'الصفحة',
     of: 'من',
+    stage: (page: number) => `منصة قراءة الصفحة ${page}`,
+    navigation: 'التنقل بين صفحات المانهوا',
+    previousPage: (page?: number) => page === undefined ? 'الصفحة السابقة غير متاحة' : `الانتقال إلى الصفحة السابقة: ${page}`,
+    nextPage: (page?: number) => page === undefined ? 'الصفحة التالية غير متاحة' : `الانتقال إلى الصفحة التالية: ${page}`,
   },
   en: {
     viewerLabel: 'Manhwa reader',
+    publication: '11.11 // FINAL PUBLICATION',
+    book: 'BOOK',
+    chapter: 'CHAPTER',
     close: 'Close Manhwa reader',
     loading: 'Loading page',
     loadingDetail: 'The record is opening…',
@@ -52,8 +62,27 @@ const VIEWER_COPY = {
     next: 'Next',
     page: 'Page',
     of: 'of',
+    stage: (page: number) => `Reading stage for page ${page}`,
+    navigation: 'Manhwa page navigation',
+    previousPage: (page?: number) => page === undefined ? 'Previous page unavailable' : `Go to previous page: ${page}`,
+    nextPage: (page?: number) => page === undefined ? 'Next page unavailable' : `Go to next page: ${page}`,
   },
 } as const;
+
+const ARROW_NAVIGATION = {
+  ar: { previous: 'ArrowRight', next: 'ArrowLeft' },
+  en: { previous: 'ArrowLeft', next: 'ArrowRight' },
+} as const;
+
+export function resolveManhwaReaderArrowNavigation(locale: 'ar' | 'en') {
+  return ARROW_NAVIGATION[locale];
+}
+
+function readerChapterLabel(chapterId: string, locale: 'ar' | 'en'): string {
+  const copy = VIEWER_COPY[locale];
+  if (chapterId === 'chapter_0') return copy.book;
+  return `${copy.chapter} ${chapterId.replace('chapter_', '')}`;
+}
 
 const FOCUSABLE_SELECTOR = [
   'button:not([disabled])',
@@ -155,25 +184,26 @@ export function ManhwaFullscreenViewer({
         historyCleanupTimerRef.current = null;
       }, 0);
       document.body.style.overflow = previousOverflow;
-      void adapter.restoreLandscape();
+      void adapter.restorePreviousOrientation();
       previousFocus?.focus();
     };
   }, [adapter, availableInitialPage, requestClose]);
 
   useEffect(() => {
     if (typeof document === 'undefined' || !currentPage) return;
+    const arrowNavigation = resolveManhwaReaderArrowNavigation(locale);
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
         closeViewer();
         return;
       }
-      if (event.key === 'PageUp' || event.key === 'ArrowRight') {
+      if (event.key === 'PageUp' || event.key === arrowNavigation.previous) {
         event.preventDefault();
         navigateTo(previousPage?.id);
         return;
       }
-      if (event.key === 'PageDown' || event.key === 'ArrowLeft') {
+      if (event.key === 'PageDown' || event.key === arrowNavigation.next) {
         event.preventDefault();
         navigateTo(nextPage?.id);
         return;
@@ -198,7 +228,7 @@ export function ManhwaFullscreenViewer({
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [closeViewer, currentPage, navigateTo, nextPage?.id, previousPage?.id]);
+  }, [closeViewer, currentPage, locale, navigateTo, nextPage?.id, previousPage?.id]);
 
   if (typeof document === 'undefined' || !currentPage || pages.length === 0) {
     return null;
@@ -221,13 +251,9 @@ export function ManhwaFullscreenViewer({
       >
         <header className="manhwa-viewer__toolbar">
           <span>
-            <small>11.11 // FINAL PUBLICATION</small>
+            <small>{copy.publication}</small>
             <strong>{currentPage.title[locale]}</strong>
-            <em>
-              {currentPage.chapterId === 'chapter_0'
-                ? 'BOOK'
-                : currentPage.chapterId.replace('_', ' ').toUpperCase()}
-            </em>
+            <em>{readerChapterLabel(currentPage.chapterId, locale)}</em>
           </span>
           <GameButton
             variant="ghost"
@@ -241,6 +267,8 @@ export function ManhwaFullscreenViewer({
 
         <main
           className="manhwa-viewer__stage"
+          aria-busy={loadState === 'loading'}
+          aria-label={copy.stage(currentPage.globalPageNumber)}
           onTouchStart={(event) => {
             touchStartX.current = event.changedTouches[0]?.clientX ?? null;
           }}
@@ -267,7 +295,7 @@ export function ManhwaFullscreenViewer({
             }}
             onError={() => {
               setLoadState('error');
-              void adapter.restoreLandscape();
+              void adapter.restorePreviousOrientation();
             }}
           />
 
@@ -298,12 +326,13 @@ export function ManhwaFullscreenViewer({
           )}
         </main>
 
-        <footer className="manhwa-viewer__navigation">
+        <footer className="manhwa-viewer__navigation" aria-label={copy.navigation}>
           <GameButton
             variant="ghost"
             leadingIcon={locale === 'ar' ? <ChevronRight /> : <ChevronLeft />}
             disabled={!previousPage}
             onClick={() => navigateTo(previousPage?.id)}
+            aria-label={copy.previousPage(previousPage?.globalPageNumber)}
           >
             {copy.previous}
           </GameButton>
@@ -316,6 +345,7 @@ export function ManhwaFullscreenViewer({
             trailingIcon={locale === 'ar' ? <ChevronLeft /> : <ChevronRight />}
             disabled={!nextPage}
             onClick={() => navigateTo(nextPage?.id)}
+            aria-label={copy.nextPage(nextPage?.globalPageNumber)}
           >
             {copy.next}
           </GameButton>

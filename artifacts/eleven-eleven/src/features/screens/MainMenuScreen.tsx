@@ -25,7 +25,7 @@ import { deriveCorePlayerObjective } from '../../application/player-journey/core
 const MAIN_MENU_COPY = {
   ar: {
     ariaLabel: 'القائمة الرئيسية',
-    scene: 'المشهد السينمائي',
+    scene: 'القائمة الرئيسية',
     identity: 'أنت لست مجرد ذكريات.',
     identityStrong: 'أنت الحقيقة التي تحاول استعادتها.',
     resume: 'استعادة الاتصال',
@@ -48,7 +48,7 @@ const MAIN_MENU_COPY = {
   },
   en: {
     ariaLabel: 'Main menu',
-    scene: 'Cinematic scene',
+    scene: 'Main menu',
     identity: 'You are not only memories.',
     identityStrong: 'You are the truth trying to return.',
     resume: 'Restore the connection',
@@ -142,7 +142,7 @@ export default function MainMenuScreen() {
 
       <header className="shell-main-menu__utility shell-main-menu__utility--minimal">
         <span className="shell-main-menu__scene-title">
-          <span className="shell-screen-code">01</span>
+          <span className="shell-screen-code">00</span>
           <strong>{copy.scene}</strong>
         </span>
         <PlayerResourceCounters className="shell-main-menu__resources" />
@@ -217,7 +217,7 @@ export default function MainMenuScreen() {
       </div>
 
       <footer className="shell-main-menu__footer">
-        <span>Mobile Browser Interface</span>
+        <span>{locale === 'en' ? 'Browser Interface Ready' : 'واجهة المتصفح جاهزة'}</span>
         <span className="shell-main-menu__audio-signal">
           <i /><i /><i /><i /><i /><i /><i /><i />
           {copy.interactiveAudio}

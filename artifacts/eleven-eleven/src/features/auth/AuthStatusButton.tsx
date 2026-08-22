@@ -60,6 +60,7 @@ export function AuthStatusButton({
         <GameButton
           className={user ? `application-shell__player-card ${className ?? ''}` : className}
           variant={variant}
+          aria-label={tooltip}
           leadingIcon={user ? (
             <img
               className="application-shell__player-avatar"

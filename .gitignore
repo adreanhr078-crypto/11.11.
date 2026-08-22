@@ -54,5 +54,10 @@ Thumbs.db
 .cache/
 .wrangler/
 
+# Local Edge/Playwright profiles and screenshots created by 11.11 runtime QA.
+# The active app is nested under artifacts/, so the root .tmp rule alone does
+# not cover this path.
+artifacts/eleven-eleven/.tmp/
+
 # Vercel - ignore pnpm lockfile to prevent Vercel from using pnpm
 pnpm-lock.yaml

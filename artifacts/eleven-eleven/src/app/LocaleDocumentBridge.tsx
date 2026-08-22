@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect } from 'react';
 import {
   documentTitle,
   localeDirection,
@@ -12,7 +12,9 @@ export function LocaleDocumentBridge() {
   const quietHoursStart = useUiPreferencesStore((state) => state.quietHoursStart);
   const quietHoursEnd = useUiPreferencesStore((state) => state.quietHoursEnd);
   const currentScreen = useShellStore((state) => state.currentScreen);
-  useEffect(() => {
+  // Direction and title are part of the live shell contract. Updating before
+  // paint avoids a visible RTL/LTR flash when the player changes language.
+  useLayoutEffect(() => {
     document.documentElement.lang = locale;
     document.documentElement.dir = localeDirection(locale);
     document.title = documentTitle(locale, currentScreen);

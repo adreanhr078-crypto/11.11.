@@ -13,6 +13,7 @@ import { GameButton, GlassPanel, HudPanel } from '../../ui/design-system';
 import { SponsorTransmission } from './SponsorTransmission';
 import { SocialConnectionsPanel } from './SocialConnectionsPanel';
 import { LiveSignalRooms } from './LiveSignalRooms';
+import type { RealtimeRoomController } from './useRealtimeRoom';
 
 const EMPTY_FORGE: ForgeSubmissionInput = {
   locale: 'ar',
@@ -27,10 +28,12 @@ const EMPTY_FORGE: ForgeSubmissionInput = {
 export function SignalBoardPanel({
   locale,
   eligibility,
+  partyRoom,
   onEligibility,
 }: {
   locale: NetworkLocale;
   eligibility: NetworkEligibilitySnapshot;
+  partyRoom: RealtimeRoomController;
   onEligibility: (eligibility: NetworkEligibilitySnapshot) => void;
 }) {
   const [posts, setPosts] = useState<CommunityPostSnapshot[]>([]);
@@ -93,7 +96,7 @@ export function SignalBoardPanel({
       ) : (
         <>
           <SocialConnectionsPanel locale={locale} />
-          <LiveSignalRooms locale={locale} />
+          <LiveSignalRooms locale={locale} partyRoom={partyRoom} />
           <div className="echo-network-community-grid">
             <div className="signal-board-feed" aria-live="polite">
               {loading && <p>جارٍ التقاط البث الرسمي…</p>}

@@ -78,6 +78,7 @@
   display: grid;
   gap: 0.18rem;
   min-width: 0;
+  padding-block-end: 2rem;
 }
 
 .achievement-presentation__copy small,
@@ -119,6 +120,9 @@
 .achievement-presentation > button {
   position: absolute;
   inset: auto 0.7rem 0.5rem auto;
+  min-block-size: 3rem;
+  min-inline-size: 3rem;
+  padding-inline: 0.45rem;
   border: 0;
   color: var(--gds-text-muted);
   background: transparent;

@@ -145,6 +145,8 @@ describe('Manhwa Viewer unlocked-page boundary', () => {
       'utf8',
     );
     assert.ok(screen.includes('pages={readerPages}'));
+    assert.ok(screen.includes('readerPageIds.has(page.id)'));
+    assert.ok(screen.includes('synchronizeManhwaAccess(completedPuzzleIds)'));
   });
 
   it('calls the canonical view callback only from image onLoad', () => {
@@ -265,7 +267,7 @@ describe('Manhwa Viewer unlocked-page boundary', () => {
     assert.ok(source.includes('previousFocus?.focus()'));
     assert.ok(source.includes("document.body.style.overflow = 'hidden'"));
     assert.ok(
-      [...source.matchAll(/adapter\.restoreLandscape\(\)/g)].length >= 2,
+      [...source.matchAll(/adapter\.restorePreviousOrientation\(\)/g)].length >= 2,
     );
     assert.match(
       styles,
@@ -345,21 +347,50 @@ describe('Manhwa Viewer web orientation adapter', () => {
     const adapter = createManhwaViewerPlatformAdapter(null);
 
     assert.equal(await adapter.requestPortrait(), false);
-    assert.equal(await adapter.restoreLandscape(), false);
+    assert.equal(await adapter.restorePreviousOrientation(), false);
   });
 
-  it('absorbs rejected locks and retries landscape cleanup safely', async () => {
+  it('returns to the exact orientation that existed before opening the reader', async () => {
     const calls: string[] = [];
     const adapter = createManhwaViewerPlatformAdapter({
+      async lock(orientation) {
+        calls.push(orientation);
+      },
+      type: 'portrait-primary',
+    });
+
+    assert.equal(await adapter.requestPortrait(), true);
+    assert.equal(await adapter.restorePreviousOrientation(), true);
+    assert.equal(await adapter.restorePreviousOrientation(), false);
+    assert.deepEqual(calls, ['portrait', 'portrait-primary']);
+  });
+
+  it('does not impose landscape when a portrait lock was rejected', async () => {
+    const calls: string[] = [];
+    const adapter = createManhwaViewerPlatformAdapter({
+      type: 'landscape-primary',
       async lock(orientation) {
         calls.push(orientation);
         throw new Error('Orientation lock rejected');
       },
     });
 
-    await assert.doesNotReject(adapter.requestPortrait());
-    await assert.doesNotReject(adapter.restoreLandscape());
-    await assert.doesNotReject(adapter.restoreLandscape());
-    assert.deepEqual(calls, ['portrait', 'landscape', 'landscape']);
+    assert.equal(await adapter.requestPortrait(), false);
+    assert.equal(await adapter.restorePreviousOrientation(), false);
+    assert.deepEqual(calls, ['portrait']);
+  });
+
+  it('unlocks only when the browser cannot report a previous orientation', async () => {
+    let unlocks = 0;
+    const adapter = createManhwaViewerPlatformAdapter({
+      async lock() {},
+      unlock() {
+        unlocks += 1;
+      },
+    });
+
+    assert.equal(await adapter.requestPortrait(), true);
+    assert.equal(await adapter.restorePreviousOrientation(), true);
+    assert.equal(unlocks, 1);
   });
 });

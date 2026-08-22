@@ -49,8 +49,9 @@ describe('story puzzle interaction accessibility', () => {
     assert.ok(memoryScreen.includes('aria-live="polite"'));
     assert.ok(memoryScreen.includes('aria-atomic="true"'));
     assert.ok(memoryScreen.includes('aria-label='));
-    assert.ok(viewer.includes("event.key === 'ArrowLeft'"));
-    assert.ok(viewer.includes("event.key === 'ArrowRight'"));
+    assert.ok(viewer.includes('resolveManhwaReaderArrowNavigation(locale)'));
+    assert.ok(viewer.includes('event.key === arrowNavigation.previous'));
+    assert.ok(viewer.includes('event.key === arrowNavigation.next'));
     assert.ok(viewer.includes('role="dialog"'));
     assert.ok(overlays.includes('previousFocus?.focus()'));
     assert.ok(overlays.includes('event.key === \'Escape\''));
@@ -73,7 +74,7 @@ describe('story puzzle interaction accessibility', () => {
     assert.doesNotMatch(liveScreen, /\[definition\.id, visual\]/);
   });
 
-  it('contains the cinematic shell without page or horizontal stage overflow', () => {
+  it('keeps stage-owned clipping without restricting interactive transition hit testing', () => {
     const foundation = source('src/ui/design-system/styles/foundation.css');
     const shellStyles = source('src/app/shell/application-shell.css');
     const presentationStyles = source(
@@ -84,7 +85,7 @@ describe('story puzzle interaction accessibility', () => {
     assert.ok(foundation.includes('overflow: hidden;'));
     assert.ok(shellStyles.includes('overflow-x: hidden;'));
     assert.ok(shellStyles.includes('overflow-y: auto;'));
-    assert.ok(presentationStyles.includes('overflow-x: clip;'));
+    assert.ok(presentationStyles.includes('overflow: visible;'));
   });
 
   it('honors reduced motion for rewards, shards, and the manhwa viewer', () => {

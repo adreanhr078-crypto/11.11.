@@ -73,7 +73,7 @@ describe('Phase 3 Story Puzzle catalog', () => {
     assert.ok(STORY_PUZZLES.every((puzzle) => puzzle.hints.length === 3));
     assert.ok(STORY_PUZZLES.every((puzzle) => puzzle.source.globalPageNumber >= 3 && puzzle.source.globalPageNumber <= 69));
     assert.ok(STORY_PUZZLES.every((puzzle) => puzzle.source.globalPageNumber !== 70 && puzzle.source.globalPageNumber !== 71));
-    assert.deepEqual(STORY_PUZZLE_HINT_COSTS, [0, 12, 24]);
+    assert.deepEqual(STORY_PUZZLE_HINT_COSTS, [4, 8, 14]);
   });
 
   it('does not repeat a primary mechanic anywhere in the 20-puzzle campaign', () => {
@@ -83,12 +83,14 @@ describe('Phase 3 Story Puzzle catalog', () => {
     );
   });
 
-  it('uses canonical images for distinct reconstruction and layer-alignment mechanics', () => {
-    for (const id of ['story_puzzle_03_torn_memory', 'story_puzzle_16_memory_reconstruction']) {
-      const puzzle = STORY_PUZZLE_BY_ID[id];
-      assert.ok(puzzle?.image);
-      assert.match(puzzle!.image!.src, /^\/manhwa\/final\/page-\d{3}\.webp$/);
-    }
+  it('uses an approved Manhwa source gate and bounded visual source for reconstruction mechanics', () => {
+    const tornMemory = STORY_PUZZLE_BY_ID.story_puzzle_03_torn_memory;
+    const layerAlignment = STORY_PUZZLE_BY_ID.story_puzzle_16_memory_reconstruction;
+    assert.ok(tornMemory?.image);
+    assert.equal(tornMemory!.source.pageId, 'manhwa_ch01_page_07');
+    assert.equal(tornMemory!.image!.src, '/assets/ui/puzzles/torn-memory-record-v1.webp');
+    assert.ok(layerAlignment?.image);
+    assert.match(layerAlignment!.image!.src, /^\/manhwa\/final\/page-\d{3}\.webp$/);
     assert.equal(STORY_PUZZLE_BY_ID.story_puzzle_03_torn_memory?.mechanic, 'image-reconstruction');
     assert.equal(STORY_PUZZLE_BY_ID.story_puzzle_16_memory_reconstruction?.mechanic, 'layer-alignment');
   });
@@ -236,7 +238,7 @@ describe('Phase 3 Story Puzzle catalog', () => {
     );
     assert.match(screen, /discoverableSecretIds\.map/);
     assert.match(screen, /story-puzzle-index__discovery/);
-    assert.match(screen, /actions\.discover\(secretId\)/);
+    assert.match(screen, /actions\.discover\(secretId(?:, locale)?\)/);
   });
 
   it('never migrates retired local campaign progress into Story Puzzle progress', () => {

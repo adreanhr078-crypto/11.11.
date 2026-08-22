@@ -27,6 +27,7 @@ import {
   type SocketAttachment,
 } from './common';
 import { participantReward, sealReceipt, type QueuedResult } from './receipt';
+import { isChessRoomRewardEligible } from './resultEligibility';
 
 interface MetaRow {
   [key: string]: SqlStorageValue;
@@ -38,6 +39,7 @@ interface MetaRow {
   finished_at: number | null;
   receipt_json: string | null;
   receipt_queued: number;
+  receipt_persisted: number;
 }
 
 interface ParticipantRow {
@@ -47,6 +49,8 @@ interface ParticipantRow {
   color: Color;
   joined_at: number;
   disconnected_at: number | null;
+  connected_since: number | null;
+  participation_ms: number;
 }
 
 interface FinalizationOutboxRow {
@@ -58,8 +62,7 @@ interface FinalizationOutboxRow {
 }
 
 const RECONNECT_GRACE_MS = 30_000;
-const MIN_COMPETITIVE_DURATION_MS = 90_000;
-const MIN_COMPETITIVE_PLIES = 8;
+const RECEIPT_RECONCILIATION_DELAY_MS = 30_000;
 
 function parseState(value: string | null): ContractChessState | null {
   if (!value) return null;
@@ -87,24 +90,11 @@ function statusWinnerColor(state: ContractChessState): Color | null {
 function rewardXp(
   mode: OnlineMode,
   outcome: 'win' | 'loss' | 'draw',
-  abandoned: boolean,
 ): number {
-  if (abandoned && outcome === 'loss') return 0;
   if (mode === 'chess_ranked_blitz' || mode === 'chess_ranked_rapid') {
     return outcome === 'win' ? 80 : outcome === 'draw' ? 60 : 45;
   }
   return outcome === 'win' ? 45 : outcome === 'draw' ? 35 : 30;
-}
-
-function competitiveResultEligible(
-  mode: OnlineMode,
-  status: MatchReceipt['status'],
-  durationMs: number,
-  plies: number,
-): boolean {
-  if (mode !== 'chess_casual' && mode !== 'chess_ranked_blitz' && mode !== 'chess_ranked_rapid') return true;
-  return status !== 'resigned'
-    || (durationMs >= MIN_COMPETITIVE_DURATION_MS && plies >= MIN_COMPETITIVE_PLIES);
 }
 
 export class ChessMatchRoom extends DurableObject<Env> {
@@ -121,14 +111,17 @@ export class ChessMatchRoom extends DurableObject<Env> {
           started_at INTEGER,
           finished_at INTEGER,
           receipt_json TEXT,
-          receipt_queued INTEGER NOT NULL DEFAULT 0
+          receipt_queued INTEGER NOT NULL DEFAULT 0,
+          receipt_persisted INTEGER NOT NULL DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS participants (
           uid TEXT PRIMARY KEY,
           display_name TEXT NOT NULL,
           color TEXT NOT NULL CHECK (color IN ('w', 'b')),
           joined_at INTEGER NOT NULL,
-          disconnected_at INTEGER
+          disconnected_at INTEGER,
+          connected_since INTEGER,
+          participation_ms INTEGER NOT NULL DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS used_tickets (
           jti TEXT PRIMARY KEY,
@@ -156,6 +149,27 @@ export class ChessMatchRoom extends DurableObject<Env> {
           attempts INTEGER NOT NULL DEFAULT 0
         );
       `);
+      // Existing rooms remain recoverable after this integrity upgrade. DO
+      // SQLite has no ADD COLUMN IF NOT EXISTS, so inspect first.
+      const columns = ctx.storage.sql.exec<{ [key: string]: SqlStorageValue; name: string }>(
+        'PRAGMA table_info(participants)',
+      ).toArray();
+      if (!columns.some((column) => column.name === 'connected_since')) {
+        ctx.storage.sql.exec('ALTER TABLE participants ADD COLUMN connected_since INTEGER');
+      }
+      if (!columns.some((column) => column.name === 'participation_ms')) {
+        ctx.storage.sql.exec(
+          'ALTER TABLE participants ADD COLUMN participation_ms INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+      const metaColumns = ctx.storage.sql.exec<{ [key: string]: SqlStorageValue; name: string }>(
+        'PRAGMA table_info(meta)',
+      ).toArray();
+      if (!metaColumns.some((column) => column.name === 'receipt_persisted')) {
+        ctx.storage.sql.exec(
+          'ALTER TABLE meta ADD COLUMN receipt_persisted INTEGER NOT NULL DEFAULT 0',
+        );
+      }
     });
   }
 
@@ -185,21 +199,30 @@ export class ChessMatchRoom extends DurableObject<Env> {
           this.ctx.storage.sql.exec(`
             INSERT INTO meta (
               singleton, room_id, mode, variant, state_json,
-              started_at, finished_at, receipt_json, receipt_queued
-            ) VALUES (1, ?, ?, ?, NULL, NULL, NULL, NULL, 0)
+              started_at, finished_at, receipt_json, receipt_queued, receipt_persisted
+            ) VALUES (1, ?, ?, ?, NULL, NULL, NULL, NULL, 0, 0)
           `, roomId, ticket.mode, variantForTicket(ticket));
         } else if (meta.room_id !== roomId || meta.mode !== ticket.mode) {
           throw new RealtimeError(409, 'room_contract_mismatch', 'The room contract does not match this ticket.');
         }
         if (participant) {
+          const existingState = parseState(this.meta()?.state_json ?? null);
           this.ctx.storage.sql.exec(`
-            UPDATE participants SET display_name = ?, disconnected_at = NULL WHERE uid = ?
-          `, ticket.displayName, ticket.uid);
+            UPDATE participants
+            SET display_name = ?,
+              disconnected_at = NULL,
+              connected_since = CASE
+                WHEN ? = 1 AND connected_since IS NULL THEN ?
+                ELSE connected_since
+              END
+            WHERE uid = ?
+          `, ticket.displayName, existingState?.status === 'active' ? 1 : 0, now, ticket.uid);
         } else {
           const color: Color = participants.length === 0 ? 'w' : 'b';
           this.ctx.storage.sql.exec(`
-            INSERT INTO participants (uid, display_name, color, joined_at, disconnected_at)
-            VALUES (?, ?, ?, ?, NULL)
+            INSERT INTO participants (
+              uid, display_name, color, joined_at, disconnected_at, connected_since, participation_ms
+            ) VALUES (?, ?, ?, ?, NULL, NULL, 0)
           `, ticket.uid, ticket.displayName, color, now);
           participant = {
             uid: ticket.uid,
@@ -207,6 +230,8 @@ export class ChessMatchRoom extends DurableObject<Env> {
             color,
             joined_at: now,
             disconnected_at: null,
+            connected_since: null,
+            participation_ms: 0,
           };
         }
         if (this.participants().length === 2 && !parseState(this.meta()?.state_json ?? null)) {
@@ -215,6 +240,11 @@ export class ChessMatchRoom extends DurableObject<Env> {
           this.ctx.storage.sql.exec(`
             UPDATE meta SET state_json = ?, started_at = ? WHERE singleton = 1
           `, JSON.stringify(initial), now);
+          this.ctx.storage.sql.exec(`
+            UPDATE participants
+            SET connected_since = ?, participation_ms = 0
+            WHERE connected_since IS NULL
+          `, now);
         }
       });
 
@@ -342,10 +372,37 @@ export class ChessMatchRoom extends DurableObject<Env> {
     }
     if (!meta.receipt_json && this.finalizationIntent()) {
       await this.finalize('completed', null);
-    } else if (meta.receipt_json && meta.receipt_queued === 0) {
+    } else if (meta.receipt_json && meta.receipt_persisted === 0) {
       await this.queueStoredReceipt();
     }
     await this.scheduleNextAlarm();
+  }
+
+  /**
+   * Internal Queue -> room acknowledgement. A Queue send only confirms
+   * acceptance by the broker; it does not prove the D1 transaction completed.
+   * The receipt and hash are checked against durable room state so a retry for
+   * another result cannot mark this room as persisted.
+   */
+  async acknowledgeReceiptPersistence(matchId: string, integrityHash: string): Promise<void> {
+    const meta = this.meta();
+    if (!meta?.receipt_json || meta.room_id !== matchId) {
+      throw new Error('Stored chess receipt is unavailable for acknowledgement.');
+    }
+    try {
+      const parsed = matchReceiptSchema.safeParse(JSON.parse(meta.receipt_json) as unknown);
+      if (!parsed.success
+        || parsed.data.matchId !== matchId
+        || parsed.data.integrityHash !== integrityHash) {
+        throw new Error('Stored chess receipt does not match the persistence acknowledgement.');
+      }
+    } catch (error) {
+      if (error instanceof Error) throw error;
+      throw new Error('Stored chess receipt cannot be acknowledged.');
+    }
+    this.ctx.storage.sql.exec(
+      'UPDATE meta SET receipt_persisted = 1 WHERE singleton = 1',
+    );
   }
 
   private meta(): MetaRow | null {
@@ -355,14 +412,14 @@ export class ChessMatchRoom extends DurableObject<Env> {
 
   private participants(): ParticipantRow[] {
     return this.ctx.storage.sql.exec<ParticipantRow>(`
-      SELECT uid, display_name, color, joined_at, disconnected_at
+      SELECT uid, display_name, color, joined_at, disconnected_at, connected_since, participation_ms
       FROM participants ORDER BY joined_at ASC, uid ASC
     `).toArray();
   }
 
   private participant(uid: string): ParticipantRow | null {
     return this.ctx.storage.sql.exec<ParticipantRow>(`
-      SELECT uid, display_name, color, joined_at, disconnected_at
+      SELECT uid, display_name, color, joined_at, disconnected_at, connected_since, participation_ms
       FROM participants WHERE uid = ?
     `, uid).toArray()[0] ?? null;
   }
@@ -605,12 +662,11 @@ export class ChessMatchRoom extends DurableObject<Env> {
   ): Promise<void> {
     const meta = this.meta();
     if (!meta || meta.receipt_json) {
-      if (meta?.receipt_json && meta.receipt_queued === 0) await this.queueStoredReceipt();
+      if (meta?.receipt_json && meta.receipt_persisted === 0) await this.queueStoredReceipt();
       return;
     }
     const now = Date.now();
     const players = this.participants();
-    const state = parseState(meta.state_json);
     // Terminal state and this intent are atomically durable.  A restart after
     // a crash resumes this work from the outbox rather than losing a result.
     const intent = this.finalizationIntent();
@@ -620,22 +676,27 @@ export class ChessMatchRoom extends DurableObject<Env> {
     const participants: MatchReceipt['participants'] = players.map((player) => ({
       uid: player.uid,
       outcome: draw ? 'draw' : player.uid === durableIntent.winner_uid ? 'win' : 'loss',
-      participationMs: Math.max(0, now - (meta.started_at ?? player.joined_at)),
+      participationMs: this.participationMs(player, now),
     }));
     const durationMs = Math.max(0, now - (meta.started_at ?? now));
     const plies = this.ctx.storage.sql.exec<{ total: number }>(
       'SELECT COUNT(*) AS total FROM moves',
     ).toArray()[0]?.total ?? 0;
-    const eligible = competitiveResultEligible(meta.mode, durableIntent.result_status, durationMs, plies);
+    const eligible = isChessRoomRewardEligible({
+      mode: meta.mode,
+      status: durableIntent.result_status,
+      durationMs,
+      participants,
+      plies,
+    });
     const rewards = participants.map((participant) => participantReward(
       meta.room_id,
       participant.uid,
-      rewardXp(
+      eligible ? rewardXp(
         meta.mode,
         participant.outcome as 'win' | 'loss' | 'draw',
-        state?.reason === 'abandoned' || !eligible,
-      ),
-      meta.mode === 'chess_anomaly' ? ['chess-board-echo-signal'] : [],
+      ) : 0,
+      eligible && meta.mode === 'chess_anomaly' ? ['chess-board-echo-signal'] : [],
     ));
     const receipt = await sealReceipt(this.env.REALTIME_TICKET_SECRET, {
       version: 1,
@@ -688,8 +749,9 @@ export class ChessMatchRoom extends DurableObject<Env> {
 
   private async queueStoredReceipt(): Promise<void> {
     const meta = this.meta();
-    if (!meta?.receipt_json || meta.receipt_queued !== 0) return;
+    if (!meta?.receipt_json || meta.receipt_persisted !== 0) return;
     const receipt = JSON.parse(meta.receipt_json) as MatchReceipt;
+    const alreadyAnnounced = meta.receipt_queued !== 0;
     const payload: QueuedResult = {
       receipt,
       profiles: this.participants().map((player) => ({
@@ -698,20 +760,26 @@ export class ChessMatchRoom extends DurableObject<Env> {
       })),
     };
     try {
-      await this.env.RESULT_QUEUE.send(payload, {
-        contentType: 'json',
-      });
+      await this.enqueueResult(payload);
       this.ctx.storage.sql.exec(
         'UPDATE meta SET receipt_queued = 1 WHERE singleton = 1',
       );
-      for (const socket of this.ctx.getWebSockets()) {
-        sendEvent(socket, meta.room_id, parseState(meta.state_json)?.version ?? 0, 'reward-pending', {
-          receipt,
-        });
+      if (!alreadyAnnounced) {
+        for (const socket of this.ctx.getWebSockets()) {
+          sendEvent(socket, meta.room_id, parseState(meta.state_json)?.version ?? 0, 'reward-pending', {
+            receipt,
+          });
+        }
       }
+      await this.scheduleNextAlarm();
     } catch {
       await this.ctx.storage.setAlarm(Date.now() + 5_000);
     }
+  }
+
+  /** Kept behind the room boundary so terminal outbox recovery is testable. */
+  private async enqueueResult(payload: QueuedResult): Promise<void> {
+    await this.env.RESULT_QUEUE.send(payload, { contentType: 'json' });
   }
 
   private async markDisconnected(socket: WebSocket): Promise<void> {
@@ -720,13 +788,28 @@ export class ChessMatchRoom extends DurableObject<Env> {
     const remaining = this.ctx.getWebSockets(`uid:${attachment.uid}`)
       .filter((candidate) => candidate !== socket);
     if (remaining.length === 0) {
+      const now = Date.now();
       this.ctx.storage.sql.exec(
-        'UPDATE participants SET disconnected_at = ? WHERE uid = ?',
-        Date.now(), attachment.uid,
+        `UPDATE participants
+         SET participation_ms = participation_ms + CASE
+             WHEN connected_since IS NULL THEN 0
+             ELSE MAX(0, ? - connected_since)
+           END,
+           connected_since = NULL,
+           disconnected_at = ?
+         WHERE uid = ?`,
+        now, now, attachment.uid,
       );
       this.broadcastPresence();
       await this.scheduleNextAlarm();
     }
+  }
+
+  private participationMs(player: ParticipantRow, now: number): number {
+    const liveDuration = player.connected_since === null
+      ? 0
+      : Math.max(0, now - player.connected_since);
+    return Math.max(0, player.participation_ms + liveDuration);
   }
 
   private async scheduleNextAlarm(): Promise<void> {
@@ -743,8 +826,10 @@ export class ChessMatchRoom extends DurableObject<Env> {
         }
       }
     }
-    if ((meta?.receipt_json && meta.receipt_queued === 0)
-      || (!meta?.receipt_json && this.finalizationIntent())) candidates.push(Date.now() + 5_000);
+    if (!meta?.receipt_json && this.finalizationIntent()) candidates.push(Date.now() + 5_000);
+    if (meta?.receipt_json && meta.receipt_persisted === 0) {
+      candidates.push(Date.now() + RECEIPT_RECONCILIATION_DELAY_MS);
+    }
     if (candidates.length > 0) {
       await this.ctx.storage.setAlarm(Math.max(Date.now() + 100, Math.min(...candidates)));
     }

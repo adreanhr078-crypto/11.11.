@@ -367,7 +367,8 @@
 
 .auth-card__modes button {
   position: relative;
-  min-height: 2.6rem;
+  /* Segmented modes are primary touch choices on a phone, not decorative tabs. */
+  min-height: 2.75rem;
   border: 0;
   color: var(--gds-text-muted);
   background: transparent;

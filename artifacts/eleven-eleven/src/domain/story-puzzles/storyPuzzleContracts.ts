@@ -68,8 +68,13 @@ export interface StoryPuzzleStage {
 }
 
 export interface StoryPuzzleSignalConfig {
-  targetFrequency: number;
-  targetChannel: '07' | '11' | '13';
+  /**
+   * Presentation candidates only. The authoritative match remains exclusively
+   * in the Player API; this data lets the player inspect the signal itself.
+   */
+  frequencyOptions: readonly number[];
+  channelOptions: readonly ('07' | '11' | '13')[];
+  visualProfile: 'opening' | 'breach' | 'core';
 }
 
 export type StoryPuzzleEchoResonanceAxis =
@@ -112,8 +117,6 @@ export interface StoryPuzzleDefinition {
   image?: StoryPuzzleImageSource;
   stages?: readonly StoryPuzzleStage[];
   signal?: StoryPuzzleSignalConfig;
-  /** Visible alignment feedback; the server still verifies the submitted state. */
-  rotationGoal?: Readonly<Record<string, number>>;
   /** Canon stage already proven by the Manhwa checkpoint for this puzzle. */
   cinematicStageId?: 'black_coronation' | 'second_contract_marked' | 'black_echo_protocol';
   /** The main puzzle that presents the optional visual anomaly. */

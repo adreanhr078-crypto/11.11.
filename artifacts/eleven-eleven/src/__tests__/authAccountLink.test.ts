@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
+import { friendlyAuthError } from '../features/auth/authStore';
 
 function source(relativePath: string): string {
   return readFileSync(resolve(process.cwd(), relativePath), 'utf8');
@@ -40,6 +41,32 @@ describe('guest account linking', () => {
     assert.match(store, /'auth\/unauthorized-domain'/);
     assert.match(styles, /\.auth-account-link__methods/);
     assert.match(styles, /@media \(max-width: 34rem\)[\s\S]*\.auth-account-link__methods\s*\{\s*grid-template-columns: 1fr;/);
+  });
+
+  it('keeps account errors in the active interface language without exposing configuration keys', () => {
+    const blocked = Object.assign(new Error('Popup blocked'), {
+      code: 'auth/popup-blocked',
+    });
+    const configuration = new Error(
+      'Firebase Auth is not configured: VITE_FIREBASE_API_KEY',
+    );
+
+    assert.equal(
+      friendlyAuthError(blocked, 'en'),
+      'Your browser blocked the Google window. Allow pop-ups and try again.',
+    );
+    assert.equal(
+      friendlyAuthError(blocked, 'ar'),
+      'منع المتصفح نافذة Google. اسمح بالنوافذ المنبثقة ثم أعد المحاولة.',
+    );
+    assert.equal(
+      friendlyAuthError(configuration, 'en').includes('VITE_FIREBASE_API_KEY'),
+      false,
+    );
+    assert.match(
+      source('src/features/auth/authStore.ts'),
+      /friendlyAuthError\(error, currentLocale\(\)\)/,
+    );
   });
 
   it('keeps auth retryable and bounds every Firebase operation', () => {

@@ -40,7 +40,12 @@ export const STORY_PUZZLE_BALANCE: Readonly<Record<
   final: { xp: 175, coins: 40, perfectBonusCoins: 15 },
 });
 
-export const STORY_PUZZLE_HINT_COSTS = Object.freeze([0, 12, 24] as const);
+/**
+ * Story hints are an intentional, server-priced choice.  They never block
+ * the main path or erase a draft, but each deeper level costs verified Signal
+ * Coins so asking Echo for more certainty remains meaningful.
+ */
+export const STORY_PUZZLE_HINT_COSTS = Object.freeze([4, 8, 14] as const);
 
 const imagePieces = (count: number): readonly string[] => (
   Array.from({ length: count }, (_, index) => `piece-${index}`)

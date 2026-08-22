@@ -2,6 +2,11 @@ import { DurableObject } from 'cloudflare:workers';
 import { signRealtimeTicket } from '../../../src/domain/echo-network/realtimeTicket';
 import type { RealtimeTicketPayload } from '../../../src/domain/echo-network/contracts';
 import {
+  ACTIVE_MATCH_LEASE_MS,
+  assertMatchLeaseAdmission,
+  reserveMatchLeasesAndMemberships,
+} from './activeMatchLease';
+import {
   RealtimeError,
   createSocketPair,
   errorResponse,
@@ -58,12 +63,16 @@ export class MatchmakerRoom extends DurableObject<Env> {
       if (ticket.target !== 'matchmaking') {
         throw new RealtimeError(403, 'wrong_ticket_target', 'This ticket cannot enter matchmaking.');
       }
+      const now = Date.now();
+      await assertMatchLeaseAdmission(this.env.PLAYER_DB, {
+        uid: ticket.uid,
+        now: new Date(now).toISOString(),
+      });
       const used = this.ctx.storage.sql.exec<{ jti: string }>(
         'SELECT jti FROM used_tickets WHERE jti = ?', ticket.jti,
       ).toArray()[0];
       if (used) throw new RealtimeError(409, 'ticket_reused', 'This queue ticket was already used.');
 
-      const now = Date.now();
       this.ctx.storage.transactionSync(() => {
         this.ctx.storage.sql.exec(
           'INSERT INTO used_tickets (jti, used_at) VALUES (?, ?)', ticket.jti, now,
@@ -251,12 +260,22 @@ export class MatchmakerRoom extends DurableObject<Env> {
       if (attachment) sockets.set(attachment.uid, socket);
     }
     const createdAt = new Date(nowMs).toISOString();
-    const expiresAt = new Date(nowMs + 2 * 60 * 60_000).toISOString();
-    await this.env.PLAYER_DB.batch(players.map((player) => this.env.PLAYER_DB.prepare(`
-      INSERT INTO network_room_memberships (
-        room_id, user_id, mode, created_at, expires_at
-      ) VALUES (?, ?, ?, ?, ?)
-    `).bind(matchId, player.uid, player.mode, createdAt, expiresAt)));
+    const expiresAt = new Date(nowMs + ACTIVE_MATCH_LEASE_MS).toISOString();
+    try {
+      await reserveMatchLeasesAndMemberships(this.env.PLAYER_DB, {
+        roomId: matchId,
+        mode: players[0]!.mode,
+        players,
+        createdAt,
+        expiresAt,
+      });
+    } catch (error) {
+      if (error instanceof RealtimeError && error.code === 'active_match_in_progress') {
+        await this.removeAlreadyAssignedWaiters(players);
+        return;
+      }
+      throw error;
+    }
 
     this.ctx.storage.transactionSync(() => {
       for (const player of players) {
@@ -298,5 +317,38 @@ export class MatchmakerRoom extends DurableObject<Env> {
       });
       socket.close(1000, 'Match found.');
     }
+  }
+
+  /**
+   * A claim race can occur only between independent matchmaking shards. Keep
+   * the free players queued and explicitly release the already-active account
+   * from this shard so it cannot repeatedly poison every proposed match.
+   */
+  private async removeAlreadyAssignedWaiters(players: WaitingRow[]): Promise<void> {
+    const now = new Date().toISOString();
+    const placeholders = players.map(() => '?').join(', ');
+    const rows = await this.env.PLAYER_DB.prepare(`
+      SELECT user_id FROM network_active_match_leases
+      WHERE user_id IN (${placeholders}) AND expires_at > ?
+    `).bind(...players.map((player) => player.uid), now).all<{ user_id: string }>();
+    const blocked = new Set(rows.results.map((row) => row.user_id));
+    if (blocked.size === 0) {
+      await this.ctx.storage.setAlarm(Date.now() + 1_000);
+      return;
+    }
+    this.ctx.storage.transactionSync(() => {
+      for (const uid of blocked) this.ctx.storage.sql.exec('DELETE FROM waiting WHERE uid = ?', uid);
+    });
+    for (const socket of this.ctx.getWebSockets()) {
+      const attachment = socketAttachment(socket);
+      if (!attachment || !blocked.has(attachment.uid)) continue;
+      this.pendingQueueUids.delete(attachment.uid);
+      sendEvent(socket, 'queue', 0, 'error', {
+        code: 'active_match_in_progress',
+        message: 'This player is already assigned to an active match.',
+      });
+      socket.close(4003, 'An active match already exists.');
+    }
+    await this.scheduleQueueSweep(true);
   }
 }

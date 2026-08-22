@@ -20,7 +20,7 @@ function snapshot(statuses: Record<string, 'locked' | 'available' | 'in_progress
       completedAt: null,
       perfectSolve: false,
       unlockedHintIndexes: [],
-      hintCosts: [0, 12, 24],
+      hintCosts: [4, 8, 14],
       draft: null,
     })),
   };
@@ -53,7 +53,24 @@ describe('Core Player Loop', () => {
     const screen = await readFile(new URL('../features/screens/PuzzleScreen.tsx', import.meta.url), 'utf8');
     assert.doesNotMatch(catalog.slice(0, catalog.indexOf("id: 'story_puzzle_04_circuit_restore'")), /targetFrequency|targetChannel|رتّب: إشارة، وصول، ذاكرة، Echo|أعلى اليمين/);
     assert.doesNotMatch(screen, /TARGET WINDOW|data-target|pieceId === `piece-\$\{index\}`/);
-    assert.match(screen, /اختر قياسًا وقناة ثم أرسلهما إلى السجل للتحقق/);
+    assert.match(screen, /readSignalSelection/);
+  });
+
+  it('keeps mandatory first-time identity setup inside an accessible modal focus boundary', async () => {
+    const { readFile } = await import('node:fs/promises');
+    const onboarding = await readFile(
+      new URL('../features/onboarding/FirstTimeOnboarding.tsx', import.meta.url),
+      'utf8',
+    );
+
+    assert.match(onboarding, /role="dialog"/);
+    assert.match(onboarding, /aria-modal="true"/);
+    assert.match(onboarding, /ONBOARDING_FOCUSABLE_SELECTOR/);
+    assert.match(onboarding, /document\.getElementById\('app'\)/);
+    assert.match(onboarding, /application\.inert = true/);
+    assert.match(onboarding, /event\.key !== 'Tab'/);
+    assert.match(onboarding, /event\.preventDefault\(\);\s*dialog\.focus\(\);/);
+    assert.match(onboarding, /previousFocus\?\.isConnected/);
   });
 
   it('keeps the first-session path connected from account to Echo, objective, reward, and next evidence', async () => {

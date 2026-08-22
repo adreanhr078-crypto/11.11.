@@ -162,29 +162,41 @@ export function ApplicationShell() {
       <GameSafeArea className="application-shell__safe">
         {!isMainMenu && !isGameplay && (
           <header className="application-shell__topbar">
-            <button
-              type="button"
-              className="application-shell__screen-title"
-              onClick={() => {
-                if (currentCategoryHasMenu) {
-                  shell.openNavigation(currentCategory.id);
-                }
-              }}
-              disabled={!currentCategoryHasMenu}
-               aria-label={preferences.locale === 'en'
-                 ? `Open ${currentCategoryCopy.label} menu`
-                 : `فتح قائمة ${currentCategoryCopy.label}`}
-               title={currentCategoryCopy.description}
-            >
-              <i data-tone={definition.tone}>
-                <GameIcon id={definition.iconId} />
-                <small>{definition.code}</small>
-              </i>
-              <span>
-                 <small>{currentCategoryCopy.label}</small>
-                 <strong>{currentScreenCopy.label}</strong>
-              </span>
-            </button>
+            {currentCategoryHasMenu ? (
+              <button
+                type="button"
+                className="application-shell__screen-title"
+                onClick={() => shell.openNavigation(currentCategory.id)}
+                aria-label={preferences.locale === 'en'
+                  ? `Open ${currentCategoryCopy.label} menu`
+                  : `فتح قائمة ${currentCategoryCopy.label}`}
+                title={currentCategoryCopy.description}
+              >
+                <i data-tone={definition.tone}>
+                  <GameIcon id={definition.iconId} />
+                  <small>{definition.code}</small>
+                </i>
+                <span>
+                  <small>{currentCategoryCopy.label}</small>
+                  <strong>{currentScreenCopy.label}</strong>
+                </span>
+              </button>
+            ) : (
+              <div
+                className="application-shell__screen-title application-shell__screen-title--static"
+                role="group"
+                aria-label={currentScreenCopy.description}
+              >
+                <i data-tone={definition.tone}>
+                  <GameIcon id={definition.iconId} />
+                  <small>{definition.code}</small>
+                </i>
+                <span>
+                  <small>{currentCategoryCopy.label}</small>
+                  <strong>{currentScreenCopy.label}</strong>
+                </span>
+              </div>
+            )}
 
             <div className="application-shell__chapter">
               <span>{chapterTitle}</span>
@@ -207,6 +219,7 @@ export function ApplicationShell() {
                   className="application-shell__utility-control"
                   variant="secondary"
                   leadingIcon={<GameIcon id="screen-settings" />}
+                  aria-label={preferences.locale === 'en' ? 'Settings' : 'الإعدادات'}
                   onClick={() => shell.navigate('settings')}
                 >
                   {preferences.locale === 'en' ? 'Settings' : 'الإعدادات'}
@@ -217,6 +230,7 @@ export function ApplicationShell() {
                   className="application-shell__utility-control"
                   variant="ghost"
                   leadingIcon={<GameIcon id="utility-pause" />}
+                  aria-label={preferences.locale === 'en' ? 'Pause menu' : 'قائمة الإيقاف'}
                   onClick={shell.openPause}
                 >
                   {preferences.locale === 'en' ? 'Pause' : 'إيقاف'}

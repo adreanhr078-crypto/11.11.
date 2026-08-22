@@ -8,7 +8,20 @@ const EndingResultScreen = lazy(() => import(
 const FinalChoiceSystem = lazy(() => import(
   '../../components/sections/FinalChoiceSystem'
 ).then((module) => ({ default: module.FinalChoiceSystem })));
-const NarrativeDebugPanel = import.meta.env.DEV
+/**
+ * Developer panels must never sit above player controls just because a local
+ * build happens to be running in development mode. Keep the narrative panel
+ * available for diagnosis, but require an explicit opt-in in either the URL
+ * query or hash query: `?narrative-debug=1`.
+ */
+const narrativeDebugEnabled = import.meta.env.DEV && (() => {
+  if (typeof window === 'undefined') return false;
+  const hashQuery = window.location.hash.split('?')[1] ?? '';
+  const query = window.location.search || hashQuery;
+  return new URLSearchParams(query).get('narrative-debug') === '1';
+})();
+
+const NarrativeDebugPanel = narrativeDebugEnabled
   ? lazy(() => import('../../features/devtools/NarrativeDebugPanel'))
   : null;
 

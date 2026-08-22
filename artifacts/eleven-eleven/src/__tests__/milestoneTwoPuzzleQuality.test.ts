@@ -10,7 +10,7 @@ function source(relativePath: string): string {
 describe('Milestone 2 puzzle playability contract', () => {
   it('keeps multi-stage challenges sequential instead of allowing a future-stage jump', () => {
     const puzzle = source('src/features/screens/PuzzleScreen.tsx');
-    assert.ok(puzzle.includes('if (!currentStage || !activeReadiness.ready) return;'));
+    assert.ok(puzzle.includes('if (!currentStage || !actionReadiness.ready) return;'));
     assert.ok(puzzle.includes('disabled={index > stageIndex || busy}'));
   });
 

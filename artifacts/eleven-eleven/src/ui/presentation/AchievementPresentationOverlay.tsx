@@ -10,6 +10,26 @@ export function AchievementPresentationOverlay() {
   const rewardOpen = useStoryPuzzleStore((state) => state.latestReward !== null);
   const audioEnabled = useUiPreferencesStore((state) => state.audioEnabled);
   const sfxVolume = useUiPreferencesStore((state) => state.sfxVolume);
+  const locale = useUiPreferencesStore((state) => state.locale);
+  const copy = locale === 'ar'
+    ? {
+      priority: 'سجل النظام // أولوية',
+      updated: 'تم تحديث سجل النظام',
+      unlocked: 'تم فتح إنجاز',
+      cosmetic: 'تمت إضافة سجل تجميلي',
+      dismiss: 'تخطي / متابعة',
+      dismissLabel: 'تخطي رسالة الإنجاز ومتابعة اللعب',
+      label: (title: string) => `تم فتح إنجاز: ${title}`,
+    }
+    : {
+      priority: 'SYSTEM RECORD // PRIORITY',
+      updated: 'SYSTEM RECORD UPDATED',
+      unlocked: 'ACHIEVEMENT UNLOCKED',
+      cosmetic: 'COSMETIC RECORD ADDED',
+      dismiss: 'SKIP / CONTINUE',
+      dismissLabel: 'Dismiss achievement and continue playing',
+      label: (title: string) => `Achievement unlocked: ${title}`,
+    };
 
   useEffect(() => {
     if (!current || rewardOpen) return undefined;
@@ -27,24 +47,26 @@ export function AchievementPresentationOverlay() {
     <div
       className="achievement-presentation"
       data-tier={current.tier}
+      dir={locale === 'ar' ? 'rtl' : 'ltr'}
+      lang={locale}
       role="status"
       aria-live="assertive"
-      aria-label={`Achievement unlocked: ${current.title}`}
+      aria-label={copy.label(current.title)}
     >
       <div className="achievement-presentation__scan" aria-hidden="true" />
       <div className="achievement-presentation__emblem" aria-hidden="true">
         <span>{current.icon}</span>
       </div>
       <div className="achievement-presentation__copy">
-        <small>{current.tier === 'system' ? 'SYSTEM RECORD // PRIORITY' : 'SYSTEM RECORD UPDATED'}</small>
-        <strong>ACHIEVEMENT UNLOCKED</strong>
+        <small>{current.tier === 'system' ? copy.priority : copy.updated}</small>
+        <strong>{copy.unlocked}</strong>
         <h2>{current.title}</h2>
         <p>{current.description}</p>
         {current.rewardCosmetics.length > 0 && (
-          <span className="achievement-presentation__reward">COSMETIC RECORD ADDED</span>
+          <span className="achievement-presentation__reward">{copy.cosmetic}</span>
         )}
       </div>
-      <button type="button" onClick={dismiss}>SKIP / CONTINUE</button>
+      <button type="button" aria-label={copy.dismissLabel} onClick={dismiss}>{copy.dismiss}</button>
     </div>
   );
 }

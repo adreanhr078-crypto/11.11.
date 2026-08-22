@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Check,
   ChevronLeft,
@@ -26,6 +26,14 @@ import { emitExperienceCue } from '../../ui/presentation/experienceCues';
 
 const ONBOARDING_STORAGE_PREFIX = '11-11-onboarding-complete:';
 const MAX_PROFILE_RETRIES = 6;
+const ONBOARDING_FOCUSABLE_SELECTOR = [
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[href]',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
 
 const ONBOARDING_COPY = {
   ar: {
@@ -220,13 +228,87 @@ function OnboardingFrame({
   locale: 'ar' | 'en';
   copy: OnboardingCopy;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const stepNumber = step === 'welcome' || step === 'loading'
     ? '01'
     : step === 'mission'
       ? '02'
       : '03';
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+
+    const application = document.getElementById('app');
+    const previousInert = application?.inert ?? false;
+    const previousOverflow = document.body.style.overflow;
+    previousFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    document.body.style.overflow = 'hidden';
+    if (application) application.inert = true;
+
+    const focusDialog = () => {
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      dialog.querySelector<HTMLElement>(ONBOARDING_FOCUSABLE_SELECTOR)?.focus();
+      if (!dialog.contains(document.activeElement)) dialog.focus();
+    };
+    const frame = window.requestAnimationFrame(focusDialog);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return;
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(ONBOARDING_FOCUSABLE_SELECTOR),
+      );
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      if (!dialog.contains(document.activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      if (application) application.inert = previousInert;
+      const previousFocus = previousFocusRef.current;
+      if (previousFocus?.isConnected) {
+        previousFocus.focus();
+      } else {
+        document.querySelector<HTMLElement>(
+          '#player-content button:not([disabled])',
+        )?.focus();
+      }
+      previousFocusRef.current = null;
+    };
+  }, []);
+
   return (
-    <div className="onboarding-overlay" dir={locale === 'ar' ? 'rtl' : 'ltr'} lang={locale}>
+    <div
+      ref={dialogRef}
+      className="onboarding-overlay"
+      dir={locale === 'ar' ? 'rtl' : 'ltr'}
+      lang={locale}
+      role="dialog"
+      aria-modal="true"
+      aria-label={locale === 'en' ? 'First-time identity setup' : 'إعداد الهوية للمرة الأولى'}
+      tabIndex={-1}
+    >
       <div className="onboarding-overlay__grid" aria-hidden="true" />
       <div className="onboarding-overlay__noise" aria-hidden="true" />
       <div className="onboarding-shell">

@@ -159,7 +159,13 @@
 .premium-screen-transition {
   position: relative;
   isolation: isolate;
-  overflow-x: clip;
+  /*
+   * The application stage owns horizontal clipping. Clipping here makes
+   * scrollable screen content appear visible while falling outside this
+   * wrapper's hit-test region on desktop, leaving interactive boards and
+   * buttons impossible to press.
+   */
+  overflow: visible;
   animation: premium-scene-focus var(--gds-duration-slow) var(--gds-ease-enter) both;
 }
 

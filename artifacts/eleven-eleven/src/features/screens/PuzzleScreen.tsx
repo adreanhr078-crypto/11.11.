@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -6,6 +7,7 @@ import {
   type CSSProperties,
   type DragEvent,
 } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Activity,
   BookOpenCheck,
@@ -32,6 +34,7 @@ import type {
   StoryPuzzleMechanic,
   StoryPuzzleOption,
   StoryPuzzleReference,
+  StoryPuzzleSignalConfig,
   StoryPuzzleSnapshotEntry,
 } from '../../domain/story-puzzles/storyPuzzleContracts';
 import { useAuthStore } from '../auth/authStore';
@@ -39,9 +42,20 @@ import { usePlayerProgressionStore } from '../player-progression/playerProgressi
 import { useCollectionStore } from '../collection/collectionStore';
 import { useStoryPuzzleStore } from '../story-puzzles/storyPuzzleStore';
 import {
+  appendUniqueRouteToken,
+  isLoadBalanceReady,
+  loadBalanceTotal,
+  normalizeLoadBalanceAssignments,
+  readSignalSelection,
+  removeRouteTokenAt,
+  swapPuzzlePieces,
+  toggleSignalSelection,
+} from '../story-puzzles/verticalSliceInteractions';
+import {
   useShellStore,
   useUiPreferencesStore,
 } from '../../app/shell/shellStore';
+import { deriveCorePlayerObjective } from '../../application/player-journey/corePlayerLoop';
 import {
   playPuzzleCompletionSound,
   primeRewardAudio,
@@ -52,6 +66,8 @@ import { emitExperienceCue } from '../../ui/presentation/experienceCues';
 import './story-puzzle-experience.css';
 
 const EMPTY_STORY_PUZZLE_ENTRIES: readonly StoryPuzzleSnapshotEntry[] = Object.freeze([]);
+const MATRIX_TILE_IDS = ['tile1', 'tile2', 'tile3', 'tile4'] as const;
+const MEMORY_LAYER_IDS = ['layer1', 'layer2', 'layer3', 'layer4'] as const;
 
 const emptyDraft = (): StoryPuzzleDraft => ({
   stageIndex: 0,
@@ -60,6 +76,15 @@ const emptyDraft = (): StoryPuzzleDraft => ({
   imageOrder: [],
   rotations: {},
 });
+
+function hasPuzzleDraftInput(draft: StoryPuzzleDraft): boolean {
+  return (
+    draft.tokens.length > 0
+    || draft.imageOrder.length > 0
+    || Object.keys(draft.assignments).some((key) => key !== '__stages')
+    || Object.keys(draft.rotations).length > 0
+  );
+}
 
 function shuffledPieces(count: number): string[] {
   const pieces = Array.from({ length: count }, (_, index) => `piece-${index}`);
@@ -84,7 +109,7 @@ function defaultDraft(puzzle: StoryPuzzleDefinition): StoryPuzzleDraft {
   if (puzzle.mechanic === 'load-balancing') {
     return {
       ...emptyDraft(),
-      assignments: {},
+      assignments: normalizeLoadBalanceAssignments({}),
     };
   }
   if (!puzzle.image) return emptyDraft();
@@ -105,6 +130,18 @@ function cloneDraft(draft: StoryPuzzleDraft): StoryPuzzleDraft {
     assignments: { ...draft.assignments },
     imageOrder: [...draft.imageOrder],
     rotations: { ...draft.rotations },
+  };
+}
+
+function normalizePuzzleDraft(
+  puzzle: StoryPuzzleDefinition,
+  draft: StoryPuzzleDraft,
+): StoryPuzzleDraft {
+  const normalized = cloneDraft(draft);
+  if (puzzle.mechanic !== 'load-balancing') return normalized;
+  return {
+    ...normalized,
+    assignments: normalizeLoadBalanceAssignments(normalized.assignments),
   };
 }
 
@@ -160,8 +197,20 @@ function selectedTokens(
   if (!allowRepeated && current.includes(optionId)) {
     return current.filter((token) => token !== optionId);
   }
-  if (current.length >= maximum) return [...current.slice(1), optionId];
+  // A full sequence is a player decision, not a rolling input buffer. Dropping
+  // the earliest symbol made ordered puzzles appear to ignore a tap.
+  if (current.length >= maximum) return [...current];
   return [...current, optionId];
+}
+
+/** Mirrors selectedTokens so a full hypothesis never looks like a dead tap. */
+function tokenOptionUnavailable(
+  current: readonly string[],
+  optionId: string,
+  maximum: number,
+  allowRepeated = false,
+): boolean {
+  return current.length >= maximum && (allowRepeated || !current.includes(optionId));
 }
 
 function sequenceLimit(mechanic: StoryPuzzleMechanic, tokenLimit?: number): number {
@@ -208,6 +257,43 @@ function draftReadiness(
         `Place the ${limit} symbols in the order supported by the record.`,
       );
     }
+    switch (mechanic) {
+      case 'wiring': {
+        const accessNodeLock = stageOptions?.some((option) => option.id === 'echo');
+        const sources = accessNodeLock ? ['access'] : assignmentSources(mechanic);
+        return complete(sources.every((source) => Boolean(draft.assignments[source])), 'Connect every route before submitting the record.');
+      }
+      case 'color-routing':
+        return complete(assignmentSources(mechanic).every((source) => Boolean(draft.assignments[source])), 'Match all three channels to their shapes before submitting the record.');
+      case 'matrix':
+        return complete(MATRIX_TILE_IDS.every((tile) => draft.rotations[tile] !== undefined), 'Rotate every node, then submit the matrix for server verification.');
+      case 'layer-alignment':
+        return complete(MEMORY_LAYER_IDS.every((layer) => draft.rotations[layer] !== undefined), 'Adjust every layer, then submit the record for server verification.');
+      case 'load-balancing': {
+        const total = loadBalanceTotal(draft.assignments);
+        return complete(
+          isLoadBalanceReady(draft.assignments),
+          total !== 100
+            ? `The current total is ${total}%. Set the channels to 100% before submitting.`
+            : 'The total is 100%. Submit the attempt; the server record verifies the final balance.',
+        );
+      }
+      case 'visual-forensics':
+        return complete(draft.tokens.length === 2, 'Mark two anomaly positions in the record.');
+      case 'memory-grid':
+        return complete(draft.tokens.length === limit, `Repeat ${limit} pulses in order.`);
+      case 'pattern-scan':
+        return complete(draft.tokens.length === limit, 'Select the one anomaly node.');
+      case 'data-route':
+        return complete(draft.tokens.length === limit, `Build a ${limit}-node route.`);
+      case 'evidence':
+      case 'contradiction':
+        return complete(draft.tokens.length === 1, 'Choose one record supported by the evidence.');
+      case 'deduction':
+        return complete(draft.tokens.length === limit, `Lock ${limit} compatible evidence records.`);
+      default:
+        return complete(draft.tokens.length === limit, `Complete a ${limit}-symbol sequence.`);
+    }
   }
   switch (mechanic) {
     case 'signal':
@@ -231,21 +317,25 @@ function draftReadiness(
       return complete(assignmentSources(mechanic).every((source) => Boolean(draft.assignments[source])), 'طابق القنوات الثلاث مع أشكالها.');
     case 'matrix':
       return complete(
-        Object.keys(puzzle.rotationGoal ?? {}).every((tile) => draft.rotations[tile] !== undefined),
+        MATRIX_TILE_IDS.every((tile) => draft.rotations[tile] !== undefined),
         'دوّر كل عقدة، ثم أرسل محاولتك للتحقق الخادمي.',
       );
     case 'layer-alignment':
       return complete(
-        Object.keys(puzzle.rotationGoal ?? {}).every((layer) => draft.rotations[layer] !== undefined),
+        MEMORY_LAYER_IDS.every((layer) => draft.rotations[layer] !== undefined),
         'اضبط كل طبقة، ثم أرسل محاولتك للتحقق الخادمي.',
       );
     case 'load-balancing': {
-      const values = ['power', 'data', 'cooling'].map((channel) => Number(draft.assignments[channel] ?? 0));
+      const total = loadBalanceTotal(draft.assignments);
       return complete(
-        ['power', 'data', 'cooling'].every((channel) => draft.assignments[channel] !== undefined),
-        values.reduce((sum, value) => sum + value, 0) !== 100
-          ? 'اجعل مجموع القنوات 100% ثم أرسل المحاولة للتحقق.'
-          : 'المجموع مؤقت؛ أرسل المحاولة لمعرفة ما يحتاج إلى ضبط.',
+        isLoadBalanceReady(draft.assignments),
+        total !== 100
+          ? (locale === 'ar'
+            ? `المجموع الحالي ${total}%. اجعل مجموع القنوات 100% قبل إرسال المحاولة.`
+            : `The current total is ${total}%. Set the channels to 100% before submitting.`)
+          : (locale === 'ar'
+            ? 'المجموع 100%. أرسل المحاولة؛ السجل الخادمي يتحقق من التوازن النهائي.'
+            : 'The total is 100%. Submit the attempt; the server record verifies the final balance.'),
       );
     }
     case 'visual-forensics':
@@ -379,10 +469,14 @@ function assignmentTargets(mechanic: StoryPuzzleMechanic): StoryPuzzleOption[] {
   ];
 }
 
-function recordSignal(optionId: string): string {
+function recordSignal(optionId: string, locale: 'ar' | 'en'): string {
   void optionId;
-  return 'EVIDENCE NODE // INSPECT SOURCE RECORD';
+  return locale === 'ar'
+    ? 'عقدة دليل // افحص السجل المرجعي'
+    : 'EVIDENCE NODE // INSPECT SOURCE RECORD';
 }
+
+const MEMORY_GRID_PULSE_PATTERN = ['a1', 'b2', 'c3', 'b2'] as const;
 
 function EvidenceBoard({
   mechanic,
@@ -400,38 +494,60 @@ function EvidenceBoard({
   const locale = useUiPreferencesStore((state) => state.locale);
   const selected = draft.tokens;
   const maximum = mechanic === 'deduction' ? 3 : 1;
+  const copy = locale === 'ar'
+    ? {
+      board: 'لوحة الأدلة الموثقة',
+      synthesis: 'تركيب الأدلة',
+      comparison: 'مقارنة السجلات',
+      records: 'السجلات المتاحة',
+      record: (index: number, label: string) => `السجل ${String(index + 1).padStart(2, '0')}: ${label}`,
+      deduction: 'حدّد الأدلة المتوافقة، ثم ثبّت تسلسلها في السجل. يمكنك إلغاء أي اختيار قبل الإرسال.',
+      comparisonHint: 'قارن السجل مع المرجع قبل تثبيت النتيجة. يمكنك إلغاء أي اختيار قبل الإرسال.',
+    }
+    : {
+      board: 'Verified evidence board',
+      synthesis: 'EVIDENCE SYNTHESIS',
+      comparison: 'RECORD COMPARISON',
+      records: 'Available records',
+      record: (index: number, label: string) => `Record ${String(index + 1).padStart(2, '0')}: ${label}`,
+      deduction: 'Select compatible evidence, then arrange it in the record. You can remove any choice before submitting.',
+      comparisonHint: 'Compare the record with the reference before committing. You can remove any choice before submitting.',
+    };
   return (
     <section
       className="story-evidence-board"
       data-mode={mechanic}
-      aria-label="Verified evidence board"
+      aria-label={copy.board}
     >
       <header>
         <ScanLine aria-hidden="true" />
-        <span>{mechanic === 'deduction' ? 'EVIDENCE SYNTHESIS' : 'RECORD COMPARISON'}</span>
+        <span>{mechanic === 'deduction' ? copy.synthesis : copy.comparison}</span>
       </header>
-      <div>
-        {options.map((option, index) => (
-          <button
-            key={option.id}
-            type="button"
-            disabled={disabled}
-            data-selected={selected.includes(option.id)}
-            onClick={() => onChange({
-              ...draft,
-              tokens: selectedTokens(selected, option.id, maximum),
-            })}
-          >
-            <small>NODE {String(index + 1).padStart(2, '0')}</small>
-            <strong>{option.label[locale]}</strong>
-            {option.detail && <span>{option.detail[locale]}</span>}
-            <span>{recordSignal(option.id)}</span>
-          </button>
-        ))}
+      <div role="group" aria-label={copy.records}>
+        {options.map((option, index) => {
+          const isSelected = selected.includes(option.id);
+          return (
+            <button
+              key={option.id}
+              type="button"
+              disabled={disabled || tokenOptionUnavailable(selected, option.id, maximum)}
+              data-selected={isSelected}
+              aria-pressed={isSelected}
+              aria-label={copy.record(index, option.label[locale])}
+              onClick={() => onChange({
+                ...draft,
+                tokens: selectedTokens(selected, option.id, maximum),
+              })}
+            >
+              <small>NODE {String(index + 1).padStart(2, '0')}</small>
+              <strong>{option.label[locale]}</strong>
+              {option.detail && <span>{option.detail[locale]}</span>}
+              <span>{recordSignal(option.id, locale)}</span>
+            </button>
+          );
+        })}
       </div>
-      <p>{mechanic === 'deduction'
-        ? 'حدد الأدلة المتوافقة ثم ثبّت تسلسلها داخل السجل.'
-        : 'قارن السجل مع الإشارة قبل تثبيت النتيجة.'}</p>
+      <p>{mechanic === 'deduction' ? copy.deduction : copy.comparisonHint}</p>
     </section>
   );
 }
@@ -460,15 +576,29 @@ function PatternScanBoard({
   onChange,
   disabled,
 }: Pick<PuzzleMechanicProps, 'draft' | 'onChange' | 'disabled'>) {
+  const locale = useUiPreferencesStore((state) => state.locale);
   const cells = [
     ['a1', '↗'], ['a2', '↗'], ['a3', '↗'],
     ['b1', '↗'], ['b2', '↗'], ['b3', '↗'],
     ['c1', '↗'], ['c2', '↗'], ['c3', '↗'],
     ['d1', '↗'], ['d2', '↗'], ['d3', '↘'],
   ] as const;
+  const copy = locale === 'ar'
+    ? {
+      board: 'ماسح نمط الشذوذ',
+      heading: 'فحص النمط // ابحث عن الانحراف الاتجاهي',
+      node: (label: string, direction: string) => `العقدة ${label}، اتجاهها ${direction}`,
+      instruction: 'لا تعتمد على اللون وحده؛ افحص اتجاه كل عقدة. اضغط العقدة نفسها مرة ثانية لتبديل اختيارك.',
+    }
+    : {
+      board: 'Anomaly pattern scanner',
+      heading: 'PATTERN SCAN // FIND THE DIRECTIONAL BREACH',
+      node: (label: string, direction: string) => `Node ${label}, direction ${direction}`,
+      instruction: 'Do not rely on color alone; inspect every node direction. Select the same node again to toggle your choice.',
+    };
   return (
-    <section className="story-pattern-scan" aria-label="Anomaly pattern scanner">
-      <header><ScanLine aria-hidden="true" /> PATTERN SCAN // FIND THE DIRECTIONAL BREACH</header>
+    <section className="story-pattern-scan" aria-label={copy.board}>
+      <header><ScanLine aria-hidden="true" /> {copy.heading}</header>
       <div>
         {cells.map(([cell, direction]) => {
           const display = cell.toUpperCase();
@@ -476,8 +606,10 @@ function PatternScanBoard({
             <button
               key={cell}
               type="button"
-              disabled={disabled}
+              disabled={disabled || tokenOptionUnavailable(draft.tokens, cell, 1)}
               data-selected={draft.tokens.includes(cell)}
+              aria-pressed={draft.tokens.includes(cell)}
+              aria-label={copy.node(display, direction)}
               onClick={() => onChange({
                 ...draft,
                 tokens: selectedTokens(draft.tokens, cell, 1),
@@ -488,7 +620,7 @@ function PatternScanBoard({
           );
         })}
       </div>
-      <p>لا تعتمد على اللون فقط؛ افحص اتجاه كل عقدة.</p>
+      <p>{copy.instruction}</p>
     </section>
   );
 }
@@ -508,41 +640,140 @@ function DataRouteBoard({
 }) {
   const locale = useUiPreferencesStore((state) => state.locale);
   const maximum = tokenLimit ?? 4;
+  const copy = locale === 'ar'
+    ? {
+      board: 'مخطط توجيه البيانات',
+      heading: 'حزمة المسار // اختر ترتيبًا آمنًا',
+      empty: 'بانتظار بناء المسار',
+      nodes: 'عقد المسار المتاحة',
+      node: (label: string) => `عقدة ${label}`,
+      clear: 'مسح المسار وإعادة بنائه',
+      clearLabel: 'إعادة بناء المسار',
+    }
+    : {
+      board: 'Data routing graph',
+      heading: 'ROUTE PACKET // SELECT A SAFE ORDER',
+      empty: 'AWAITING ROUTE',
+      nodes: 'Available route nodes',
+      node: (label: string) => `Node ${label}`,
+      clear: 'Clear route and rebuild it',
+      clearLabel: 'Rebuild route',
+    };
   return (
-    <section className="story-data-route" aria-label="Data routing graph">
-      <header><Crosshair aria-hidden="true" /> ROUTE PACKET // SELECT A SAFE ORDER</header>
+    <section className="story-data-route" aria-label={copy.board}>
+      <header><Crosshair aria-hidden="true" /> {copy.heading}</header>
       <div className="story-data-route__path" aria-live="polite">
         {draft.tokens.length > 0
           ? draft.tokens.map((token) => token.toUpperCase()).join(' → ')
-          : 'AWAITING ROUTE'}
+          : copy.empty}
       </div>
-      <div className="story-data-route__nodes">
-        {options.map((option, index) => (
-          <button
-            key={option.id}
-            type="button"
-            disabled={disabled}
-            data-selected={draft.tokens.includes(option.id)}
-            style={{ '--node': index } as CSSProperties}
-            onClick={() => onChange({
-              ...draft,
-              tokens: selectedTokens(draft.tokens, option.id, maximum),
-            })}
-          >
-            <strong>{option.label[locale]}</strong>
-            {option.detail && <small>{option.detail[locale]}</small>}
-          </button>
-        ))}
+      <div className="story-data-route__nodes" role="group" aria-label={copy.nodes}>
+        {options.map((option, index) => {
+          const isSelected = draft.tokens.includes(option.id);
+          return (
+            <button
+              key={option.id}
+              type="button"
+              disabled={disabled || tokenOptionUnavailable(draft.tokens, option.id, maximum)}
+              data-selected={isSelected}
+              aria-pressed={isSelected}
+              aria-label={copy.node(option.label[locale])}
+              style={{ '--node': index } as CSSProperties}
+              onClick={() => onChange({
+                ...draft,
+                tokens: selectedTokens(draft.tokens, option.id, maximum),
+              })}
+            >
+              <strong>{option.label[locale]}</strong>
+              {option.detail && <small>{option.detail[locale]}</small>}
+            </button>
+          );
+        })}
       </div>
       <button
         type="button"
         className="story-data-route__clear"
+        aria-label={copy.clear}
         disabled={disabled || draft.tokens.length === 0}
         onClick={() => onChange({ ...draft, tokens: [] })}
       >
-        إعادة المسار
+        {copy.clearLabel}
       </button>
     </section>
+  );
+}
+
+type PuzzleVisualAssetStatus = 'loading' | 'ready' | 'failed';
+
+function usePuzzleVisualAsset(source?: string) {
+  const [assetStatus, setAssetStatus] = useState<PuzzleVisualAssetStatus>(source ? 'loading' : 'failed');
+  const [retryVersion, setRetryVersion] = useState(0);
+
+  useEffect(() => {
+    if (!source) {
+      setAssetStatus('failed');
+      return undefined;
+    }
+    let active = true;
+    setAssetStatus('loading');
+    // CSS background slices do not reliably surface their load result to
+    // React, especially when the source is already cached. A detached probe
+    // gives the playable board one bounded, browser-native source of truth.
+    const probe = new Image();
+    probe.onload = () => {
+      if (active) setAssetStatus('ready');
+    };
+    probe.onerror = () => {
+      if (active) setAssetStatus('failed');
+    };
+    probe.src = source;
+    return () => {
+      active = false;
+      probe.onload = null;
+      probe.onerror = null;
+    };
+  }, [source, retryVersion]);
+
+  return {
+    assetKey: `${source ?? 'missing'}:${retryVersion}`,
+    assetStatus,
+    onAssetError: () => setAssetStatus('failed'),
+    onAssetLoad: () => setAssetStatus('ready'),
+    retryAsset: source
+      ? () => {
+        setAssetStatus('loading');
+        setRetryVersion((version) => version + 1);
+      }
+      : undefined,
+  };
+}
+
+function PuzzleVisualFallback({
+  title,
+  detail,
+  retryLabel,
+  onRetry,
+  disabled,
+}: {
+  title: string;
+  detail: string;
+  retryLabel: string;
+  onRetry?: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="story-puzzle-visual-fallback" role="alert" aria-live="assertive">
+      <TriangleAlert aria-hidden="true" />
+      <div>
+        <strong>{title}</strong>
+        <p>{detail}</p>
+      </div>
+      {onRetry && (
+        <button type="button" disabled={disabled} onClick={onRetry}>
+          <RotateCcw aria-hidden="true" /> {retryLabel}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -551,6 +782,7 @@ interface ImageReconstructionBoardProps {
   draft: StoryPuzzleDraft;
   onChange: (next: StoryPuzzleDraft) => void;
   disabled: boolean;
+  onVisualAssetStateChange?: (status: PuzzleVisualAssetStatus) => void;
 }
 
 function ImageReconstructionBoard({
@@ -558,41 +790,76 @@ function ImageReconstructionBoard({
   draft,
   onChange,
   disabled,
+  onVisualAssetStateChange,
 }: ImageReconstructionBoardProps) {
   const locale = useUiPreferencesStore((state) => state.locale);
+  const image = puzzle.image!;
+  const count = image.rows * image.columns;
+  const pieces = draft.imageOrder.length === count ? draft.imageOrder : shuffledPieces(count);
+  const {
+    assetKey,
+    assetStatus,
+    onAssetError,
+    onAssetLoad,
+    retryAsset,
+  } = usePuzzleVisualAsset(image.src);
   const imageCopy = locale === 'ar'
     ? {
       board: 'تركيب الصورة',
       piece: 'قطعة',
       rotate: 'تدوير القطعة',
-      instruction: 'اسحب القطع أو اضغط قطعتين لتبديلهما.',
+      instruction: 'اضغط قطعة لتحديدها، ثم اضغط قطعة أخرى لتبديلهما. السحب تحسين اختياري على الكمبيوتر.',
       rotationHint: 'استخدم رمز التدوير عند الحاجة.',
+      awaiting: 'اختر قطعة لتبدأ المطابقة.',
+      selected: 'تم تحديد القطعة {piece}. اختر قطعة أخرى لتبديلهما، أو اضغطها مرة ثانية لإلغاء التحديد.',
+      swapped: 'تم تبديل القطعتين. افحص الحواف التالية.',
+      loading: 'يجري تحميل سجل الذاكرة. ستُفتح القطع بعد اكتمال التحميل.',
+      unavailableTitle: 'سجل الذاكرة غير متاح',
+      unavailableDetail: 'لم تتمكن محطة الاستعادة من تحميل المصدر البصري. لن يُرسل أي حل حتى عودة السجل، لكن يمكنك إعادة المحاولة بأمان.',
+      retryAsset: 'إعادة تحميل السجل',
     }
     : {
       board: 'Image reconstruction',
       piece: 'Piece',
       rotate: 'Rotate piece',
-      instruction: 'Drag pieces, or select two pieces to swap them.',
+      instruction: 'Select one piece, then select another to swap them. Dragging is an optional desktop enhancement.',
       rotationHint: 'Use the rotation control when needed.',
+      awaiting: 'Select a piece to begin matching.',
+      selected: 'Piece {piece} selected. Choose another piece to swap, or select it again to cancel.',
+      swapped: 'Pieces exchanged. Inspect the next edges.',
+      loading: 'Loading the memory record. Pieces open after the visual source is ready.',
+      unavailableTitle: 'Memory record unavailable',
+      unavailableDetail: 'The recovery station could not load this visual source. No attempt can be sent until the record returns, but it is safe to retry the load.',
+      retryAsset: 'Retry record load',
     };
-  const image = puzzle.image!;
-  const count = image.rows * image.columns;
-  const pieces = draft.imageOrder.length === count ? draft.imageOrder : shuffledPieces(count);
   const [selectedPiece, setSelectedPiece] = useState<string | null>(null);
+  const [lastAction, setLastAction] = useState<'awaiting' | 'selected' | 'swapped'>('awaiting');
+
+  useEffect(() => {
+    onVisualAssetStateChange?.(assetStatus);
+  }, [assetStatus, onVisualAssetStateChange]);
+
+  useEffect(() => {
+    if (image.allowRotation) return;
+    const normalized = Object.fromEntries(
+      Array.from({ length: count }, (_, index) => [`piece-${index}`, 0]),
+    );
+    const needsReset = Object.entries(normalized).some(([pieceId, rotation]) => (
+      draft.rotations[pieceId] !== rotation
+    ));
+    if (needsReset) onChange({ ...draft, rotations: normalized });
+  }, [count, draft, image.allowRotation, onChange]);
 
   const swapPieces = (fromPiece: string, toPiece: string) => {
-    if (disabled || fromPiece === toPiece) return;
-    const next = [...pieces];
-    const from = next.indexOf(fromPiece);
-    const to = next.indexOf(toPiece);
-    if (from < 0 || to < 0) return;
-    [next[from], next[to]] = [next[to]!, next[from]!];
+    if (disabled || assetStatus !== 'ready' || fromPiece === toPiece) return;
+    const next = swapPuzzlePieces(pieces, fromPiece, toPiece);
     onChange({ ...draft, imageOrder: next });
     setSelectedPiece(null);
+    setLastAction('swapped');
   };
 
   const rotatePiece = (pieceId: string) => {
-    if (disabled || !image.allowRotation) return;
+    if (disabled || assetStatus !== 'ready' || !image.allowRotation) return;
     onChange({
       ...draft,
       rotations: {
@@ -602,74 +869,128 @@ function ImageReconstructionBoard({
     });
   };
 
+  const selectPiece = (pieceId: string) => {
+    if (disabled || assetStatus !== 'ready') return;
+    if (!selectedPiece) {
+      setSelectedPiece(pieceId);
+      setLastAction('selected');
+      return;
+    }
+    if (selectedPiece === pieceId) {
+      setSelectedPiece(null);
+      setLastAction('awaiting');
+      return;
+    }
+    swapPieces(selectedPiece, pieceId);
+  };
+  const selectedSourceIndex = selectedPiece === null ? null : Number(selectedPiece.replace('piece-', '')) + 1;
+  const interactionStatus = lastAction === 'selected' && selectedSourceIndex !== null
+    ? imageCopy.selected.replace('{piece}', String(selectedSourceIndex))
+    : lastAction === 'swapped' ? imageCopy.swapped : imageCopy.awaiting;
+
   return (
-    <section className="story-image-puzzle" aria-label={imageCopy.board}>
-      <div
-        className="story-image-puzzle__grid"
-        style={{
-          '--rows': image.rows,
-          '--columns': image.columns,
-          aspectRatio: image.aspectRatio ?? (2 / 3),
-        } as CSSProperties}
-      >
-        {pieces.map((pieceId) => {
-          const sourceIndex = Number(pieceId.replace('piece-', ''));
-          const column = sourceIndex % image.columns;
-          const row = Math.floor(sourceIndex / image.columns);
-          const rotation = draft.rotations[pieceId] ?? 0;
-          return (
-            <article
-              key={pieceId}
-              className="story-image-puzzle__piece"
-              draggable={!disabled}
-              data-selected={selectedPiece === pieceId}
-              data-rotation={rotation}
-              onDragStart={(event: DragEvent<HTMLElement>) => {
-                event.dataTransfer.setData('text/plain', pieceId);
-                event.dataTransfer.effectAllowed = 'move';
-              }}
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={(event) => {
-                event.preventDefault();
-                swapPieces(event.dataTransfer.getData('text/plain'), pieceId);
-              }}
-              onClick={() => {
-                if (disabled) return;
-                if (!selectedPiece) setSelectedPiece(pieceId);
-                else swapPieces(selectedPiece, pieceId);
-              }}
-            >
-              <button
-                type="button"
-                className="story-image-puzzle__art"
-                disabled={disabled}
-                aria-label={`${imageCopy.piece} ${sourceIndex + 1}`}
-                style={{
-                  backgroundImage: `url(${image.src})`,
-                  backgroundSize: `${image.columns * 100}% ${image.rows * 100}%`,
-                  backgroundPosition: `${(column / Math.max(1, image.columns - 1)) * 100}% ${(row / Math.max(1, image.rows - 1)) * 100}%`,
-                  transform: `rotate(${rotation * 90}deg)`,
-                }}
-              />
-              {image.allowRotation && (
-                <button
-                  type="button"
-                  className="story-image-puzzle__rotate"
-                  disabled={disabled}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    rotatePiece(pieceId);
+    <section className="story-image-puzzle" data-asset-state={assetStatus} aria-label={imageCopy.board}>
+      <img
+        key={assetKey}
+        className="story-puzzle-visual-asset-probe"
+        src={image.src}
+        alt=""
+        aria-hidden="true"
+        onError={onAssetError}
+        onLoad={onAssetLoad}
+      />
+      {assetStatus === 'failed' ? (
+        <PuzzleVisualFallback
+          title={imageCopy.unavailableTitle}
+          detail={imageCopy.unavailableDetail}
+          retryLabel={imageCopy.retryAsset}
+          onRetry={retryAsset}
+          disabled={disabled}
+        />
+      ) : (
+        <>
+          {assetStatus === 'loading' && <p className="story-puzzle-visual-loading" role="status">{imageCopy.loading}</p>}
+          <div
+            className="story-image-puzzle__grid"
+            aria-busy={assetStatus === 'loading'}
+            style={{
+              '--rows': image.rows,
+              '--columns': image.columns,
+              aspectRatio: image.aspectRatio ?? (2 / 3),
+            } as CSSProperties}
+          >
+            {pieces.map((pieceId) => {
+              const sourceIndex = Number(pieceId.replace('piece-', ''));
+              const column = sourceIndex % image.columns;
+              const row = Math.floor(sourceIndex / image.columns);
+              const rotation = draft.rotations[pieceId] ?? 0;
+              const interactionDisabled = disabled || assetStatus !== 'ready';
+              return (
+                <article
+                  key={pieceId}
+                  className="story-image-puzzle__piece"
+                  draggable={!interactionDisabled}
+                  data-selected={selectedPiece === pieceId}
+                  data-rotation={rotation}
+                  onDragStart={(event: DragEvent<HTMLElement>) => {
+                    if (interactionDisabled) {
+                      event.preventDefault();
+                      return;
+                    }
+                    event.dataTransfer.setData('text/plain', pieceId);
+                    event.dataTransfer.effectAllowed = 'move';
                   }}
-                  aria-label={`${imageCopy.rotate} ${sourceIndex + 1}`}
+                  onDragOver={(event) => {
+                    if (!interactionDisabled) event.preventDefault();
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    if (!interactionDisabled) swapPieces(event.dataTransfer.getData('text/plain'), pieceId);
+                  }}
                 >
-                  <RotateCcw aria-hidden="true" />
-                </button>
-              )}
-            </article>
-          );
-        })}
-      </div>
-      <p>{imageCopy.instruction} {image.allowRotation ? imageCopy.rotationHint : ''}</p>
+                  <button
+                    type="button"
+                    className="story-image-puzzle__art"
+                    disabled={interactionDisabled}
+                    aria-pressed={selectedPiece === pieceId}
+                    aria-label={`${imageCopy.piece} ${sourceIndex + 1}`}
+                    aria-describedby="story-image-puzzle-instruction"
+                    onClick={() => selectPiece(pieceId)}
+                    style={{
+                      backgroundImage: `url(${image.src})`,
+                      backgroundSize: `${image.columns * 100}% ${image.rows * 100}%`,
+                      backgroundPosition: `${(column / Math.max(1, image.columns - 1)) * 100}% ${(row / Math.max(1, image.rows - 1)) * 100}%`,
+                      transform: `rotate(${rotation * 90}deg)`,
+                    }}
+                  />
+                  {image.allowRotation && (
+                    <button
+                      type="button"
+                      className="story-image-puzzle__rotate"
+                      disabled={interactionDisabled}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        rotatePiece(pieceId);
+                      }}
+                      aria-label={`${imageCopy.rotate} ${sourceIndex + 1}`}
+                    >
+                      <RotateCcw aria-hidden="true" />
+                    </button>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        </>
+      )}
+      <p id="story-image-puzzle-instruction">
+        {assetStatus === 'failed'
+          ? imageCopy.unavailableDetail
+          : `${imageCopy.instruction} ${image.allowRotation ? imageCopy.rotationHint : ''}`}
+      </p>
+      <p className="story-image-puzzle__status" role="status" aria-live="polite">
+        {assetStatus === 'ready' ? interactionStatus : assetStatus === 'loading' ? imageCopy.loading : imageCopy.unavailableTitle}
+      </p>
     </section>
   );
 }
@@ -682,9 +1003,11 @@ interface PuzzleMechanicProps {
   >;
   options?: readonly StoryPuzzleOption[];
   tokenLimit?: number;
+  signal?: StoryPuzzleSignalConfig;
   draft: StoryPuzzleDraft;
   onChange: (next: StoryPuzzleDraft) => void;
   disabled: boolean;
+  onVisualAssetStateChange?: (status: PuzzleVisualAssetStatus) => void;
 }
 
 function LayerAlignmentBoard({
@@ -693,13 +1016,27 @@ function LayerAlignmentBoard({
   onChange,
   disabled,
 }: Omit<PuzzleMechanicProps, 'mechanic' | 'options'>) {
-  const layers = ['layer1', 'layer2', 'layer3', 'layer4'];
+  const locale = useUiPreferencesStore((state) => state.locale);
+  const layers = MEMORY_LAYER_IDS;
   if (!puzzle.image) return null;
+  const copy = locale === 'ar'
+    ? {
+      board: 'محاذاة طبقات الذاكرة',
+      heading: 'محاذاة أطوار الذاكرة',
+      layer: (index: number, phase: number) => `الطبقة ${index + 1}، طورها الحالي ${phase}. اضغط لتغيير الطور.`,
+      status: (count: number) => `تم تعديل ${count} من 4 طبقات. راقب الفواصل ثم أرسل السجل للتحقق الخادمي.`,
+    }
+    : {
+      board: 'Memory layer alignment',
+      heading: 'MEMORY PHASE ALIGNMENT',
+      layer: (index: number, phase: number) => `Layer ${index + 1}, current phase ${phase}. Select to change the phase.`,
+      status: (count: number) => `${count} of 4 layers adjusted. Inspect the seams, then submit the record for server verification.`,
+    };
   return (
-    <section className="story-layer-board" aria-label="محاذاة طبقات الذاكرة">
+    <section className="story-layer-board" aria-label={copy.board}>
       <header>
         <ScanLine aria-hidden="true" />
-        <span>MEMORY PHASE ALIGNMENT</span>
+        <span>{copy.heading}</span>
       </header>
       <div className="story-layer-board__viewport">
         {layers.map((layerId, index) => {
@@ -717,7 +1054,7 @@ function LayerAlignmentBoard({
                   [layerId]: (phase + 1) % 4,
                 },
               })}
-              aria-label={`تغيير طور الطبقة ${index + 1}، الطور الحالي ${phase}`}
+              aria-label={copy.layer(index, phase)}
             >
               <i
                 style={{
@@ -732,7 +1069,7 @@ function LayerAlignmentBoard({
           );
         })}
       </div>
-      <p>اضغط كل طبقة لتغيير طورها. تتوهج الفواصل عندما تقترب المحاذاة.</p>
+      <p role="status" aria-live="polite">{copy.status(layers.filter((layer) => draft.rotations[layer] !== undefined).length)}</p>
     </section>
   );
 }
@@ -742,26 +1079,40 @@ function LoadBalancingBoard({
   onChange,
   disabled,
 }: Omit<PuzzleMechanicProps, 'puzzle' | 'mechanic' | 'options'>) {
+  const locale = useUiPreferencesStore((state) => state.locale);
   const channels = [
-    { id: 'power', label: 'الطاقة', code: 'PWR' },
-    { id: 'data', label: 'البيانات', code: 'DATA' },
-    { id: 'cooling', label: 'التبريد', code: 'COOL' },
+    { id: 'power', label: { ar: 'الطاقة', en: 'Power' }, code: 'PWR' },
+    { id: 'data', label: { ar: 'البيانات', en: 'Data' }, code: 'DATA' },
+    { id: 'cooling', label: { ar: 'التبريد', en: 'Cooling' }, code: 'COOL' },
   ] as const;
-  const total = channels.reduce((sum, channel) => (
-    sum + Number(draft.assignments[channel.id] ?? 0)
-  ), 0);
+  const total = loadBalanceTotal(draft.assignments);
+  const copy = locale === 'ar'
+    ? {
+      board: 'موازنة حمل النظام',
+      heading: 'حمل الطوارئ',
+      currentTotal: `المجموع الحالي ${total}%. عدّل القنوات حتى تصل إلى 100%، ثم أرسل السجل للتحقق النهائي.`,
+      totalReady: 'وصل المجموع إلى 100%. السجل الخادمي وحده يحسم توازن القنوات.',
+      value: (label: string, value: number) => `${label}: ${value}%`,
+    }
+    : {
+      board: 'System load balancing',
+      heading: 'Emergency load',
+      currentTotal: `Current total ${total}%. Adjust the channels to reach 100%, then submit the record for final verification.`,
+      totalReady: 'The total is 100%. Only the server record decides whether the channels are balanced.',
+      value: (label: string, value: number) => `${label}: ${value}%`,
+    };
   return (
-    <section className="story-load-board" aria-label="موازنة حمل النظام">
+    <section className="story-load-board" aria-label={copy.board}>
       <header>
         <Activity aria-hidden="true" />
-        <span>EMERGENCY LOAD // <strong>{total}%</strong></span>
+        <span>{copy.heading} // <output aria-live="polite">{total}%</output></span>
       </header>
       <div>
         {channels.map((channel) => {
           const value = Number(draft.assignments[channel.id] ?? 20);
           return (
             <label key={channel.id}>
-              <span><b>{channel.code}</b><small>{channel.label}</small><strong>{value}%</strong></span>
+              <span><b>{channel.code}</b><small>{channel.label[locale]}</small><strong>{value}%</strong></span>
               <input
                 type="range"
                 min="10"
@@ -769,6 +1120,8 @@ function LoadBalancingBoard({
                 step="10"
                 value={value}
                 disabled={disabled}
+                aria-label={copy.value(channel.label[locale], value)}
+                aria-valuetext={copy.value(channel.label[locale], value)}
                 onChange={(event) => onChange({
                   ...draft,
                   assignments: {
@@ -781,53 +1134,505 @@ function LoadBalancingBoard({
           );
         })}
       </div>
-      <p>{total === 100
-        ? 'المجموع مكتمل؛ أرسل المحاولة لترى نتيجة الفحص.'
-        : `اضبط القنوات: الفرق عن الاستقرار ${Math.abs(100 - total)}%.`}</p>
+      <p role="status" aria-live="polite">{total === 100 ? copy.totalReady : copy.currentTotal}</p>
     </section>
   );
 }
 
-const SIGNAL_PROBES = [
+type SignalProbe = {
+  frequency: string;
+  scan: string;
+  path: string;
+  readout: { ar: string; en: string };
+};
+
+type SignalChannel = {
+  id: string;
+  code: string;
+  trace: string;
+  readout: { ar: string; en: string };
+};
+
+const OPENING_SIGNAL_PROBES = [
   {
     frequency: '42',
     scan: 'A',
-    path: 'M2 27 C16 8 25 8 37 27 S60 46 74 27 S98 8 118 27',
-    description: 'قمة الموجة لا تقابل قاعها حول خط الوسط؛ القراءة منحازة.',
+    path: 'M2 27 C12 11 20 11 30 27 S48 36 58 27 S76 11 86 27 S104 36 118 27',
+    readout: { ar: 'Δ↑ 16  //  Δ↓ 9', en: 'Δ↑ 16  //  Δ↓ 9' },
   },
   {
     frequency: '58',
     scan: 'B',
-    path: 'M2 27 C16 9 25 9 37 27 S60 45 74 27 S98 9 118 27',
-    description: 'القمتان والقاعان على المسافة نفسها من خط الوسط.',
+    path: 'M2 27 C12 13 20 13 30 27 S48 41 58 27 S76 13 86 27 S104 41 118 27',
+    readout: { ar: 'Δ↑ 14  //  Δ↓ 14', en: 'Δ↑ 14  //  Δ↓ 14' },
   },
   {
     frequency: '74',
     scan: 'C',
-    path: 'M2 27 C15 18 26 4 37 27 S63 52 74 27 S98 18 118 27',
-    description: 'سعة القاع أوسع من القمة؛ القراءة غير مستقرة.',
+    path: 'M2 27 C12 5 20 5 30 27 S48 35 58 27 S76 5 86 27 S104 35 118 27',
+    readout: { ar: 'Δ↑ 22  //  Δ↓ 8', en: 'Δ↑ 22  //  Δ↓ 8' },
   },
 ] as const;
 
 const SIGNAL_CHANNELS = [
-  { id: 'channel-07', code: '07', noise: 'نبضتا تشويش متقاطعتان.' },
-  { id: 'channel-11', code: '11', noise: 'لا توجد نبضة تشويش فوق خط القياس.' },
-  { id: 'channel-13', code: '13', noise: 'نبضة تشويش تنزلق قرب نهاية القياس.' },
+  {
+    id: 'channel-07',
+    code: '07',
+    trace: 'M2 26 C20 10 34 42 52 26 S84 10 118 26',
+    readout: { ar: 'أثر ثانوي ×2', en: 'Secondary trace ×2' },
+  },
+  {
+    id: 'channel-11',
+    code: '11',
+    trace: '',
+    readout: { ar: 'أثر ثانوي ×0', en: 'Secondary trace ×0' },
+  },
+  {
+    id: 'channel-13',
+    code: '13',
+    trace: 'M76 26 C88 12 100 40 118 26',
+    readout: { ar: 'أثر ثانوي ×1', en: 'Secondary trace ×1' },
+  },
 ] as const;
 
-const SIGNAL_PROBE_DESCRIPTIONS_EN: Record<string, string> = {
-  '42': 'The wave crest and trough do not mirror around the center line; this reading is biased.',
-  '58': 'The two crests and two troughs sit equally far from the center line.',
-  '74': 'The trough is wider than the crest; this reading is unstable.',
-};
+const SIGNAL_PRESENTATIONS = {
+  opening: {
+    probes: OPENING_SIGNAL_PROBES,
+    channels: SIGNAL_CHANNELS,
+  },
+  breach: {
+    probes: [
+      {
+        frequency: '42', scan: 'A',
+        path: 'M2 27 C12 9 20 9 30 27 S48 38 58 27 S76 9 86 27 S104 38 118 27',
+        readout: { ar: 'Δ↑ 18  //  Δ↓ 11', en: 'Δ↑ 18  //  Δ↓ 11' },
+      },
+      {
+        frequency: '74', scan: 'B',
+        path: 'M2 27 C12 9 20 9 30 27 S48 45 58 27 S76 9 86 27 S104 45 118 27',
+        readout: { ar: 'Δ↑ 18  //  Δ↓ 18', en: 'Δ↑ 18  //  Δ↓ 18' },
+      },
+      {
+        frequency: '88', scan: 'C',
+        path: 'M2 27 C12 3 20 3 30 27 S48 35 58 27 S76 3 86 27 S104 35 118 27',
+        readout: { ar: 'Δ↑ 24  //  Δ↓ 8', en: 'Δ↑ 24  //  Δ↓ 8' },
+      },
+    ] as const,
+    channels: SIGNAL_CHANNELS,
+  },
+  core: {
+    probes: [
+      {
+        frequency: '63', scan: 'A',
+        path: 'M2 27 C12 10 20 10 30 27 S48 36 58 27 S76 10 86 27 S104 36 118 27',
+        readout: { ar: 'Δ↑ 17  //  Δ↓ 9', en: 'Δ↑ 17  //  Δ↓ 9' },
+      },
+      {
+        frequency: '81', scan: 'B',
+        path: 'M2 27 C12 7 20 7 30 27 S48 47 58 27 S76 7 86 27 S104 47 118 27',
+        readout: { ar: 'Δ↑ 20  //  Δ↓ 20', en: 'Δ↑ 20  //  Δ↓ 20' },
+      },
+      {
+        frequency: '97', scan: 'C',
+        path: 'M2 27 C12 2 20 2 30 27 S48 34 58 27 S76 2 86 27 S104 34 118 27',
+        readout: { ar: 'Δ↑ 25  //  Δ↓ 7', en: 'Δ↑ 25  //  Δ↓ 7' },
+      },
+    ] as const,
+    channels: SIGNAL_CHANNELS,
+  },
+} satisfies Record<StoryPuzzleSignalConfig['visualProfile'], {
+  probes: readonly SignalProbe[];
+  channels: readonly SignalChannel[];
+}>;
 
-const SIGNAL_CHANNEL_NOISE_EN: Record<string, string> = {
-  'channel-07': 'Two interference pulses cross the channel.',
-  'channel-11': 'No interference pulse crosses the measurement line.',
-  'channel-13': 'An interference pulse slips near the end of the measurement.',
-};
+function signalBoardPresentation(signal?: StoryPuzzleSignalConfig) {
+  const presentation = SIGNAL_PRESENTATIONS[signal?.visualProfile ?? 'opening'];
+  const configuredFrequencyIds = signal?.frequencyOptions.map(String);
+  const configuredChannelIds = signal?.channelOptions.map((channel) => `channel-${channel}`);
+  const probes = configuredFrequencyIds
+    ? presentation.probes.filter((probe) => configuredFrequencyIds.includes(probe.frequency))
+    : presentation.probes;
+  const channels = configuredChannelIds
+    ? presentation.channels.filter((channel) => configuredChannelIds.includes(channel.id))
+    : presentation.channels;
 
-function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, draft, onChange, disabled }: PuzzleMechanicProps) {
+  // A malformed presentation must leave the known profile playable instead of
+  // rendering a blank choice board. Catalog tests guard the shipped data.
+  return {
+    profile: signal?.visualProfile ?? 'opening',
+    probes: probes.length === configuredFrequencyIds?.length ? probes : presentation.probes,
+    channels: channels.length === configuredChannelIds?.length ? channels : presentation.channels,
+  };
+}
+
+function SignalCalibrationBoard({
+  draft,
+  onChange,
+  disabled,
+  signal,
+}: Pick<PuzzleMechanicProps, 'draft' | 'onChange' | 'disabled' | 'signal'>) {
+  const locale = useUiPreferencesStore((state) => state.locale);
+  const { profile, probes, channels } = signalBoardPresentation(signal);
+  const frequencyIds = probes.map((probe) => probe.frequency);
+  const channelIds = channels.map((candidate) => candidate.id);
+  const { frequency, channel } = readSignalSelection(draft.tokens, frequencyIds, channelIds);
+  const signalCopy = locale === 'ar'
+    ? {
+      board: 'مختبر معايرة الإشارة',
+      instruction: 'قارن مقدار الانحراف عن خط القياس، ثم افحص الأثر الثانوي في كل مرحّل. السجل وحده يحسم الفرضية بعد إرسالها.',
+      readings: 'مجسات التردد',
+      relays: 'مرحلات القناة',
+      reading: 'مجس',
+      relay: 'مرحل',
+      awaiting: 'بانتظار مجس ومرحل.',
+      armed: 'تم تسليح {probe} وربط {relay}. أرسل الفرضية إلى السجل للتحقق.',
+    }
+    : {
+      board: 'Signal calibration lab',
+      instruction: 'Compare each deviation against the measurement line, then inspect the secondary trace on every relay. Only the record decides after you submit a hypothesis.',
+      readings: 'Frequency probes',
+      relays: 'Channel relays',
+      reading: 'Probe',
+      relay: 'Relay',
+      awaiting: 'Awaiting one probe and one relay.',
+      armed: '{probe} armed and {relay} linked. Submit the hypothesis to the record for verification.',
+    };
+  const frequencyProbe = probes.find((probe) => probe.frequency === frequency);
+  const channelRelay = channels.find((candidate) => candidate.id === channel);
+  const status = frequencyProbe && channelRelay
+    ? signalCopy.armed
+      .replace('{probe}', `${signalCopy.reading} ${frequencyProbe.scan}`)
+      .replace('{relay}', `${signalCopy.relay} ${channelRelay.code}`)
+    : signalCopy.awaiting;
+
+  return (
+    <section className="story-signal-board" data-profile={profile} aria-label={signalCopy.board}>
+      <div className="story-signal-board__atmosphere" aria-hidden="true" />
+      <p className="story-signal-board__instruction">{signalCopy.instruction}</p>
+      <div className="story-signal-board__probes" role="group" aria-label={signalCopy.readings}>
+        {probes.map((probe) => (
+          <button
+            key={probe.frequency}
+            type="button"
+            disabled={disabled}
+            data-selected={frequency === probe.frequency}
+            aria-pressed={frequency === probe.frequency}
+            aria-label={`${signalCopy.reading} ${probe.scan}: ${probe.readout[locale]}`}
+            onClick={() => onChange({
+              ...draft,
+              tokens: toggleSignalSelection(draft.tokens, probe.frequency, frequencyIds, channelIds),
+            })}
+          >
+            <svg viewBox="0 0 120 54" aria-hidden="true"><path d="M0 27 H120" /><path d={probe.path} /></svg>
+            <strong dir="ltr">PROBE {probe.scan}</strong>
+            <small dir="ltr">{probe.readout[locale]}</small>
+          </button>
+        ))}
+      </div>
+      <div className="story-signal-board__relays" role="group" aria-label={signalCopy.relays}>
+        {channels.map((candidate) => (
+          <button
+            key={candidate.id}
+            type="button"
+            disabled={disabled}
+            data-selected={channel === candidate.id}
+            aria-pressed={channel === candidate.id}
+            aria-label={`${signalCopy.relay} ${candidate.code}: ${candidate.readout[locale]}`}
+            onClick={() => onChange({
+              ...draft,
+              tokens: toggleSignalSelection(draft.tokens, candidate.id, frequencyIds, channelIds),
+            })}
+          >
+            <svg viewBox="0 0 120 52" aria-hidden="true">
+              <path d="M0 26 H120" />
+              {candidate.trace && <path d={candidate.trace} />}
+            </svg>
+            <strong dir="ltr">RELAY {candidate.code}</strong>
+            <small>{candidate.readout[locale]}</small>
+          </button>
+        ))}
+      </div>
+      <p className="story-signal-board__status" role="status" aria-live="polite">{status}</p>
+    </section>
+  );
+}
+
+const SYSTEM_SEQUENCE_PORTS: Readonly<Record<string, { input: string; output: string }>> = Object.freeze({
+  signal: { input: 'START', output: '◇' },
+  access: { input: '◇', output: '△' },
+  memory: { input: '△', output: '□' },
+  echo: { input: '□', output: 'END' },
+});
+
+function SystemSequenceBoard({
+  options,
+  draft,
+  onChange,
+  disabled,
+}: {
+  options: readonly StoryPuzzleOption[];
+  draft: StoryPuzzleDraft;
+  onChange: (next: StoryPuzzleDraft) => void;
+  disabled: boolean;
+}) {
+  const locale = useUiPreferencesStore((state) => state.locale);
+  const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
+  const selected = draft.tokens.filter((token) => options.some((option) => option.id === token));
+  const byId = new Map(options.map((option) => [option.id, option]));
+  const presentationOptions = [...options].sort((left, right) => (
+    ['memory', 'echo', 'signal', 'access'].indexOf(left.id)
+    - ['memory', 'echo', 'signal', 'access'].indexOf(right.id)
+  ));
+  const copy = locale === 'ar'
+    ? {
+      board: 'لوحة المسار المستعاد',
+      instruction: 'ابدأ من START، طابق مخرج كل رمز مع مدخل الرمز التالي، وأنهِ المسار عند END. ضع الرموز، ثم حرّك أو أزل أي رمز قبل الإرسال.',
+      slots: 'مسار الاستعادة',
+      symbols: 'الرموز المتاحة',
+      empty: 'فارغ',
+      moveEarlier: 'تحريك الرمز خطوة للخلف',
+      moveLater: 'تحريك الرمز خطوة للأمام',
+      remove: 'إزالة الرمز المحدد',
+      clear: 'مسح المسار',
+      awaiting: 'اختر رمزًا لتضعه في أول خانة فارغة.',
+      full: 'امتلأت الخانات الأربع. حدّد رمزًا ثم حرّكه أو أزله.',
+      selected: 'تم تحديد الخانة {slot}. استخدم أزرار التحريك أو الإزالة.',
+      slotLabel: 'الخانة {slot}: {label}',
+      availableLabel: '{label}: مدخل {input}، مخرج {output}',
+    }
+    : {
+      board: 'Recovered route board',
+      instruction: 'Begin at START, match each symbol’s exit to the next symbol’s entry, and finish at END. Place symbols, then move or remove any symbol before submitting.',
+      slots: 'Recovery route',
+      symbols: 'Available symbols',
+      empty: 'Empty',
+      moveEarlier: 'Move selected symbol earlier',
+      moveLater: 'Move selected symbol later',
+      remove: 'Remove selected symbol',
+      clear: 'Clear route',
+      awaiting: 'Choose a symbol to place it in the first empty slot.',
+      full: 'All four slots are occupied. Select a symbol to move or remove it.',
+      selected: 'Slot {slot} selected. Use move or remove controls.',
+      slotLabel: 'Slot {slot}: {label}',
+      availableLabel: '{label}: entry {input}, exit {output}',
+    };
+  const status = selectedSlot !== null
+    ? copy.selected.replace('{slot}', String(selectedSlot + 1))
+    : selected.length === 4 ? copy.full : copy.awaiting;
+  const moveSelected = (direction: -1 | 1) => {
+    if (selectedSlot === null) return;
+    const target = selectedSlot + direction;
+    if (target < 0 || target >= selected.length) return;
+    onChange({
+      ...draft,
+      tokens: swapPuzzlePieces(selected, selected[selectedSlot]!, selected[target]!),
+    });
+    setSelectedSlot(target);
+  };
+  const removeSelected = () => {
+    if (selectedSlot === null) return;
+    onChange({ ...draft, tokens: removeRouteTokenAt(selected, selectedSlot) });
+    setSelectedSlot(null);
+  };
+
+  return (
+    <section className="story-system-route" aria-label={copy.board}>
+      <p className="story-system-route__instruction">{copy.instruction}</p>
+      <ol className="story-system-route__slots" dir="ltr" aria-label={copy.slots}>
+        {Array.from({ length: 4 }, (_, index) => {
+          const token = selected[index];
+          const option = token ? byId.get(token) : undefined;
+          return (
+            <li key={index} data-filled={Boolean(option)} data-selected={selectedSlot === index}>
+              {option ? (
+                <button
+                  type="button"
+                  disabled={disabled}
+                  aria-pressed={selectedSlot === index}
+                  aria-label={copy.slotLabel
+                    .replace('{slot}', String(index + 1))
+                    .replace('{label}', option.label[locale])}
+                  onClick={() => setSelectedSlot(selectedSlot === index ? null : index)}
+                >
+                  <small>{String(index + 1).padStart(2, '0')}</small>
+                  <strong>{option.symbol ?? '◇'}</strong>
+                  <span>{option.label[locale]}</span>
+                </button>
+              ) : <span><small>{String(index + 1).padStart(2, '0')}</small>{copy.empty}</span>}
+            </li>
+          );
+        })}
+      </ol>
+      <div className="story-system-route__controls" aria-label={locale === 'ar' ? 'تحرير المسار' : 'Route editing'}>
+        <button type="button" disabled={disabled || selectedSlot === null || selectedSlot === 0} onClick={() => moveSelected(-1)}>{copy.moveEarlier}</button>
+        <button type="button" disabled={disabled || selectedSlot === null} onClick={removeSelected}>{copy.remove}</button>
+        <button type="button" disabled={disabled || selectedSlot === null || selectedSlot === selected.length - 1} onClick={() => moveSelected(1)}>{copy.moveLater}</button>
+        <button type="button" disabled={disabled || selected.length === 0} onClick={() => { onChange({ ...draft, tokens: [] }); setSelectedSlot(null); }}>{copy.clear}</button>
+      </div>
+      <div className="story-system-route__nodes" role="group" aria-label={copy.symbols}>
+        {presentationOptions.map((option) => {
+          const ports = SYSTEM_SEQUENCE_PORTS[option.id] ?? { input: '?', output: '?' };
+          const isPlaced = selected.includes(option.id);
+          return (
+            <button
+              key={option.id}
+              type="button"
+              disabled={disabled || isPlaced || selected.length >= 4}
+              data-placed={isPlaced}
+              aria-label={copy.availableLabel
+                .replace('{label}', option.label[locale])
+                .replace('{input}', ports.input)
+                .replace('{output}', ports.output)}
+              onClick={() => {
+                onChange({ ...draft, tokens: appendUniqueRouteToken(selected, option.id, 4) });
+                setSelectedSlot(null);
+              }}
+            >
+              <span aria-hidden="true">{ports.input}</span>
+              <strong>{option.symbol ?? '◇'}</strong>
+              <span aria-hidden="true">{ports.output}</span>
+              <small>{option.label[locale]}</small>
+            </button>
+          );
+        })}
+      </div>
+      <p className="story-system-route__status" role="status" aria-live="polite">{status}</p>
+    </section>
+  );
+}
+
+function forensicPointPosition(id: string, index: number): { x: string; y: string } {
+  const coordinates = /^([xyz])([123])$/i.exec(id);
+  if (!coordinates) {
+    return {
+      x: `${18 + ((index % 3) * 32)}%`,
+      y: `${18 + (Math.floor(index / 3) * 32)}%`,
+    };
+  }
+  const row = coordinates[1]!.toLowerCase().charCodeAt(0) - 'x'.charCodeAt(0);
+  const column = Number(coordinates[2]!) - 1;
+  return {
+    x: `${18 + (column * 32)}%`,
+    y: `${18 + (row * 32)}%`,
+  };
+}
+
+function VisualForensicsBoard({
+  puzzle,
+  options,
+  draft,
+  onChange,
+  disabled,
+  onVisualAssetStateChange,
+}: Pick<PuzzleMechanicProps, 'puzzle' | 'draft' | 'onChange' | 'disabled' | 'onVisualAssetStateChange'> & {
+  options: readonly StoryPuzzleOption[];
+}) {
+  const locale = useUiPreferencesStore((state) => state.locale);
+  const source = puzzle.image?.src;
+  const [view, setView] = useState<'map' | 'evidence'>('map');
+  const {
+    assetKey,
+    assetStatus,
+    onAssetError,
+    onAssetLoad,
+    retryAsset,
+  } = usePuzzleVisualAsset(source);
+  const selected = draft.tokens;
+  const usesEvidenceList = view === 'evidence' || assetStatus !== 'ready';
+  const forensicCopy = locale === 'ar'
+    ? {
+      board: 'ماسح الأدلة البصرية',
+      point: (id: string, detail?: string) => `موضع الفحص ${id}${detail ? `: ${detail}` : ''}`,
+      instruction: `حمّل سجل الفحص، ثم حدّد موضعي الشذوذ. تم اختيار ${selected.length} من 2؛ لا يعتمد التحكم على اللون وحده.`,
+      mapView: 'عرض خريطة السجل',
+      evidenceView: 'عرض بطاقات الأدلة النصية',
+      loading: 'يجري تحميل سجل الفحص. يمكنك استعراض بطاقات الأدلة إلى أن يصل المصدر.',
+      unavailableTitle: 'سجل الفحص غير متاح',
+      unavailableDetail: 'تعذر تحميل المصدر البصري. قراءة بطاقات الأدلة متاحة، ولن يُرسل أي اختيار حتى عودة السجل.',
+      retryAsset: 'إعادة تحميل السجل',
+    }
+    : {
+      board: 'Visual forensics scanner',
+      point: (id: string, detail?: string) => `Inspection point ${id}${detail ? `: ${detail}` : ''}`,
+      instruction: `Load the inspection record, then mark two anomaly positions. ${selected.length} of 2 selected; the control does not rely on color alone.`,
+      mapView: 'Show record map',
+      evidenceView: 'Show text evidence cards',
+      loading: 'Loading the inspection record. You can review the text evidence cards while the source arrives.',
+      unavailableTitle: 'Inspection record unavailable',
+      unavailableDetail: 'The visual source did not load. Text evidence cards remain available, and no choice can be submitted until the record returns.',
+      retryAsset: 'Retry record load',
+    };
+
+  useEffect(() => {
+    onVisualAssetStateChange?.(assetStatus);
+  }, [assetStatus, onVisualAssetStateChange]);
+
+  return (
+    <section className="story-forensics-board" aria-label={forensicCopy.board}>
+      {assetStatus === 'ready' && (
+        <button
+          type="button"
+          className="story-forensics-board__view-toggle"
+          aria-pressed={view === 'evidence'}
+          onClick={() => setView((current) => (current === 'map' ? 'evidence' : 'map'))}
+        >
+          {view === 'map' ? forensicCopy.evidenceView : forensicCopy.mapView}
+        </button>
+      )}
+      <div
+        className="story-forensics-board__record"
+        data-asset-state={assetStatus}
+        data-view={usesEvidenceList ? 'evidence' : 'map'}
+        aria-busy={assetStatus === 'loading'}
+      >
+        {source && assetStatus !== 'failed' && (
+          <img
+            key={assetKey}
+            src={source}
+            alt={puzzle.image?.alt[locale] ?? ''}
+            loading="lazy"
+            onError={onAssetError}
+            onLoad={onAssetLoad}
+          />
+        )}
+        {assetStatus === 'ready' && !usesEvidenceList && <ScanLine aria-hidden="true" />}
+        {assetStatus === 'loading' && <p className="story-puzzle-visual-loading" role="status">{forensicCopy.loading}</p>}
+        {assetStatus === 'failed' && (
+          <PuzzleVisualFallback
+            title={forensicCopy.unavailableTitle}
+            detail={forensicCopy.unavailableDetail}
+            retryLabel={forensicCopy.retryAsset}
+            onRetry={retryAsset}
+            disabled={disabled}
+          />
+        )}
+        <div className="story-forensics-board__points">
+          {options.map((option, index) => {
+            const position = forensicPointPosition(option.id, index);
+            return (
+              <button
+                key={option.id}
+                type="button"
+                disabled={disabled || assetStatus !== 'ready' || tokenOptionUnavailable(selected, option.id, 2)}
+                data-selected={selected.includes(option.id)}
+                aria-pressed={selected.includes(option.id)}
+                aria-label={forensicCopy.point(option.id.toUpperCase(), option.detail?.[locale])}
+                style={{ '--point-x': position.x, '--point-y': position.y } as CSSProperties}
+                onClick={() => onChange({ ...draft, tokens: selectedTokens(selected, option.id, 2) })}
+              >
+                <strong>{option.id.toUpperCase()}</strong>
+                {option.detail && <small>{option.detail[locale]}</small>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <p role="status" aria-live="polite">{forensicCopy.instruction}</p>
+    </section>
+  );
+}
+
+function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, signal, draft, onChange, disabled, onVisualAssetStateChange }: PuzzleMechanicProps) {
   const options = stageOptions ?? sourceOptions(puzzle);
   const reducedMotion = useUiPreferencesStore((state) => state.motion === 'reduced');
   const locale = useUiPreferencesStore((state) => state.locale);
@@ -838,10 +1643,11 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, d
     if (mechanic !== 'memory-grid') return undefined;
     setMemoryPreview(true);
     setMemoryPulseIndex(0);
-    const pulseTimers = reducedMotion
-      ? []
-      : [1, 2, 3].map((index) => window.setTimeout(() => setMemoryPulseIndex(index), index * 520));
-    const hideTimer = window.setTimeout(() => setMemoryPreview(false), reducedMotion ? 3000 : 2350);
+    // Reduced Motion keeps the same playable observation phase, but advances
+    // one pulse at a time under player control rather than dumping the answer.
+    if (reducedMotion) return undefined;
+    const pulseTimers = [1, 2, 3].map((index) => window.setTimeout(() => setMemoryPulseIndex(index), index * 520));
+    const hideTimer = window.setTimeout(() => setMemoryPreview(false), 2350);
     return () => {
       pulseTimers.forEach((timer) => window.clearTimeout(timer));
       window.clearTimeout(hideTimer);
@@ -849,7 +1655,7 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, d
   }, [mechanic, puzzle.id, memoryReplay, reducedMotion]);
 
   if (mechanic === 'image-reconstruction') {
-    return <ImageReconstructionBoard puzzle={puzzle} draft={draft} onChange={onChange} disabled={disabled} />;
+    return <ImageReconstructionBoard puzzle={puzzle} draft={draft} onChange={onChange} disabled={disabled} onVisualAssetStateChange={onVisualAssetStateChange} />;
   }
 
   if (mechanic === 'layer-alignment') {
@@ -861,64 +1667,7 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, d
   }
 
   if (mechanic === 'signal') {
-    const frequency = draft.tokens[0] ?? '';
-    const channel = draft.tokens[1] ?? '';
-    const signalCopy = locale === 'ar'
-      ? {
-        board: 'لوحة معايرة الإشارة',
-        instruction: 'اختر القراءة المتوازنة، ثم القناة التي لا يقطعها التشويش. لا تُكشف صحة الاختيار قبل التحقق الخادمي.',
-        readings: 'قراءات التردد',
-        channel: 'قناة الإشارة',
-        reading: 'القراءة',
-      }
-      : {
-        board: 'Signal calibration board',
-        instruction: 'Choose the balanced reading, then the channel without interference. Your choice is not revealed as correct until the server verifies it.',
-        readings: 'Frequency readings',
-        channel: 'Signal channel',
-        reading: 'Reading',
-      };
-    return (
-      <section className="story-signal-board" aria-label={signalCopy.board}>
-        <p className="story-signal-board__instruction">{signalCopy.instruction}</p>
-        <div className="story-signal-board__probes" role="group" aria-label={signalCopy.readings}>
-          {SIGNAL_PROBES.map((probe) => (
-            <button
-              key={probe.frequency}
-              type="button"
-              disabled={disabled}
-              data-selected={frequency === probe.frequency}
-              aria-pressed={frequency === probe.frequency}
-              aria-label={`${signalCopy.reading} ${probe.scan}, ${probe.frequency}. ${locale === 'en' ? SIGNAL_PROBE_DESCRIPTIONS_EN[probe.frequency] : probe.description}`}
-              onClick={() => onChange({
-                ...draft,
-                tokens: [frequency === probe.frequency ? '' : probe.frequency, channel].filter(Boolean),
-              })}
-            >
-              <svg viewBox="0 0 120 54" aria-hidden="true"><path d="M0 27 H120" /><path d={probe.path} /></svg>
-              <strong dir="ltr">SCAN {probe.scan} // {probe.frequency}</strong>
-            </button>
-          ))}
-        </div>
-        <div className="story-choice-row" role="group" aria-label={signalCopy.channel}>
-          {SIGNAL_CHANNELS.map((candidate) => (
-            <button
-              key={candidate.id}
-              type="button"
-              disabled={disabled}
-              data-selected={channel === candidate.id}
-              aria-pressed={channel === candidate.id}
-              onClick={() => onChange({
-                ...draft,
-                tokens: [frequency, channel === candidate.id ? '' : candidate.id].filter(Boolean),
-              })}
-            >
-              <strong dir="ltr">CH-{candidate.code}</strong><small>{locale === 'en' ? SIGNAL_CHANNEL_NOISE_EN[candidate.id] : candidate.noise}</small>
-            </button>
-          ))}
-        </div>
-      </section>
-    );
+    return <SignalCalibrationBoard draft={draft} onChange={onChange} disabled={disabled} signal={signal} />;
   }
 
   if (mechanic === 'wiring' || mechanic === 'color-routing') {
@@ -928,107 +1677,182 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, d
     );
     const sources = accessNodeLock ? ['access'] : assignmentSources(mechanic);
     const targets = accessNodeLock ? stageOptions! : assignmentTargets(mechanic);
+    const wiringCopy = locale === 'ar'
+      ? {
+        board: mechanic === 'wiring' ? 'لوحة استعادة الدائرة' : 'لوحة مطابقة القنوات',
+        instruction: mechanic === 'wiring'
+          ? 'اختر طرفًا واحدًا لكل مسار. يمكنك تغيير أي وصلة قبل إرسال السجل.'
+          : 'طابق هوية كل قناة مع شكلها، ثم راجع كل وصلة قبل إرسال السجل.',
+        targetGroup: (source: string) => `الأطراف المتاحة لمسار ${source}`,
+        status: (count: number, total: number) => `تم إعداد ${count} من ${total} وصلات. التحقق الخادمي يحسم المطابقة النهائية.`,
+      }
+      : {
+        board: mechanic === 'wiring' ? 'Circuit restore board' : 'Channel matching board',
+        instruction: mechanic === 'wiring'
+          ? 'Choose one terminal for each route. You can change any connection before submitting the record.'
+          : 'Match each channel identity to its shape, then review every connection before submitting the record.',
+        targetGroup: (source: string) => `Available terminals for ${source}`,
+        status: (count: number, total: number) => `${count} of ${total} connections prepared. Server verification decides the final match.`,
+      };
     return (
-      <section className="story-wiring-board" data-mode={mechanic} aria-label="لوحة التوصيل">
-        {sources.map((source) => (
-          <article key={source}>
-            <strong>{source.toUpperCase()}</strong>
-            <span className="story-wiring-board__line" data-active={Boolean(draft.assignments[source])} />
-            <div>
-              {targets.map((target) => (
-                <button
-                  key={target.id} type="button" disabled={disabled}
-                  data-selected={draft.assignments[source] === target.id}
-                  onClick={() => {
-                    const assignments = Object.fromEntries(
-                      Object.entries(draft.assignments).filter(([otherSource, otherTarget]) => (
-                        otherSource === source || otherTarget !== target.id
-                      )),
-                    );
-                    assignments[source] = target.id;
-                    onChange({ ...draft, assignments });
-                  }}
-                >{target.label[locale]}</button>
-              ))}
-            </div>
-          </article>
-        ))}
+      <section className="story-wiring-board" data-mode={mechanic} aria-label={wiringCopy.board}>
+        <p className="story-wiring-board__instruction">{wiringCopy.instruction}</p>
+        {sources.map((source) => {
+          const sourceOption = options.find((option) => option.id === source);
+          const sourceLabel = sourceOption?.label[locale] ?? source;
+          return (
+            <article key={source} data-connected={Boolean(draft.assignments[source])}>
+              <strong>
+                {sourceOption?.symbol && <i aria-hidden="true">{sourceOption.symbol}</i>}
+                <span>{sourceLabel}</span>
+              </strong>
+              <span className="story-wiring-board__line" data-active={Boolean(draft.assignments[source])} />
+              <div role="group" aria-label={wiringCopy.targetGroup(sourceLabel)}>
+                {targets.map((target) => (
+                  <button
+                    key={target.id} type="button" disabled={disabled}
+                    data-selected={draft.assignments[source] === target.id}
+                    aria-pressed={draft.assignments[source] === target.id}
+                    aria-label={`${sourceLabel} → ${target.label[locale]}`}
+                    onClick={() => {
+                      const assignments = Object.fromEntries(
+                        Object.entries(draft.assignments).filter(([otherSource, otherTarget]) => (
+                          otherSource === source || otherTarget !== target.id
+                        )),
+                      );
+                      assignments[source] = target.id;
+                      onChange({ ...draft, assignments });
+                    }}
+                  >{target.label[locale]}</button>
+                ))}
+              </div>
+            </article>
+          );
+        })}
+        <p className="story-wiring-board__status" role="status" aria-live="polite">
+          {wiringCopy.status(sources.filter((source) => Boolean(draft.assignments[source])).length, sources.length)}
+        </p>
       </section>
     );
   }
 
   if (mechanic === 'matrix') {
-    const tiles = ['tile1', 'tile2', 'tile3', 'tile4'];
+    const tiles = MATRIX_TILE_IDS;
+    const matrixCopy = locale === 'ar'
+      ? {
+        board: 'مصفوفة النظام',
+        heading: 'مصفوفة النظام // محاذاة الوصلات',
+        tile: (index: number, rotation: number) => `العقدة ${index + 1}، اتجاهها الحالي ${rotation}. اضغط لتدويرها.`,
+        status: (count: number) => `تم ضبط ${count} من 4 عقد. أرسل المصفوفة إلى السجل للتحقق من الوصلات.`,
+      }
+      : {
+        board: 'System matrix',
+        heading: 'SYSTEM MATRIX // ALIGN CONNECTIONS',
+        tile: (index: number, rotation: number) => `Node ${index + 1}, current orientation ${rotation}. Select to rotate it.`,
+        status: (count: number) => `${count} of 4 nodes adjusted. Submit the matrix to the record to verify the connections.`,
+      };
     return (
-      <section className="story-matrix-board" aria-label="System matrix">
-        {tiles.map((tile, index) => {
-          const rotation = draft.rotations[tile] ?? ((index + 1) % 4);
-          return (
-            <button
-              key={tile} type="button" disabled={disabled} data-rotation={rotation}
-              onClick={() => onChange({ ...draft, rotations: { ...draft.rotations, [tile]: (rotation + 1) % 4 } })}
-              aria-label={`تدوير عقدة ${index + 1}`}
-            ><i /><i /><span>R{rotation}</span></button>
-          );
-        })}
+      <section className="story-matrix-board" aria-label={matrixCopy.board}>
+        <header><ScanLine aria-hidden="true" /> {matrixCopy.heading}</header>
+        <div className="story-matrix-board__tiles">
+          {tiles.map((tile, index) => {
+            const rotation = draft.rotations[tile] ?? ((index + 1) % 4);
+            return (
+              <button
+                key={tile} type="button" disabled={disabled} data-rotation={rotation}
+                onClick={() => onChange({ ...draft, rotations: { ...draft.rotations, [tile]: (rotation + 1) % 4 } })}
+                aria-label={matrixCopy.tile(index, rotation)}
+              ><i /><i /><span dir="ltr">R{rotation}</span></button>
+            );
+          })}
+        </div>
+        <p role="status" aria-live="polite">{matrixCopy.status(tiles.filter((tile) => draft.rotations[tile] !== undefined).length)}</p>
       </section>
     );
   }
 
   if (mechanic === 'visual-forensics') {
-    const selected = draft.tokens;
-    const source = puzzle.image?.src;
-    return (
-      <section className="story-forensics-board" aria-label="Visual forensics scanner">
-        <div className="story-forensics-board__record">
-          {source && <img src={source} alt={puzzle.image?.alt[locale]} loading="lazy" />}
-          <ScanLine aria-hidden="true" />
-          {options.map((option, index) => (
-            <button
-              key={option.id} type="button" disabled={disabled}
-              data-selected={selected.includes(option.id)}
-              style={{ '--point': index } as CSSProperties}
-              onClick={() => onChange({ ...draft, tokens: selectedTokens(selected, option.id, 2) })}
-            >
-              <strong>{option.id.toUpperCase()}</strong>
-              {option.detail && <small>{option.detail[locale]}</small>}
-            </button>
-          ))}
-        </div>
-        <p>حرّك الماسح عبر السجل وحدد موضعي الشذوذ. التحكم لا يعتمد على اللون وحده.</p>
-      </section>
-    );
+    return <VisualForensicsBoard puzzle={puzzle} options={options} draft={draft} onChange={onChange} disabled={disabled} onVisualAssetStateChange={onVisualAssetStateChange} />;
   }
 
   if (mechanic === 'memory-grid') {
     const grid = ['a1', 'a2', 'a3', 'b1', 'b2', 'b3', 'c1', 'c2', 'c3'];
-    const pulsePattern = ['a1', 'b2', 'c3', 'b2'];
+    const memoryCopy = locale === 'ar'
+      ? {
+        board: 'شبكة الذاكرة',
+        preview: (index: number) => `مخزن النمط // نبضة ${index + 1} / ${MEMORY_GRID_PULSE_PATTERN.length}`,
+        guided: (index: number) => `مخزن النمط // خطوة مضبوطة ${index + 1} / ${MEMORY_GRID_PULSE_PATTERN.length}`,
+        restore: 'مخزن النمط // استعادة',
+        observe: 'احفظ النمط قبل أن يختفي.',
+        input: 'أعد النمط بالنقر على العقد بالترتيب. اضغط مسح الإدخال لتصحيح المحاولة.',
+        replay: 'إعادة عرض النمط',
+      }
+      : {
+        board: 'Memory grid',
+        preview: (index: number) => `PATTERN BUFFER // PULSE ${index + 1} / ${MEMORY_GRID_PULSE_PATTERN.length}`,
+        guided: (index: number) => `PATTERN BUFFER // CONTROLLED STEP ${index + 1} / ${MEMORY_GRID_PULSE_PATTERN.length}`,
+        restore: 'PATTERN BUFFER // RESTORE',
+        observe: 'Memorize the pattern before it disappears.',
+        input: 'Repeat the pattern by selecting nodes in order. Use Clear input to correct the attempt.',
+        replay: 'Replay pattern',
+      };
+    const advanceReducedMemoryPreview = () => {
+      if (memoryPulseIndex >= MEMORY_GRID_PULSE_PATTERN.length - 1) {
+        setMemoryPreview(false);
+        return;
+      }
+      setMemoryPulseIndex((index) => index + 1);
+    };
     return (
-      <section className="story-memory-grid" data-preview={memoryPreview} aria-label="Memory grid">
-        <header>{memoryPreview
-          ? reducedMotion ? 'PATTERN BUFFER // STATIC ACCESSIBLE VIEW' : `PATTERN BUFFER // PULSE ${memoryPulseIndex + 1} / 4`
-          : 'PATTERN BUFFER // RESTORE'}</header>
+    <section className="story-memory-grid" data-preview={memoryPreview} aria-label={memoryCopy.board}>
+      <header>{memoryPreview
+          ? reducedMotion ? memoryCopy.guided(memoryPulseIndex) : memoryCopy.preview(memoryPulseIndex)
+          : memoryCopy.restore}</header>
         {memoryPreview && reducedMotion && (
-          <p className="story-memory-grid__static-pattern" role="status">A1 → B2 → C3 → B2</p>
+          <div className="story-memory-grid__guided-step" role="status" aria-live="polite">
+            <span>{locale === 'ar'
+              ? `النبضة ${memoryPulseIndex + 1} ظاهرة الآن. ثبّت موقعها قبل متابعة العرض.`
+              : `Pulse ${memoryPulseIndex + 1} is visible now. Hold its position before continuing.`}</span>
+            <button type="button" disabled={disabled} onClick={advanceReducedMemoryPreview}>
+              {memoryPulseIndex >= MEMORY_GRID_PULSE_PATTERN.length - 1
+                ? (locale === 'ar' ? 'ابدأ الاستعادة' : 'Begin restoration')
+                : (locale === 'ar' ? 'أظهر النبضة التالية' : 'Show next pulse')}
+            </button>
+          </div>
         )}
         <div>
-          {grid.map((id) => (
-            <button
-              key={id} type="button" disabled={disabled || memoryPreview}
-              data-preview={memoryPreview && !reducedMotion && pulsePattern[memoryPulseIndex] === id}
-              data-selected={draft.tokens.includes(id)}
-              onClick={() => onChange({ ...draft, tokens: selectedTokens(draft.tokens, id, 4, true) })}
-            >{id.toUpperCase()}</button>
-          ))}
+          {grid.map((id) => {
+            const selectionCount = draft.tokens.filter((token) => token === id).length;
+            return (
+              <button
+                key={id}
+                type="button"
+                disabled={disabled || memoryPreview || tokenOptionUnavailable(draft.tokens, id, MEMORY_GRID_PULSE_PATTERN.length, true)}
+                data-preview={memoryPreview && MEMORY_GRID_PULSE_PATTERN[memoryPulseIndex] === id}
+                data-selected={selectionCount > 0}
+                aria-pressed={selectionCount > 0}
+                aria-label={`${locale === 'ar' ? 'عقدة الذاكرة' : 'Memory node'} ${id.toUpperCase()}${selectionCount > 0 ? `, ${locale === 'ar' ? `محددة ${selectionCount} مرة` : `selected ${selectionCount} times`}` : ''}`}
+                onClick={() => onChange({ ...draft, tokens: selectedTokens(draft.tokens, id, MEMORY_GRID_PULSE_PATTERN.length, true) })}
+              >{id.toUpperCase()}</button>
+            );
+          })}
         </div>
-        <p>{memoryPreview ? 'احفظ النمط قبل أن يختفي.' : 'أعد النمط بالنقر على العقد بالترتيب.'}</p>
+        <p>{memoryPreview ? memoryCopy.observe : memoryCopy.input}</p>
         <button
           type="button"
           className="story-memory-grid__replay"
           disabled={disabled || memoryPreview}
           onClick={() => setMemoryReplay((value) => value + 1)}
         >
-          إعادة عرض النمط
+          {memoryCopy.replay}
+        </button>
+        <button
+          type="button"
+          className="story-memory-grid__clear"
+          disabled={disabled || memoryPreview || draft.tokens.length === 0}
+          onClick={() => onChange({ ...draft, tokens: [] })}
+        >
+          {locale === 'ar' ? 'مسح الإدخال' : 'Clear input'}
         </button>
       </section>
     );
@@ -1042,6 +1866,10 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, d
     return <DataRouteBoard options={options} tokenLimit={tokenLimit} draft={draft} onChange={onChange} disabled={disabled} />;
   }
 
+  if (mechanic === 'sequence' && puzzle.id === 'story_puzzle_02_system_sequence') {
+    return <SystemSequenceBoard options={options} draft={draft} onChange={onChange} disabled={disabled} />;
+  }
+
   if (mechanic === 'evidence' || mechanic === 'contradiction' || mechanic === 'deduction') {
     return <EvidenceBoard mechanic={mechanic} options={options} draft={draft} onChange={onChange} disabled={disabled} />;
   }
@@ -1050,37 +1878,113 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, d
   const limit = sequenceLimit(mechanic, tokenLimit);
   const ordered = ['sequence', 'timeline', 'cipher', 'mirror-code', 'data-route'].includes(mechanic);
   const repeatable = ['cipher', 'mirror-code', 'memory-grid'].includes(mechanic);
+  const composerCopy = locale === 'ar'
+    ? {
+      board: 'لوحة تكوين الفرضية',
+      buffer: 'الفرضية الحالية',
+      empty: 'بانتظار اختيارك.',
+      selected: `تم اختيار ${selected.length} من ${limit}. اضغط عنصرًا من الفرضية لإزالته.`,
+      choices: 'الرموز المتاحة',
+      remove: (token: string, index: number) => `إزالة ${token} من الموضع ${index + 1}`,
+      add: (label: string) => `إضافة ${label} إلى الفرضية`,
+      toggle: (label: string) => `تبديل اختيار ${label}`,
+      clear: 'مسح الفرضية وإعادة الإدخال',
+      clearAction: 'إعادة الإدخال',
+    }
+    : {
+      board: 'Hypothesis composer',
+      buffer: 'Current hypothesis',
+      empty: 'Awaiting your selection.',
+      selected: `${selected.length} of ${limit} selected. Select an item in the hypothesis to remove it.`,
+      choices: 'Available symbols',
+      remove: (token: string, index: number) => `Remove ${token} from position ${index + 1}`,
+      add: (label: string) => `Add ${label} to the hypothesis`,
+      toggle: (label: string) => `Toggle ${label}`,
+      clear: 'Clear hypothesis and start again',
+      clearAction: 'Clear input',
+    };
   return (
-    <section className="story-token-board" data-mode={mechanic} aria-label="لوحة حل النظام">
-      <div className="story-token-board__buffer" aria-live="polite">
-        {selected.length === 0 ? <span>AWAITING INPUT</span> : selected.map((token, index) => (
-          <button key={`${token}-${index}`} type="button" disabled={disabled} onClick={() => onChange({ ...draft, tokens: selected.filter((_, itemIndex) => itemIndex !== index) })}>
+    <section className="story-token-board" data-mode={mechanic} aria-label={composerCopy.board}>
+      <div className="story-token-board__buffer" role="status" aria-live="polite" aria-label={composerCopy.buffer} data-full={selected.length >= limit}>
+        {selected.length === 0 ? <span>{composerCopy.empty}</span> : selected.map((token, index) => (
+          <button
+            key={`${token}-${index}`}
+            type="button"
+            disabled={disabled}
+            aria-label={composerCopy.remove(token.toUpperCase(), index)}
+            onClick={() => onChange({ ...draft, tokens: selected.filter((_, itemIndex) => itemIndex !== index) })}
+          >
             {ordered && <small>{index + 1}</small>}{token.toUpperCase()}
           </button>
         ))}
       </div>
-      <div className="story-token-board__choices">
-        {options.map((option) => (
-          <button
-            key={option.id} type="button" disabled={disabled}
-            data-selected={!repeatable && selected.includes(option.id)}
-            onClick={() => onChange({ ...draft, tokens: selectedTokens(selected, option.id, limit, repeatable) })}
-          >
-            {option.symbol && <i>{option.symbol}</i>}
-            <strong>{option.label[locale]}</strong>
-            {option.detail && <small>{option.detail[locale]}</small>}
-            <small>{option.label.en}</small>
-          </button>
-        ))}
+      <p className="story-token-board__selection-status" aria-live="polite">{selected.length === 0 ? composerCopy.empty : composerCopy.selected}</p>
+      <div className="story-token-board__choices" role="group" aria-label={composerCopy.choices}>
+        {options.map((option) => {
+          const isSelected = selected.includes(option.id);
+          const canToggle = !repeatable && isSelected;
+          const unavailable = tokenOptionUnavailable(selected, option.id, limit, repeatable);
+          return (
+            <button
+              key={option.id}
+              type="button"
+              disabled={disabled || unavailable}
+              data-selected={!repeatable && isSelected}
+              aria-pressed={!repeatable ? isSelected : undefined}
+              aria-label={canToggle
+                ? composerCopy.toggle(option.label[locale])
+                : composerCopy.add(option.label[locale])}
+              onClick={() => onChange({ ...draft, tokens: selectedTokens(selected, option.id, limit, repeatable) })}
+            >
+              {option.symbol && <i>{option.symbol}</i>}
+              <strong>{option.label[locale]}</strong>
+              {option.detail && <small>{option.detail[locale]}</small>}
+              <small>{option.label.en}</small>
+            </button>
+          );
+        })}
       </div>
-      <button type="button" className="story-token-board__clear" disabled={disabled || selected.length === 0} onClick={() => onChange({ ...draft, tokens: [] })}>إعادة الإدخال</button>
+      <button type="button" className="story-token-board__clear" aria-label={composerCopy.clear} disabled={disabled || selected.length === 0} onClick={() => onChange({ ...draft, tokens: [] })}>{composerCopy.clearAction}</button>
     </section>
   );
 }
 
-function RewardMoment({ onDismiss }: { onDismiss: () => void }) {
+function RewardMoment({
+  onDismiss,
+  onContinueManhwa,
+}: {
+  onDismiss: () => void;
+  onContinueManhwa: () => void;
+}) {
   const reward = useStoryPuzzleStore((state) => state.latestReward);
   const locale = useUiPreferencesStore((state) => state.locale);
+  const nextObjective = useMemo(
+    () => deriveCorePlayerObjective(reward?.snapshot ?? null, locale),
+    [locale, reward?.snapshot],
+  );
+  const copy = locale === 'ar'
+    ? {
+      detected: 'تم رصد شظية ذاكرة في النظام',
+      title: 'تم اكتساب شظية ذاكرة',
+      shard: 'شظية',
+      echoResonance: 'تناغم Echo',
+      perfect: (coins: number) => `حل مثالي +${coins} عملات`,
+      echoResponse: 'استجابة Echo',
+      nextObjective: 'الهدف التالي',
+      continueManhwa: 'افتح المانهوا وتابع الدليل',
+      dismiss: 'العودة إلى الألغاز',
+    }
+    : {
+      detected: 'System memory fragment detected',
+      title: 'Memory shard acquired',
+      shard: 'Shard',
+      echoResonance: 'Echo resonance',
+      perfect: (coins: number) => `Perfect solve +${coins} coins`,
+      echoResponse: 'Echo response',
+      nextObjective: 'Next objective',
+      continueManhwa: 'Open Manhwa and follow the clue',
+      dismiss: 'Return to puzzles',
+    };
   const dialogRef = useRef<HTMLDivElement>(null);
   const continueRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -1122,8 +2026,9 @@ function RewardMoment({ onDismiss }: { onDismiss: () => void }) {
   }, [onDismiss, reward?.awarded]);
   if (!reward?.awarded) return null;
   const puzzle = STORY_PUZZLE_BY_ID[reward.puzzleId];
-  return (
-    <div ref={dialogRef} className="story-reward-moment" role="dialog" aria-modal="true" aria-labelledby="story-reward-title" aria-describedby="story-reward-description">
+  if (typeof document === 'undefined') return null;
+  return createPortal(
+    <div ref={dialogRef} className="story-reward-moment" dir={locale === 'ar' ? 'rtl' : 'ltr'} lang={locale} role="dialog" aria-modal="true" aria-labelledby="story-reward-title" aria-describedby="story-reward-description">
       <div className="story-reward-moment__shard"><Sparkles aria-hidden="true" /></div>
       <section>
         <EchoPresence
@@ -1133,21 +2038,36 @@ function RewardMoment({ onDismiss }: { onDismiss: () => void }) {
           showTelemetry={false}
           eager
         />
-        <small>SYSTEM MEMORY FRAGMENT DETECTED</small>
-        <h2 id="story-reward-title">تم اكتساب شظية ذاكرة</h2>
+        <small>{copy.detected}</small>
+        <h2 id="story-reward-title">{copy.title}</h2>
         <p id="story-reward-description">{puzzle?.completionMessage[locale] ?? (locale === 'ar' ? 'تمت الاستعادة.' : 'Recovery complete.')}</p>
         <dl>
           <div><dt>XP</dt><dd>+{reward.xpGranted}</dd></div>
-          <div><dt>SHARD</dt><dd dir="ltr">{reward.snapshot.shardCount} / 20</dd></div>
+          <div><dt>{copy.shard}</dt><dd dir="ltr">{reward.snapshot.shardCount} / 20</dd></div>
         </dl>
         <div className="story-reward-moment__echo-impact">
           <Activity aria-hidden="true" />
-          <span><small>ECHO RESONANCE</small><strong>+{reward.echoImpact.amount} · {reward.echoImpact.label[locale]}</strong></span>
+          <span><small>{copy.echoResonance}</small><strong>+{reward.echoImpact.amount} · {reward.echoImpact.label[locale]}</strong></span>
         </div>
-        {reward.perfectBonusCoins > 0 && <strong className="story-reward-moment__perfect">PERFECT SOLVE +{reward.perfectBonusCoins} COINS</strong>}
-        <button ref={continueRef} type="button" onClick={onDismiss}>متابعة</button>
+        <div className="story-reward-moment__echo-response" role="status" aria-live="polite">
+          <Activity aria-hidden="true" />
+          <span><small>{copy.echoResponse}</small><strong>{nextObjective.echoLine}</strong></span>
+        </div>
+        <div className="story-reward-moment__next-objective">
+          <small>{copy.nextObjective}</small>
+          <strong>{nextObjective.title}</strong>
+          <p>{nextObjective.detail}</p>
+        </div>
+        {reward.perfectBonusCoins > 0 && <strong className="story-reward-moment__perfect">{copy.perfect(reward.perfectBonusCoins)}</strong>}
+        <div className="story-reward-moment__actions">
+          <button ref={continueRef} className="story-reward-moment__continue" type="button" onClick={onContinueManhwa}>
+            <BookOpenCheck aria-hidden="true" /> {copy.continueManhwa}
+          </button>
+          <button className="story-reward-moment__dismiss" type="button" onClick={onDismiss}>{copy.dismiss}</button>
+        </div>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -1182,11 +2102,15 @@ export default function PuzzleScreen() {
       blockedByPage: (page: number) => `افتح المانهوا واقرأ حتى الصفحة ${page}؛ سيُسجّل الدليل تلقائيًا بعد تحميل الصفحة بنجاح.`,
       continueManhwa: 'متابعة المانهوا',
       stage: (index: number) => `الانتقال إلى المرحلة ${index}`,
-      confirmStage: 'تثبيت المرحلة',
+      confirmStage: 'حفظ المسودة ومتابعة',
+      stageDetail: 'تُجمع مداخلات المراحل وتُفحص معًا فقط عند التحقق الأخير.',
       verify: 'تحقق من الاستعادة',
+      visualAssetPending: 'ينتظر التحقق عودة السجل البصري. استخدم إعادة التحميل داخل محطة اللغز ثم تابع.',
       save: 'حفظ الآن',
       retry: 'إعادة المحاولة',
       echoRetry: 'ملاحظة Echo بعد المحاولة',
+      echoResponse: 'استجابة Echo',
+      nextObjective: 'الهدف التالي',
       hints: 'تلميحات اللغز',
       hintDetail: 'استخدام التلميح لا يلغي XP أو الشظية؛ يلغي فقط مكافأة الحل المثالي.',
     }
@@ -1206,11 +2130,15 @@ export default function PuzzleScreen() {
       blockedByPage: (page: number) => `Open the Manhwa and read through page ${page}. The evidence is recorded automatically after the page loads successfully.`,
       continueManhwa: 'Continue the Manhwa',
       stage: (index: number) => `Go to stage ${index}`,
-      confirmStage: 'Confirm stage',
+      confirmStage: 'Save draft & continue',
+      stageDetail: 'Stage inputs are collected and verified together only at final submission.',
       verify: 'Verify recovery',
+      visualAssetPending: 'Verification waits for the visual record to return. Retry the source inside the puzzle station, then continue.',
       save: 'Save now',
       retry: 'Try again',
       echoRetry: 'Echo note after this attempt',
+      echoResponse: 'Echo response',
+      nextObjective: 'Next objective',
       hints: 'Puzzle hints',
       hintDetail: 'Using a hint does not remove XP or the shard; it only removes the perfect-solve bonus.',
     };
@@ -1219,19 +2147,33 @@ export default function PuzzleScreen() {
   );
   const [selectedPuzzleId, setSelectedPuzzleId] = useState<string>('story_puzzle_01_signal_calibration');
   const [draft, setDraft] = useState<StoryPuzzleDraft>(() => defaultDraft(STORY_PUZZLE_BY_ID.story_puzzle_01_signal_calibration!));
+  const [draftResetVersion, setDraftResetVersion] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [visualAssetState, setVisualAssetState] = useState<{
+    context: string;
+    status: PuzzleVisualAssetStatus;
+  } | null>(null);
   const saveTimer = useRef<number | null>(null);
+  // Every draft write shares one chain. A late debounce response must never
+  // replace a newer hint or completion snapshot in the store.
+  const draftSaveChain = useRef<Promise<unknown>>(Promise.resolve());
+  const terminalPuzzleAction = useRef(false);
+  const hydratedPuzzleId = useRef<string | null>(null);
   const playedPuzzleCinematics = useRef(new Set<string>());
 
   useEffect(() => {
-    if (authStatus === 'signed-in') void actions.load();
-  }, [actions, authStatus]);
+    if (authStatus === 'signed-in') void actions.load(false, undefined, locale);
+  }, [actions, authStatus, locale]);
 
   useEffect(() => {
     if (latestReward?.awarded) void loadCollection(true);
   }, [latestReward, loadCollection]);
 
   const entries = snapshot?.entries ?? EMPTY_STORY_PUZZLE_ENTRIES;
+  const nextObjective = useMemo(
+    () => deriveCorePlayerObjective(snapshot, locale),
+    [locale, snapshot],
+  );
   const entryById = useMemo(() => new Map(entries.map((entry) => [entry.puzzleId, entry])), [entries]);
   const visiblePuzzles = useMemo(() => STORY_PUZZLES.filter((puzzle) => (
     puzzle.classification === 'main' || entryById.get(puzzle.id)?.status !== 'hidden'
@@ -1239,11 +2181,30 @@ export default function PuzzleScreen() {
   const selectedPuzzle = STORY_PUZZLE_BY_ID[selectedPuzzleId] ?? STORY_PUZZLES[0]!;
   const selectedEntry = entryById.get(selectedPuzzle.id) ?? {
     puzzleId: selectedPuzzle.id, status: 'locked' as const, discovered: selectedPuzzle.classification === 'main', completedAt: null,
-    perfectSolve: false, unlockedHintIndexes: [], hintCosts: [0, 12, 24] as [number, number, number], draft: null,
+    perfectSolve: false, unlockedHintIndexes: [], hintCosts: [4, 8, 14] as [number, number, number], draft: null,
   };
   const stageDrafts = selectedPuzzle.stages?.length ? parseStages(selectedPuzzle, draft) : [];
   const stageIndex = Math.min(draft.stageIndex, Math.max(0, stageDrafts.length - 1));
   const currentStage = selectedPuzzle.stages?.[stageIndex];
+  const activeMechanic = (currentStage?.mechanic ?? selectedPuzzle.mechanic) as Exclude<
+    StoryPuzzleMechanic,
+    'multi-stage' | 'breach-protocol'
+  >;
+  const visualAssetContext = activeMechanic === 'image-reconstruction' || activeMechanic === 'visual-forensics'
+    ? `${selectedPuzzle.id}:${currentStage?.id ?? 'main'}`
+    : null;
+  const reportVisualAssetState = useCallback((status: PuzzleVisualAssetStatus) => {
+    if (!visualAssetContext) return;
+    setVisualAssetState((current) => (
+      current?.context === visualAssetContext && current.status === status
+        ? current
+        : { context: visualAssetContext, status }
+    ));
+  }, [visualAssetContext]);
+  const visualAssetReady = visualAssetContext === null || (
+    visualAssetState?.context === visualAssetContext
+    && visualAssetState.status === 'ready'
+  );
   const activeDraft = currentStage ? stageDrafts[stageIndex]! : draft;
   const activeReadiness = currentStage
     ? draftReadiness(
@@ -1255,8 +2216,16 @@ export default function PuzzleScreen() {
       locale,
     )
     : selectedPuzzle.mechanic === 'multi-stage' || selectedPuzzle.mechanic === 'breach-protocol'
-      ? { ready: false, message: 'انتقل إلى المرحلة الحالية لإكمال اللغز.' }
+      ? {
+        ready: false,
+        message: locale === 'ar'
+          ? 'انتقل إلى المرحلة الحالية لإكمال اللغز.'
+          : 'Open the current stage to continue the puzzle.',
+      }
       : draftReadiness(selectedPuzzle, selectedPuzzle.mechanic, draft, undefined, undefined, locale);
+  const actionReadiness = visualAssetReady
+    ? activeReadiness
+    : { ready: false, message: screenCopy.visualAssetPending };
   const missingPrerequisite = selectedPuzzle.prerequisitePuzzleIds
     .map((puzzleId) => STORY_PUZZLE_BY_ID[puzzleId])
     .find((puzzle) => (
@@ -1283,9 +2252,18 @@ export default function PuzzleScreen() {
   }, [selectedEntry.status, selectedPuzzle.id]);
 
   useEffect(() => {
+    if (!snapshot) {
+      hydratedPuzzleId.current = null;
+      return;
+    }
+    if (hydratedPuzzleId.current === selectedPuzzle.id) return;
     const entry = entryById.get(selectedPuzzle.id);
-    setDraft(entry?.draft ? cloneDraft(entry.draft) : defaultDraft(selectedPuzzle));
-  }, [entryById, selectedPuzzle]);
+    setDraft(entry?.draft
+      ? normalizePuzzleDraft(selectedPuzzle, entry.draft)
+      : defaultDraft(selectedPuzzle));
+    setDraftResetVersion((version) => version + 1);
+    hydratedPuzzleId.current = selectedPuzzle.id;
+  }, [entryById, selectedPuzzle, snapshot]);
 
   useEffect(() => {
     if (
@@ -1306,11 +2284,39 @@ export default function PuzzleScreen() {
     if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
   }, []);
 
+  const cancelQueuedSave = () => {
+    if (saveTimer.current === null) return;
+    window.clearTimeout(saveTimer.current);
+    saveTimer.current = null;
+  };
+
+  const enqueueDraftSave = (puzzleId: string, nextDraft: StoryPuzzleDraft) => {
+    // Capture the exact draft at the time of the player action. Later local
+    // interactions must enqueue a later write instead of mutating this one.
+    const persistedDraft = cloneDraft(nextDraft);
+    const request = draftSaveChain.current
+      .catch(() => undefined)
+      .then(() => actions.saveDraft(puzzleId, persistedDraft, locale))
+      // Store actions already translate expected API failures to `null`, but
+      // keep the queue usable even if an unexpected transport failure escapes.
+      .catch(() => null);
+    draftSaveChain.current = request;
+    return request;
+  };
+
   const queueSave = (next: StoryPuzzleDraft) => {
+    if (
+      terminalPuzzleAction.current
+      || selectedEntry.status === 'locked'
+      || selectedEntry.status === 'completed'
+    ) return;
     setDraft(next);
-    if (selectedEntry.status === 'locked' || selectedEntry.status === 'completed') return;
-    if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
-    saveTimer.current = window.setTimeout(() => { void actions.saveDraft(selectedPuzzle.id, next); }, 550);
+    cancelQueuedSave();
+    const puzzleId = selectedPuzzle.id;
+    saveTimer.current = window.setTimeout(() => {
+      saveTimer.current = null;
+      void enqueueDraftSave(puzzleId, next);
+    }, 550);
   };
 
   const selectPuzzle = (puzzle: StoryPuzzleDefinition) => {
@@ -1329,41 +2335,88 @@ export default function PuzzleScreen() {
   };
 
   const saveNow = async (nextDraft = draft) => {
-    if (selectedEntry.status === 'locked' || selectedEntry.status === 'completed') return;
+    if (
+      terminalPuzzleAction.current
+      || selectedEntry.status === 'locked'
+      || selectedEntry.status === 'completed'
+    ) return null;
+    cancelQueuedSave();
     setBusy(true);
-    await actions.saveDraft(selectedPuzzle.id, nextDraft);
-    setBusy(false);
+    try {
+      return await enqueueDraftSave(selectedPuzzle.id, nextDraft);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openHint = async (index: number) => {
+    if (
+      busy
+      || terminalPuzzleAction.current
+      || selectedEntry.status === 'locked'
+      || selectedEntry.status === 'completed'
+    ) return;
+    terminalPuzzleAction.current = true;
+    cancelQueuedSave();
+    setBusy(true);
+    try {
+      // The chain drains every prior debounce first, then makes this exact
+      // draft the last write before the hint response updates the snapshot.
+      const saved = await enqueueDraftSave(selectedPuzzle.id, draft);
+      if (!saved) return;
+      await actions.unlockHint(selectedPuzzle.id, index, locale);
+    } finally {
+      terminalPuzzleAction.current = false;
+      setBusy(false);
+    }
   };
 
   const complete = async () => {
+    if (busy || terminalPuzzleAction.current || !actionReadiness.ready) return;
+    terminalPuzzleAction.current = true;
+    cancelQueuedSave();
     primeRewardAudio(audioEnabled);
     setBusy(true);
-    const receipt = await actions.complete(selectedPuzzle.id, draft);
-    if (receipt?.awarded) {
-      emitExperienceCue({ name: 'puzzle-reward', sourceId: selectedPuzzle.id });
-      if (audioEnabled) playPuzzleCompletionSound(sfxVolume);
-      void loadProfile();
-      void loadLeaderboard(true);
+    try {
+      // Do not let a prior autosave return after the authoritative receipt.
+      // This exact final draft is serialized after all earlier saves first.
+      const saved = await enqueueDraftSave(selectedPuzzle.id, draft);
+      if (!saved) return;
+      const receipt = await actions.complete(selectedPuzzle.id, draft, locale);
+      if (receipt?.awarded) {
+        emitExperienceCue({ name: 'puzzle-reward', sourceId: selectedPuzzle.id });
+        if (audioEnabled) playPuzzleCompletionSound(sfxVolume);
+        void loadProfile();
+        void loadLeaderboard(true);
+      }
+    } finally {
+      terminalPuzzleAction.current = false;
+      setBusy(false);
     }
-    setBusy(false);
   };
 
   const advanceStage = async () => {
-    if (!currentStage || !activeReadiness.ready) return;
+    if (!currentStage || !actionReadiness.ready) return;
     const nextIndex = Math.min(stageIndex + 1, stageDrafts.length - 1);
     const next = composeStageDraft(draft, nextIndex, stageDrafts);
-    queueSave(next);
+    setDraft(next);
     await saveNow(next);
   };
 
   const resetPuzzle = () => {
     const next = defaultDraft(selectedPuzzle);
+    setDraftResetVersion((version) => version + 1);
     queueSave(next);
+  };
+
+  const continueToNextManhwa = () => {
+    actions.dismissReward();
+    requestManhwaReader();
   };
 
   const discover = async (secretId: string) => {
     setBusy(true);
-    const next = await actions.discover(secretId);
+    const next = await actions.discover(secretId, locale);
     setBusy(false);
     if (next) setSelectedPuzzleId(secretId);
   };
@@ -1471,6 +2524,18 @@ export default function PuzzleScreen() {
           ) : selectedEntry.status === 'completed' ? (
             <div className="story-puzzle-console__completed">
               <Check aria-hidden="true" /><h3>{selectedPuzzle.completionMessage[locale]}</h3><p>{selectedEntry.perfectSolve ? (locale === 'ar' ? 'تمت الاستعادة دون استخدام تلميحات.' : 'Recovery completed without hints.') : (locale === 'ar' ? 'تم حفظ الاستعادة في السجل الخادمي.' : 'The recovery is saved in the server record.')}</p>
+              <section className="story-puzzle-console__completion-loop" aria-label={screenCopy.nextObjective}>
+                <div className="story-puzzle-console__completion-echo" role="status" aria-live="polite">
+                  <EchoPresence variant="mini" showTelemetry={false} label="Echo" />
+                  <span><small>{screenCopy.echoResponse}</small><strong>{nextObjective.echoLine}</strong></span>
+                </div>
+                <small>{screenCopy.nextObjective}</small>
+                <strong>{nextObjective.title}</strong>
+                <p>{nextObjective.detail}</p>
+                <button type="button" onClick={requestManhwaReader}>
+                  <BookOpenCheck aria-hidden="true" /> {screenCopy.continueManhwa}
+                </button>
+              </section>
               {selectedPuzzle.image && <img src={selectedPuzzle.image.src} alt={selectedPuzzle.image.alt[locale]} loading="lazy" />}
             </div>
           ) : (
@@ -1483,7 +2548,7 @@ export default function PuzzleScreen() {
                       key={index}
                       type="button"
                       data-active={index === stageIndex}
-                      data-complete={index < stageIndex}
+                      data-prepared={index < stageIndex && hasPuzzleDraftInput(stageDrafts[index]!)}
                       disabled={index > stageIndex || busy}
                       aria-label={screenCopy.stage(index + 1)}
                       aria-current={index === stageIndex ? 'step' : undefined}
@@ -1494,28 +2559,29 @@ export default function PuzzleScreen() {
                   ))}</div>
                   <strong>{currentStage.objective[locale]}</strong>
                   {currentStage.clue && <p>{currentStage.clue[locale]}</p>}
+                  <small className="story-puzzle-stages__verification-note">{screenCopy.stageDetail}</small>
                 </div>
               )}
               <PuzzleMechanic
+                key={`${selectedPuzzle.id}:${stageIndex}:${draftResetVersion}`}
                 puzzle={selectedPuzzle}
-                mechanic={(currentStage?.mechanic ?? selectedPuzzle.mechanic) as Exclude<
-                  StoryPuzzleMechanic,
-                  'multi-stage' | 'breach-protocol'
-                >}
+                mechanic={activeMechanic}
                 options={currentStage?.options}
                 tokenLimit={currentStage?.tokenLimit}
+                signal={currentStage?.signal ?? selectedPuzzle.signal}
                 draft={activeDraft}
                 onChange={updateActiveDraft}
                 disabled={busy}
+                onVisualAssetStateChange={visualAssetContext ? reportVisualAssetState : undefined}
               />
-              <p className="story-puzzle-console__readiness" data-ready={activeReadiness.ready} role="status">
-                <Activity aria-hidden="true" /> {activeReadiness.message}
+              <p className="story-puzzle-console__readiness" data-ready={actionReadiness.ready} role="status">
+                <Activity aria-hidden="true" /> {actionReadiness.message}
               </p>
               <div className="story-puzzle-console__actions">
                 {currentStage && stageIndex < stageDrafts.length - 1 ? (
-                  <button type="button" disabled={busy || !activeReadiness.ready} onClick={() => void advanceStage()}>{screenCopy.confirmStage} <ChevronLeft aria-hidden="true" /></button>
+                  <button type="button" disabled={busy || !actionReadiness.ready} onClick={() => void advanceStage()}>{screenCopy.confirmStage} <ChevronLeft aria-hidden="true" /></button>
                 ) : (
-                  <button type="button" disabled={busy || !activeReadiness.ready} onClick={() => void complete()}><Zap aria-hidden="true" /> {screenCopy.verify}</button>
+                  <button type="button" disabled={busy || !actionReadiness.ready} onClick={() => void complete()}><Zap aria-hidden="true" /> {screenCopy.verify}</button>
                 )}
                 <button type="button" className="story-puzzle-console__quiet" disabled={busy} onClick={() => void saveNow()}>{screenCopy.save}</button>
                 <button type="button" className="story-puzzle-console__quiet" disabled={busy} onClick={resetPuzzle}><RotateCcw aria-hidden="true" /> {screenCopy.retry}</button>
@@ -1526,7 +2592,7 @@ export default function PuzzleScreen() {
           {latestActivity?.kind === 'puzzle-attempt-rejected' && latestActivity.puzzleId === selectedPuzzle.id && (
             <aside className="story-puzzle-console__echo-retry" aria-label={screenCopy.echoRetry} role="status" aria-live="polite">
               <EchoPresence variant="mini" showTelemetry={false} label="Echo" />
-              <p><strong>Echo:</strong> {locale === 'ar' ? 'لم تُحسم الإشارة بعد.' : 'The signal is not resolved yet.'} {retryGuidance(currentStage?.mechanic ?? selectedPuzzle.mechanic, locale)}</p>
+              <div className="story-puzzle-console__echo-retry-copy"><small>{screenCopy.echoResponse}</small><p><strong>Echo:</strong> {locale === 'ar' ? 'لم تُحسم الإشارة بعد.' : 'The signal is not resolved yet.'} {retryGuidance(currentStage?.mechanic ?? selectedPuzzle.mechanic, locale)}</p></div>
             </aside>
           )}
         </section>
@@ -1540,7 +2606,7 @@ export default function PuzzleScreen() {
             return (
               <article key={index} data-unlocked={unlocked}>
                 <small>HINT {String(index + 1).padStart(2, '0')} <strong>{cost === 0 ? 'FREE' : `${cost} ◉`}</strong></small>
-                {unlocked ? <p>{hint[locale]}</p> : <button type="button" disabled={busy || !preceding || selectedEntry.status === 'locked'} onClick={() => void actions.unlockHint(selectedPuzzle.id, index)}>{locale === 'ar' ? 'فتح التلميح' : 'Open hint'}</button>}
+                {unlocked ? <p>{hint[locale]}</p> : <button type="button" disabled={busy || !preceding || selectedEntry.status === 'locked'} onClick={() => void openHint(index)}>{locale === 'ar' ? 'فتح التلميح' : 'Open hint'}</button>}
               </article>
             );
           })}
@@ -1549,7 +2615,7 @@ export default function PuzzleScreen() {
       </main>
 
       {storeStatus === 'loading' && !snapshot && <div className="story-puzzle-loading">SYNCHRONIZING VERIFIED RECORDS…</div>}
-      {latestReward && <RewardMoment onDismiss={actions.dismissReward} />}
+      {latestReward && <RewardMoment onDismiss={actions.dismissReward} onContinueManhwa={continueToNextManhwa} />}
     </div>
   );
 }

@@ -30,10 +30,13 @@ import {
   isReviewedCoopCase,
 } from './coopServerCatalog';
 import { participantReward, sealReceipt, type QueuedResult } from './receipt';
+import { isCoopParticipantRewardEligible } from './resultEligibility';
 
 interface CoopState {
   version: number;
   status: 'waiting' | 'active' | 'completed';
+  /** Increments after an approved restart so abandoned attempts cannot earn XP. */
+  runIndex: number;
   stageIndex: number;
   failedAttempts: number;
   hintsUsed: number;
@@ -51,6 +54,7 @@ interface MetaRow {
   finished_at: number | null;
   receipt_json: string | null;
   receipt_queued: number;
+  receipt_persisted: number;
 }
 
 interface ParticipantRow {
@@ -62,6 +66,8 @@ interface ParticipantRow {
   joined_at: number;
   disconnected_at: number | null;
   echo_takeover: number;
+  connected_since: number | null;
+  participation_ms: number;
 }
 
 interface FinalizationOutboxRow {
@@ -71,12 +77,15 @@ interface FinalizationOutboxRow {
 }
 
 const ECHO_TAKEOVER_MS = 45_000;
-const MIN_REWARDED_COOP_DURATION_MS = 45_000;
+const RECEIPT_RECONCILIATION_DELAY_MS = 30_000;
 
 function parseState(raw: string): CoopState {
   const parsed = JSON.parse(raw) as CoopState;
   return {
     ...parsed,
+    // Existing rooms predate attempt epochs. Their recorded work remains run 1,
+    // rather than being reinterpreted from wall-clock time or client state.
+    runIndex: Number.isInteger(parsed.runIndex) && parsed.runIndex >= 1 ? parsed.runIndex : 1,
     stageHintsUsed: Number.isInteger(parsed.stageHintsUsed) ? parsed.stageHintsUsed : 0,
   };
 }
@@ -110,7 +119,8 @@ export class CoopSessionRoom extends DurableObject<Env> {
           started_at INTEGER,
           finished_at INTEGER,
           receipt_json TEXT,
-          receipt_queued INTEGER NOT NULL DEFAULT 0
+          receipt_queued INTEGER NOT NULL DEFAULT 0,
+          receipt_persisted INTEGER NOT NULL DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS participants (
           uid TEXT PRIMARY KEY,
@@ -119,7 +129,9 @@ export class CoopSessionRoom extends DurableObject<Env> {
           roles_json TEXT NOT NULL,
           joined_at INTEGER NOT NULL,
           disconnected_at INTEGER,
-          echo_takeover INTEGER NOT NULL DEFAULT 0
+          echo_takeover INTEGER NOT NULL DEFAULT 0,
+          connected_since INTEGER,
+          participation_ms INTEGER NOT NULL DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS used_tickets (
           jti TEXT PRIMARY KEY,
@@ -140,6 +152,7 @@ export class CoopSessionRoom extends DurableObject<Env> {
         );
         CREATE TABLE IF NOT EXISTS stage_events (
           event_index INTEGER PRIMARY KEY AUTOINCREMENT,
+          run_index INTEGER NOT NULL DEFAULT 1,
           stage_index INTEGER NOT NULL,
           uid TEXT NOT NULL,
           answer_id TEXT NOT NULL,
@@ -158,6 +171,37 @@ export class CoopSessionRoom extends DurableObject<Env> {
           attempts INTEGER NOT NULL DEFAULT 0
         );
       `);
+      // Preserve an in-flight cooperative case while upgrading its durable
+      // presence ledger. A missing historical value is deliberately treated
+      // as zero rather than inferred from elapsed wall time.
+      const columns = ctx.storage.sql.exec<{ [key: string]: SqlStorageValue; name: string }>(
+        'PRAGMA table_info(participants)',
+      ).toArray();
+      if (!columns.some((column) => column.name === 'connected_since')) {
+        ctx.storage.sql.exec('ALTER TABLE participants ADD COLUMN connected_since INTEGER');
+      }
+      if (!columns.some((column) => column.name === 'participation_ms')) {
+        ctx.storage.sql.exec(
+          'ALTER TABLE participants ADD COLUMN participation_ms INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+      const metaColumns = ctx.storage.sql.exec<{ [key: string]: SqlStorageValue; name: string }>(
+        'PRAGMA table_info(meta)',
+      ).toArray();
+      if (!metaColumns.some((column) => column.name === 'receipt_persisted')) {
+        ctx.storage.sql.exec(
+          'ALTER TABLE meta ADD COLUMN receipt_persisted INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+      const stageEventColumns = ctx.storage.sql.exec<{
+        [key: string]: SqlStorageValue;
+        name: string;
+      }>('PRAGMA table_info(stage_events)').toArray();
+      if (!stageEventColumns.some((column) => column.name === 'run_index')) {
+        ctx.storage.sql.exec(
+          'ALTER TABLE stage_events ADD COLUMN run_index INTEGER NOT NULL DEFAULT 1',
+        );
+      }
     });
   }
 
@@ -191,6 +235,7 @@ export class CoopSessionRoom extends DurableObject<Env> {
           const initial: CoopState = {
             version: 0,
             status: 'waiting',
+            runIndex: 1,
             stageIndex: 0,
             failedAttempts: 0,
             hintsUsed: 0,
@@ -200,25 +245,37 @@ export class CoopSessionRoom extends DurableObject<Env> {
           this.ctx.storage.sql.exec(`
             INSERT INTO meta (
               singleton, room_id, case_id, expected_size, state_json,
-              started_at, finished_at, receipt_json, receipt_queued
-            ) VALUES (1, ?, ?, ?, ?, NULL, NULL, NULL, 0)
+              started_at, finished_at, receipt_json, receipt_queued, receipt_persisted
+            ) VALUES (1, ?, ?, ?, ?, NULL, NULL, NULL, 0, 0)
           `, roomId, selected.id, expectedSize, JSON.stringify(initial));
         } else if (this.meta()?.room_id !== roomId) {
           throw new RealtimeError(409, 'room_contract_mismatch', 'The breach contract does not match.');
         }
         if (existing) {
+          const existingState = parseState(this.meta()!.state_json);
           this.ctx.storage.sql.exec(`
             UPDATE participants
-            SET display_name = ?, disconnected_at = NULL, echo_takeover = 0
+            SET display_name = ?,
+              disconnected_at = NULL,
+              echo_takeover = 0,
+              connected_since = CASE
+                WHEN ? = 1 AND connected_since IS NULL THEN ?
+                ELSE connected_since
+              END
             WHERE uid = ?
-          `, ticket.displayName, ticket.uid);
+          `,
+          ticket.displayName,
+          existingState.status === 'active' ? 1 : 0,
+          now,
+          ticket.uid,
+          );
         } else {
           const seatIndex = this.participants().length;
           this.ctx.storage.sql.exec(`
             INSERT INTO participants (
               uid, display_name, seat_index, roles_json, joined_at,
-              disconnected_at, echo_takeover
-            ) VALUES (?, ?, ?, '[]', ?, NULL, 0)
+              disconnected_at, echo_takeover, connected_since, participation_ms
+            ) VALUES (?, ?, ?, '[]', ?, NULL, 0, NULL, 0)
           `, ticket.uid, ticket.displayName, seatIndex, now);
         }
         const meta = this.meta()!;
@@ -234,6 +291,11 @@ export class CoopSessionRoom extends DurableObject<Env> {
           this.ctx.storage.sql.exec(`
             UPDATE meta SET state_json = ?, started_at = ? WHERE singleton = 1
           `, JSON.stringify(active), now);
+          this.ctx.storage.sql.exec(`
+            UPDATE participants
+            SET connected_since = ?, participation_ms = 0
+            WHERE connected_since IS NULL
+          `, now);
         }
       });
 
@@ -333,10 +395,36 @@ export class CoopSessionRoom extends DurableObject<Env> {
     const meta = this.meta();
     if (meta && !meta.receipt_json && this.finalizationIntent()) {
       await this.finalize();
-    } else if (meta?.receipt_json && meta.receipt_queued === 0) {
+    } else if (meta?.receipt_json && meta.receipt_persisted === 0) {
       await this.queueStoredReceipt();
     }
     await this.scheduleTakeoverAlarm();
+  }
+
+  /**
+   * Internal Queue -> room acknowledgement. Queue acceptance is intentionally
+   * not treated as D1 persistence: the stored receipt must match this exact
+   * match id and integrity hash before reconciliation can stop.
+   */
+  async acknowledgeReceiptPersistence(matchId: string, integrityHash: string): Promise<void> {
+    const meta = this.meta();
+    if (!meta?.receipt_json || meta.room_id !== matchId) {
+      throw new Error('Stored Co-op receipt is unavailable for acknowledgement.');
+    }
+    try {
+      const parsed = matchReceiptSchema.safeParse(JSON.parse(meta.receipt_json) as unknown);
+      if (!parsed.success
+        || parsed.data.matchId !== matchId
+        || parsed.data.integrityHash !== integrityHash) {
+        throw new Error('Stored Co-op receipt does not match the persistence acknowledgement.');
+      }
+    } catch (error) {
+      if (error instanceof Error) throw error;
+      throw new Error('Stored Co-op receipt cannot be acknowledged.');
+    }
+    this.ctx.storage.sql.exec(
+      'UPDATE meta SET receipt_persisted = 1 WHERE singleton = 1',
+    );
   }
 
   private meta(): MetaRow | null {
@@ -347,7 +435,7 @@ export class CoopSessionRoom extends DurableObject<Env> {
   private participants(): ParticipantRow[] {
     return this.ctx.storage.sql.exec<ParticipantRow>(`
       SELECT uid, display_name, seat_index, roles_json, joined_at,
-        disconnected_at, echo_takeover
+        disconnected_at, echo_takeover, connected_since, participation_ms
       FROM participants ORDER BY seat_index ASC
     `).toArray();
   }
@@ -355,7 +443,7 @@ export class CoopSessionRoom extends DurableObject<Env> {
   private participant(uid: string): ParticipantRow | null {
     return this.ctx.storage.sql.exec<ParticipantRow>(`
       SELECT uid, display_name, seat_index, roles_json, joined_at,
-        disconnected_at, echo_takeover
+        disconnected_at, echo_takeover, connected_since, participation_ms
       FROM participants WHERE uid = ?
     `, uid).toArray()[0] ?? null;
   }
@@ -457,8 +545,8 @@ export class CoopSessionRoom extends DurableObject<Env> {
     const correct = answerId === expected;
     const incorrectAttempts = this.ctx.storage.sql.exec<{ total: number }>(`
       SELECT COUNT(*) AS total FROM stage_events
-      WHERE stage_index = ? AND correct = 0
-    `, state.stageIndex).toArray()[0]?.total ?? 0;
+      WHERE run_index = ? AND stage_index = ? AND correct = 0
+    `, state.runIndex, state.stageIndex).toArray()[0]?.total ?? 0;
     if (!correct && incorrectAttempts >= 3) {
       throw new RealtimeError(429, 'stage_attempts_exhausted', 'This stage needs an Echo hint or a voted restart.');
     }
@@ -486,9 +574,9 @@ export class CoopSessionRoom extends DurableObject<Env> {
         VALUES (?, ?, ?, ?)
       `, command.idempotencyKey, uid, command.type, now);
       this.ctx.storage.sql.exec(`
-        INSERT INTO stage_events (stage_index, uid, answer_id, correct, submitted_at)
-        VALUES (?, ?, ?, ?, ?)
-      `, state.stageIndex, uid, answerId, correct ? 1 : 0, now);
+        INSERT INTO stage_events (run_index, stage_index, uid, answer_id, correct, submitted_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, state.runIndex, state.stageIndex, uid, answerId, correct ? 1 : 0, now);
       this.ctx.storage.sql.exec(`
         INSERT INTO participation_events (uid, event_type, created_at) VALUES (?, 'answer', ?)
       `, uid, now);
@@ -551,6 +639,7 @@ export class CoopSessionRoom extends DurableObject<Env> {
       : {
         ...state,
         version: state.version + 1,
+        runIndex: state.runIndex + 1,
         stageIndex: 0,
         failedAttempts: 0,
         stageHintsUsed: 0,
@@ -589,23 +678,28 @@ export class CoopSessionRoom extends DurableObject<Env> {
   private async finalize(): Promise<void> {
     const meta = this.meta();
     if (!meta || meta.receipt_json) {
-      if (meta?.receipt_json && meta.receipt_queued === 0) await this.queueStoredReceipt();
+      if (meta?.receipt_json && meta.receipt_persisted === 0) await this.queueStoredReceipt();
       return;
     }
     const now = Date.now();
     const players = this.participants();
+    const state = parseState(meta.state_json);
     const definition = COOP_CASE_BY_ID[meta.case_id];
     const cosmetic = definition ? `breach-frame-${definition.chapterId}` : 'breach-frame-signal';
     const intent = this.finalizationIntent();
     if (!intent) this.persistFinalizationIntent(now);
     const durationMs = Math.max(0, now - (meta.started_at ?? now));
-    const contributors = new Set(this.ctx.storage.sql.exec<{ uid: string }>(
-      'SELECT DISTINCT uid FROM participation_events',
-    ).toArray().map((row) => row.uid));
+    const correctAnswersByUid = new Map(this.ctx.storage.sql.exec<{
+      uid: string;
+      total: number;
+    }>(`
+      SELECT uid, COUNT(*) AS total FROM stage_events
+      WHERE run_index = ? AND correct = 1 GROUP BY uid
+    `, state.runIndex).toArray().map((row) => [row.uid, Number(row.total)]));
     const participants: MatchReceipt['participants'] = players.map((player) => ({
       uid: player.uid,
       outcome: 'completed',
-      participationMs: Math.max(0, now - (meta.started_at ?? player.joined_at)),
+      participationMs: this.participationMs(player, now),
     }));
     const receipt = await sealReceipt(this.env.REALTIME_TICKET_SECRET, {
       version: 1,
@@ -617,12 +711,21 @@ export class CoopSessionRoom extends DurableObject<Env> {
       participants,
       winnerUid: null,
       durationMs,
-      rewards: participants.map((participant) => participantReward(
-        meta.room_id,
-        participant.uid,
-        durationMs >= MIN_REWARDED_COOP_DURATION_MS && contributors.has(participant.uid) ? 90 : 0,
-        durationMs >= MIN_REWARDED_COOP_DURATION_MS && contributors.has(participant.uid) ? [cosmetic] : [],
-      )),
+      rewards: participants.map((participant) => {
+        const player = players.find((candidate) => candidate.uid === participant.uid)!;
+        const eligible = isCoopParticipantRewardEligible({
+          durationMs,
+          participationMs: participant.participationMs,
+          connectedAtFinalization: player.disconnected_at === null,
+          correctAnswerCount: correctAnswersByUid.get(participant.uid) ?? 0,
+        });
+        return participantReward(
+          meta.room_id,
+          participant.uid,
+          eligible ? 90 : 0,
+          eligible ? [cosmetic] : [],
+        );
+      }),
       completedAt: new Date(now).toISOString(),
     });
     this.ctx.storage.sql.exec(`
@@ -652,6 +755,7 @@ export class CoopSessionRoom extends DurableObject<Env> {
   private async storeReplay(receipt: MatchReceipt): Promise<void> {
     const events = this.ctx.storage.sql.exec<{
       event_index: number;
+      run_index: number;
       stage_index: number;
       uid: string;
       answer_id: string;
@@ -676,8 +780,9 @@ export class CoopSessionRoom extends DurableObject<Env> {
 
   private async queueStoredReceipt(): Promise<void> {
     const meta = this.meta();
-    if (!meta?.receipt_json || meta.receipt_queued !== 0) return;
+    if (!meta?.receipt_json || meta.receipt_persisted !== 0) return;
     const receipt = JSON.parse(meta.receipt_json) as MatchReceipt;
+    const alreadyAnnounced = meta.receipt_queued !== 0;
     const payload: QueuedResult = {
       receipt,
       profiles: this.participants().map((player) => ({
@@ -686,16 +791,24 @@ export class CoopSessionRoom extends DurableObject<Env> {
       })),
     };
     try {
-      await this.env.RESULT_QUEUE.send(payload, { contentType: 'json' });
+      await this.enqueueResult(payload);
       this.ctx.storage.sql.exec('UPDATE meta SET receipt_queued = 1 WHERE singleton = 1');
-      for (const socket of this.ctx.getWebSockets()) {
-        sendEvent(socket, meta.room_id, parseState(meta.state_json).version, 'reward-pending', {
-          receipt,
-        });
+      if (!alreadyAnnounced) {
+        for (const socket of this.ctx.getWebSockets()) {
+          sendEvent(socket, meta.room_id, parseState(meta.state_json).version, 'reward-pending', {
+            receipt,
+          });
+        }
       }
+      await this.scheduleTakeoverAlarm();
     } catch {
       await this.ctx.storage.setAlarm(Date.now() + 5_000);
     }
+  }
+
+  /** Kept behind the room boundary so terminal outbox recovery is testable. */
+  private async enqueueResult(payload: QueuedResult): Promise<void> {
+    await this.env.RESULT_QUEUE.send(payload, { contentType: 'json' });
   }
 
   private async markDisconnected(socket: WebSocket): Promise<void> {
@@ -704,11 +817,27 @@ export class CoopSessionRoom extends DurableObject<Env> {
     const remaining = this.ctx.getWebSockets(`uid:${attachment.uid}`)
       .filter((candidate) => candidate !== socket);
     if (remaining.length > 0) return;
+    const now = Date.now();
     this.ctx.storage.sql.exec(`
-      UPDATE participants SET disconnected_at = ?, echo_takeover = 0 WHERE uid = ?
-    `, Date.now(), attachment.uid);
+      UPDATE participants
+      SET participation_ms = participation_ms + CASE
+          WHEN connected_since IS NULL THEN 0
+          ELSE MAX(0, ? - connected_since)
+        END,
+        connected_since = NULL,
+        disconnected_at = ?,
+        echo_takeover = 0
+      WHERE uid = ?
+    `, now, now, attachment.uid);
     this.broadcastSnapshots('presence-changed');
     await this.scheduleTakeoverAlarm();
+  }
+
+  private participationMs(player: ParticipantRow, now: number): number {
+    const liveDuration = player.connected_since === null
+      ? 0
+      : Math.max(0, now - player.connected_since);
+    return Math.max(0, player.participation_ms + liveDuration);
   }
 
   private async scheduleTakeoverAlarm(): Promise<void> {
@@ -718,8 +847,10 @@ export class CoopSessionRoom extends DurableObject<Env> {
         : []
     ));
     const meta = this.meta();
-    if ((meta?.receipt_json && meta.receipt_queued === 0)
-      || (!meta?.receipt_json && this.finalizationIntent())) candidates.push(Date.now() + 5_000);
+    if (!meta?.receipt_json && this.finalizationIntent()) candidates.push(Date.now() + 5_000);
+    if (meta?.receipt_json && meta.receipt_persisted === 0) {
+      candidates.push(Date.now() + RECEIPT_RECONCILIATION_DELAY_MS);
+    }
     if (candidates.length > 0) {
       await this.ctx.storage.setAlarm(Math.max(Date.now() + 100, Math.min(...candidates)));
     }

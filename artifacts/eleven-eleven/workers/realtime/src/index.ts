@@ -17,6 +17,11 @@ import {
   roomIdFromPath,
 } from './common';
 import { queuedResultSchema, verifyReceiptIntegrity, xpSourceForMode } from './receipt';
+import {
+  isChessReceiptProgressionEligible,
+  isCoopReceiptParticipantProgressionEligible,
+} from './resultEligibility';
+import { releaseMatchLeasesStatement } from './activeMatchLease';
 
 export { MatchmakerRoom } from './MatchmakerRoom';
 export { ChessMatchRoom } from './ChessMatchRoom';
@@ -54,52 +59,143 @@ function outcomeScore(outcome: MatchReceipt['participants'][number]['outcome']):
   return 0;
 }
 
-/** A signed receipt can still describe an early resignation.  It is kept in
- * history, but cannot be used to farm ratings, Ranked access, XP or cosmetics. */
-function eligibleForCompetitivePersistence(receipt: MatchReceipt): boolean {
-  const competitive = receipt.mode === 'chess_casual'
-    || receipt.mode === 'chess_ranked_blitz'
-    || receipt.mode === 'chess_ranked_rapid';
-  if (!competitive || receipt.status !== 'resigned') return true;
-  return receipt.durationMs >= 90_000
-    && receipt.participants.every((participant) => participant.participationMs >= 60_000);
+const MAX_REWARDED_CHESS_REMATCHES_PER_DAY = 3;
+const MAX_REWARDED_COOP_CASE_COMPLETIONS_PER_DAY = 3;
+
+type RewardQuotaScope = 'chess-pair' | 'coop-case';
+
+interface RewardQuotaClaim {
+  scope: RewardQuotaScope;
+  subjectKey: string;
+  windowStart: string;
+  matchId: string;
+  limit: number;
+  claimedAt: string;
 }
 
-const MAX_REWARDED_CHESS_REMATCHES_PER_DAY = 3;
+function rewardQuotaWindow(completedAt: string): string | null {
+  const timestamp = Date.parse(completedAt);
+  return Number.isFinite(timestamp)
+    ? new Date(timestamp).toISOString().slice(0, 10)
+    : null;
+}
+
+function createRewardQuotaClaim(input: {
+  scope: RewardQuotaScope;
+  subjectKey: string;
+  completedAt: string;
+  matchId: string;
+  limit: number;
+}): RewardQuotaClaim | null {
+  const windowStart = rewardQuotaWindow(input.completedAt);
+  if (!windowStart) return null;
+  return {
+    scope: input.scope,
+    subjectKey: input.subjectKey,
+    windowStart,
+    matchId: input.matchId,
+    limit: input.limit,
+    claimedAt: input.completedAt,
+  };
+}
+
+function chessRewardQuotaClaim(receipt: MatchReceipt): RewardQuotaClaim | null {
+  if (!modeIsChess(receipt.mode) || receipt.participants.length !== 2) return null;
+  const [first, second] = receipt.participants;
+  if (!first || !second) return null;
+  const subjectKey = [first.uid, second.uid].sort((left, right) => left.localeCompare(right)).join(':');
+  return createRewardQuotaClaim({
+    scope: 'chess-pair',
+    subjectKey,
+    completedAt: receipt.completedAt,
+    matchId: receipt.matchId,
+    limit: MAX_REWARDED_CHESS_REMATCHES_PER_DAY,
+  });
+}
+
+function coopRewardQuotaClaim(receipt: MatchReceipt, uid: string): RewardQuotaClaim | null {
+  const caseId = receipt.context.caseId;
+  if (!caseId) return null;
+  return createRewardQuotaClaim({
+    scope: 'coop-case',
+    subjectKey: `${uid}:${caseId}`,
+    completedAt: receipt.completedAt,
+    matchId: receipt.matchId,
+    limit: MAX_REWARDED_COOP_CASE_COMPLETIONS_PER_DAY,
+  });
+}
 
 /**
- * Ratings and network rewards must not become a private two-account faucet.
- * We still retain every signed receipt for support/audit history, but only the
- * first few real matches between the same pair in a rolling day can alter
- * progression. The query runs before the receipt batch, so a duplicate Queue
- * delivery remains harmless and a new room cannot trust client-side counters.
+ * The statement is deliberately in the same D1 batch as receipt and reward
+ * writes. At the cap it inserts nothing (rather than aborting history), while
+ * a retry of a historical orphan claim remains eligible for reconciliation.
  */
-async function isWithinChessPairRewardLimit(
-  database: D1Database,
-  receipt: MatchReceipt,
-): Promise<boolean> {
-  if (!modeIsChess(receipt.mode) || receipt.participants.length !== 2) return true;
-  const [first, second] = receipt.participants;
-  if (!first || !second) return false;
-  const completedAt = Date.parse(receipt.completedAt);
-  if (!Number.isFinite(completedAt)) return false;
-  const since = new Date(completedAt - 24 * 60 * 60 * 1_000).toISOString();
-  const result = await database.prepare(`
-    SELECT COUNT(*) AS total
-    FROM network_match_receipts receipt
-    WHERE receipt.mode IN ('chess_casual', 'chess_ranked_blitz', 'chess_ranked_rapid')
-      AND receipt.status NOT IN ('abandoned')
-      AND receipt.completed_at >= ?
-      AND EXISTS (
-        SELECT 1 FROM network_match_participants first_player
-        WHERE first_player.match_id = receipt.match_id AND first_player.user_id = ?
-      )
-      AND EXISTS (
-        SELECT 1 FROM network_match_participants second_player
-        WHERE second_player.match_id = receipt.match_id AND second_player.user_id = ?
-      )
-  `).bind(since, first.uid, second.uid).first<{ total: number }>();
-  return Number(result?.total ?? 0) < MAX_REWARDED_CHESS_REMATCHES_PER_DAY;
+function quotaClaimStatement(database: D1Database, claim: RewardQuotaClaim): D1PreparedStatement {
+  return database.prepare(`
+    INSERT OR IGNORE INTO network_reward_quota_claims (
+      scope, subject_key, window_start, match_id, limit_value, claimed_at
+    )
+    SELECT ?, ?, ?, ?, ?, ?
+    WHERE EXISTS (
+      SELECT 1 FROM network_reward_quota_claims
+      WHERE scope = ? AND subject_key = ? AND window_start = ? AND match_id = ?
+    ) OR (
+      SELECT COUNT(*) FROM network_reward_quota_claims
+      WHERE scope = ? AND subject_key = ? AND window_start = ?
+    ) < ?
+  `).bind(
+    claim.scope,
+    claim.subjectKey,
+    claim.windowStart,
+    claim.matchId,
+    claim.limit,
+    claim.claimedAt,
+    claim.scope,
+    claim.subjectKey,
+    claim.windowStart,
+    claim.matchId,
+    claim.scope,
+    claim.subjectKey,
+    claim.windowStart,
+    claim.limit,
+  );
+}
+
+function quotaGate(claim: RewardQuotaClaim | null): {
+  sql: string;
+  bindings: string[];
+} {
+  if (!claim) return { sql: '0', bindings: [] };
+  return {
+    sql: `EXISTS (
+      SELECT 1 FROM network_reward_quota_claims
+      WHERE scope = ? AND subject_key = ? AND window_start = ? AND match_id = ?
+    )`,
+    bindings: [claim.scope, claim.subjectKey, claim.windowStart, claim.matchId],
+  };
+}
+
+/**
+ * Queue delivery is at-least-once. D1 is authoritative for the result, but a
+ * Durable Object keeps the source receipt retryable until this internal RPC
+ * has confirmed that the exact signed receipt reached D1.
+ */
+async function acknowledgeReceiptPersistence(env: Env, receipt: MatchReceipt): Promise<void> {
+  if (modeIsChess(receipt.mode)) {
+    await env.CHESS_MATCH_ROOMS.getByName(receipt.matchId).acknowledgeReceiptPersistence(
+      receipt.matchId,
+      receipt.integrityHash,
+    );
+    return;
+  }
+  if (receipt.mode === 'coop_breach') {
+    await env.COOP_SESSION_ROOMS.getByName(receipt.matchId).acknowledgeReceiptPersistence(
+      receipt.matchId,
+      receipt.integrityHash,
+    );
+    return;
+  }
+  throw new PermanentQueueError('Result mode has no persistence acknowledgement room.');
 }
 
 export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
@@ -167,7 +263,7 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
   async queue(batch: MessageBatch<unknown>): Promise<void> {
     for (const message of batch.messages) {
       try {
-        await persistQueuedResult(this.env, message.body);
+        await this.persistQueuedResult(message.body);
         message.ack();
       } catch (error) {
         if (error instanceof PermanentQueueError) {
@@ -184,7 +280,7 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
     }
   }
 
-  private async persistQueuedResult(value: unknown): Promise<void> {
+  private async persistQueuedResult(value: unknown, acknowledgeRoom = true): Promise<void> {
     const parsed = queuedResultSchema.safeParse(value);
     if (!parsed.success) throw new PermanentQueueError('Result payload failed schema validation.');
     const { receipt, profiles } = parsed.data;
@@ -206,6 +302,13 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
       if (existing.integrity_hash !== receipt.integrityHash) {
         throw new PermanentQueueError('A conflicting result already exists for this match.');
       }
+      // An earlier Queue delivery already made this terminal receipt durable.
+      // Releasing by exact room is idempotent and lets a failed ACK retry heal
+      // the lease without trusting any client-side terminal signal.
+      await this.env.PLAYER_DB.batch([
+        releaseMatchLeasesStatement(this.env.PLAYER_DB, receipt.matchId),
+      ]);
+      if (acknowledgeRoom) await acknowledgeReceiptPersistence(this.env, receipt);
       return;
     }
 
@@ -246,32 +349,59 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
     ));
 
     const sourceType = xpSourceForMode(receipt.mode);
-    const competitiveEligible = eligibleForCompetitivePersistence(receipt)
-      && await isWithinChessPairRewardLimit(this.env.PLAYER_DB, receipt);
+    const chessReceiptBaseEligible = modeIsChess(receipt.mode)
+      && isChessReceiptProgressionEligible(receipt)
+      && receipt.rewards.every((reward) => reward.xpAmount > 0);
+    const chessQuota = chessReceiptBaseEligible ? chessRewardQuotaClaim(receipt) : null;
+    if (chessQuota) statements.push(quotaClaimStatement(this.env.PLAYER_DB, chessQuota));
     const caseDefinition = receipt.context.caseId
       ? COOP_CASE_BY_ID[receipt.context.caseId]
       : null;
     const bondCharacter = caseDefinition?.focusCharacter ?? 'echo';
     const bondPoints = receipt.mode === 'coop_breach' ? 3 : 1;
+    const participantQuota = new Map<string, RewardQuotaClaim | null>();
     for (const participant of receipt.participants) {
       const reward = receipt.rewards.find((entry) => entry.uid === participant.uid)!;
+      const coopBaseEligible = receipt.mode === 'coop_breach'
+        && caseDefinition !== null
+        && isCoopReceiptParticipantProgressionEligible({
+          receipt,
+          participant,
+          rewardXpAmount: reward.xpAmount,
+        });
+      const claim = modeIsChess(receipt.mode)
+        ? chessQuota
+        : coopBaseEligible ? coopRewardQuotaClaim(receipt, participant.uid) : null;
+      if (claim && !modeIsChess(receipt.mode)) {
+        statements.push(quotaClaimStatement(this.env.PLAYER_DB, claim));
+      }
+      participantQuota.set(
+        participant.uid,
+        claim,
+      );
+    }
+    for (const participant of receipt.participants) {
+      const reward = receipt.rewards.find((entry) => entry.uid === participant.uid)!;
+      const claim = participantQuota.get(participant.uid) ?? null;
+      const gate = quotaGate(claim);
       statements.push(this.env.PLAYER_DB.prepare(`
         INSERT INTO network_match_participants (
           match_id, user_id, outcome, participation_ms, reward_key, xp_amount
-        ) VALUES (?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, CASE WHEN ${gate.sql} THEN ? ELSE 0 END)
       `).bind(
         receipt.matchId,
         participant.uid,
         participant.outcome,
         participant.participationMs,
         reward.rewardKey,
+        ...gate.bindings,
         reward.xpAmount,
       ));
-      if (reward.xpAmount > 0 && competitiveEligible) {
+      if (claim && reward.xpAmount > 0) {
         statements.push(this.env.PLAYER_DB.prepare(`
           INSERT OR IGNORE INTO xp_reward_events (
             user_id, reward_key, source_type, source_id, xp_amount, granted_at
-          ) VALUES (?, ?, ?, ?, ?, ?)
+          ) SELECT ?, ?, ?, ?, ?, ? WHERE ${gate.sql}
         `).bind(
           participant.uid,
           reward.rewardKey,
@@ -279,28 +409,38 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
           receipt.matchId,
           reward.xpAmount,
           receipt.completedAt,
+          ...gate.bindings,
         ));
       }
-      for (const cosmeticId of competitiveEligible ? reward.cosmeticIds : []) {
+      for (const cosmeticId of claim ? reward.cosmeticIds : []) {
         statements.push(this.env.PLAYER_DB.prepare(`
           INSERT OR IGNORE INTO network_cosmetic_unlock_events (
             user_id, cosmetic_id, source_type, source_id, unlocked_at
-          ) VALUES (?, ?, 'match', ?, ?)
-        `).bind(participant.uid, cosmeticId, receipt.matchId, receipt.completedAt));
+          ) SELECT ?, ?, 'match', ?, ? WHERE ${gate.sql}
+        `).bind(
+          participant.uid,
+          cosmeticId,
+          receipt.matchId,
+          receipt.completedAt,
+          ...gate.bindings,
+        ));
       }
-      if (competitiveEligible) statements.push(this.env.PLAYER_DB.prepare(`
-        INSERT OR IGNORE INTO player_character_bond_events (
-          user_id, event_key, character_id, source_type, source_id,
-          bond_points, recorded_at
-        ) VALUES (?, ?, ?, 'match', ?, ?, ?)
-      `).bind(
-        participant.uid,
-        `bond:${receipt.matchId}:${participant.uid}:v1`,
-        bondCharacter,
-        receipt.matchId,
-        bondPoints,
-        receipt.completedAt,
-      ));
+      if (claim) {
+        statements.push(this.env.PLAYER_DB.prepare(`
+          INSERT OR IGNORE INTO player_character_bond_events (
+            user_id, event_key, character_id, source_type, source_id,
+            bond_points, recorded_at
+          ) SELECT ?, ?, ?, 'match', ?, ?, ? WHERE ${gate.sql}
+        `).bind(
+          participant.uid,
+          `bond:${receipt.matchId}:${participant.uid}:v1`,
+          bondCharacter,
+          receipt.matchId,
+          bondPoints,
+          receipt.completedAt,
+          ...gate.bindings,
+        ));
+      }
     }
 
     if (receipt.mode === 'coop_breach') {
@@ -310,11 +450,14 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
       const activity = season.activities.find((candidate) => candidate.week === week);
       if (activity) {
         for (const participant of receipt.participants) {
+          const claim = participantQuota.get(participant.uid) ?? null;
+          if (!claim) continue;
+          const gate = quotaGate(claim);
           statements.push(this.env.PLAYER_DB.prepare(`
             INSERT INTO season_player_progress (
               user_id, season_id, activity_id, status, mastery_score,
               completed_at, updated_at
-            ) VALUES (?, ?, ?, 'completed', ?, ?, ?)
+            ) SELECT ?, ?, ?, 'completed', ?, ?, ? WHERE ${gate.sql}
             ON CONFLICT(user_id, season_id, activity_id) DO UPDATE SET
               status = 'completed',
               mastery_score = MAX(season_player_progress.mastery_score, excluded.mastery_score),
@@ -327,14 +470,16 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
             100,
             receipt.completedAt,
             now,
+            ...gate.bindings,
           ));
         }
       }
     }
 
     const speed = rankedSpeed(receipt.mode);
-    if (competitiveEligible && speed && receipt.participants.length === 2) {
+    if (chessReceiptBaseEligible && chessQuota && speed && receipt.participants.length === 2) {
       const [first, second] = receipt.participants;
+      const gate = quotaGate(chessQuota);
       const [firstRow, secondRow] = await Promise.all([
         this.env.PLAYER_DB.prepare(`
           SELECT rating, deviation, volatility, games_played
@@ -362,7 +507,7 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
         statements.push(this.env.PLAYER_DB.prepare(`
           INSERT INTO chess_ratings (
             user_id, speed, rating, deviation, volatility, games_played, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+          ) SELECT ?, ?, ?, ?, ?, ?, ? WHERE ${gate.sql}
           ON CONFLICT(user_id, speed) DO UPDATE SET
             rating = excluded.rating,
             deviation = excluded.deviation,
@@ -380,6 +525,7 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
           after[index]!.volatility,
           after[index]!.gamesPlayed,
           receipt.completedAt,
+          ...gate.bindings,
           receipt.matchId,
           participant.uid,
         ));
@@ -388,7 +534,7 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
             match_id, user_id, speed, rating_before, deviation_before,
             volatility_before, rating_after, deviation_after,
             volatility_after, recorded_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE ${gate.sql}
         `).bind(
           receipt.matchId,
           participant.uid,
@@ -400,21 +546,23 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
           after[index]!.deviation,
           after[index]!.volatility,
           receipt.completedAt,
+          ...gate.bindings,
         ));
       }
     }
 
     for (const participant of receipt.participants) {
-      if (competitiveEligible && receipt.mode === 'chess_casual') {
+      if (chessQuota && receipt.mode === 'chess_casual') {
+        const gate = quotaGate(chessQuota);
         statements.push(this.env.PLAYER_DB.prepare(`
           UPDATE network_player_milestones
           SET casual_chess_completed = (
             SELECT COUNT(*) FROM network_match_participants p
             JOIN network_match_receipts r ON r.match_id = p.match_id
-            WHERE p.user_id = ? AND r.mode = 'chess_casual'
+            WHERE p.user_id = ? AND r.mode = 'chess_casual' AND p.xp_amount > 0
           ), updated_at = ?
-          WHERE user_id = ?
-        `).bind(participant.uid, now, participant.uid));
+          WHERE user_id = ? AND ${gate.sql}
+        `).bind(participant.uid, now, participant.uid, ...gate.bindings));
       }
       statements.push(this.env.PLAYER_DB.prepare(`
         UPDATE player_progression
@@ -425,7 +573,13 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
       `).bind(participant.uid, now, participant.uid));
     }
 
+    // The lease is released in the same D1 transaction as the immutable
+    // receipt and all authoritative progression writes. A failed batch leaves
+    // the player in the existing room for recovery rather than admitting a
+    // second live Chess or Co-op session.
+    statements.push(releaseMatchLeasesStatement(this.env.PLAYER_DB, receipt.matchId));
     await this.env.PLAYER_DB.batch(statements);
+    if (acknowledgeRoom) await acknowledgeReceiptPersistence(this.env, receipt);
     this.env.NETWORK_ANALYTICS.writeDataPoint({
       blobs: [receipt.mode, receipt.status],
       doubles: [receipt.durationMs, receipt.participants.length],
@@ -435,13 +589,18 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
 }
 
 /**
- * The Queue delivery contract is at-least-once. Keeping this path callable
- * outside the event entrypoint lets the Workers test environment exercise the
- * exact same D1 transaction for duplicate deliveries and farming limits.
+ * Test seam for the D1 transaction. Production Queue delivery uses the class
+ * method above with room acknowledgement enabled. Detached D1 fixture tests
+ * intentionally omit that acknowledgement because they do not create a
+ * Durable Object source; ACK integration tests opt in explicitly.
  */
-export async function persistQueuedResult(env: Env, value: unknown): Promise<void> {
+export async function persistQueuedResult(
+  env: Env,
+  value: unknown,
+  options: { acknowledgeRoom?: boolean } = {},
+): Promise<void> {
   const handler = EchoRealtimeWorker.prototype as unknown as {
-    persistQueuedResult(value: unknown): Promise<void>;
+    persistQueuedResult(value: unknown, acknowledgeRoom?: boolean): Promise<void>;
   };
-  return handler.persistQueuedResult.call({ env }, value);
+  return handler.persistQueuedResult.call({ env }, value, options.acknowledgeRoom ?? false);
 }

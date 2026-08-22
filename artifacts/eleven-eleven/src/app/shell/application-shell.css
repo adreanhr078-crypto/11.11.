@@ -134,6 +134,16 @@
   cursor: default;
 }
 
+.application-shell__screen-title--static {
+  cursor: default;
+}
+
+.application-shell__screen-title--static:hover > i,
+.application-shell__screen-title--static:focus-visible > i {
+  border-color: var(--gds-line-strong);
+  box-shadow: inset 0 0 1rem rgb(255 255 255 / 3%);
+}
+
 .application-shell__screen-title:disabled:hover > i,
 .application-shell__screen-title:disabled:focus-visible > i {
   border-color: rgb(255 255 255 / 10%);
@@ -182,7 +192,7 @@
 }
 
 .application-shell__utility .gds-button {
-  min-height: 2.45rem;
+  min-height: var(--gds-touch-target);
   padding-inline: 0.85rem;
   white-space: nowrap;
 }
@@ -366,6 +376,8 @@
   color: var(--gds-text-muted);
   font: 600 var(--gds-type-xs) var(--gds-font-body);
   background: rgb(255 255 255 / 2%);
+  cursor: pointer;
+  touch-action: manipulation;
   transition:
     color var(--gds-duration-fast),
     border-color var(--gds-duration-fast),
@@ -376,6 +388,10 @@
   --shell-nav-tone: var(--gds-red-400);
   --shell-nav-soft: rgb(255 70 85 / 12%);
   --shell-nav-line: rgb(255 70 85 / 42%);
+}
+
+.application-shell__navigation button:active {
+  transform: translateY(1px) scale(0.985);
 }
 
 .application-shell__navigation button[data-tone="memory"] {
@@ -1667,6 +1683,10 @@
   gap: var(--gds-space-4);
 }
 
+.shell-settings-screen > * {
+  min-inline-size: 0;
+}
+
 .shell-settings-screen .shell-screen-heading {
   grid-column: 1 / -1;
 }
@@ -1691,6 +1711,11 @@
   min-height: var(--gds-touch-target);
   padding-block: var(--gds-space-2);
   border-block-end: 1px solid var(--gds-line-subtle);
+}
+
+.shell-settings-list dd {
+  min-inline-size: 0;
+  margin: 0;
 }
 
 .shell-settings-list dt {
@@ -1755,6 +1780,25 @@
 
 .shell-settings-telemetry__status[data-consent="declined"] {
   border-inline-start-color: var(--gds-cyan-400);
+}
+
+@media (max-width: 44rem) {
+  .shell-settings-screen {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shell-settings-list > div {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .shell-settings-list > div > dd {
+    inline-size: 100%;
+  }
+
+  .shell-settings-volume {
+    justify-content: flex-start;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1929,7 +1973,12 @@
     gap: 0.25rem;
   }
 
-  .application-shell__utility .gds-button,
+  .application-shell__utility .gds-button {
+    min-width: var(--gds-touch-target);
+    min-height: var(--gds-touch-target);
+    padding-inline: 0.45rem;
+  }
+
   .application-shell__resource {
     min-width: 2.5rem;
     min-height: 2.5rem;
@@ -2009,7 +2058,11 @@
     font-size: var(--gds-type-xs);
   }
 
-  .application-shell__utility .gds-button,
+  .application-shell__utility .gds-button {
+    min-width: var(--gds-touch-target);
+    padding-inline: 0.28rem;
+  }
+
   .application-shell__resource {
     min-width: 2.25rem;
     padding-inline: 0.28rem;

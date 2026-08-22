@@ -18,6 +18,7 @@ import { ContractChessPanel } from './ContractChessPanel';
 import { CoopBreachPanel } from './CoopBreachPanel';
 import { SeasonPanel } from './SeasonPanel';
 import { SignalBoardPanel } from './SignalBoardPanel';
+import { useRealtimeRoom } from './useRealtimeRoom';
 
 type NetworkTab = 'hub' | 'chess' | 'coop' | 'season' | 'community';
 
@@ -28,6 +29,73 @@ const TABS: Array<{ id: NetworkTab; ar: string; en: string; code: string }> = [
   { id: 'season', ar: 'شقوق Echo', en: 'Echo Fractures', code: 'S1' },
   { id: 'community', ar: 'لوحة الإشارة', en: 'Signal Board', code: 'SB' },
 ];
+
+const NETWORK_COPY = {
+  ar: {
+    syncFailed: 'تعذر مزامنة شبكة Echo.',
+    trainingFailed: 'تعذر توثيق التدريب. تقدّم التدريب المحلي لم يُفقد.',
+    authGate: 'سجّل الدخول أو تابع كضيف محفوظ لفتح مزامنة الشبكة. التدريب المحلي يبقى قابلًا للعب.',
+    story: 'استعادة القصة',
+    storyProgress: (main: number, total: number) => `${main}/14 ألغاز رئيسية · ${total}/20 إجمالًا`,
+    daily: 'إشارة اليوم',
+    dailyRecovered: 'مستعادة اليوم',
+    dailyAvailable: '3–8 دقائق · بلا عقوبة تفويت',
+    chess: 'شطرنج العقد',
+    rankedOpen: 'المصنّف مفتوح',
+    rankedGate: (completed: number) => `${completed}/3 عادية قبل المصنّف`,
+    coop: 'اختراق تعاوني',
+    coopDescription: '12 قضية · أدلة مختلفة لكل لاعب',
+    seasonArchive: 'يبقى في الأرشيف بعد الموسم',
+    community: 'لوحة الإشارة',
+    communityDescription: 'أخبار، فرق، وألغاز مجتمع مراجعة',
+    masteryEyebrow: 'مسارات الإتقان',
+    masteryTitle: 'تقدم مستقل، لا رقم واحد',
+    storyMastery: 'القصة',
+    puzzleMastery: 'إتقان الألغاز',
+    coopResonance: 'تناغم التعاون',
+    chessMastery: 'الشطرنج',
+    syncingReceipts: 'جارٍ مزامنة الإيصالات…',
+    blitz: 'خاطف',
+    rapid: 'سريع',
+    cosmetics: 'المظاهر',
+    receipts: 'الإيصالات',
+    leaderboard: 'الترتيب',
+    collection: 'المجموعة',
+    refresh: 'تحديث',
+  },
+  en: {
+    syncFailed: 'Echo Network could not be synchronized.',
+    trainingFailed: 'Training could not be certified. Your local training progress was not lost.',
+    authGate: 'Sign in or continue with a saved guest to synchronize the network. Local training remains playable.',
+    story: 'Story recovery',
+    storyProgress: (main: number, total: number) => `${main}/14 main puzzles · ${total}/20 total`,
+    daily: 'Daily signal',
+    dailyRecovered: 'Recovered today',
+    dailyAvailable: '3–8 min · no missed-day penalty',
+    chess: 'Contract Chess',
+    rankedOpen: 'Ranked unlocked',
+    rankedGate: (completed: number) => `${completed}/3 Casual matches before Ranked`,
+    coop: 'Co-op breach',
+    coopDescription: '12 cases · different evidence for every player',
+    seasonArchive: 'Stays in the archive after the season',
+    community: 'Signal Board',
+    communityDescription: 'News, parties, and reviewed community puzzles',
+    masteryEyebrow: 'MASTERY PATHS',
+    masteryTitle: 'Separate progress, not one number',
+    storyMastery: 'Story',
+    puzzleMastery: 'Puzzle mastery',
+    coopResonance: 'Co-op resonance',
+    chessMastery: 'Chess',
+    syncingReceipts: 'Synchronizing receipts…',
+    blitz: 'Blitz',
+    rapid: 'Rapid',
+    cosmetics: 'Cosmetics',
+    receipts: 'Receipts',
+    leaderboard: 'Leaderboard',
+    collection: 'Collection',
+    refresh: 'Refresh',
+  },
+} as const;
 
 const EMPTY_ELIGIBILITY: NetworkEligibilitySnapshot = {
   chessTrainingCompleted: false,
@@ -58,8 +126,24 @@ export default function EchoNetworkScreen() {
   const [network, setNetwork] = useState<NetworkSnapshot | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
+  // A private party becomes its authoritative match in this single controller.
+  // Keeping it above the tabs means the player does not lose their socket while
+  // the interface changes from the community board to Chess or Co-op.
+  // A reload can restore only a server-verified match locator. The new ticket
+  // is issued after authentication and validates room membership again.
+  const partyRoom = useRealtimeRoom({ resumeMatch: authStatus === 'signed-in', locale });
+  const copy = NETWORK_COPY[locale];
   const season = useMemo(() => seasonAt(), []);
   const week = seasonWeekAt();
+
+  useEffect(() => {
+    if (partyRoom.state.target !== 'match') return;
+    // A terminal snapshot may arrive while the player is browsing the hub.
+    // Keep the verified room surface visible for `settling`, whose wording is
+    // deliberately pending rather than a claim that D1 already granted XP.
+    if (!['connecting', 'awaiting-snapshot', 'active', 'reconnecting', 'settling', 'completed'].includes(partyRoom.state.phase)) return;
+    setTab(partyRoom.state.mode === 'coop_breach' ? 'coop' : 'chess');
+  }, [partyRoom.state.mode, partyRoom.state.phase, partyRoom.state.target]);
 
   const refresh = useCallback(async () => {
     if (authStatus !== 'signed-in') return;
@@ -70,10 +154,10 @@ export default function EchoNetworkScreen() {
       setError(null);
       setStatus('ready');
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'تعذر مزامنة شبكة Echo.');
+      setError(loadError instanceof Error ? loadError.message : copy.syncFailed);
       setStatus('error');
     }
-  }, [authStatus]);
+  }, [authStatus, copy.syncFailed]);
 
   useEffect(() => {
     if (authStatus !== 'signed-in') return;
@@ -97,9 +181,9 @@ export default function EchoNetworkScreen() {
     } catch (trainingError) {
       setError(trainingError instanceof Error
         ? trainingError.message
-        : 'تعذر توثيق التدريب. تقدّم التدريب المحلي لم يُفقد.');
+        : copy.trainingFailed);
     }
-  }, []);
+  }, [copy.trainingFailed]);
 
   const chooseActivity = (activity: DirectedActivity) => {
     if (activity === 'chess' || activity === 'coop' || activity === 'community') {
@@ -163,7 +247,7 @@ export default function EchoNetworkScreen() {
       </div>
 
       {authStatus !== 'signed-in' && (
-        <p className="echo-network-auth-gate" role="status">سجّل الدخول أو تابع كضيف محفوظ لفتح مزامنة الشبكة. التدريب المحلي يبقى قابلًا للعب.</p>
+        <p className="echo-network-auth-gate" role="status">{copy.authGate}</p>
       )}
       {error && <p className="echo-network-error" role="alert">{error}</p>}
 
@@ -188,43 +272,43 @@ export default function EchoNetworkScreen() {
             />
             <div className="echo-network-hub-grid">
               <button type="button" className="echo-network-portal" data-portal="story" onClick={() => chooseActivity('story')}>
-                <span><small>CANON CORE</small><strong>استعادة القصة</strong><p>{story?.mainCompletedCount ?? 0}/14 ألغاز رئيسية · {story?.totalCompletedCount ?? 0}/20 إجمالًا</p></span><i>→</i>
+                <span><small>CANON CORE</small><strong>{copy.story}</strong><p>{copy.storyProgress(story?.mainCompletedCount ?? 0, story?.totalCompletedCount ?? 0)}</p></span><i>→</i>
               </button>
               <button type="button" className="echo-network-portal" data-portal="daily" onClick={() => chooseActivity('daily')}>
-                <span><small>11:11 UTC</small><strong>إشارة اليوم</strong><p>{live?.daily.status === 'completed' ? 'مستعادة اليوم' : '3–8 دقائق · بلا عقوبة تفويت'}</p></span><i>→</i>
+                <span><small>11:11 UTC</small><strong>{copy.daily}</strong><p>{live?.daily.status === 'completed' ? copy.dailyRecovered : copy.dailyAvailable}</p></span><i>→</i>
               </button>
               <button type="button" className="echo-network-portal" data-portal="chess" onClick={() => setTab('chess')}>
-                <span><small>BLACK / RED</small><strong>شطرنج العقد</strong><p>{eligibility.rankedChessUnlocked ? 'Ranked مفتوح' : `${eligibility.casualChessCompleted}/3 Casual قبل Ranked`}</p></span><i>→</i>
+                <span><small>BLACK / RED</small><strong>{copy.chess}</strong><p>{eligibility.rankedChessUnlocked ? copy.rankedOpen : copy.rankedGate(eligibility.casualChessCompleted)}</p></span><i>→</i>
               </button>
               <button type="button" className="echo-network-portal" data-portal="coop" onClick={() => setTab('coop')}>
-                <span><small>2–4 SIGNALS</small><strong>اختراق تعاوني</strong><p>12 قضية · أدلة مختلفة لكل لاعب</p></span><i>→</i>
+                <span><small>2–4 SIGNALS</small><strong>{copy.coop}</strong><p>{copy.coopDescription}</p></span><i>→</i>
               </button>
               <button type="button" className="echo-network-portal" data-portal="season" onClick={() => setTab('season')}>
-                <span><small>WEEK {week}/8</small><strong>{season.activities[week - 1]?.title[locale]}</strong><p>يبقى في الأرشيف بعد الموسم</p></span><i>→</i>
+                <span><small>WEEK {week}/8</small><strong>{season.activities[week - 1]?.title[locale]}</strong><p>{copy.seasonArchive}</p></span><i>→</i>
               </button>
               <button type="button" className="echo-network-portal" data-portal="community" onClick={() => setTab('community')}>
-                <span><small>PRESET SAFE</small><strong>لوحة الإشارة</strong><p>أخبار، فرق، وألغاز مجتمع مراجعة</p></span><i>→</i>
+                <span><small>PRESET SAFE</small><strong>{copy.community}</strong><p>{copy.communityDescription}</p></span><i>→</i>
               </button>
             </div>
             <div className="echo-network-overview-row">
-              <HudPanel tone="progression" eyebrow="MASTERY PATHS" title="تقدم مستقل، لا رقم واحد">
+              <HudPanel tone="progression" eyebrow={copy.masteryEyebrow} title={copy.masteryTitle}>
                 <div className="echo-network-mastery">
-                  <div><span>القصة</span><GameProgress value={((story?.mainCompletedCount ?? 0) / 14) * 100} tone="danger" /></div>
-                  <div><span>إتقان الألغاز</span><GameProgress value={((story?.totalCompletedCount ?? 0) / 20) * 100} tone="memory" /></div>
-                  <div><span>تناغم التعاون</span><GameProgress value={Math.min(100, (network?.recentMatches.filter((match) => match.mode === 'coop_breach').length ?? 0) * 10)} tone="rare" /></div>
-                  <div><span>الشطرنج</span><GameProgress value={Math.min(100, (network?.ratings.reduce((sum, rating) => sum + rating.games_played, 0) ?? 0) * 5)} tone="progression" /></div>
+                  <div><span>{copy.storyMastery}</span><GameProgress value={((story?.mainCompletedCount ?? 0) / 14) * 100} tone="danger" /></div>
+                  <div><span>{copy.puzzleMastery}</span><GameProgress value={((story?.totalCompletedCount ?? 0) / 20) * 100} tone="memory" /></div>
+                  <div><span>{copy.coopResonance}</span><GameProgress value={Math.min(100, (network?.recentMatches.filter((match) => match.mode === 'coop_breach').length ?? 0) * 10)} tone="rare" /></div>
+                  <div><span>{copy.chessMastery}</span><GameProgress value={Math.min(100, (network?.ratings.reduce((sum, rating) => sum + rating.games_played, 0) ?? 0) * 5)} tone="progression" /></div>
                 </div>
               </HudPanel>
               <GlassPanel tone="rare" eyebrow="ACCOUNT SIGNAL" title={user?.displayName || user?.email || 'PLAYER'}>
-                {status === 'loading' ? <p>جارٍ مزامنة الإيصالات…</p> : (
+                {status === 'loading' ? <p>{copy.syncingReceipts}</p> : (
                   <dl className="echo-network-account-stats">
-                    <div><dt>Blitz</dt><dd>{Math.round(network?.ratings.find((rating) => rating.speed === 'blitz')?.rating ?? 1500)}</dd></div>
-                    <div><dt>Rapid</dt><dd>{Math.round(network?.ratings.find((rating) => rating.speed === 'rapid')?.rating ?? 1500)}</dd></div>
-                    <div><dt>Cosmetics</dt><dd>{network?.cosmetics.length ?? 0}</dd></div>
-                    <div><dt>Receipts</dt><dd>{network?.recentMatches.length ?? 0}</dd></div>
+                    <div><dt>{copy.blitz}</dt><dd>{Math.round(network?.ratings.find((rating) => rating.speed === 'blitz')?.rating ?? 1500)}</dd></div>
+                    <div><dt>{copy.rapid}</dt><dd>{Math.round(network?.ratings.find((rating) => rating.speed === 'rapid')?.rating ?? 1500)}</dd></div>
+                    <div><dt>{copy.cosmetics}</dt><dd>{network?.cosmetics.length ?? 0}</dd></div>
+                    <div><dt>{copy.receipts}</dt><dd>{network?.recentMatches.length ?? 0}</dd></div>
                   </dl>
                 )}
-                <div className="echo-network-actions"><GameButton size="sm" variant="ghost" onClick={() => navigate('leaderboard')}>الترتيب</GameButton><GameButton size="sm" variant="ghost" onClick={() => navigate('progress')}>المجموعة</GameButton><GameButton size="sm" variant="secondary" onClick={() => void refresh()}>تحديث</GameButton></div>
+                <div className="echo-network-actions"><GameButton size="sm" variant="ghost" onClick={() => navigate('leaderboard')}>{copy.leaderboard}</GameButton><GameButton size="sm" variant="ghost" onClick={() => navigate('progress')}>{copy.collection}</GameButton><GameButton size="sm" variant="secondary" onClick={() => void refresh()}>{copy.refresh}</GameButton></div>
               </GlassPanel>
             </div>
             <SponsorTransmission placement="echo-network-hub" />
@@ -236,6 +320,7 @@ export default function EchoNetworkScreen() {
             onTrainingComplete={() => completeTraining('chess')}
             onReceipt={refresh}
             locale={locale}
+            room={partyRoom}
           />
         )}
         {tab === 'coop' && (
@@ -243,6 +328,8 @@ export default function EchoNetworkScreen() {
             eligibility={eligibility}
             onTrainingComplete={() => completeTraining('coop')}
             onReceipt={refresh}
+            room={partyRoom}
+            locale={locale}
           />
         )}
         {tab === 'season' && (
@@ -256,6 +343,7 @@ export default function EchoNetworkScreen() {
           <SignalBoardPanel
             locale={locale}
             eligibility={eligibility}
+            partyRoom={partyRoom}
             onEligibility={(next) => setNetwork((previous) => previous ? { ...previous, eligibility: next } : {
               eligibility: next,
               ratings: [],

@@ -7,6 +7,11 @@ import {
 import { COOP_CASE_BY_ID, COOP_CASES } from '../../../src/domain/echo-network/coopCaseCatalog';
 import { signRealtimeTicket } from '../../../src/domain/echo-network/realtimeTicket';
 import {
+  ACTIVE_MATCH_LEASE_MS,
+  releaseMatchLeasesStatement,
+  reserveMatchLeasesAndMemberships,
+} from './activeMatchLease';
+import {
   earliestPartyCleanupAlarm,
   normalizePartyRoomId,
   PARTY_RECONNECT_GRACE_MS,
@@ -56,7 +61,7 @@ interface PartyLaunch {
   variant: NonNullable<RealtimeTicketPayload['variant']> | null;
 }
 
-const PARTY_MATCH_MEMBERSHIP_MS = 2 * 60 * 60_000;
+const PARTY_MATCH_MEMBERSHIP_MS = ACTIVE_MATCH_LEASE_MS;
 
 export class PartyRoom extends DurableObject<Env> {
   private joinTail: Promise<void> = Promise.resolve();
@@ -130,11 +135,12 @@ export class PartyRoom extends DurableObject<Env> {
         ).toArray()[0];
         if (used) throw new RealtimeError(409, 'ticket_reused', 'This party ticket was already used.');
         this.clearExpiredLaunch();
-        const existing = this.member(ticket.uid);
-        const activeLaunch = this.currentLaunch();
         if (this.launchInFlight) {
           throw new RealtimeError(409, 'party_launching', 'The party is already securing its match.');
         }
+        await this.reconcileActiveLaunchWithLeases();
+        const existing = this.member(ticket.uid);
+        const activeLaunch = this.currentLaunch();
         if (activeLaunch && !existing) {
           throw new RealtimeError(409, 'party_launched', 'This party is already inside an active match.');
         }
@@ -187,6 +193,9 @@ export class PartyRoom extends DurableObject<Env> {
       if (!attachment) throw new RealtimeError(401, 'session_missing', 'The party session is missing.');
       const command = parseRoomCommand(message);
       const roomId = this.ctx.id.name ?? 'party-room';
+      if (command.type !== 'ping' && !this.launchInFlight) {
+        await this.reconcileActiveLaunchWithLeases();
+      }
       const version = this.version();
       if (command.type === 'ping') {
         sendEvent(socket, roomId, version, 'pong', { clientSentAt: command.sentAt });
@@ -264,7 +273,9 @@ export class PartyRoom extends DurableObject<Env> {
 
   async alarm(): Promise<void> {
     const now = Date.now();
-    if (this.clearExpiredLaunch(now)) {
+    const launchCleared = this.clearExpiredLaunch(now)
+      || await this.reconcileActiveLaunchWithLeases(now);
+    if (launchCleared) {
       this.broadcast(this.ctx.id.name ?? 'party-room', 'party-changed');
     }
     const activeLaunch = this.currentLaunch(now);
@@ -309,6 +320,7 @@ export class PartyRoom extends DurableObject<Env> {
       throw new RealtimeError(409, 'party_not_ready', 'Every party member must be connected and ready.');
     }
     const launch = this.parseLaunch(command.payload, members.length);
+    await this.reconcileActiveLaunchWithLeases();
     if (this.currentLaunch()) {
       throw new RealtimeError(409, 'party_launched', 'This party is already inside an active match.');
     }
@@ -326,11 +338,13 @@ export class PartyRoom extends DurableObject<Env> {
       const expiresAt = new Date(expiresAtMs).toISOString();
       const region = attachment.region ?? 'me';
 
-      await this.env.PLAYER_DB.batch(members.map((member) => this.env.PLAYER_DB.prepare(`
-        INSERT INTO network_room_memberships (
-          room_id, user_id, mode, created_at, expires_at
-        ) VALUES (?, ?, ?, ?, ?)
-      `).bind(matchId, member.uid, launch.mode, createdAt, expiresAt)));
+      await reserveMatchLeasesAndMemberships(this.env.PLAYER_DB, {
+        roomId: matchId,
+        mode: launch.mode,
+        players: members,
+        createdAt,
+        expiresAt,
+      });
       membershipsRecorded = true;
 
       this.ctx.storage.transactionSync(() => {
@@ -358,10 +372,13 @@ export class PartyRoom extends DurableObject<Env> {
       void roomId;
     } catch (error) {
       if (matchId && membershipsRecorded && !launchCommitted) {
-        await this.env.PLAYER_DB.batch(members.map((member) => this.env.PLAYER_DB.prepare(`
+        await this.env.PLAYER_DB.batch([
+          ...members.map((member) => this.env.PLAYER_DB.prepare(`
           DELETE FROM network_room_memberships
           WHERE room_id = ? AND user_id = ?
-        `).bind(matchId, member.uid))).catch(() => undefined);
+          `).bind(matchId, member.uid)),
+          releaseMatchLeasesStatement(this.env.PLAYER_DB, matchId),
+        ]).catch(() => undefined);
       }
       throw error;
     } finally {
@@ -467,6 +484,39 @@ export class PartyRoom extends DurableObject<Env> {
       this.ctx.storage.sql.exec('UPDATE meta SET version = version + 1 WHERE singleton = 1');
     });
     return true;
+  }
+
+  /**
+   * A party launch is only a reconnect convenience; D1's active-match lease
+   * remains the authority. Terminal receipt persistence deletes those leases,
+   * so a surviving DO must not keep the party trapped behind a stale launch.
+   * If D1 cannot be read we fail closed by preserving the launch.
+   */
+  private async reconcileActiveLaunchWithLeases(now = Date.now()): Promise<boolean> {
+    const launch = this.currentLaunch(now);
+    if (!launch) return false;
+    try {
+      const liveLease = await this.env.PLAYER_DB.prepare(`
+        SELECT 1 AS live
+        FROM network_active_match_leases
+        WHERE room_id = ? AND expires_at > ?
+        LIMIT 1
+      `).bind(launch.match_id, new Date(now).toISOString()).first<{ live: number }>();
+      if (liveLease) return false;
+    } catch {
+      return false;
+    }
+
+    let cleared = false;
+    this.ctx.storage.transactionSync(() => {
+      const current = this.currentLaunch(now);
+      if (!current || current.match_id !== launch.match_id) return;
+      this.ctx.storage.sql.exec('DELETE FROM active_launch WHERE singleton = 1');
+      this.ctx.storage.sql.exec('UPDATE members SET ready = 0');
+      this.ctx.storage.sql.exec('UPDATE meta SET version = version + 1 WHERE singleton = 1');
+      cleared = true;
+    });
+    return cleared;
   }
 
   private members(): PartyMemberRow[] {

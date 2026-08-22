@@ -12,29 +12,154 @@ import type {
   QualityTier,
 } from '../../ui/design-system';
 
-const QUALITY_OPTIONS: Array<{ id: QualityTier; label: string }> = [
-  { id: 'mobile', label: 'موفر للطاقة' },
-  { id: 'balanced', label: 'متوازن' },
-  { id: 'high', label: 'سينمائي' },
-];
+const QUALITY_OPTIONS: QualityTier[] = ['mobile', 'balanced', 'high'];
+const MOTION_OPTIONS: MotionTier[] = ['reduced', 'balanced', 'cinematic'];
+const SFX_VOLUME_OPTIONS = [0.35, 0.7, 1] as const;
 
-const MOTION_OPTIONS: Array<{ id: MotionTier; label: string }> = [
-  { id: 'reduced', label: 'مخفض' },
-  { id: 'balanced', label: 'متوازن' },
-  { id: 'cinematic', label: 'سينمائي' },
-];
+type SettingsCopy = {
+  heading: string;
+  performanceTitle: string;
+  performanceDescription: string;
+  qualityChoice: string;
+  quality: Record<QualityTier, string>;
+  motionTitle: string;
+  motionChoice: string;
+  motion: Record<MotionTier, string>;
+  languageTitle: string;
+  languageChoice: string;
+  languageDescription: string;
+  adsTitle: string;
+  adsDescription: string;
+  allowContextual: string;
+  declineAds: string;
+  adCap: string;
+  telemetryTitle: string;
+  telemetryDescription: string;
+  telemetryChoice: string;
+  allowMeasurement: string;
+  declineMeasurement: string;
+  status: string;
+  telemetryGranted: string;
+  telemetryDeclined: string;
+  telemetryUnset: string;
+  notificationsTitle: string;
+  notificationsOn: string;
+  enableNotifications: string;
+  quietHoursChoice: string;
+  quietHoursDefault: string;
+  quietHoursEarly: string;
+  notificationDetail: string;
+  soundTitle: string;
+  gameSfx: string;
+  sfxIntensity: string;
+  volumeChoice: string;
+  volume: Record<'quiet' | 'balanced' | 'cinematic', string>;
+  voicePerformance: string;
+  voiceUnavailable: string;
+  subtitles: string;
+  autoAdvance: string;
+  enabled: string;
+  disabled: string;
+};
 
-const SFX_VOLUME_OPTIONS = [
-  { value: 0.35, label: 'هادئ' },
-  { value: 0.7, label: 'متوازن' },
-  { value: 1, label: 'سينمائي' },
-] as const;
+const SETTINGS_COPY: Record<'ar' | 'en', SettingsCopy> = {
+  ar: {
+    heading: 'إعدادات التجربة',
+    performanceTitle: 'جودة العرض',
+    performanceDescription: 'يضبط دقة العرض والظلال والجزيئات والوهج بما يناسب الهاتف.',
+    qualityChoice: 'اختيار جودة العرض',
+    quality: { mobile: 'موفر للطاقة', balanced: 'متوازن', high: 'سينمائي' },
+    motionTitle: 'الحركة',
+    motionChoice: 'اختيار مستوى الحركة',
+    motion: { reduced: 'مخفض', balanced: 'متوازن', cinematic: 'سينمائي' },
+    languageTitle: 'اللغة واتجاه الواجهة',
+    languageChoice: 'اختيار اللغة واتجاه الواجهة',
+    languageDescription: 'تغيّر اللغة كتالوج شبكة Echo واتجاه التطبيق فورًا؛ تستمر ترجمة بقية المشاهد ضمن كتالوج الإصدار العالمي.',
+    adsTitle: 'الإعلانات والخصوصية',
+    adsDescription: 'اللعبة مجانية وتعتمد على الإعلانات فقط. تظهر الإعلانات السياقية في مركز الشبكة ولوحة المجتمع لا أثناء القصة أو الألغاز أو الشطرنج أو التعاون أو المشاهد السينمائية. لا إعلانات بمكافآت ولا دفع للفوز.',
+    allowContextual: 'السماح بالسياقية',
+    declineAds: 'رفض الإعلانات',
+    adCap: 'حد العرض: إعلان واحد لكل موضع كل 30 دقيقة، ولا تُستخدم بيانات الدردشة في الاستهداف.',
+    telemetryTitle: 'قياس التجربة الاختياري',
+    telemetryDescription: 'يساعدنا القياس الاختياري على تحسين تدفق اللعب. لا نرسل اسمك أو رسائلك أو إجابات الألغاز أو أي نص حر؛ ولا يمنح هذا الخيار XP أو جوائز.',
+    telemetryChoice: 'اختيار قياس التجربة',
+    allowMeasurement: 'السماح بالقياس المجهول',
+    declineMeasurement: 'عدم السماح',
+    status: 'الحالة:',
+    telemetryGranted: 'الموافقة محفوظة. لا يبدأ القياس إلا عند تفعيل الخادم أيضًا.',
+    telemetryDeclined: 'موقوف. يمكنك تغيير القرار في أي وقت.',
+    telemetryUnset: 'لم تختر بعد؛ القياس متوقف.',
+    notificationsTitle: 'الإشعارات وساعات الهدوء',
+    notificationsOn: 'الإشعارات اختيارية · مفعلة',
+    enableNotifications: 'تفعيل الإشعارات الاختيارية',
+    quietHoursChoice: 'اختيار ساعات الهدوء',
+    quietHoursDefault: 'هدوء 22:00–08:00',
+    quietHoursEarly: 'هدوء 20:00–07:00',
+    notificationDetail: 'حد أقصى رسالتان نظاميتان أسبوعيًا. لا عقوبة عند عدم العودة ولا فقدان لسلسلة.',
+    soundTitle: 'الصوت والترجمة',
+    gameSfx: 'مؤثرات اللعب',
+    sfxIntensity: 'شدة مؤثرات المكافآت',
+    volumeChoice: 'شدة مؤثرات اللعب',
+    volume: { quiet: 'هادئ', balanced: 'متوازن', cinematic: 'سينمائي' },
+    voicePerformance: 'الأداء الصوتي',
+    voiceUnavailable: 'غير متاح بعد · المؤثرات النظامية متاحة',
+    subtitles: 'الترجمة',
+    autoAdvance: 'التقدم التلقائي',
+    enabled: 'مفعلة',
+    disabled: 'معطلة',
+  },
+  en: {
+    heading: 'Experience settings',
+    performanceTitle: 'Display quality',
+    performanceDescription: 'Adjusts render resolution, shadows, particles, and glow for your device.',
+    qualityChoice: 'Display quality',
+    quality: { mobile: 'Power saver', balanced: 'Balanced', high: 'Cinematic' },
+    motionTitle: 'Motion',
+    motionChoice: 'Motion level',
+    motion: { reduced: 'Reduced', balanced: 'Balanced', cinematic: 'Cinematic' },
+    languageTitle: 'Language & interface direction',
+    languageChoice: 'Language and interface direction',
+    languageDescription: 'Changes the Echo Network catalog and application direction immediately. Other surfaces continue through the global-release translation catalog.',
+    adsTitle: 'Ads & privacy',
+    adsDescription: '11.11 is free and uses contextual advertising only. It appears in the network hub and community board, never during story, puzzles, chess, co-op, or cinematics. There are no rewarded ads and no pay-to-win.',
+    allowContextual: 'Allow contextual ads',
+    declineAds: 'Decline ads',
+    adCap: 'Display limit: one ad per placement every 30 minutes. Chat data is never used for targeting.',
+    telemetryTitle: 'Optional experience measurement',
+    telemetryDescription: 'Optional measurement helps us improve play flow. It never sends your name, messages, puzzle answers, or free text, and it never grants XP or rewards.',
+    telemetryChoice: 'Experience measurement choice',
+    allowMeasurement: 'Allow anonymous measurement',
+    declineMeasurement: 'Do not allow',
+    status: 'Status:',
+    telemetryGranted: 'Your consent is saved. Measurement starts only when the server is also enabled.',
+    telemetryDeclined: 'Off. You can change this at any time.',
+    telemetryUnset: 'No choice yet; measurement is off.',
+    notificationsTitle: 'Notifications & quiet hours',
+    notificationsOn: 'Notifications are optional · on',
+    enableNotifications: 'Enable optional notifications',
+    quietHoursChoice: 'Quiet hours',
+    quietHoursDefault: 'Quiet 22:00–08:00',
+    quietHoursEarly: 'Quiet 20:00–07:00',
+    notificationDetail: 'At most two system messages each week. There is no return penalty and no streak loss.',
+    soundTitle: 'Sound & subtitles',
+    gameSfx: 'Game sound effects',
+    sfxIntensity: 'Reward effects intensity',
+    volumeChoice: 'Game sound effect intensity',
+    volume: { quiet: 'Quiet', balanced: 'Balanced', cinematic: 'Cinematic' },
+    voicePerformance: 'Voice performance',
+    voiceUnavailable: 'Not available yet · system effects are available',
+    subtitles: 'Subtitles',
+    autoAdvance: 'Auto-advance',
+    enabled: 'Enabled',
+    disabled: 'Disabled',
+  },
+};
 
 export default function SettingsScreen() {
   const cinematic = useGameStore((state) => state.cinematic);
   const actions = useGameStore((state) => state.actions);
   const preferences = useUiPreferencesStore();
-  const isArabic = preferences.locale === 'ar';
+  const copy = SETTINGS_COPY[preferences.locale];
 
   return (
     <div className="shell-screen shell-settings-screen">
@@ -42,44 +167,46 @@ export default function SettingsScreen() {
         <span className="shell-screen-code">12</span>
         <span>
           <small>DEVICE PROFILE // RESPONSIVE WEB</small>
-          <h1>إعدادات التجربة</h1>
+          <h1>{copy.heading}</h1>
         </span>
       </header>
 
       <HudPanel
         tone="memory"
         eyebrow="PERFORMANCE"
-        title="جودة العرض"
+        title={copy.performanceTitle}
       >
-        <div className="shell-settings-options">
+        <div className="shell-settings-options" role="group" aria-label={copy.qualityChoice}>
           {QUALITY_OPTIONS.map((option) => (
             <GameButton
-              key={option.id}
-              variant={preferences.quality === option.id ? 'memory' : 'ghost'}
-              onClick={() => preferences.setQuality(option.id)}
+              key={option}
+              variant={preferences.quality === option ? 'memory' : 'ghost'}
+              aria-pressed={preferences.quality === option}
+              onClick={() => preferences.setQuality(option)}
             >
-              {option.label}
+              {copy.quality[option]}
             </GameButton>
           ))}
         </div>
         <p className="shell-muted-copy">
-          يضبط دقة العرض والظلال والجزيئات والوهج بما يناسب الهاتف.
+          {copy.performanceDescription}
         </p>
       </HudPanel>
 
       <HudPanel
         tone="danger"
         eyebrow="ACCESSIBILITY"
-        title="الحركة"
+        title={copy.motionTitle}
       >
-        <div className="shell-settings-options">
+        <div className="shell-settings-options" role="group" aria-label={copy.motionChoice}>
           {MOTION_OPTIONS.map((option) => (
             <GameButton
-              key={option.id}
-              variant={preferences.motion === option.id ? 'primary' : 'ghost'}
-              onClick={() => preferences.setMotion(option.id)}
+              key={option}
+              variant={preferences.motion === option ? 'primary' : 'ghost'}
+              aria-pressed={preferences.motion === option}
+              onClick={() => preferences.setMotion(option)}
             >
-              {option.label}
+              {copy.motion[option]}
             </GameButton>
           ))}
         </div>
@@ -88,57 +215,61 @@ export default function SettingsScreen() {
       <HudPanel
         tone="rare"
         eyebrow="LANGUAGE / DIRECTION"
-        title="اللغة واتجاه الواجهة"
+        title={copy.languageTitle}
       >
-        <div className="shell-settings-options">
+        <div className="shell-settings-options" role="group" aria-label={copy.languageChoice}>
           <GameButton
             variant={preferences.locale === 'ar' ? 'rare' : 'ghost'}
+            aria-pressed={preferences.locale === 'ar'}
             onClick={() => preferences.setLocale('ar')}
           >
             العربية · RTL
           </GameButton>
           <GameButton
             variant={preferences.locale === 'en' ? 'rare' : 'ghost'}
+            aria-pressed={preferences.locale === 'en'}
             onClick={() => preferences.setLocale('en')}
           >
             English · LTR
           </GameButton>
         </div>
         <p className="shell-muted-copy">
-          تغيّر اللغة كتالوج شبكة Echo واتجاه التطبيق فورًا؛ تستمر ترجمة بقية المشاهد ضمن كتالوج الإصدار العالمي.
+          {copy.languageDescription}
         </p>
       </HudPanel>
 
       <GlassPanel
         tone="memory"
         eyebrow="CONTEXTUAL ADS ONLY"
-        title="الإعلانات والخصوصية"
+        title={copy.adsTitle}
       >
         <p className="shell-muted-copy">
-          اللعبة مجانية وتعتمد على الإعلانات فقط. تظهر الإعلانات السياقية في مركز الشبكة ولوحة المجتمع لا أثناء القصة أو الألغاز أو الشطرنج أو التعاون أو المشاهد السينمائية. لا إعلانات بمكافآت ولا دفع للفوز.
+          {copy.adsDescription}
         </p>
-        <div className="shell-settings-options">
+        <div className="shell-settings-options" role="group" aria-label={copy.adsTitle}>
           <GameButton
             variant={preferences.adConsent === 'contextual' ? 'memory' : 'ghost'}
+            aria-pressed={preferences.adConsent === 'contextual'}
             onClick={() => preferences.setAdConsent('contextual')}
           >
-            السماح بالسياقية
+            {copy.allowContextual}
           </GameButton>
           <GameButton
             variant={preferences.adConsent === 'declined' ? 'secondary' : 'ghost'}
+            aria-pressed={preferences.adConsent === 'declined'}
             onClick={() => preferences.setAdConsent('declined')}
           >
-            رفض الإعلانات
+            {copy.declineAds}
           </GameButton>
         </div>
-        <small className="shell-muted-copy">حد العرض: إعلان واحد لكل موضع كل 30 دقيقة، ولا تُستخدم بيانات الدردشة في الاستهداف.</small>
+        <small className="shell-muted-copy">{copy.adCap}</small>
       </GlassPanel>
 
       <GlassPanel
         className="shell-settings-telemetry"
         tone="neutral"
         eyebrow="OPTIONAL PRODUCT MEASUREMENT"
-        title={isArabic ? 'قياس التجربة الاختياري' : 'Optional experience measurement'}
+        title={copy.telemetryTitle}
       >
         <div className="shell-settings-telemetry__visual" aria-hidden="true">
           <img
@@ -152,39 +283,35 @@ export default function SettingsScreen() {
         </div>
         <div className="shell-settings-telemetry__content">
           <p className="shell-muted-copy">
-            {isArabic
-              ? 'يساعدنا القياس الاختياري على تحسين تدفق اللعب. لا نرسل اسمك أو رسائلك أو إجابات الألغاز أو أي نص حر؛ ولا يمنح هذا الخيار XP أو جوائز.'
-              : 'Optional measurement helps us improve play flow. It never sends your name, messages, puzzle answers, or free text, and it never grants XP or rewards.'}
+            {copy.telemetryDescription}
           </p>
           <div
             className="shell-settings-options"
             role="group"
-            aria-label={isArabic ? 'اختيار قياس التجربة' : 'Experience measurement choice'}
+            aria-label={copy.telemetryChoice}
           >
             <GameButton
               variant={preferences.telemetryConsent === 'granted' ? 'secondary' : 'ghost'}
               aria-pressed={preferences.telemetryConsent === 'granted'}
               onClick={() => preferences.setTelemetryConsent('granted')}
             >
-              {isArabic ? 'السماح بالقياس المجهول' : 'Allow anonymous measurement'}
+              {copy.allowMeasurement}
             </GameButton>
             <GameButton
               variant={preferences.telemetryConsent === 'declined' ? 'secondary' : 'ghost'}
               aria-pressed={preferences.telemetryConsent === 'declined'}
               onClick={() => preferences.setTelemetryConsent('declined')}
             >
-              {isArabic ? 'عدم السماح' : 'Do not allow'}
+              {copy.declineMeasurement}
             </GameButton>
           </div>
           <output className="shell-settings-telemetry__status" data-consent={preferences.telemetryConsent}>
-            <b>{isArabic ? 'الحالة:' : 'Status:'}</b>{' '}
+            <b>{copy.status}</b>{' '}
             {preferences.telemetryConsent === 'granted'
-              ? isArabic
-                ? 'الموافقة محفوظة. لا يبدأ القياس إلا عند تفعيل الخادم أيضًا.'
-                : 'Your consent is saved. Measurement starts only when the server is also enabled.'
+              ? copy.telemetryGranted
               : preferences.telemetryConsent === 'declined'
-                ? isArabic ? 'موقوف. يمكنك تغيير القرار في أي وقت.' : 'Off. You can change this at any time.'
-                : isArabic ? 'لم تختر بعد؛ القياس متوقف.' : 'No choice yet; measurement is off.'}
+                ? copy.telemetryDeclined
+                : copy.telemetryUnset}
           </output>
         </div>
       </GlassPanel>
@@ -192,11 +319,12 @@ export default function SettingsScreen() {
       <HudPanel
         tone="progression"
         eyebrow="OPTIONAL NOTIFICATIONS"
-        title="الإشعارات وساعات الهدوء"
+        title={copy.notificationsTitle}
       >
         <div className="shell-settings-options">
           <GameButton
             variant={preferences.notificationsEnabled ? 'secondary' : 'ghost'}
+            aria-pressed={preferences.notificationsEnabled}
             onClick={() => {
               if (preferences.notificationsEnabled) {
                 preferences.setNotificationsEnabled(false);
@@ -208,64 +336,73 @@ export default function SettingsScreen() {
               });
             }}
           >
-            {preferences.notificationsEnabled ? 'الإشعارات اختيارية · مفعلة' : 'تفعيل الإشعارات الاختيارية'}
+            {preferences.notificationsEnabled ? copy.notificationsOn : copy.enableNotifications}
           </GameButton>
+        </div>
+        <div className="shell-settings-options" role="group" aria-label={copy.quietHoursChoice}>
           <GameButton
             variant={preferences.quietHoursStart === 22 && preferences.quietHoursEnd === 8 ? 'secondary' : 'ghost'}
+            aria-pressed={preferences.quietHoursStart === 22 && preferences.quietHoursEnd === 8}
             onClick={() => preferences.setQuietHours(22, 8)}
           >
-            هدوء 22:00–08:00
+            {copy.quietHoursDefault}
           </GameButton>
           <GameButton
             variant={preferences.quietHoursStart === 20 && preferences.quietHoursEnd === 7 ? 'secondary' : 'ghost'}
+            aria-pressed={preferences.quietHoursStart === 20 && preferences.quietHoursEnd === 7}
             onClick={() => preferences.setQuietHours(20, 7)}
           >
-            هدوء 20:00–07:00
+            {copy.quietHoursEarly}
           </GameButton>
         </div>
-        <p className="shell-muted-copy">حد أقصى رسالتان نظاميتان أسبوعيًا. لا عقوبة عند عدم العودة ولا فقدان لسلسلة.</p>
+        <p className="shell-muted-copy">{copy.notificationDetail}</p>
       </HudPanel>
 
       <GlassPanel
         tone="rare"
         eyebrow="ANIME CINEMATIC"
-        title="الصوت والترجمة"
+        title={copy.soundTitle}
       >
         <dl className="shell-settings-list">
           <div>
-            <dt>مؤثرات اللعب</dt>
+            <dt>{copy.gameSfx}</dt>
             <dd>
               <GameButton
                 size="sm"
                 variant={preferences.audioEnabled ? 'rare' : 'ghost'}
+                aria-pressed={preferences.audioEnabled}
                 onClick={() => preferences.setAudioEnabled(!preferences.audioEnabled)}
               >
-                {preferences.audioEnabled ? 'مفعّلة' : 'صامتة'}
+                {preferences.audioEnabled ? copy.enabled : copy.disabled}
               </GameButton>
             </dd>
           </div>
           <div>
-            <dt>شدة مؤثرات المكافآت</dt>
-            <dd className="shell-settings-volume" aria-label="شدة مؤثرات اللعب">
-              {SFX_VOLUME_OPTIONS.map((option) => (
+            <dt>{copy.sfxIntensity}</dt>
+            <dd className="shell-settings-volume" aria-label={copy.volumeChoice}>
+              {SFX_VOLUME_OPTIONS.map((option, index) => {
+                const label = copy.volume[index === 0 ? 'quiet' : index === 1 ? 'balanced' : 'cinematic'];
+                return (
                 <GameButton
-                  key={option.value}
+                  key={option}
                   size="sm"
-                  variant={preferences.sfxVolume === option.value ? 'memory' : 'ghost'}
+                  variant={preferences.sfxVolume === option ? 'memory' : 'ghost'}
+                  aria-pressed={preferences.sfxVolume === option}
                   disabled={!preferences.audioEnabled}
-                  onClick={() => preferences.setSfxVolume(option.value)}
+                  onClick={() => preferences.setSfxVolume(option)}
                 >
-                  {option.label}
+                  {label}
                 </GameButton>
-              ))}
+                );
+              })}
             </dd>
           </div>
           <div>
-            <dt>الأداء الصوتي</dt>
-            <dd>غير متاح بعد · المؤثرات النظامية متاحة</dd>
+            <dt>{copy.voicePerformance}</dt>
+            <dd>{copy.voiceUnavailable}</dd>
           </div>
           <div>
-            <dt>الترجمة</dt>
+            <dt>{copy.subtitles}</dt>
             <dd>
               <GameButton
                 size="sm"
@@ -274,16 +411,17 @@ export default function SettingsScreen() {
                     ? 'rare'
                     : 'ghost'
                 }
+                aria-pressed={cinematic.preferences.subtitlesEnabled}
                 onClick={() => actions.setCinematicPreferences({
                   subtitlesEnabled: !cinematic.preferences.subtitlesEnabled,
                 })}
               >
-                {cinematic.preferences.subtitlesEnabled ? 'مفعلة' : 'معطلة'}
+                {cinematic.preferences.subtitlesEnabled ? copy.enabled : copy.disabled}
               </GameButton>
             </dd>
           </div>
           <div>
-            <dt>التقدم التلقائي</dt>
+            <dt>{copy.autoAdvance}</dt>
             <dd>
               <GameButton
                 size="sm"
@@ -292,11 +430,12 @@ export default function SettingsScreen() {
                     ? 'rare'
                     : 'ghost'
                 }
+                aria-pressed={cinematic.preferences.autoAdvance}
                 onClick={() => actions.setCinematicPreferences({
                   autoAdvance: !cinematic.preferences.autoAdvance,
                 })}
               >
-                {cinematic.preferences.autoAdvance ? 'مفعل' : 'معطل'}
+                {cinematic.preferences.autoAdvance ? copy.enabled : copy.disabled}
               </GameButton>
             </dd>
           </div>

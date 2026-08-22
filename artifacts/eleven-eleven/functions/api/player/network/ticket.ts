@@ -15,7 +15,7 @@ import {
   readJsonBody,
   type PlayerApiContext,
 } from '../_shared';
-import { requirePlayerDatabase } from '../_database';
+import { requirePlayerDatabase, type PlayerDatabase } from '../_database';
 import {
   assertModeEligibility,
   ensureNetworkPlayer,
@@ -27,6 +27,41 @@ import {
 import { readAuthoritativeDisplayName } from '../_profileAuthority';
 
 const MAX_TICKET_REQUEST_BYTES = 4_096;
+
+interface ActiveMatchLeaseRow {
+  room_id: string;
+  mode: RealtimeTicketPayload['mode'];
+}
+
+/**
+ * The browser holds no match authority. A reconnect ticket must correspond to
+ * the same D1-owned live lease, while a new queue ticket is refused whenever
+ * that account already belongs to a different active match.
+ */
+async function assertTicketMatchLeaseAdmission(
+  database: PlayerDatabase,
+  input: {
+    uid: string;
+    mode: RealtimeTicketPayload['mode'];
+    roomId?: string;
+    now: string;
+  },
+): Promise<void> {
+  const active = await database.prepare(`
+    SELECT room_id, mode
+    FROM network_active_match_leases
+    WHERE user_id = ? AND expires_at > ?
+  `).bind(input.uid, input.now).first<ActiveMatchLeaseRow>();
+  if (input.roomId) {
+    if (!active || active.room_id !== input.roomId || active.mode !== input.mode) {
+      throw new PlayerApiError(403, 'room_membership_required', 'This player is not assigned to that room.');
+    }
+    return;
+  }
+  if (active) {
+    throw new PlayerApiError(409, 'active_match_in_progress', 'Finish or recover the active match first.');
+  }
+}
 
 function isPrivateDevelopmentHost(hostname: string): boolean {
   const normalized = hostname.toLowerCase();
@@ -163,6 +198,14 @@ export async function onRequestPost({ request, env }: PlayerApiContext): Promise
       if (!membership) {
         throw new PlayerApiError(403, 'room_membership_required', 'This player is not assigned to that room.');
       }
+    }
+    if (body.target === 'match') {
+      await assertTicketMatchLeaseAdmission(database, {
+        uid: account.uid,
+        mode: body.mode,
+        ...(body.purpose === 'connect' ? { roomId: roomId ?? undefined } : {}),
+        now: new Date(issuedAt * 1_000).toISOString(),
+      });
     }
 
     const ratingBand = body.purpose === 'queue'

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Chess, type Color, type PieceSymbol, type Square } from 'chess.js';
 import {
   applyContractChessMove,
@@ -10,7 +10,7 @@ import {
 import type { NetworkLocale, OnlineMode } from '../../domain/echo-network/contracts';
 import type { NetworkEligibilitySnapshot } from '../../infrastructure/echo-network/echoNetworkApi';
 import { GameButton, GameProgress, GlassPanel, HudPanel } from '../../ui/design-system';
-import { useRealtimeRoom } from './useRealtimeRoom';
+import { isRecoverableMatchState, roomHasUsableSnapshot, type RealtimeRoomController } from './useRealtimeRoom';
 
 const PIECES: Record<Color, Record<PieceSymbol, string>> = {
   w: { k: '♔', q: '♕', r: '♖', b: '♗', n: '♘', p: '♙' },
@@ -85,18 +85,31 @@ const CHESS_DETAIL_COPY = {
     authoritativeEyebrow: 'غرفة موثقة',
     contractLabel: 'العقد',
     authoritativeDescription: 'كل نقلة والساعة والنتيجة يتحقق منها الخادم. عند انقطاع الاتصال تحاول القناة العودة تلقائيًا خلال 30 ثانية.',
-    receiptTitle: 'تم تثبيت نتيجة العقد',
-    receiptLabel: (xp: number) => `${xp} XP في الإيصال الموثّق`,
+    settlementTitle: 'النتيجة قيد التثبيت الخادمي',
+    awaitingReceipt: 'انتهت المباراة وحُفظت حالتها. ننتظر الإيصال الموثّق؛ لن تظهر XP أو التصنيف قبل وصوله.',
+    pendingServerFinalization: 'الإيصال محفوظ داخل الغرفة الموثّقة. يثبّت الخادم النتيجة في ملفك؛ هذه الشاشة لا تمنح XP أو تصنيفًا.',
+    checkSealedResult: 'التحقق من الإيصال',
     respect: 'إشارة احترام',
     leave: 'مغادرة العقد',
+    standardEyebrow: 'قواعد قياسية',
     standardTitle: 'المصنّف والعادي',
     standardDescription: 'القواعد القياسية فقط في Ranked. أول عشر مباريات تصنيفية مؤقتة، وتصنيف Blitz منفصل عن Rapid.',
     rankedGate: (completed: number) => `فتح Ranked: التدريب + ${completed}/3 مباريات Casual مكتملة.`,
     anomalyTitle: 'شذوذ غير مصنّف',
     anomalyDescription: 'إشارة ثالثة، احتلال النواة، أو ذاكرة ضبابية. تتبدل أسبوعيًا ولا تغيّر تصنيفك.',
+    weeklyRotationEyebrow: 'دورة أسبوعية',
+    variant: (value: string) => ({
+      standard: 'قياسي',
+      'three-signal': 'ثلاث إشارات',
+      'core-control': 'سيطرة النواة',
+      'fog-memory': 'ذاكرة ضبابية',
+    }[value] ?? 'قياسي'),
     searching: 'البحث عن عقد مناسب…',
     reconnecting: 'إعادة ربط الغرفة…',
     connecting: 'تثبيت المباراة…',
+    receiving: 'القناة مفتوحة. ننتظر حالة العقد الموثقة من الخادم…',
+    waitingForOpponent: 'تم تثبيت مقعدك. ننتظر اتصال الخصم قبل إظهار الرقعة.',
+    retryRoom: 'إعادة ربط العقد',
     cancel: 'إلغاء',
   },
   en: {
@@ -120,24 +133,57 @@ const CHESS_DETAIL_COPY = {
     authoritativeEyebrow: 'Authoritative room',
     contractLabel: 'Contract',
     authoritativeDescription: 'The server verifies every move, clock tick, and result. If your connection drops, the channel retries for 30 seconds.',
-    receiptTitle: 'Contract result recorded',
-    receiptLabel: (xp: number) => `${xp} XP in the verified receipt`,
+    settlementTitle: 'Result settling on the server',
+    awaitingReceipt: 'The match state is saved. We are waiting for its verified receipt; XP and rating stay hidden until it arrives.',
+    pendingServerFinalization: 'The receipt is saved in the authoritative room. The server is finalizing your profile record; this screen does not grant XP or rating.',
+    checkSealedResult: 'Check sealed result',
     respect: 'Send respect',
     leave: 'Leave contract',
+    standardEyebrow: 'STANDARD RULES',
     standardTitle: 'Ranked and casual',
     standardDescription: 'Ranked uses standard chess only. Your first ten ranked games are provisional, with separate Blitz and Rapid ratings.',
     rankedGate: (completed: number) => `Unlock Ranked: training + ${completed}/3 completed Casual games.`,
     anomalyTitle: 'Unranked anomaly',
     anomalyDescription: 'Third signal, core control, or fogged memory. It rotates weekly and never changes your rating.',
+    weeklyRotationEyebrow: 'WEEKLY ROTATION',
+    variant: (value: string) => ({
+      standard: 'Standard',
+      'three-signal': 'Three signal',
+      'core-control': 'Core control',
+      'fog-memory': 'Fogged memory',
+    }[value] ?? 'Standard'),
     searching: 'Finding a compatible contract…',
     reconnecting: 'Reconnecting the room…',
     connecting: 'Securing the match…',
+    receiving: 'Channel open. Waiting for the server-authoritative contract state…',
+    waitingForOpponent: 'Your seat is secured. Waiting for the opponent before showing the board.',
+    retryRoom: 'Retry this contract',
     cancel: 'Cancel',
   },
 } as const;
 
 function chessCopy(locale: NetworkLocale) {
   return { ...CHESS_COPY[locale], ...CHESS_DETAIL_COPY[locale] };
+}
+
+function liveSideLabels(locale: NetworkLocale, playerColor: Color) {
+  const labels = locale === 'ar'
+    ? {
+      youRed: '\u0623\u0646\u062a \u00b7 \u0627\u0644\u0623\u062d\u0645\u0631',
+      youBlack: '\u0623\u0646\u062a \u00b7 \u0627\u0644\u0623\u0633\u0648\u062f',
+      opponentRed: '\u0627\u0644\u062e\u0635\u0645 \u00b7 \u0627\u0644\u0623\u062d\u0645\u0631',
+      opponentBlack: '\u0627\u0644\u062e\u0635\u0645 \u00b7 \u0627\u0644\u0623\u0633\u0648\u062f',
+    }
+    : {
+      youRed: 'You \u00b7 red',
+      youBlack: 'You \u00b7 black',
+      opponentRed: 'Opponent \u00b7 red',
+      opponentBlack: 'Opponent \u00b7 black',
+    };
+
+  return playerColor === 'w'
+    ? { red: labels.youRed, black: labels.opponentBlack }
+    : { red: labels.opponentRed, black: labels.youBlack };
 }
 
 interface BoardPiece {
@@ -236,7 +282,12 @@ function ContractChessBoard({
   };
 
   return (
-    <div className="contract-chess-board-frame" data-player-color={playerColor}>
+    <div
+      id="contract-chess-board"
+      className="contract-chess-board-frame"
+      data-player-color={playerColor}
+      tabIndex={-1}
+    >
       <span className="contract-chess-board-frame__seal" aria-hidden="true" />
       <div className="contract-chess-board" role="grid" aria-label={copy.boardLabel}>
         {ranks.flatMap((rank, rankIndex) => files.map((file, fileIndex) => {
@@ -342,8 +393,8 @@ function LocalChessTraining({
       <div className="contract-chess-stage__board-area">
         <div className="contract-chess-stage__eyebrow"><span aria-hidden="true" />{copy.trainingTurn}</div>
         <div className="contract-chess-clocks" aria-live="off">
-          <span data-side="black"><i aria-hidden="true" /><small>Echo · BLACK</small><strong>{formatClock(clocks.blackMs)}</strong></span>
-          <span data-side="red"><i aria-hidden="true" /><small>YOU · RED</small><strong>{formatClock(clocks.whiteMs)}</strong></span>
+          <span data-side="black"><i aria-hidden="true" /><small>{copy.echoBlack}</small><strong>{formatClock(clocks.blackMs)}</strong></span>
+          <span data-side="red"><i aria-hidden="true" /><small>{copy.youRed}</small><strong>{formatClock(clocks.whiteMs)}</strong></span>
         </div>
         <ContractChessBoard
           pieces={piecesFromFen(state.fen)}
@@ -354,16 +405,16 @@ function LocalChessTraining({
           locale={locale}
         />
       </div>
-      <HudPanel tone="danger" eyebrow="SOLO TRAINING · NO SERVER REWARD" title="بروتوكول العقد الأول" className="contract-chess-stage__brief">
-        <p>حرّك القطع الحمراء. سيجيب Echo بالأسود. أكمل ثلاث نقلات قانونية لفهم التحديد، الوجهة، والساعة.</p>
+      <HudPanel tone="danger" eyebrow={copy.trainingEyebrow} title={copy.trainingTitle} className="contract-chess-stage__brief">
+        <p>{copy.trainingDescription}</p>
         <GameProgress value={Math.min(100, (playerMoves / 3) * 100)} tone="danger" />
         <ol className="echo-network-checklist">
-          <li data-complete={playerMoves >= 1}>اختر قطعة ثم مربعًا مضاءً.</li>
-          <li data-complete={playerMoves >= 2}>راقب رد Echo وتبدّل الدور.</li>
-          <li data-complete={playerMoves >= 3}>احمِ الملك واقرأ الساعة.</li>
+          <li data-complete={playerMoves >= 1}>{copy.choosePiece}</li>
+          <li data-complete={playerMoves >= 2}>{copy.watchEcho}</li>
+          <li data-complete={playerMoves >= 3}>{copy.readClock}</li>
         </ol>
         {state.status !== 'active' && (
-          <p className="echo-network-callout">انتهت الجولة: {state.reason}. يمكنك إعادة التدريب دون خسارة.</p>
+          <p className="echo-network-callout">{copy.roundFinished(state.reason ?? '')}</p>
         )}
         <div className="echo-network-actions">
           <GameButton
@@ -373,7 +424,7 @@ function LocalChessTraining({
               setPlayerMoves(0);
             }}
           >
-            إعادة اللوحة
+            {copy.resetBoard}
           </GameButton>
           <GameButton
             variant="danger"
@@ -383,7 +434,7 @@ function LocalChessTraining({
               void onComplete().finally(() => setSaving(false));
             }}
           >
-            {completed ? 'التدريب موثّق' : saving ? 'جارٍ التوثيق…' : 'توثيق التدريب'}
+            {completed ? copy.trainingCertified : saving ? copy.trainingSaving : copy.certifyTraining}
           </GameButton>
         </div>
       </HudPanel>
@@ -429,14 +480,22 @@ export function ContractChessPanel({
   onTrainingComplete,
   onReceipt,
   locale,
+  room,
 }: {
   eligibility: NetworkEligibilitySnapshot;
   onTrainingComplete: () => Promise<void>;
   onReceipt: () => void;
   locale: NetworkLocale;
+  room: RealtimeRoomController;
 }) {
-  const room = useRealtimeRoom();
   const [view, setView] = useState<'training' | 'online'>('training');
+  const synchronizedReceiptIdRef = useRef<string | null>(null);
+  const matchHandoffActive = room.state.target === 'match'
+    && room.state.mode !== null
+    && ['queueing', 'connecting', 'awaiting-snapshot', 'active', 'reconnecting', 'settling', 'completed'].includes(room.state.phase);
+  const matchRecoveryAvailable = room.state.mode !== 'coop_breach'
+    && isRecoverableMatchState(room.state);
+  const activeView = matchHandoffActive || matchRecoveryAvailable ? 'online' : view;
   const snapshot = useMemo(() => onlineState(room.state.snapshot), [room.state.snapshot]);
   const clockSampledAt = useMemo(() => Date.now(), [room.state.snapshot]);
   const clockNow = useClockNow(room.state.phase === 'active');
@@ -448,36 +507,57 @@ export function ContractChessPanel({
     clockNow,
   );
   useEffect(() => {
-    if (!room.state.receipt) return;
-    const timer = setTimeout(onReceipt, 1_200);
+    const receiptId = room.state.receipt?.receiptId;
+    if (!receiptId || synchronizedReceiptIdRef.current === receiptId) return undefined;
+    synchronizedReceiptIdRef.current = receiptId;
+    const timer = setTimeout(() => void onReceipt(), 1_200);
     return () => clearTimeout(timer);
-  }, [onReceipt, room.state.receipt]);
+  }, [onReceipt, room.state.receipt?.receiptId]);
 
   const queue = (mode: OnlineMode) => {
     setView('online');
     void room.joinQueue({ mode });
   };
   const copy = chessCopy(locale);
+  const roomReady = roomHasUsableSnapshot(room.state);
+  const gameplayReady = roomReady && snapshot?.state !== null;
+  const boardIsVisible = activeView === 'training' || gameplayReady;
+  const liveSides = liveSideLabels(locale, snapshot?.color ?? 'w');
+  const hasResultSettlement = room.state.settlement !== 'none';
+  const settlementMessage = room.state.settlement === 'awaiting-receipt'
+    ? copy.awaitingReceipt
+    : copy.pendingServerFinalization;
+
+  useEffect(() => {
+    if (!boardIsVisible || typeof window === 'undefined') return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById('contract-chess-board')?.scrollIntoView({
+        block: 'start',
+        behavior: 'auto',
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [boardIsVisible]);
 
   return (
     <section className="echo-network-mode contract-chess-surface" data-surface="chess" aria-labelledby="contract-chess-title">
       <header className="echo-network-mode__heading">
         <span><small>{copy.eyebrow}</small><h2 id="contract-chess-title">{copy.title}</h2></span>
         <div className="echo-network-segmented">
-          <GameButton size="sm" variant={view === 'training' ? 'danger' : 'ghost'} onClick={() => setView('training')}>{copy.training}</GameButton>
-          <GameButton size="sm" variant={view === 'online' ? 'rare' : 'ghost'} onClick={() => setView('online')}>{copy.live}</GameButton>
+          <GameButton size="sm" variant={activeView === 'training' ? 'danger' : 'ghost'} onClick={() => setView('training')}>{copy.training}</GameButton>
+          <GameButton size="sm" variant={activeView === 'online' ? 'rare' : 'ghost'} onClick={() => setView('online')}>{copy.live}</GameButton>
         </div>
       </header>
 
-      {view === 'training' ? (
+      {activeView === 'training' ? (
         <LocalChessTraining completed={eligibility.chessTrainingCompleted} onComplete={onTrainingComplete} locale={locale} />
-      ) : room.state.phase === 'active' || room.state.phase === 'completed' ? (
+      ) : gameplayReady ? (
         <div className="echo-network-chess-layout contract-chess-stage" data-state={room.state.phase}>
           <div className="contract-chess-stage__board-area">
             <div className="contract-chess-stage__eyebrow"><span aria-hidden="true" />{copy.serverTurn}</div>
             <div className="contract-chess-clocks">
-              <span data-side="black"><i aria-hidden="true" /><small>{copy.black}</small><strong>{formatClock(liveClock.blackMs)}</strong></span>
-              <span data-side="red"><i aria-hidden="true" /><small>{copy.red}</small><strong>{formatClock(liveClock.whiteMs)}</strong></span>
+              <span data-side="black"><i aria-hidden="true" /><small>{liveSides.black}</small><strong>{formatClock(liveClock.blackMs)}</strong></span>
+              <span data-side="red"><i aria-hidden="true" /><small>{liveSides.red}</small><strong>{formatClock(liveClock.whiteMs)}</strong></span>
             </div>
             <ContractChessBoard
               pieces={snapshot?.pieces ?? []}
@@ -488,19 +568,52 @@ export function ContractChessPanel({
               locale={locale}
             />
           </div>
-          <HudPanel tone="rare" eyebrow="AUTHORITATIVE ROOM" title={`العقد · ${snapshot?.variant ?? 'standard'}`} className="contract-chess-stage__brief">
-            <p>كل نقلة والساعة والنتيجة يتحقق منها الخادم. عند انقطاع الاتصال تحاول القناة العودة تلقائيًا خلال 30 ثانية.</p>
+          <HudPanel tone="rare" eyebrow={copy.authoritativeEyebrow} title={`${copy.contractLabel} · ${copy.variant(snapshot?.variant ?? 'standard')}`} className="contract-chess-stage__brief">
+            <p>{copy.authoritativeDescription}</p>
             {room.state.error && <p className="echo-network-error" role="alert">{room.state.error}</p>}
-            {room.state.receipt && (
-              <div className="echo-network-receipt">
-                <strong>تم تثبيت نتيجة العقد</strong>
-                <span>{room.state.receipt.rewards[0]?.xpAmount ?? 0} XP في الإيصال الموثق</span>
+            {hasResultSettlement && (
+              <div
+                className="echo-network-receipt echo-network-settlement"
+                data-settlement={room.state.settlement}
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                <strong>{copy.settlementTitle}</strong>
+                <span>{settlementMessage}</span>
+                {matchRecoveryAvailable && (
+                  <GameButton size="sm" variant="rare" onClick={() => void room.retryExistingMatch()}>{copy.checkSealedResult}</GameButton>
+                )}
               </div>
             )}
             <div className="echo-network-actions">
-              <GameButton variant="ghost" onClick={() => room.sendCommand('preset-chat', { presetId: 'well-played' })}>إشارة احترام</GameButton>
-              <GameButton variant="danger" onClick={room.leave}>مغادرة العقد</GameButton>
+              <GameButton variant="ghost" onClick={() => room.sendCommand('preset-chat', { presetId: 'well-played' })}>{copy.respect}</GameButton>
+              <GameButton variant="danger" onClick={room.leave}>{copy.leave}</GameButton>
             </div>
+          </HudPanel>
+        </div>
+      ) : matchHandoffActive ? (
+        <div className="contract-chess-waiting" role="status">
+          <HudPanel tone="rare" eyebrow={copy.authoritativeEyebrow} title={copy.serverTurn}>
+            <div className="echo-network-queue">
+              <i aria-hidden="true" />
+              <strong>{room.state.settlement === 'awaiting-receipt'
+                ? copy.awaitingReceipt
+                : room.state.settlement === 'pending-server-finalization'
+                ? copy.pendingServerFinalization
+                : room.state.phase === 'awaiting-snapshot'
+                ? copy.receiving
+                : room.state.phase === 'reconnecting'
+                ? copy.reconnecting
+                : snapshot?.status === 'waiting'
+                ? copy.waitingForOpponent
+                : copy.connecting}</strong>
+              {matchRecoveryAvailable && (
+                <GameButton size="sm" variant="rare" onClick={() => void room.retryExistingMatch()}>{copy.checkSealedResult}</GameButton>
+              )}
+              <GameButton size="sm" variant="ghost" onClick={room.leave}>{copy.cancel}</GameButton>
+            </div>
+            {room.state.error && <p className="echo-network-error" role="alert">{room.state.error}</p>}
           </HudPanel>
         </div>
       ) : (
@@ -512,29 +625,42 @@ export function ContractChessPanel({
             <p>{copy.sanctumDescription}</p>
             <small>{copy.integrity}</small>
           </div>
-          <GlassPanel tone="rare" eyebrow="STANDARD RULES" title="المصنّف والعادي" className="contract-chess-lobby__modes">
-            <p>القواعد القياسية فقط في Ranked. أول عشر مباريات تصنيفية مؤقتة، وتصنيف Blitz منفصل عن Rapid.</p>
+          <GlassPanel tone="rare" eyebrow={copy.standardEyebrow} title={copy.standardTitle} className="contract-chess-lobby__modes">
+            <p>{copy.standardDescription}</p>
             <div className="echo-network-mode-grid">
               <GameButton variant="secondary" onClick={() => queue('chess_casual')}>{copy.casual}</GameButton>
               <GameButton variant="danger" disabled={!eligibility.rankedChessUnlocked} onClick={() => queue('chess_ranked_blitz')}>{copy.blitz}</GameButton>
               <GameButton variant="danger" disabled={!eligibility.rankedChessUnlocked} onClick={() => queue('chess_ranked_rapid')}>{copy.rapid}</GameButton>
             </div>
             {!eligibility.rankedChessUnlocked && (
-              <small>فتح Ranked: التدريب + {eligibility.casualChessCompleted}/3 مباريات Casual مكتملة.</small>
+              <small>{copy.rankedGate(eligibility.casualChessCompleted)}</small>
             )}
           </GlassPanel>
-          <GlassPanel tone="memory" eyebrow="WEEKLY ROTATION" title="شذوذ غير مصنّف" className="contract-chess-lobby__anomaly">
-            <p>إشارة ثالثة، احتلال النواة، أو ذاكرة ضبابية. تتبدل أسبوعيًا ولا تغيّر تصنيفك.</p>
+          <GlassPanel tone="memory" eyebrow={copy.weeklyRotationEyebrow} title={copy.anomalyTitle} className="contract-chess-lobby__anomaly">
+            <p>{copy.anomalyDescription}</p>
             <GameButton variant="memory" onClick={() => queue('chess_anomaly')}>{copy.anomaly}</GameButton>
           </GlassPanel>
-          {room.state.phase === 'queueing' || room.state.phase === 'connecting' || room.state.phase === 'reconnecting' ? (
+          {matchRecoveryAvailable && (
+            <div className="echo-network-queue echo-network-settlement" data-settlement={room.state.settlement} role="status" aria-live="polite" aria-atomic="true">
+              <strong>{room.state.settlement === 'awaiting-receipt' ? copy.awaitingReceipt : room.state.error}</strong>
+              <GameButton size="sm" variant="rare" onClick={() => void room.retryExistingMatch()}>{room.state.settlement === 'awaiting-receipt' ? copy.checkSealedResult : copy.retryRoom}</GameButton>
+              <GameButton size="sm" variant="ghost" onClick={room.leave}>{copy.cancel}</GameButton>
+            </div>
+          )}
+          {room.state.phase === 'queueing' || room.state.phase === 'connecting' || room.state.phase === 'awaiting-snapshot' || room.state.phase === 'reconnecting' ? (
             <div className="echo-network-queue" role="status">
               <i aria-hidden="true" />
-              <strong>{room.state.phase === 'queueing' ? 'البحث عن عقد مناسب…' : room.state.phase === 'reconnecting' ? 'إعادة ربط الغرفة…' : 'تثبيت المباراة…'}</strong>
-              <GameButton size="sm" variant="ghost" onClick={room.leave}>إلغاء</GameButton>
+              <strong>{room.state.phase === 'queueing'
+                ? copy.searching
+                : room.state.phase === 'reconnecting'
+                ? copy.reconnecting
+                : room.state.phase === 'awaiting-snapshot'
+                ? copy.receiving
+                : copy.connecting}</strong>
+              <GameButton size="sm" variant="ghost" onClick={room.leave}>{copy.cancel}</GameButton>
             </div>
           ) : null}
-          {room.state.error && <p className="echo-network-error" role="alert">{room.state.error}</p>}
+          {room.state.error && !matchRecoveryAvailable && <p className="echo-network-error" role="alert">{room.state.error}</p>}
         </div>
       )}
     </section>

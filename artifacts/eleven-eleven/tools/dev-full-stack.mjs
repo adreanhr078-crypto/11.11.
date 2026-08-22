@@ -9,6 +9,12 @@ import { fileURLToPath } from 'node:url';
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const viteEntry = resolve(projectRoot, 'node_modules', 'vite', 'bin', 'vite.js');
 const wranglerEntry = resolve(projectRoot, 'node_modules', 'wrangler', 'bin', 'wrangler.js');
+const playerWranglerConfig = resolve(projectRoot, 'wrangler.toml');
+// Pages Functions and the realtime Worker both bind PLAYER_DB in production.
+// Give their local Miniflare runtimes one explicit persistence root as well;
+// otherwise each config-relative .wrangler/state directory creates a separate
+// D1 copy and an authoritative match cannot see the player it just verified.
+const localPersistencePath = resolve(projectRoot, '.wrangler', 'shared-dev-state');
 const API_PORT = 8788;
 const REALTIME_PORT = 8790;
 
@@ -71,6 +77,8 @@ function servicesFor(webPort, secret) {
         'public',
         '--port',
         String(API_PORT),
+        '--persist-to',
+        localPersistencePath,
         '--binding',
         `PLAYER_ALLOWED_ORIGINS=${allowedOrigins}`,
         '--binding',
@@ -94,6 +102,8 @@ function servicesFor(webPort, secret) {
         'workers/realtime/wrangler.jsonc',
         '--port',
         String(REALTIME_PORT),
+        '--persist-to',
+        localPersistencePath,
         '--var',
         `REALTIME_TICKET_SECRET:${secret}`,
         '--var',
@@ -107,6 +117,34 @@ function servicesFor(webPort, secret) {
       group: 'backend',
     },
   ];
+}
+
+async function applyLocalPlayerMigrations() {
+  const args = [
+    wranglerEntry,
+    'd1', 'migrations', 'apply', 'eleven-eleven-player',
+    '--local',
+    '--persist-to', localPersistencePath,
+    '--config', playerWranglerConfig,
+  ];
+  await new Promise((resolveMigration, rejectMigration) => {
+    const child = spawn(process.execPath, args, {
+      cwd: projectRoot,
+      env: process.env,
+      stdio: 'inherit',
+      windowsHide: true,
+    });
+    child.once('error', rejectMigration);
+    child.once('exit', (code, signal) => {
+      if (code === 0) {
+        resolveMigration();
+        return;
+      }
+      rejectMigration(new Error(
+        `Local player migrations stopped unexpectedly (${signal ?? code ?? 'unknown'}).`,
+      ));
+    });
+  });
 }
 
 function isPortListening(port) {
@@ -213,6 +251,11 @@ if (process.argv.includes('--check')) {
       console.log(`[dev] 11.11 is already running at http://localhost:${webPort}.`);
       console.log('[dev] Reusing the existing web, player API, and realtime runtimes.');
       break runtime;
+    }
+
+    if (missingServices.some((service) => service.group === 'backend')) {
+      console.log('[dev] Applying local player migrations to shared persistence.');
+      await applyLocalPlayerMigrations();
     }
 
     const reused = runtimeProbes.filter((service) => service.owned).map((service) => service.name);
