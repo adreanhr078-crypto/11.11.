@@ -6,6 +6,7 @@ import {
   DEFAULT_GLICKO2_RATING,
   rankedMatchmakingBand,
 } from '../../../src/domain/echo-network/glicko2';
+import { createXpRewardKey } from '../../../src/domain/player-progression/playerProgression';
 
 interface MilestoneRow {
   chess_training_completed_at: string | null;
@@ -58,7 +59,11 @@ export async function readNetworkEligibility(
     FROM network_player_milestones
     WHERE user_id = ?
   `).bind(uid).first<MilestoneRow>();
-  const casualChessCompleted = Math.max(0, Number(row?.casual_chess_completed ?? 0));
+  const rawCasualChessCompleted = Number(row?.casual_chess_completed ?? 0);
+  const casualChessCompleted = Number.isSafeInteger(rawCasualChessCompleted)
+    && rawCasualChessCompleted >= 0
+    ? rawCasualChessCompleted
+    : 0;
   const chessTrainingCompleted = Boolean(row?.chess_training_completed_at);
   return {
     chessTrainingCompleted,
@@ -82,6 +87,32 @@ export async function assertModeEligibility(
       409,
       'ranked_locked',
       'Complete chess training and three Casual matches before entering Ranked.',
+    );
+  }
+}
+
+/**
+ * Ranked admission is a story disclosure as well as a skill gate.  The
+ * browser's chapter view is never enough: the ticket boundary checks the
+ * immutable Chapter 3 reward receipt before it signs a matchmaking ticket.
+ */
+export async function assertRankedStoryEligibility(
+  db: PlayerDatabase,
+  uid: string,
+  mode: OnlineMode,
+): Promise<void> {
+  if (mode !== 'chess_ranked_blitz' && mode !== 'chess_ranked_rapid') return;
+  const receipt = await db.prepare(`
+    SELECT reward_key
+    FROM xp_reward_events
+    WHERE user_id = ? AND reward_key = ?
+    LIMIT 1
+  `).bind(uid, createXpRewardKey('manhwa', 'chapter_3')).first<{ reward_key: string }>();
+  if (!receipt?.reward_key) {
+    throw new PlayerApiError(
+      409,
+      'ranked_story_locked',
+      'Complete Chapter 3 before entering Ranked.',
     );
   }
 }

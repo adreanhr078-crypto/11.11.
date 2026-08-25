@@ -54,12 +54,26 @@ describe('Story puzzle visual asset accessibility', () => {
 
   it('flushes a local draft before a hint and does not rehydrate the active puzzle on its snapshot response', () => {
     const screen = source('src/features/screens/PuzzleScreen.tsx');
+    const openHint = screen.slice(
+      screen.indexOf('const openHint = async'),
+      screen.indexOf('const complete = async'),
+    );
 
     assert.match(screen, /const hydratedPuzzleId = useRef<string \| null>\(null\);/);
     assert.match(screen, /if \(hydratedPuzzleId\.current === selectedPuzzle\.id\) return;/);
     assert.match(screen, /hydratedPuzzleId\.current = selectedPuzzle\.id;/);
-    assert.match(screen, /const openHint = async \(index: number\) => \{[\s\S]*?await enqueueDraftSave\(selectedPuzzle\.id, draft\);[\s\S]*?await actions\.unlockHint\(selectedPuzzle\.id, index, locale\);/);
+    assert.match(openHint, /const persistedDraft = normalizePuzzleDraft\(selectedPuzzle, draft\);[\s\S]*?await enqueueDraftSave\(selectedPuzzle\.id, persistedDraft\);[\s\S]*?await actions\.unlockHint\(selectedPuzzle\.id, index, locale\);/);
+    assert.doesNotMatch(openHint, /defaultDraft\(|setDraftResetVersion/);
     assert.match(screen, /onClick=\{\(\) => void openHint\(index\)\}/);
+  });
+
+  it('never presents a malformed hint price as free or lets it reset the current draft', () => {
+    const screen = source('src/features/screens/PuzzleScreen.tsx');
+
+    assert.match(screen, /const priced = Number\.isSafeInteger\(cost\) && cost > 0;/);
+    assert.match(screen, /\{priced \? `\$\{cost\} ◉` : 'UNAVAILABLE'\}/);
+    assert.match(screen, /disabled=\{busy \|\| !preceding \|\| !priced \|\| selectedEntry\.status === 'locked'\}/);
+    assert.doesNotMatch(screen, /cost === 0 \? 'FREE'/);
   });
 
   it('serializes autosave, hint, and completion writes so a stale draft cannot replace a receipt', () => {
@@ -75,9 +89,9 @@ describe('Story puzzle visual asset accessibility', () => {
 
     assert.match(screen, /const draftSaveChain = useRef<Promise<unknown>>\(Promise\.resolve\(\)\);/);
     assert.match(screen, /enqueueSerializedDraftSave\(\s*draftSaveChain,\s*\(\) => actions\.saveDraft\(puzzleId, persistedDraft, locale\),\s*\)/);
-    assert.match(screen, /saveTimer\.current = window\.setTimeout\(\(\) => \{\s*saveTimer\.current = null;\s*void enqueueDraftSave\(puzzleId, next\);/);
-    assert.match(openHint, /terminalPuzzleAction\.current = true;[\s\S]*?await enqueueDraftSave\(selectedPuzzle\.id, draft\);[\s\S]*?await actions\.unlockHint\(selectedPuzzle\.id, index, locale\);/);
-    assert.match(complete, /terminalPuzzleAction\.current = true;[\s\S]*?await enqueueDraftSave\(selectedPuzzle\.id, draft\);[\s\S]*?await actions\.complete\(selectedPuzzle\.id, draft, locale\);/);
+    assert.match(screen, /saveTimer\.current = window\.setTimeout\(\(\) => \{\s*saveTimer\.current = null;\s*void enqueueDraftSave\(puzzleId, normalizedDraft\);/);
+    assert.match(openHint, /terminalPuzzleAction\.current = true;[\s\S]*?await enqueueDraftSave\(selectedPuzzle\.id, persistedDraft\);[\s\S]*?await actions\.unlockHint\(selectedPuzzle\.id, index, locale\);/);
+    assert.match(complete, /terminalPuzzleAction\.current = true;[\s\S]*?await enqueueDraftSave\(selectedPuzzle\.id, submissionDraft\);[\s\S]*?await actions\.complete\(selectedPuzzle\.id, submissionDraft, locale\);/);
     assert.match(complete, /finally \{\s*terminalPuzzleAction\.current = false;\s*setBusy\(false\);\s*\}/);
   });
 

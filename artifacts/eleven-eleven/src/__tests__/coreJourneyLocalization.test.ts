@@ -97,14 +97,30 @@ describe('core journey localization', () => {
     assert.ok(puzzle.includes("title: 'Memory shard acquired'"));
     assert.ok(puzzle.includes("continueManhwa: 'Continue the Manhwa'"));
     assert.ok(puzzle.includes('{copy.title}'));
-    assert.ok(puzzle.includes('{copy.continueManhwa}'));
-    assert.ok(puzzle.includes('actions.complete(selectedPuzzle.id, draft, locale)'));
+    assert.ok(puzzle.includes('{nextObjective.actionLabel}'));
+    assert.ok(puzzle.includes('onContinueObjective(nextObjective)'));
+    assert.ok(puzzle.includes('actions.complete(selectedPuzzle.id, submissionDraft, locale)'));
     assert.ok(puzzle.includes('actions.unlockHint(selectedPuzzle.id, index, locale)'));
     assert.ok(store.includes('const STORY_PUZZLE_ERROR_COPY'));
     assert.ok(store.includes("friendlyError(error, locale)"));
     assert.ok(store.includes("rejected: 'The recovery is not complete yet. Recheck the signal and try again.'"));
     assert.equal(puzzle.includes('selectedPuzzle.title.ar'), false);
     assert.equal(puzzle.includes('selectedPuzzle.objective.ar'), false);
+  });
+
+  it('keeps Puzzle Hub and Story Puzzle chrome localized instead of mixing English into Arabic play', () => {
+    const hub = source('src/features/puzzle-hub/PuzzleHubScreen.tsx');
+    const puzzle = source('src/features/screens/PuzzleScreen.tsx');
+
+    assert.ok(hub.includes("operations: 'عمليات الألغاز // الجزء الأول'"));
+    assert.ok(hub.includes('eyebrows: { story:'));
+    assert.ok(hub.includes('<small>{copy.operations}</small>'));
+    assert.ok(hub.includes('{copy.eyebrows[definition.id]}'));
+    assert.ok(puzzle.includes("storyInterference: '11.11 // تشويش القصة'"));
+    assert.ok(puzzle.includes('screenCopy.systemChannel'));
+    assert.ok(puzzle.includes('screenCopy.source(selectedPuzzle.source.globalPageNumber)'));
+    assert.ok(puzzle.includes('screenCopy.assistanceChannel'));
+    assert.ok(puzzle.includes("const fieldNotes = locale === 'ar' ? 'ملاحظات الدليل' : 'FIELD NOTES';"));
   });
 
   it('keeps post-reward achievement feedback in the selected language and direction', () => {
@@ -131,9 +147,7 @@ describe('core journey localization', () => {
     assert.equal(chess.includes('receiptReward'), false);
     assert.ok(chess.includes('copy.variant(snapshot?.variant ?? \'standard\')'));
     assert.ok(chess.includes('eyebrow={copy.standardEyebrow}'));
-    assert.ok(chess.includes('eyebrow={copy.weeklyRotationEyebrow}'));
     assert.ok(chess.includes('title={copy.standardTitle}'));
-    assert.ok(chess.includes('title={copy.anomalyTitle}'));
     assert.ok(chess.includes('{copy.cancel}'));
     assert.ok(chess.includes('{copy.echoBlack}'));
     assert.ok(chess.includes('{copy.youRed}'));
@@ -165,15 +179,16 @@ describe('core journey localization', () => {
   it('keeps the network hub legible before a player chooses Chess or Co-op', () => {
     const network = source('src/features/echo-network/EchoNetworkScreen.tsx');
 
-    assert.ok(network.includes('const NETWORK_COPY'));
-    assert.ok(network.includes('const copy = NETWORK_COPY[locale];'));
+    assert.ok(network.includes('const COPY'));
+    assert.ok(network.includes('const copy = COPY[locale];'));
     assert.ok(network.includes('{copy.authGate}'));
-    assert.ok(network.includes('{copy.chess}'));
-    assert.ok(network.includes('{copy.coop}'));
-    assert.ok(network.includes('{copy.masteryTitle}'));
-    assert.ok(network.includes('{copy.syncingReceipts}'));
-    assert.ok(network.includes('{copy.leaderboard}'));
-    assert.ok(network.includes('{copy.refresh}'));
+    assert.ok(network.includes('{copy.title}'));
+    assert.ok(network.includes('{copy.description}'));
+    assert.ok(network.includes('{copy.statusDetail}'));
+    assert.ok(network.includes('item[locale]'));
+    assert.ok(network.includes('{copy.unavailable}'));
+    assert.equal(network.includes('ActivityDirector'), false);
+    assert.equal(network.includes('SignalBoard'), false);
   });
 
   it('keeps live community rooms and all known realtime rejections in the selected language', () => {

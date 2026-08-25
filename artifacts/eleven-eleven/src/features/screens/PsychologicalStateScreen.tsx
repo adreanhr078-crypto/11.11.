@@ -7,7 +7,7 @@ import {
   StatMeter,
 } from '../../ui/design-system';
 import { GameIcon } from '../../ui/icons';
-import { useShellStore } from '../../app/shell/shellStore';
+import { useShellStore, useUiPreferencesStore } from '../../app/shell/shellStore';
 import {
   createPsychologicalStateReadModel,
 } from '../../application/ui/psychologicalStateReadModel';
@@ -21,12 +21,51 @@ import {
   EchoInteractiveStage,
   ENVIRONMENT_PRESENTATION_ASSETS,
 } from '../../ui/presentation';
+import { useStoryPuzzleStore } from '../story-puzzles/storyPuzzleStore';
+import { deriveCorePlayerObjective } from '../../application/player-journey/corePlayerLoop';
+import { MiniEchoCompanion } from '../echo/MiniEchoCompanion';
 import './psychological-state-screen.css';
 
+const MISSION_COPY = {
+  ar: {
+    header: 'مركز المهمة',
+    eyebrow: 'المسار الموثق // الخطوة الحالية',
+    status: 'الهدف يتغير مع تقدمك الموثق',
+    objective: 'هدفك الآن',
+    echo: 'إشارة Echo',
+    records: 'عرض حالة الاتصال',
+    recordsDetail: 'هذه الإشارات وصف لحالتك، وليست خطوة لعب مطلوبة.',
+  },
+  en: {
+    header: 'Mission Control',
+    eyebrow: 'VERIFIED ROUTE // CURRENT STEP',
+    status: 'Objective updates from your verified progress',
+    objective: 'Your objective',
+    echo: 'Echo signal',
+    records: 'View connection state',
+    recordsDetail: 'These signals describe your state; they are not required actions.',
+  },
+} as const;
+
+const MISSION_CONTROL_CHAMBER_ASSET = '/assets/ui/mission-control/mission-control-chamber-v1.jpg';
+
+/**
+ * The player-facing Home surface. It intentionally gives one action only;
+ * secondary psychological telemetry is disclosed after the player has earned
+ * their first server-verified reward.
+ */
 export default function PsychologicalStateScreen() {
   const state = useGameStore();
   const navigate = useShellStore((shell) => shell.navigate);
+  const requestManhwaReader = useShellStore((shell) => shell.requestManhwaReader);
+  const requestStoryPuzzleDiscovery = useShellStore((shell) => shell.requestStoryPuzzleDiscovery);
+  const hasVerifiedReward = useShellStore(
+    (shell) => shell.experienceEntitlements.snapshot.firstRewardReceived,
+  );
+  const locale = useUiPreferencesStore((preferences) => preferences.locale);
+  const storyPuzzleSnapshot = useStoryPuzzleStore((store) => store.snapshot);
   const visualProfile = useEmotionVisualProfile();
+  const copy = MISSION_COPY[locale];
   const model = useMemo(
     () => createPsychologicalStateReadModel(
       state,
@@ -38,20 +77,29 @@ export default function PsychologicalStateScreen() {
     () => createEchoPresentationReadModel(state),
     [state],
   );
-  const openingRoomEntered = Boolean(
-    state.narrative.activeFlags.opening_room_entered,
+  const objective = useMemo(
+    () => deriveCorePlayerObjective(storyPuzzleSnapshot, locale),
+    [locale, storyPuzzleSnapshot],
   );
-
-  const enterOpeningRoom = () => {
-    navigate('puzzles');
+  const continueMission = () => {
+    if (objective.secretPuzzleId) {
+      requestStoryPuzzleDiscovery(objective.secretPuzzleId);
+      return;
+    }
+    if (objective.screen === 'memories') {
+      requestManhwaReader();
+      return;
+    }
+    navigate(objective.screen);
   };
 
   return (
-    <div className="psychological-state" dir="rtl">
+    <div className="psychological-state" dir={locale === 'ar' ? 'rtl' : 'ltr'}>
       <div
         className="psychological-state__world"
         style={{
-          backgroundImage: `url("${ENVIRONMENT_PRESENTATION_ASSETS.memoryLaboratory}")`,
+          backgroundImage: `linear-gradient(90deg, rgb(2 4 8 / 84%), rgb(2 4 8 / 36%) 52%, rgb(2 4 8 / 76%)), url("${MISSION_CONTROL_CHAMBER_ASSET}"), url("${ENVIRONMENT_PRESENTATION_ASSETS.memoryLaboratory}")`,
+          backgroundBlendMode: 'normal, screen, normal',
         }}
         aria-hidden="true"
       >
@@ -62,16 +110,16 @@ export default function PsychologicalStateScreen() {
       <header className="psychological-state__header gds-safe-area">
         <span className="shell-screen-code">01</span>
         <span>
-          <small>PSYCHOLOGICAL STATE</small>
-          <strong>الحالة النفسية</strong>
+          <small>{copy.eyebrow}</small>
+          <strong>{copy.header}</strong>
         </span>
         <span className="psychological-state__live">
-          <i />
-          تتغير مع قراراتك
+          <i aria-hidden="true" />
+          {copy.status}
         </span>
       </header>
 
-      <section className="psychological-state__presence">
+      <section className="psychological-state__presence" aria-label="Echo">
         <EchoInteractiveStage
           className="psychological-state__echo-stage"
           form={echoPresentation.form}
@@ -83,66 +131,65 @@ export default function PsychologicalStateScreen() {
       <GlassPanel
         className="psychological-state__reading"
         tone="danger"
-        eyebrow={echoPresentation.isContractFormRevealed
-          ? 'ECHO // ALTERED FORM'
-          : 'ECHO // CURRENT STATE'}
+        eyebrow={copy.eyebrow}
       >
         <div className="psychological-state__reading-title">
           <BrainCircuit aria-hidden="true" />
           <span>
-            <h2>{model.title}</h2>
-            <p>{model.summary}</p>
-            <small>{model.dominantLabel}</small>
+            <small>{copy.objective}</small>
+            <h2>{objective.title}</h2>
+            <p>{objective.detail}</p>
           </span>
         </div>
+
+        <div className="psychological-state__echo-line" role="status" aria-live="polite">
+          <small>{copy.echo}</small>
+          <p>{objective.echoLine}</p>
+        </div>
+
+        <MiniEchoCompanion
+          className="psychological-state__mini-echo"
+          available={hasVerifiedReward}
+          locale={locale}
+          objectiveKind={objective.kind}
+          onSuggestedRoute={navigate}
+        />
 
         <div className="psychological-state__start-game">
           <GameButton
             size="lg"
             fullWidth
-            leadingIcon={<GameIcon id="screen-gameplay" />}
-            onClick={enterOpeningRoom}
+            leadingIcon={<GameIcon id={objective.kind === 'read'
+              ? 'screen-memory'
+              : 'screen-puzzles'} />}
+            onClick={continueMission}
           >
-            {openingRoomEntered ? 'استكمال مسار الألغاز' : 'دخول مركز الألغاز'}
+            {objective.actionLabel}
           </GameButton>
-          <small>
-            ألغاز القصة، الإشارة اليومية، والاختبار الأسبوعي في وجهة واحدة
-          </small>
-          <div className="psychological-state__quick-links" aria-label="روابط القصة السريعة">
-            <GameButton
-              variant="ghost"
-              leadingIcon={<GameIcon id="screen-echo-mind" />}
-              onClick={() => navigate('echo-mind')}
-            >
-              Echo Mind
-            </GameButton>
-            <GameButton
-              variant="ghost"
-              leadingIcon={<GameIcon id="screen-characters" />}
-              onClick={() => navigate('characters')}
-            >
-              ملفات الشخصيات
-            </GameButton>
-          </div>
         </div>
 
-        <div
-          className="psychological-state__channels"
-          aria-label="قيم الحالة النفسية"
-        >
-          {model.channels.map((channel) => (
-            <article key={channel.id}>
-              <StatMeter
-                compact
-                label={channel.label}
-                value={channel.value}
-                tone={channel.tone}
-              />
-              <small>{channel.level}</small>
-            </article>
-          ))}
-        </div>
-
+        {hasVerifiedReward && (
+          <details className="psychological-state__channels-disclosure">
+            <summary>{copy.records}</summary>
+            <p>{copy.recordsDetail}</p>
+            <div
+              className="psychological-state__channels"
+              aria-label={copy.records}
+            >
+              {model.channels.map((channel) => (
+                <article key={channel.id}>
+                  <StatMeter
+                    compact
+                    label={channel.label}
+                    value={channel.value}
+                    tone={channel.tone}
+                  />
+                  <small>{channel.level}</small>
+                </article>
+              ))}
+            </div>
+          </details>
+        )}
       </GlassPanel>
     </div>
   );

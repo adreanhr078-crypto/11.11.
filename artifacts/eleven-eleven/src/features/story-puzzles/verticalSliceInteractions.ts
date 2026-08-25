@@ -134,3 +134,54 @@ export function swapPuzzlePieces(
   [next[from], next[to]] = [next[to]!, next[from]!];
   return next;
 }
+
+/**
+ * Image reconstruction always uses physical canvas coordinates: piece-0 is
+ * the source image's top-left tile, regardless of the document's text
+ * direction. These helpers deliberately know nothing about the completed
+ * arrangement; the server remains the only answer authority.
+ */
+export function imageReconstructionPieceIds(rows: number, columns: number): string[] {
+  const count = Math.max(0, Math.floor(rows)) * Math.max(0, Math.floor(columns));
+  return Array.from({ length: count }, (_, index) => `piece-${index}`);
+}
+
+export function isExactImageReconstructionPermutation(
+  imageOrder: readonly string[],
+  rows: number,
+  columns: number,
+): boolean {
+  const expected = imageReconstructionPieceIds(rows, columns);
+  return imageOrder.length === expected.length
+    && imageOrder.every((pieceId) => expected.includes(pieceId))
+    && new Set(imageOrder).size === expected.length;
+}
+
+export function normalizeImageReconstructionDraft(
+  input: {
+    imageOrder: readonly string[];
+    rotations: Readonly<Record<string, number>>;
+  },
+  rows: number,
+  columns: number,
+  allowRotation: boolean,
+): { imageOrder: string[]; rotations: Record<string, number> } {
+  const expected = imageReconstructionPieceIds(rows, columns);
+  const expectedSet = new Set(expected);
+  const seen = new Set<string>();
+  const retained = input.imageOrder.filter((pieceId) => {
+    if (!expectedSet.has(pieceId) || seen.has(pieceId)) return false;
+    seen.add(pieceId);
+    return true;
+  });
+  const imageOrder = [...retained, ...expected.filter((pieceId) => !seen.has(pieceId))];
+  const rotations = Object.fromEntries(expected.map((pieceId) => {
+    if (!allowRotation) return [pieceId, 0];
+    const candidate = input.rotations[pieceId];
+    const normalized = Number.isInteger(candidate)
+      ? ((candidate % 4) + 4) % 4
+      : 0;
+    return [pieceId, normalized];
+  }));
+  return { imageOrder, rotations };
+}

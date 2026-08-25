@@ -15,6 +15,40 @@ import {
 } from '../infrastructure/browser/manhwaViewerPlatformAdapter';
 import { buildInitialState } from '../stores/gameStoreHelpers';
 import { useShellStore } from '../app/shell/shellStore';
+import { deriveExperienceEntitlements } from '../application/player-journey/playerExperienceEntitlements';
+
+const VERIFIED_MANHWA_ENTITLEMENTS = deriveExperienceEntitlements({
+  authStatus: 'signed-in',
+  storyStatus: 'ready',
+  online: true,
+  storyPuzzleSnapshot: {
+    coinBalance: 0,
+    shardCount: 0,
+    mainCompletedCount: 0,
+    totalCompletedCount: 0,
+    entries: [],
+    discoverableSecretPuzzleIds: [],
+    echoResonance: {
+      total: 0,
+      byAxis: {
+        clarity: 0,
+        memory: 0,
+        trust: 0,
+        resolve: 0,
+        stability: 0,
+        anomaly: 0,
+      },
+      lastPuzzleId: null,
+    },
+    syncedAt: '2026-08-25T00:00:00.000Z',
+  },
+  authoritativeStoryState: {
+    canonEventReceipts: [],
+    completedChapterIds: [],
+    discoveredMemoryFragmentIds: [],
+    syncedAt: '2026-08-25T00:00:00.000Z',
+  },
+});
 
 class FakeHistoryPort implements ManhwaViewerHistoryPort {
   readonly entries = [{
@@ -228,20 +262,34 @@ describe('Manhwa Viewer unlocked-page boundary', () => {
     assert.ok(memoryScreen.includes('const pageToOpen = firstUnreadPage ?? activePage;'));
     assert.ok(memoryScreen.includes('openViewer(pageToOpen.id);'));
 
-    useShellStore.setState({
-      currentScreen: 'puzzles',
-      previousScreen: null,
-      manhwaReaderLaunchRequested: false,
-    });
+    const previousShell = useShellStore.getState();
+    try {
+      useShellStore.setState({
+        currentScreen: 'puzzles',
+        previousScreen: null,
+        manhwaReaderLaunchRequested: false,
+        experienceEntitlements: VERIFIED_MANHWA_ENTITLEMENTS,
+      });
 
-    useShellStore.getState().requestManhwaReader();
+      useShellStore.getState().requestManhwaReader();
 
-    assert.equal(useShellStore.getState().currentScreen, 'memories');
-    assert.equal(useShellStore.getState().previousScreen, 'puzzles');
-    assert.equal(useShellStore.getState().manhwaReaderLaunchRequested, true);
+      assert.equal(useShellStore.getState().currentScreen, 'memories');
+      assert.equal(useShellStore.getState().previousScreen, 'puzzles');
+      assert.equal(useShellStore.getState().manhwaReaderLaunchRequested, true);
 
-    useShellStore.getState().consumeManhwaReaderLaunch();
-    assert.equal(useShellStore.getState().manhwaReaderLaunchRequested, false);
+      useShellStore.getState().consumeManhwaReaderLaunch();
+      assert.equal(useShellStore.getState().manhwaReaderLaunchRequested, false);
+    } finally {
+      useShellStore.setState({
+        currentScreen: previousShell.currentScreen,
+        previousScreen: previousShell.previousScreen,
+        navigationCategory: previousShell.navigationCategory,
+        pauseOpen: previousShell.pauseOpen,
+        manhwaReaderLaunchRequested: previousShell.manhwaReaderLaunchRequested,
+        experienceEntitlements: previousShell.experienceEntitlements,
+        routeAccessNotice: previousShell.routeAccessNotice,
+      });
+    }
   });
 
   it('exposes dialog, focus trap, Escape, and page keyboard controls', () => {
@@ -276,6 +324,10 @@ describe('Manhwa Viewer unlocked-page boundary', () => {
     assert.match(
       styles,
       /\[data-gds-motion="reduced"\] \.manhwa-viewer-overlay/,
+    );
+    assert.match(
+      styles,
+      /@media \(max-width: 48rem\) \{\s*\.manhwa-viewer__stage \{\s*place-items: start center;/,
     );
   });
 });

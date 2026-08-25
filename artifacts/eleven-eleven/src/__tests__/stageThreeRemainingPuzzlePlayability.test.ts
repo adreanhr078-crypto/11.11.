@@ -55,7 +55,7 @@ describe('Stage 3 remaining Story Puzzle playability', () => {
     assert.match(screen, /aria-valuetext=\{copy\.value\(channel\.label\[locale\], value\)\}/);
   });
 
-  it('labels multi-stage work as a draft until the authoritative final verification and cancels stale draft saves', () => {
+  it('labels multi-stage work as a draft and serializes its persistence before final verification', () => {
     const screen = source('src/features/screens/PuzzleScreen.tsx');
     const stylesheet = source('src/features/screens/story-puzzle-experience.css');
 
@@ -63,7 +63,9 @@ describe('Stage 3 remaining Story Puzzle playability', () => {
     assert.match(screen, /Stage inputs are collected and verified together only at final submission\./);
     assert.match(screen, /data-prepared=\{index < stageIndex && hasPuzzleDraftInput\(stageDrafts\[index\]!\)\}/);
     assert.match(screen, /const cancelQueuedSave = \(\) =>/);
-    assert.match(screen, /cancelQueuedSave\(\);\s*setBusy\(true\);\s*await actions\.saveDraft/);
+    assert.match(screen, /const draftSaveChain = useRef<Promise<unknown>>\(Promise\.resolve\(\)\);/);
+    assert.match(screen, /return enqueueSerializedDraftSave\(/);
+    assert.match(screen, /await enqueueDraftSave\(selectedPuzzle\.id, normalizedDraft\);/);
     assert.match(stylesheet, /button\[data-prepared="true"\]/);
     assert.doesNotMatch(stylesheet, /button\[data-complete="true"\]/);
   });

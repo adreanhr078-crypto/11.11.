@@ -26,6 +26,8 @@ describe('Stage 3 interaction reliability', () => {
     assert.match(stylesheet, /\.application-shell__utility \.gds-button \{\s*min-width: var\(--gds-touch-target\);/);
     assert.match(stylesheet, /\.application-shell__navigation button \{[\s\S]*cursor: pointer;/);
     assert.match(stylesheet, /\.application-shell__navigation button:active/);
+    assert.match(stylesheet, /@media \(max-width: 900px\) \{/);
+    assert.match(stylesheet, /\.application-shell__player-card-copy \{\s*display: none;/);
   });
 
   it('keeps the language settings usable at phone width instead of pushing cards beyond the viewport', () => {
@@ -40,13 +42,17 @@ describe('Stage 3 interaction reliability', () => {
     assert.match(stylesheet, /\.shell-settings-list > div > dd \{\s*inline-size: 100%;/);
   });
 
-  it('gives contract chess an intentional board-first recovery path without changing authority', () => {
+  it('gives local and verified Chess an intentional board-first recovery path without changing authority', () => {
     const chess = source('src/features/echo-network/ContractChessPanel.tsx');
     const stylesheet = source('src/features/echo-network/echo-network.css');
 
-    assert.match(chess, /id="contract-chess-board"/);
+    assert.match(chess, /boardId = 'contract-chess-board'/);
+    assert.match(chess, /id=\{boardId\}/);
     assert.match(chess, /scrollIntoView/);
     assert.match(chess, /boardIsVisible/);
+    assert.match(chess, /const boardTargetId = activeView === 'training' && trainingSurface === 'verified'/);
+    assert.match(chess, /document\.getElementById\(boardTargetId\)/);
+    assert.match(chess, /document\.getElementById\('verified-chess-training-board'\)/);
     assert.match(stylesheet, /scroll-margin-block: \.5rem 5rem/);
     assert.match(stylesheet, /\.echo-network\[data-tab="chess"\]/);
     assert.match(stylesheet, /\.contract-chess-board-frame \{ inline-size: min\(100%, 22rem\); \}/);

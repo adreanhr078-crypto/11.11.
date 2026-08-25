@@ -499,7 +499,7 @@ export function createCharactersScreenReadModel(
         id: 'character_echo',
         name: 'Echo',
         displayName: 'Echo',
-        codename: 'A-17',
+        codename: 'EX-011',
         role: 'الشخصية الرئيسية',
         relationship: 'أنت تتحدث معه مباشرة داخل النظام.',
         unlocked: true,

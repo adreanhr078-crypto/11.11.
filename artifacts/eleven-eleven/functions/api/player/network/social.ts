@@ -11,6 +11,7 @@ import {
 } from '../_shared';
 import { requirePlayerDatabase, type PlayerDatabase } from '../_database';
 import { ensureNetworkPlayer, readNetworkEligibility } from '../_network';
+import { requirePlayerRolloutFeature } from '../_rolloutPolicy';
 
 const socialActionSchema = z.discriminatedUnion('action', [
   z.object({
@@ -183,6 +184,7 @@ export async function onRequestGet({ request, env }: PlayerApiContext): Promise<
   const headers = corsHeaders(request, env);
   try {
     const { account } = await authenticatePlayer(request, env);
+    requirePlayerRolloutFeature(env.PLAYER_ROLLOUT_POLICY, 'communityEnabled');
     const db = requirePlayerDatabase(env);
     const now = new Date().toISOString();
     await ensureNetworkPlayer(db, account, now);
@@ -207,6 +209,7 @@ export async function onRequestPost({ request, env }: PlayerApiContext): Promise
     if (!parsed.success) {
       throw new PlayerApiError(400, 'invalid_social_request', 'Social request is invalid.');
     }
+    requirePlayerRolloutFeature(env.PLAYER_ROLLOUT_POLICY, 'communityEnabled');
     const action = parsed.data;
     const db = requirePlayerDatabase(env);
     const now = new Date().toISOString();

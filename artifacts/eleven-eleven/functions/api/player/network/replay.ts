@@ -10,6 +10,7 @@ import {
   type PlayerApiContext,
 } from '../_shared';
 import { requirePlayerDatabase } from '../_database';
+import { requirePlayerRolloutFeature } from '../_rolloutPolicy';
 
 const matchIdSchema = z.string().trim().regex(/^match_[A-Za-z0-9_-]{3,90}$/);
 const replayEnvelopeSchema = z.object({
@@ -36,6 +37,7 @@ export async function onRequestGet({ request, env }: PlayerApiContext): Promise<
   const headers = corsHeaders(request, env);
   try {
     const { account } = await authenticatePlayer(request, env);
+    requirePlayerRolloutFeature(env.PLAYER_ROLLOUT_POLICY, 'networkEnabled');
     const matchId = matchIdSchema.safeParse(new URL(request.url).searchParams.get('matchId'));
     if (!matchId.success) {
       throw new PlayerApiError(400, 'invalid_match_id', 'The replay identifier is invalid.');

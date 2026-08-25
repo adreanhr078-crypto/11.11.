@@ -161,21 +161,26 @@
 .contract-chess-surface { position: relative; isolation: isolate; }
 .contract-chess-surface::before { position: absolute; z-index: -1; inset: -.7rem; opacity: .8; background: radial-gradient(circle at 45% 0%, rgb(var(--net-red) / 14%), transparent 27rem), linear-gradient(115deg, rgb(0 0 0 / 0%), rgb(0 0 0 / 50%)); content: ""; pointer-events: none; }
 .contract-chess-stage { position: relative; isolation: isolate; overflow: hidden; padding: clamp(.45rem, 1vw, .78rem); border: 1px solid rgb(236 210 175 / 24%); background: radial-gradient(circle at 12% 0%, rgb(var(--net-red) / 13%), transparent 18rem), linear-gradient(135deg, rgb(7 8 11 / 98%), rgb(16 9 12 / 94%)); box-shadow: inset 0 1px rgb(255 238 214 / 8%), inset 0 -1px rgb(var(--net-red) / 34%), 0 1.2rem 3rem rgb(0 0 0 / 38%); }
+.contract-chess-stage[data-state="echo-duel"] { background: radial-gradient(circle at 70% 12%, rgb(var(--net-red) / 22%), transparent 17rem), radial-gradient(circle at 18% 90%, rgb(var(--net-cyan) / 9%), transparent 18rem), linear-gradient(135deg, #07090f 8%, #17080e 54%, #090b10); }
 .contract-chess-stage::before { position: absolute; z-index: 0; inset: 0; opacity: .52; background: linear-gradient(90deg, rgb(0 0 0 / 64%) 1px, transparent 1px), linear-gradient(rgb(230 202 162 / 7%) 1px, transparent 1px); background-size: 3.5rem 3.5rem; mask-image: linear-gradient(90deg, #000, transparent 84%); content: ""; pointer-events: none; }
 .contract-chess-stage > * { position: relative; z-index: 1; }
 .contract-chess-stage__board-area { min-inline-size: 0; overflow-x: auto; overscroll-behavior-inline: contain; padding-block-end: .2rem; touch-action: pan-x pan-y; }
 .contract-chess-stage__brief { align-self: center; border-color: rgb(236 210 175 / 22%) !important; background: linear-gradient(145deg, rgb(8 8 10 / 88%), rgb(24 10 13 / 72%)) !important; box-shadow: inset .2rem 0 rgb(var(--net-red) / 56%), 0 .8rem 2rem rgb(0 0 0 / 20%); }
+.contract-chess-stage__mini-echo { margin-block: .2rem .75rem; }
 .contract-chess-stage__eyebrow { display: flex; align-items: center; gap: .45rem; inline-size: min(100%, 40rem); margin: 0 auto .42rem; color: #f2dcc0; font: 700 .56rem var(--gds-font-mono); letter-spacing: .11em; text-transform: uppercase; }
 .contract-chess-stage__eyebrow > span { display: inline-block; inline-size: .54rem; aspect-ratio: 1; border: 1px solid rgb(255 236 205 / 74%); transform: rotate(45deg); background: linear-gradient(135deg, transparent 45%, rgb(var(--net-red)) 46% 54%, transparent 55%); box-shadow: 0 0 .75rem rgb(var(--net-red) / 38%); }
 .contract-chess-board-frame { --contract-chess-touch-square: 44px; --contract-chess-board-min: 352px; position: relative; isolation: isolate; inline-size: min(100%, 40rem); min-inline-size: calc(var(--contract-chess-board-min) + .75rem); margin-inline: auto; padding: clamp(.25rem, .9vw, .58rem); border: 1px solid rgb(238 211 175 / 42%); background: linear-gradient(135deg, rgb(58 42 37 / 92%), rgb(10 10 12 / 97%) 38%, rgb(44 11 16 / 90%)); clip-path: polygon(.9rem 0, calc(100% - .9rem) 0, 100% .9rem, 100% calc(100% - .9rem), calc(100% - .9rem) 100%, .9rem 100%, 0 calc(100% - .9rem), 0 .9rem); box-shadow: inset 0 0 0 1px rgb(0 0 0 / 78%), inset 0 .08rem rgb(255 243 225 / 17%), 0 1.25rem 2.8rem rgb(0 0 0 / 62%), 0 0 2.25rem rgb(var(--net-red) / 10%); scroll-margin-block: .5rem 5rem; }
+.contract-chess-board-frame { border-color: rgb(255 96 112 / 54%); background: linear-gradient(135deg, rgb(71 12 24 / 96%), rgb(5 8 13 / 98%) 42%, rgb(18 13 23 / 96%)); box-shadow: inset 0 0 0 1px rgb(0 0 0 / 78%), inset 0 .08rem rgb(255 231 231 / 13%), 0 1.25rem 2.8rem rgb(0 0 0 / 62%), 0 0 2.25rem rgb(var(--net-red) / 20%); }
 .contract-chess-board-frame::before { position: absolute; z-index: 3; inset: .18rem; border: 1px solid rgb(241 216 181 / 27%); clip-path: inherit; content: ""; pointer-events: none; }
 .contract-chess-board-frame__seal { position: absolute; z-index: 4; inset-block-start: -.58rem; inset-inline-start: 50%; inline-size: 1.15rem; aspect-ratio: 1; border: 1px solid rgb(250 224 185 / 62%); transform: translateX(-50%) rotate(45deg); background: radial-gradient(circle, rgb(var(--net-red)) 0 22%, transparent 24%), #151115; box-shadow: 0 0 .85rem rgb(var(--net-red) / 52%); pointer-events: none; }
-.contract-chess-board { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); inline-size: 100%; min-inline-size: var(--contract-chess-board-min); margin: 0; overflow: hidden; border: 1px solid rgb(0 0 0 / 82%); background: #0a0a0d; box-shadow: inset 0 0 0 1px rgb(255 239 212 / 8%); aspect-ratio: 1; }
-.contract-chess-square { position: relative; display: grid; place-items: center; min-inline-size: var(--contract-chess-touch-square); min-block-size: var(--contract-chess-touch-square); overflow: hidden; padding: 0; border: 0; color: #f7ead7; background: linear-gradient(145deg, #dfd1bd, #b9a992); cursor: pointer; touch-action: manipulation; }
-.contract-chess-square[data-dark="true"] { background: linear-gradient(145deg, #34323a, #15161b); }
+.contract-chess-board { position: relative; z-index: 1; display: grid; grid-template-rows: repeat(8, minmax(0, 1fr)); inline-size: 100%; min-inline-size: var(--contract-chess-board-min); margin: 0; overflow: hidden; border: 1px solid rgb(0 0 0 / 82%); background: #0a0a0d; box-shadow: inset 0 0 0 1px rgb(255 239 212 / 8%); aspect-ratio: 1; }
+.contract-chess-board__row { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); min-block-size: 0; }
+.contract-chess-square { position: relative; display: grid; place-items: center; min-inline-size: var(--contract-chess-touch-square); min-block-size: var(--contract-chess-touch-square); overflow: hidden; padding: 0; border: 0; color: #f7ead7; background: linear-gradient(145deg, #742030, #360d18 58%, #1d0910); cursor: pointer; touch-action: manipulation; }
+.contract-chess-square[data-dark="true"] { background: linear-gradient(145deg, #1d2633, #090d13 58%, #040609); }
 .contract-chess-square::before, .contract-chess-square::after { position: absolute; content: ""; pointer-events: none; }
 .contract-chess-square::before { z-index: 3; inset: 0; border: 1px solid transparent; }
-.contract-chess-square::after { z-index: 0; inset: 0; opacity: 0; background: repeating-linear-gradient(135deg, rgb(255 239 205 / 0%) 0 .23rem, rgb(255 239 205 / 27%) .23rem .32rem); transition: opacity var(--gds-duration-fast); }
+.contract-chess-square::after { z-index: 0; inset: 0; opacity: .25; background: repeating-linear-gradient(135deg, rgb(255 230 235 / 0%) 0 .23rem, rgb(255 230 235 / 15%) .23rem .32rem); transition: opacity var(--gds-duration-fast), background var(--gds-duration-fast); }
+.contract-chess-square[data-dark="true"]::after { background: radial-gradient(circle at 20% 20%, rgb(var(--net-cyan) / 16%) 0 .08rem, transparent .1rem) 0 0 / .48rem .48rem; }
 .contract-chess-square:hover::before { border-color: rgb(255 239 205 / 62%); }
 .contract-chess-square:focus-visible { z-index: 4; outline: 3px solid #fff1d9; outline-offset: -5px; }
 .contract-chess-square[data-selected="true"] { box-shadow: inset 0 0 0 3px rgb(var(--net-red)), inset 0 0 1.25rem rgb(var(--net-red) / 56%); }
@@ -183,14 +188,40 @@
 .contract-chess-square[data-selected="true"]::after { opacity: 1; }
 .contract-chess-square[data-destination="true"] > i { position: relative; z-index: 2; inline-size: 22%; aspect-ratio: 1; border: 2px solid rgb(255 245 222 / 82%); border-radius: 50%; background: rgb(var(--net-red) / 68%); box-shadow: 0 0 .75rem rgb(var(--net-red) / 52%); }
 .contract-chess-square[data-capture="true"] > i { inline-size: 72%; border-width: .17rem; background: transparent; box-shadow: inset 0 0 .5rem rgb(var(--net-red) / 45%), 0 0 .6rem rgb(255 239 205 / 28%); }
-.contract-chess-square > span { position: absolute; z-index: 2; font: 400 clamp(1.35rem, 4.5vw, 3.1rem)/1 Georgia, serif; filter: drop-shadow(0 .12rem .12rem rgb(0 0 0 / 72%)); transition: transform var(--gds-duration-fast), filter var(--gds-duration-fast); }
-.contract-chess-square:hover > span { transform: translateY(-3%); filter: drop-shadow(0 .26rem .22rem rgb(0 0 0 / 72%)); }
-.contract-chess-square > span[data-piece-color="w"] { color: #b70f2a; -webkit-text-stroke: .5px #ffd4bf; text-shadow: 0 0 .7rem rgb(var(--net-red) / 44%); }
-.contract-chess-square > span[data-piece-color="b"] { color: #15151a; -webkit-text-stroke: 1px #e9dbc5; text-shadow: 0 0 .16rem rgb(255 239 209 / 28%); }
+.contract-chess-square > span { position: absolute; z-index: 2; font: 700 clamp(1.35rem, 4.5vw, 3.1rem)/1 Georgia, serif; filter: drop-shadow(0 .12rem .12rem rgb(0 0 0 / 72%)); transition: transform 220ms cubic-bezier(.22,.8,.28,1), filter 220ms ease; }
+.contract-chess-square:hover > span { transform: translateY(-3%) scale(1.035); filter: drop-shadow(0 .26rem .22rem rgb(0 0 0 / 72%)); }
+.contract-chess-square > span[data-piece-color="w"] { color: #ee2947; -webkit-text-stroke: 1px #ffe4de; text-shadow: 0 .08rem .12rem #240008, 0 0 .8rem rgb(255 45 74 / 88%), 0 0 1.5rem rgb(var(--net-red) / 30%); }
+.contract-chess-square > span[data-piece-color="b"] { color: #0a111c; -webkit-text-stroke: 1px #b9e4ee; text-shadow: 0 .08rem .12rem #000, 0 0 .45rem rgb(var(--net-cyan) / 46%), 0 0 1.2rem rgb(0 0 0 / 68%); }
+.contract-chess-square > span[data-last-move="to"] { animation: contract-chess-piece-arrive 220ms cubic-bezier(.22,.8,.28,1); }
+.contract-chess-square > span[data-last-move="from"] { opacity: .56; }
 .contract-chess-square small { position: absolute; z-index: 3; color: rgb(255 247 232 / 72%); font: 700 .43rem var(--gds-font-mono); text-shadow: 0 1px 1px rgb(0 0 0 / 78%); }
 .contract-chess-square small[data-coordinate="rank"] { inset: .14rem auto auto .17rem; }
 .contract-chess-square small[data-coordinate="file"] { inset: auto .17rem .14rem auto; }
 .contract-chess-square:disabled { cursor: not-allowed; }
+.contract-chess-board__status { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+.contract-chess-promotion { position: absolute; z-index: 8; inset: 50% auto auto 50%; display: grid; gap: .42rem; inline-size: min(18rem, calc(100% - 1rem)); padding: .7rem; border: 1px solid rgb(255 235 219 / 52%); transform: translate(-50%, -50%); color: #fff0df; background: linear-gradient(145deg, rgb(31 6 12 / 98%), rgb(6 11 17 / 98%)); box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 68%), 0 0 1.5rem rgb(var(--net-red) / 28%); }
+.contract-chess-promotion > span { color: var(--gds-text-secondary); font-size: .65rem; line-height: 1.5; }
+.contract-chess-promotion > div { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .32rem; }
+.contract-chess-promotion button { display: grid; place-items: center; min-block-size: 3rem; padding: .25rem; border: 1px solid rgb(255 255 255 / 16%); color: #fff0df; background: rgb(255 255 255 / 5%); cursor: pointer; }
+.contract-chess-promotion button:hover, .contract-chess-promotion button:focus-visible { border-color: rgb(var(--net-red) / 76%); outline: 2px solid rgb(255 240 219 / 88%); outline-offset: 2px; background: rgb(var(--net-red) / 18%); }
+.contract-chess-promotion button > span { font: 700 1.8rem/1 Georgia, serif; }
+.contract-chess-difficulty { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .35rem; margin-block: .65rem .3rem; }
+.contract-chess-difficulty .gds-button { min-block-size: 2.75rem; padding-inline: .3rem; }
+.contract-chess-difficulty__description { min-block-size: 2.2rem; margin: 0; color: var(--gds-text-secondary); font-size: .63rem; line-height: 1.5; }
+.contract-chess-difficulty__locked { display: block; margin-block: .25rem .55rem; color: rgb(var(--net-cyan)); font: 600 .52rem/1.45 var(--gds-font-mono); }
+.contract-chess-local-only { margin: .65rem 0 0; padding: .45rem .5rem; border-inline-start: 2px solid rgb(var(--net-cyan) / 68%); color: var(--gds-text-muted); background: rgb(var(--net-cyan) / 6%); font-size: .6rem; line-height: 1.5; }
+.contract-chess-verified-training { position: relative; isolation: isolate; display: grid; gap: .65rem; overflow: hidden; padding: clamp(.65rem, 1.35vw, 1rem); border: 1px solid rgb(var(--net-cyan) / 30%); background: radial-gradient(circle at 86% 8%, rgb(var(--net-cyan) / 14%), transparent 15rem), radial-gradient(circle at 8% 92%, rgb(var(--net-red) / 11%), transparent 18rem), linear-gradient(132deg, rgb(4 11 17 / 96%), rgb(11 8 14 / 96%)); box-shadow: inset 0 1px rgb(230 255 255 / 8%), 0 .9rem 2rem rgb(0 0 0 / 25%); }
+.contract-chess-verified-training::before { position: absolute; z-index: -1; inset: 0; opacity: .55; background: linear-gradient(90deg, rgb(var(--net-cyan) / 6%) 1px, transparent 1px), linear-gradient(rgb(var(--net-cyan) / 5%) 1px, transparent 1px); background-size: 2.75rem 2.75rem; mask-image: linear-gradient(120deg, #000, transparent 72%); content: ""; pointer-events: none; }
+.contract-chess-verified-training__heading { display: grid; gap: .2rem; max-inline-size: 48rem; }
+.contract-chess-verified-training__heading small, .contract-chess-verified-training__objective small { color: rgb(var(--net-cyan)); font: 800 .52rem var(--gds-font-mono); letter-spacing: .1em; text-transform: uppercase; }
+.contract-chess-verified-training__heading h3 { margin: 0; color: #f5f1e9; font-size: clamp(1rem, 2vw, 1.35rem); }
+.contract-chess-verified-training__heading p { max-inline-size: 44rem; margin: 0; color: var(--gds-text-secondary); font-size: .68rem; line-height: 1.58; }
+.contract-chess-verified-training__active { display: grid; gap: .55rem; min-inline-size: 0; }
+.contract-chess-verified-training__objective { display: grid; gap: .18rem; padding: .55rem .65rem; border-inline-start: 2px solid rgb(var(--net-cyan)); background: linear-gradient(90deg, rgb(var(--net-cyan) / 10%), transparent 78%); }
+.contract-chess-verified-training__objective strong { color: #f1fcff; font-size: clamp(.82rem, 1.7vw, 1rem); }
+.contract-chess-verified-training__objective span { color: var(--gds-text-muted); font-size: .62rem; line-height: 1.45; }
+.contract-chess-verified-training__state, .contract-chess-verified-training__complete { margin: 0; padding: .65rem; border: 1px solid rgb(var(--net-cyan) / 22%); color: var(--gds-text-secondary); background: rgb(var(--net-cyan) / 5%); font-size: .68rem; line-height: 1.55; }
+.contract-chess-verified-training__complete { border-color: rgb(111 239 189 / 35%); color: #dfffe9; background: rgb(111 239 189 / 8%); }
 .contract-chess-clocks { display: flex; justify-content: space-between; gap: .42rem; inline-size: min(100%, 40rem); margin: 0 auto .42rem; }
 .contract-chess-clocks > span { display: flex; align-items: center; gap: .45rem; min-inline-size: 8rem; padding: .4rem .55rem; border: 1px solid rgb(235 213 180 / 22%); background: linear-gradient(110deg, rgb(5 5 8 / 95%), rgb(27 12 15 / 86%)); box-shadow: inset 0 1px rgb(255 243 219 / 7%); }
 .contract-chess-clocks > span > i { display: inline-block; inline-size: .55rem; aspect-ratio: 1; border: 1px solid rgb(250 231 203 / 72%); background: #111116; }
@@ -199,7 +230,7 @@
 .contract-chess-clocks small { color: var(--gds-text-muted); font: 600 .48rem var(--gds-font-mono); }
 .contract-chess-clocks strong { margin-inline-start: auto; color: #fff1dc; font: 800 .85rem var(--gds-font-mono); }
 .contract-chess-lobby { position: relative; isolation: isolate; display: grid; grid-template-columns: minmax(15rem, 1.08fr) minmax(15rem, .92fr); gap: .7rem; min-block-size: 21rem; overflow: hidden; padding: clamp(.65rem, 1.4vw, 1.05rem); border: 1px solid rgb(237 214 181 / 22%); background: #08080a; box-shadow: inset 0 -1px rgb(var(--net-red) / 32%), 0 1rem 2.5rem rgb(0 0 0 / 30%); }
-.contract-chess-lobby__visual { position: absolute; z-index: 0; inset: 0; opacity: .86; background: linear-gradient(90deg, rgb(5 5 7 / 93%) 6%, rgb(5 5 7 / 72%) 53%, rgb(5 5 7 / 89%)), linear-gradient(0deg, rgb(5 5 7 / 86%), transparent 50%), url('/assets/ui/chess/contract-sanctum-v1.png') center 46% / cover; filter: saturate(.78) contrast(1.08); pointer-events: none; }
+.contract-chess-lobby__visual { position: absolute; z-index: 0; inset: 0; opacity: .9; background: radial-gradient(ellipse 34% 72% at 78% 49%, transparent 0 29%, rgb(var(--net-red) / 10%) 30% 31%, transparent 32% 40%, rgb(0 0 0 / 35%) 41% 54%, transparent 55%), linear-gradient(90deg, rgb(5 5 7 / 95%) 4%, rgb(5 5 7 / 70%) 52%, rgb(5 5 7 / 92%)), linear-gradient(0deg, rgb(5 5 7 / 92%), transparent 58%), repeating-linear-gradient(90deg, transparent 0 4.5rem, rgb(241 219 186 / 4%) 4.55rem 4.63rem), radial-gradient(ellipse at 38% 84%, rgb(var(--net-red) / 12%), transparent 28rem), #08080a; filter: saturate(.82) contrast(1.08); pointer-events: none; }
 .contract-chess-lobby > :not(.contract-chess-lobby__visual) { position: relative; z-index: 1; }
 .contract-chess-lobby__hero { align-self: end; max-inline-size: 34rem; padding: clamp(.45rem, 1vw, .85rem); border-inline-start: 2px solid rgb(var(--net-red)); background: linear-gradient(90deg, rgb(6 6 8 / 84%), transparent); }
 .contract-chess-lobby__hero > span { color: rgb(246 216 183); font: 700 .58rem var(--gds-font-mono); letter-spacing: .12em; }
@@ -334,6 +365,7 @@
 @keyframes echo-network-spin { to { transform: rotate(360deg); } }
 @keyframes echo-network-pulse { 50% { box-shadow: inset 0 0 2.2rem rgb(var(--net-cyan) / 14%), 0 0 2.5rem rgb(var(--net-red) / 13%); transform: scale(1.02); } }
 @keyframes echo-network-enter { from { opacity: 0; transform: translateY(.5rem); } }
+@keyframes contract-chess-piece-arrive { 0% { opacity: .12; transform: translateY(-18%) scale(.72); filter: brightness(1.75) drop-shadow(0 0 .9rem rgb(var(--net-red) / 82%)); } 68% { transform: translateY(2%) scale(1.08); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
 
 @media (max-width: 70rem) {
   .echo-network-hub-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -371,6 +403,7 @@
   .contract-chess-clocks { gap: .28rem; margin-block-end: .25rem; }
   .contract-chess-clocks > span { flex: 1 1 0; min-inline-size: 0; padding: .32rem .4rem; }
   .contract-chess-board-frame { inline-size: min(100%, 22rem); }
+  .contract-chess-verified-training { padding: .58rem; }
   .contract-chess-square > span { font-size: clamp(1.25rem, 10vw, 2.6rem); }
   .coop-clue-grid, .coop-mechanic__choices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .coop-case-picker { grid-template-columns: 1fr; max-block-size: 18rem; }

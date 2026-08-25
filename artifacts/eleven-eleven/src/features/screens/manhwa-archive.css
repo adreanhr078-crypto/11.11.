@@ -467,6 +467,17 @@
   animation: manhwa-viewer-page-ready 220ms var(--gds-ease-enter) both;
 }
 
+/* A portrait reader is a reading surface, not a centered poster frame. When
+   a page is shorter than the available phone stage, begin it at the top so
+   the first panel is immediately visible instead of leaving a large dead
+   letterbox above the story. Desktop keeps the centered gallery treatment. */
+@media (max-width: 48rem) {
+  .manhwa-viewer__stage {
+    place-items: start center;
+    align-content: start;
+  }
+}
+
 @keyframes manhwa-viewer-enter {
   from {
     opacity: 0;

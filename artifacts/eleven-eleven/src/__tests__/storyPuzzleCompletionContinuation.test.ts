@@ -8,7 +8,7 @@ function source(relativePath: string): string {
 }
 
 describe('Story Puzzle completion continuation', () => {
-  it('turns an authoritative reward receipt into a visible next objective and Manhwa continuation', () => {
+  it('turns an authoritative reward receipt into a visible next objective and a verified continuation', () => {
     const puzzleScreen = source('src/features/screens/PuzzleScreen.tsx');
 
     assert.match(
@@ -16,8 +16,11 @@ describe('Story Puzzle completion continuation', () => {
       /deriveCorePlayerObjective\(reward\?\.snapshot \?\? null, locale\)/,
     );
     assert.match(puzzleScreen, /story-reward-moment__next-objective/);
-    assert.match(puzzleScreen, /onClick=\{onContinueManhwa\}/);
-    assert.match(puzzleScreen, /actions\.dismissReward\(\);\s*requestManhwaReader\(\);/);
+    assert.match(puzzleScreen, /onContinueObjective\(nextObjective\)/);
+    assert.match(puzzleScreen, /nextObjective\.actionLabel/);
+    assert.match(puzzleScreen, /if \(objective\.secretPuzzleId\)/);
+    assert.match(puzzleScreen, /void discover\(objective\.secretPuzzleId\);/);
+    assert.match(puzzleScreen, /requestManhwaReader\(\);/);
     assert.match(puzzleScreen, /story-puzzle-console__completion-loop/);
     assert.match(puzzleScreen, /onClick=\{requestManhwaReader\}/);
   });

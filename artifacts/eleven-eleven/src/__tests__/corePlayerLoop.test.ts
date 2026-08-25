@@ -4,13 +4,16 @@ import { deriveCorePlayerObjective } from '../application/player-journey/corePla
 import { STORY_PUZZLES } from '../content/puzzles/storyPuzzleCatalog';
 import type { StoryPuzzleSnapshot } from '../domain/story-puzzles/storyPuzzleContracts';
 
-function snapshot(statuses: Record<string, 'locked' | 'available' | 'in_progress' | 'completed'>): StoryPuzzleSnapshot {
+function snapshot(
+  statuses: Record<string, 'locked' | 'available' | 'in_progress' | 'completed'>,
+  discoverableSecretPuzzleIds: readonly string[] = [],
+): StoryPuzzleSnapshot {
   return {
     coinBalance: 0,
     shardCount: 0,
     mainCompletedCount: 0,
     totalCompletedCount: 0,
-    discoverableSecretPuzzleIds: [],
+    discoverableSecretPuzzleIds: [...discoverableSecretPuzzleIds],
     echoResonance: { total: 0, byAxis: { clarity: 0, memory: 0, trust: 0, resolve: 0, stability: 0, anomaly: 0 }, lastPuzzleId: null },
     syncedAt: new Date(0).toISOString(),
     entries: STORY_PUZZLES.map((puzzle) => ({
@@ -45,6 +48,20 @@ describe('Core Player Loop', () => {
     }));
     assert.deepEqual([afterFirst.kind, afterFirst.screen], ['read', 'memories']);
     assert.match(afterFirst.title, /5/);
+  });
+
+  it('makes a server-discovered secret a clear next objective without treating it as unlocked in the client', () => {
+    const objective = deriveCorePlayerObjective(snapshot({
+      story_puzzle_01_signal_calibration: 'completed',
+      story_puzzle_02_broken_sequence: 'completed',
+      story_puzzle_03_torn_memory: 'available',
+    }, ['story_puzzle_03_torn_memory']), 'en');
+
+    assert.equal(objective.kind, 'solve');
+    assert.equal(objective.screen, 'puzzles');
+    assert.equal(objective.secretPuzzleId, 'story_puzzle_03_torn_memory');
+    assert.equal(objective.actionLabel, 'Inspect fragment');
+    assert.doesNotMatch(objective.detail, /piece-|target|answer/i);
   });
 
   it('keeps first-three puzzle answers out of the public catalog and client readiness path', async () => {

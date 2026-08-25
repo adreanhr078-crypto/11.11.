@@ -29,7 +29,6 @@ import {
 } from '../../infrastructure/voice/browserEchoMindVoice';
 import { EchoPresence } from '../../ui/presentation';
 import {
-  createEchoMindPlayerContext,
   useEchoMindLivingStore,
 } from '../../application/echo/echoMindLivingStore';
 import {
@@ -46,7 +45,8 @@ interface ChatMessage {
 }
 
 function createInitialMessages(openingLine: string): ChatMessage[] {
-  const savedTurns = useEchoMindLivingStore.getState().turns.slice(-12);
+  // Four stored turns are the bounded eight-message temporary history.
+  const savedTurns = useEchoMindLivingStore.getState().turns.slice(-4);
   if (savedTurns.length > 0) {
     return savedTurns.flatMap((turn) => [
       {
@@ -204,7 +204,9 @@ export default function EchoMindScreen() {
       text,
       typeof document !== 'undefined' ? document.documentElement.lang : 'ar',
     );
-    const history: EchoMindHistoryMessage[] = messages.map((message) => ({
+    // The outbound request adds `text` as the current message. Keeping seven
+    // prior entries makes the complete model conversation window eight.
+    const history: EchoMindHistoryMessage[] = messages.slice(-7).map((message) => ({
       role: message.speaker === 'echo' ? 'assistant' : 'user',
       content: message.text,
     }));
@@ -233,7 +235,6 @@ export default function EchoMindScreen() {
 
     state.actions.chat();
     const freshState = useGameStore.getState();
-    const livingSnapshot = useEchoMindLivingStore.getState();
     const localEnvelope = createEchoMindTurnEnvelope(
       text,
       freshState,
@@ -264,7 +265,6 @@ export default function EchoMindScreen() {
         context: createEchoMindKnowledgeContext(
           freshState,
           locale,
-          createEchoMindPlayerContext(livingSnapshot),
         ),
         safetyIdentifier: getEchoMindSafetyIdentifier(),
         signal: controller.signal,
@@ -345,8 +345,8 @@ export default function EchoMindScreen() {
 
   const clearLivingMemory = () => {
     const confirmed = window.confirm(activeLocale === 'en'
-      ? 'Delete Echo\'s personal memory of this player and the saved chat?'
-      : 'حذف ذاكرة Echo الشخصية عن هذا اللاعب وسجل المحادثة؟');
+      ? 'Clear this temporary Echo session? Nothing is stored on the server.'
+      : 'مسح جلسة Echo المؤقتة؟ لا يُحفظ شيء على الخادم.');
     if (!confirmed) return;
     living.clearPersonalMemory();
     setMessages(createInitialMessages(model.openingLine));
@@ -425,55 +425,25 @@ export default function EchoMindScreen() {
           <section
             className="echo-living-profile"
             aria-label={activeLocale === 'en'
-              ? 'Echo relationship memory'
-              : 'ذاكرة علاقة Echo'}
+              ? 'Temporary Echo session privacy'
+              : 'خصوصية جلسة Echo المؤقتة'}
           >
             <header>
-              <small>PLAYER MEMORY // LOCAL</small>
+              <small>TEMPORARY SESSION // 8 MESSAGES</small>
               <GameButton
                 size="sm"
                 variant="ghost"
                 leadingIcon={<Trash2 size={12} />}
                 onClick={clearLivingMemory}
               >
-                {activeLocale === 'en' ? 'Forget' : 'نسيان'}
+                {activeLocale === 'en' ? 'Clear session' : 'مسح الجلسة'}
               </GameButton>
             </header>
-            <div className="echo-living-profile__metrics">
-              {([
-                ['bond', activeLocale === 'en' ? 'Bond' : 'الرابطة', living.relationship.bond],
-                ['openness', activeLocale === 'en' ? 'Openness' : 'الانفتاح', living.relationship.openness],
-                ['tension', activeLocale === 'en' ? 'Tension' : 'التوتر', living.relationship.tension],
-              ] as const).map(([tone, label, value]) => (
-                <div
-                  key={tone}
-                  className="echo-living-profile__metric"
-                  data-tone={tone}
-                >
-                  <span>{label}</span>
-                  <span className="echo-living-profile__track">
-                    <i style={{ width: `${value}%` }} />
-                  </span>
-                  <b>{value}</b>
-                </div>
-              ))}
-            </div>
-            <div className="echo-living-memory-list">
-              {living.playerName && (
-                <span>{activeLocale === 'en' ? 'Name' : 'الاسم'}: {living.playerName}</span>
-              )}
-              {living.memories
-                .filter((memory) => memory.kind !== 'name')
-                .slice(0, 3)
-                .map((memory) => (
-                  <span key={memory.id}>{memory.text}</span>
-                ))}
-              {!living.playerName && living.memories.length === 0 && (
-                <span>{activeLocale === 'en'
-                  ? 'Echo has not learned anything personal yet.'
-                  : 'لم يتعلم Echo شيئًا شخصيًا بعد.'}</span>
-              )}
-            </div>
+            <p className="echo-living-profile__privacy-note">
+              {activeLocale === 'en'
+                ? 'Echo keeps at most eight messages only while this session is open. Personal memory is not saved or synchronized, and no player-provided profile is sent to the companion model.'
+                : 'يحتفظ Echo بثماني رسائل كحد أقصى خلال هذه الجلسة فقط. لا تُحفظ الذاكرة الشخصية ولا تُزامن، ولا يُرسل أي ملف شخصي يكتبه اللاعب إلى نموذج المرافق.'}
+            </p>
           </section>
           <section className="echo-knowledge-gates" aria-label="Echo knowledge channels">
             <header>

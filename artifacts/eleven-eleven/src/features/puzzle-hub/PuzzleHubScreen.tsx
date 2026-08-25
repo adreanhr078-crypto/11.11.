@@ -2,6 +2,7 @@ import {
   lazy,
   Suspense,
   type KeyboardEvent as ReactKeyboardEvent,
+  useEffect,
   useMemo,
   useState,
 } from 'react';
@@ -13,7 +14,7 @@ import {
 import { useAuthStore } from '../auth/authStore';
 import { useLiveChallengeStore } from '../live-challenges/liveChallengeStore';
 import { useStoryPuzzleStore } from '../story-puzzles/storyPuzzleStore';
-import { useUiPreferencesStore } from '../../app/shell/shellStore';
+import { useShellStore, useUiPreferencesStore } from '../../app/shell/shellStore';
 import {
   PUZZLE_HUB_MODES,
   type PuzzleHubMode,
@@ -30,8 +31,8 @@ const MODE_ICONS = {
 } as const;
 
 const HUB_COPY = {
-  ar: { loading: 'تثبيت قناة اللعب…', title: 'مركز الألغاز', description: 'ثلاث قنوات لعب، سجل واحد موثّق، وتقدّم محفوظ على الخادم. اختر مسارك وواصل من آخر نقطة آمنة.', integrity: 'حالة تكامل مركز الألغاز', modes: 'أنماط مركز الألغاز', signIn: 'يتطلب تسجيل الدخول', ready: 'جاهز للمزامنة', available: 'متاح عند الدخول', complete: 'مكتمل', stages: 'مراحل', labels: { story: ['ألغاز القصة', 'عشرون لغزًا قصصيًا: 14 رئيسيًا و6 إشارات سرية.'], daily: ['إشارة 11:11 اليومية', 'إشارة خادمية متجددة ومكافأة واحدة موثقة لكل دورة.'], weekly: ['اختبار النظام الأسبوعي', 'مراحل متتابعة، حفظ تلقائي، واستعادة أسبوعية موثقة.'] } },
-  en: { loading: 'Securing play channel…', title: 'Puzzle Hub', description: 'Three play channels, one verified record, and progress preserved by the server. Choose a path and continue from your last safe point.', integrity: 'Puzzle Hub integrity status', modes: 'Puzzle Hub modes', signIn: 'Sign-in required', ready: 'Ready to sync', available: 'Available when signed in', complete: 'complete', stages: 'stages', labels: { story: ['Story puzzles', 'Twenty story puzzles: 14 main puzzles and 6 secret signals.'], daily: ['Daily 11:11 Signal', 'A renewing server signal and one verified reward per cycle.'], weekly: ['Weekly system trial', 'Sequential stages, automatic save, and verified weekly recovery.'] } },
+  ar: { loading: 'تثبيت قناة اللعب…', title: 'مركز الألغاز', description: 'تظهر مهمتك القصصية الحالية هنا. تُفتح قنوات إضافية فقط بعد تقدمك القصصي الموثّق.', integrity: 'حالة تكامل مركز الألغاز', modes: 'أنماط مركز الألغاز', operations: 'عمليات الألغاز // الجزء الأول', storyMetric: 'قصة', channelMetric: 'قناة', signIn: 'يتطلب تسجيل الدخول', ready: 'جاهز للمزامنة', available: 'متاح عند الدخول', complete: 'مكتمل', stages: 'مراحل', eyebrows: { story: 'ألغاز القصة', daily: 'الإشارة اليومية', weekly: 'اختبار النظام' }, labels: { story: ['ألغاز القصة', 'عشرون لغزًا قصصيًا: 14 رئيسيًا و6 إشارات سرية.'], daily: ['إشارة 11:11 اليومية', 'إشارة خادمية متجددة ومكافأة واحدة موثقة لكل دورة.'], weekly: ['اختبار النظام الأسبوعي', 'مراحل متتابعة، حفظ تلقائي، واستعادة أسبوعية موثقة.'] } },
+  en: { loading: 'Securing play channel…', title: 'Puzzle Hub', description: 'Your current story mission appears here. Additional channels open only after verified story progress.', integrity: 'Puzzle Hub integrity status', modes: 'Puzzle Hub modes', operations: 'PUZZLE OPERATIONS // PART 1', storyMetric: 'STORY', channelMetric: 'CHANNEL', signIn: 'Sign-in required', ready: 'Ready to sync', available: 'Available when signed in', complete: 'complete', stages: 'stages', eyebrows: { story: 'STORY PUZZLES', daily: 'DAILY SIGNAL', weekly: 'SYSTEM TRIAL' }, labels: { story: ['Story puzzles', 'Twenty story puzzles: 14 main puzzles and 6 secret signals.'], daily: ['Daily 11:11 Signal', 'A renewing server signal and one verified reward per cycle.'], weekly: ['Weekly system trial', 'Sequential stages, automatic save, and verified weekly recovery.'] } },
 } as const;
 
 function PuzzleModeLoading({ locale }: { locale: 'ar' | 'en' }) {
@@ -46,6 +47,9 @@ function PuzzleModeLoading({ locale }: { locale: 'ar' | 'en' }) {
 export default function PuzzleHubScreen() {
   const locale = useUiPreferencesStore((state) => state.locale);
   const copy = HUB_COPY[locale];
+  const availableModes = useShellStore((state) => (
+    state.experienceEntitlements.puzzleModes
+  ));
   const [mode, setMode] = useState<PuzzleHubMode>(() => {
     try {
       const requested = sessionStorage.getItem('eleven_puzzle_hub_requested_mode');
@@ -60,6 +64,17 @@ export default function PuzzleHubScreen() {
   const authStatus = useAuthStore((state) => state.status);
   const storySnapshot = useStoryPuzzleStore((state) => state.snapshot);
   const liveSnapshot = useLiveChallengeStore((state) => state.snapshot);
+  const visibleModes = useMemo(
+    () => PUZZLE_HUB_MODES.filter((definition) => availableModes.includes(definition.id)),
+    [availableModes],
+  );
+  const activeMode = visibleModes.some((definition) => definition.id === mode)
+    ? mode
+    : 'story';
+
+  useEffect(() => {
+    if (activeMode !== mode) setMode(activeMode);
+  }, [activeMode, mode]);
 
   function focusModeFromKeyboard(
     event: ReactKeyboardEvent<HTMLButtonElement>,
@@ -67,20 +82,20 @@ export default function PuzzleHubScreen() {
   ): void {
     let nextIndex: number | null = null;
     if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
-      nextIndex = (currentIndex + 1) % PUZZLE_HUB_MODES.length;
+      nextIndex = (currentIndex + 1) % visibleModes.length;
     } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
       nextIndex = (
-        currentIndex - 1 + PUZZLE_HUB_MODES.length
-      ) % PUZZLE_HUB_MODES.length;
+        currentIndex - 1 + visibleModes.length
+      ) % visibleModes.length;
     } else if (event.key === 'Home') {
       nextIndex = 0;
     } else if (event.key === 'End') {
-      nextIndex = PUZZLE_HUB_MODES.length - 1;
+      nextIndex = visibleModes.length - 1;
     }
     if (nextIndex === null) return;
 
     event.preventDefault();
-    const nextMode = PUZZLE_HUB_MODES[nextIndex]!.id;
+    const nextMode = visibleModes[nextIndex]!.id;
     setMode(nextMode);
     window.requestAnimationFrame(() => {
       document.getElementById(`puzzle-hub-tab-${nextMode}`)?.focus();
@@ -115,14 +130,13 @@ export default function PuzzleHubScreen() {
           <strong>11:11</strong>
         </div>
         <div className="puzzle-hub__hero-copy">
-          <small>PUZZLE OPERATIONS // PART 1</small>
+          <small>{copy.operations}</small>
           <h1>{copy.title}</h1>
           <p>{copy.description}</p>
         </div>
         <div className="puzzle-hub__integrity" aria-label={copy.integrity}>
-          <span><b>20</b> STORY</span>
-          <span><b>01</b> DAILY</span>
-          <span><b>07</b> WEEKLY</span>
+          <span><b>20</b> {copy.storyMetric}</span>
+          <span><b>{String(visibleModes.length).padStart(2, '0')}</b> {copy.channelMetric}</span>
         </div>
       </header>
 
@@ -131,10 +145,10 @@ export default function PuzzleHubScreen() {
         role="tablist"
         aria-label={copy.modes}
       >
-        {PUZZLE_HUB_MODES.map((definition, index) => {
+        {visibleModes.map((definition, index) => {
           const Icon = MODE_ICONS[definition.id];
           const [label, description] = copy.labels[definition.id];
-          const active = mode === definition.id;
+          const active = activeMode === definition.id;
           return (
             <button
               key={definition.id}
@@ -154,7 +168,7 @@ export default function PuzzleHubScreen() {
                 <small>{definition.code}</small>
               </span>
               <span className="puzzle-hub__mode-copy">
-                <small>{definition.eyebrow}</small>
+                <small>{copy.eyebrows[definition.id]}</small>
                 <strong>{label}</strong>
                 <em>{description}</em>
               </span>
@@ -167,19 +181,19 @@ export default function PuzzleHubScreen() {
       </div>
 
       <section
-        key={mode}
-        id={`puzzle-hub-panel-${mode}`}
+        key={activeMode}
+        id={`puzzle-hub-panel-${activeMode}`}
         className="puzzle-hub__content"
         role="tabpanel"
         tabIndex={0}
-        aria-labelledby={`puzzle-hub-tab-${mode}`}
-        data-mode={mode}
+        aria-labelledby={`puzzle-hub-tab-${activeMode}`}
+        data-mode={activeMode}
       >
         <Suspense fallback={<PuzzleModeLoading locale={locale} />}>
-          {mode === 'story' ? (
+          {activeMode === 'story' ? (
             <StoryPuzzleMode />
           ) : (
-            <LiveChallengeMode mode={mode} embedded />
+            <LiveChallengeMode mode={activeMode} embedded />
           )}
         </Suspense>
       </section>

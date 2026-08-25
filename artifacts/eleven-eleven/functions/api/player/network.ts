@@ -8,6 +8,7 @@ import {
 } from './_shared';
 import { requirePlayerDatabase } from './_database';
 import { ensureNetworkPlayer, readNetworkEligibility } from './_network';
+import { requirePlayerRolloutFeature } from './_rolloutPolicy';
 
 interface RatingRow {
   speed: 'blitz' | 'rapid';
@@ -48,6 +49,7 @@ export async function onRequestGet({ request, env }: PlayerApiContext): Promise<
   const headers = corsHeaders(request, env);
   try {
     const { account } = await authenticatePlayer(request, env);
+    requirePlayerRolloutFeature(env.PLAYER_ROLLOUT_POLICY, 'networkEnabled');
     const database = requirePlayerDatabase(env);
     await ensureNetworkPlayer(database, account);
     const [ratings, matches, cosmetics, seasonProgress, characterBonds] = await database.batch([

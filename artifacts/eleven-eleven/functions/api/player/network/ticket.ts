@@ -18,6 +18,7 @@ import {
 import { requirePlayerDatabase, type PlayerDatabase } from '../_database';
 import {
   assertModeEligibility,
+  assertRankedStoryEligibility,
   ensureNetworkPlayer,
   networkDisplayName,
   readRankedMatchmakingBand,
@@ -25,6 +26,7 @@ import {
   recordNetworkTicket,
 } from '../_network';
 import { readAuthoritativeDisplayName } from '../_profileAuthority';
+import { requirePlayerRolloutFeature } from '../_rolloutPolicy';
 
 const MAX_TICKET_REQUEST_BYTES = 4_096;
 
@@ -174,6 +176,10 @@ export async function onRequestPost({ request, env }: PlayerApiContext): Promise
     if (body.variant && body.mode !== 'chess_anomaly') {
       throw new PlayerApiError(400, 'invalid_variant', 'Variants are available only in Anomaly chess.');
     }
+    requirePlayerRolloutFeature(
+      env.PLAYER_ROLLOUT_POLICY,
+      body.target === 'community' ? 'communityEnabled' : 'networkEnabled',
+    );
 
     const database = requirePlayerDatabase(env);
     const issuedAt = Math.floor(Date.now() / 1_000);
@@ -181,6 +187,7 @@ export async function onRequestPost({ request, env }: PlayerApiContext): Promise
     const jti = crypto.randomUUID();
     await ensureNetworkPlayer(database, account, new Date(issuedAt * 1_000).toISOString());
     if (body.target === 'match') {
+      await assertRankedStoryEligibility(database, account.uid, body.mode);
       await assertModeEligibility(database, account.uid, body.mode);
     } else {
       const eligibility = await readNetworkEligibility(database, account.uid);

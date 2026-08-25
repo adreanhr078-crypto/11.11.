@@ -71,23 +71,44 @@
 }
 
 @media (max-width: 48rem) and (orientation: portrait) {
-  .core-objective-card {
-    inset-block-start: calc(var(--gds-safe-top) + 3.45rem);
-    inset-inline: max(0.55rem, var(--gds-safe-right)) auto;
-    width: min(32rem, calc(100vw - 1.1rem));
-    min-height: 4.8rem;
-    padding: 0.58rem 0.65rem;
+  /* Puzzle and Manhwa controls must never sit beneath a floating objective.
+     The compact card is a short, normal-flow mission dock instead. */
+  .core-objective-card[data-compact] {
+    position: relative;
+    inset: auto;
+    grid-template-columns: minmax(0, 1fr) auto;
+    width: auto;
+    min-height: 3.6rem;
+    margin: 0.45rem max(0.55rem, var(--gds-safe-right)) 0.15rem;
+    padding: 0.45rem 0.55rem;
+    border-radius: 0.62rem;
+    opacity: 1;
+  }
+
+  .core-objective-card[data-compact] .core-objective-card__signal,
+  .core-objective-card[data-compact] .core-objective-card__echo,
+  .core-objective-card[data-compact] .core-objective-card__copy small {
+    display: none;
   }
 
   .core-objective-card__signal {
     font-size: 0.56rem;
   }
 
-  .core-objective-card__copy strong {
-    font-size: var(--gds-type-xs);
+  .core-objective-card[data-compact] .core-objective-card__copy {
+    grid-column: 1;
+    align-items: center;
+    min-width: 0;
   }
 
-  .core-objective-card > button {
+  .core-objective-card[data-compact] .core-objective-card__copy strong {
+    font-size: var(--gds-type-xs);
+    line-height: 1.3;
+  }
+
+  .core-objective-card[data-compact] > button {
+    grid-column: 2;
+    grid-row: 1;
     min-height: 2.5rem;
     padding-inline: 0.55rem;
     font-size: 0.7rem;
@@ -95,12 +116,12 @@
 }
 
 @media (max-width: 23rem) and (orientation: portrait) {
-  .core-objective-card {
+  .core-objective-card:not([data-compact]) {
     grid-template-columns: minmax(0, 1fr);
     gap: 0.3rem;
   }
 
-  .core-objective-card > button {
+  .core-objective-card:not([data-compact]) > button {
     grid-column: 1;
     grid-row: auto;
     width: 100%;

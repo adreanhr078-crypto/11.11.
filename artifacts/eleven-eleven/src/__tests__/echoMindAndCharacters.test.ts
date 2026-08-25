@@ -82,23 +82,13 @@ describe('Echo Mind and Character Archive', () => {
     assert.deepEqual(context.unlockedMemories, []);
   });
 
-  it('passes remembered player context without treating theories as canon', () => {
+  it('never gives the AI knowledge context a player-authored memory channel', () => {
     const state = buildInitialState();
-    const context = createEchoMindKnowledgeContext(state, 'ar', {
-      playerName: 'أحمد',
-      rememberedFacts: [{ kind: 'preference', text: 'أحب المطر' }],
-      theories: [{ text: 'الصوت قد يكون فخًا', status: 'open' }],
-      relationship: {
-        bond: 42,
-        openness: 31,
-        tension: 15,
-        conversations: 4,
-      },
-    });
+    const context = createEchoMindKnowledgeContext(state, 'ar');
 
-    assert.equal(context.playerRelationship?.playerName, 'أحمد');
-    assert.equal(context.playerRelationship?.theories[0]?.status, 'open');
-    assert.equal(context.beliefs.includes('الصوت قد يكون فخًا'), false);
+    assert.equal('playerRelationship' in context, false);
+    assert.equal(JSON.stringify(context).includes('أحمد'), false);
+    assert.equal(JSON.stringify(context).includes('الصوت قد يكون فخًا'), false);
   });
 
   it('does not inject retired puzzle dialogue into Echo knowledge', () => {

@@ -1,17 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useGameStore } from '../../stores/gameStore';
 import {
   CinematicFrame,
   GameButton,
-  GameModal,
   GlassPanel,
 } from '../../ui/design-system';
 import { GameIcon } from '../../ui/icons';
-import { createDashboardReadModel } from '../../application/ui/gameUiReadModels';
 import { useShellStore, useUiPreferencesStore } from '../../app/shell/shellStore';
-import {
-  PlayerResourceCounters,
-} from '../../app/shell/PlayerResourceCounters';
 import {
   EchoPresence,
   ENVIRONMENT_PRESENTATION_ASSETS,
@@ -72,19 +66,14 @@ const MAIN_MENU_COPY = {
 } as const;
 
 export default function MainMenuScreen() {
-  const state = useGameStore();
   const navigate = useShellStore((shell) => shell.navigate);
   const locale = useUiPreferencesStore((preferences) => preferences.locale);
   const copy = MAIN_MENU_COPY[locale];
   const storyPuzzleSnapshot = useStoryPuzzleStore((store) => store.snapshot);
   const requestManhwaReader = useShellStore((shell) => shell.requestManhwaReader);
+  const requestStoryPuzzleDiscovery = useShellStore((shell) => shell.requestStoryPuzzleDiscovery);
   const authStatus = useAuthStore((store) => store.status);
-  const [confirmNewGame, setConfirmNewGame] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
-  const model = useMemo(
-    () => createDashboardReadModel(state, storyPuzzleSnapshot),
-    [state, storyPuzzleSnapshot],
-  );
   const objective = useMemo(
     () => deriveCorePlayerObjective(storyPuzzleSnapshot, locale),
     [locale, storyPuzzleSnapshot],
@@ -100,7 +89,8 @@ export default function MainMenuScreen() {
       setAuthOpen(true);
       return;
     }
-    if (objective.screen === 'memories') requestManhwaReader();
+    if (objective.secretPuzzleId) requestStoryPuzzleDiscovery(objective.secretPuzzleId);
+    else if (objective.screen === 'memories') requestManhwaReader();
     else navigate(objective.screen);
   };
 
@@ -145,7 +135,6 @@ export default function MainMenuScreen() {
           <span className="shell-screen-code">00</span>
           <strong>{copy.scene}</strong>
         </span>
-        <PlayerResourceCounters className="shell-main-menu__resources" />
         <AuthStatusButton
           variant="ghost"
           className="shell-main-menu__auth-control"
@@ -169,7 +158,7 @@ export default function MainMenuScreen() {
           tone="danger"
           eyebrow="Echo Channel"
           title={signedIn
-            ? model.hasJourneyProgress ? copy.resume : copy.start
+            ? copy.resume
             : copy.identityFirst}
         >
           <GameButton
@@ -182,32 +171,6 @@ export default function MainMenuScreen() {
           >
             {signedIn ? objective.actionLabel : copy.signIn}
           </GameButton>
-          <div className="shell-main-menu__secondary-actions">
-            <GameButton
-              variant="secondary"
-              onClick={() => navigate('memories')}
-            >
-              {copy.memories}
-            </GameButton>
-            <GameButton
-              variant="secondary"
-              onClick={() => navigate('echo-network')}
-            >
-              {copy.network}
-            </GameButton>
-            <GameButton
-              variant="ghost"
-              onClick={() => navigate('echo-mind')}
-            >
-              Echo Mind
-            </GameButton>
-            <GameButton
-              variant="ghost"
-              onClick={() => setConfirmNewGame(true)}
-            >
-              {copy.newGame}
-            </GameButton>
-          </div>
           <div className="shell-main-menu__checkpoint">
             <span>{copy.nextStep}</span>
             <strong>{signedIn ? objective.title : copy.signInExplainer}</strong>
@@ -224,34 +187,6 @@ export default function MainMenuScreen() {
         </span>
       </footer>
 
-      <GameModal
-        open={confirmNewGame}
-        onClose={() => setConfirmNewGame(false)}
-        eyebrow={copy.resetEyebrow}
-        title={copy.resetTitle}
-        description={copy.resetDescription}
-        tone="danger"
-        footer={(
-          <>
-            <GameButton
-              variant="ghost"
-              onClick={() => setConfirmNewGame(false)}
-            >
-              {copy.cancel}
-            </GameButton>
-            <GameButton
-              variant="danger"
-              onClick={() => state.actions.resetGame()}
-            >
-              {copy.confirmReset}
-            </GameButton>
-          </>
-        )}
-      >
-        <p className="shell-modal-note">
-          {copy.resetNote}
-        </p>
-      </GameModal>
       <AuthPanel open={authOpen} onClose={() => setAuthOpen(false)} />
     </CinematicFrame>
   );

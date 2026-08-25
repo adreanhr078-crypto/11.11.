@@ -22,6 +22,7 @@ import { useShellStore } from '../app/shell/shellStore';
 import {
   AWAKENING_WARD_ENABLED,
   OPENING_ROOM_3D_ENABLED,
+  resolveFeatureGatedScreen,
 } from '../app/config/featureFlags';
 import {
   getCategoryScreens,
@@ -117,7 +118,7 @@ describe('Application Shell', () => {
     );
   });
 
-  it('exposes one Puzzle Hub with exactly the three approved Part 1 modes', () => {
+  it('keeps one Puzzle Hub with three approved Part 1 modes and protects its deep link', () => {
     assert.deepEqual(
       PUZZLE_HUB_MODES.map(({ id }) => id),
       ['story', 'daily', 'weekly'],
@@ -127,7 +128,9 @@ describe('Application Shell', () => {
 
     useShellStore.setState({ currentScreen: 'psychological-state' });
     useShellStore.getState().navigate('live-challenges');
-    assert.equal(useShellStore.getState().currentScreen, 'puzzles');
+    assert.equal(resolveFeatureGatedScreen('live-challenges'), 'puzzles');
+    assert.equal(useShellStore.getState().currentScreen, 'main-menu');
+    assert.equal(useShellStore.getState().routeAccessNotice?.reason, 'progress-syncing');
 
     const hubSource = readFileSync(
       resolve(
@@ -163,7 +166,9 @@ describe('Application Shell', () => {
       resolve(process.cwd(), 'src', 'features', 'echo-network', 'EchoNetworkScreen.tsx'),
       'utf8',
     );
-    assert.ok(networkSource.includes('weeklyTotalStages={live?.weekly.totalStages ?? 4}'));
+    assert.ok(networkSource.includes('experienceEntitlements.networkModes'));
+    assert.equal(networkSource.includes('ActivityDirectorPanel'), false);
+    assert.equal(networkSource.includes('setRequestedPuzzleMode'), false);
   });
 
   it('reads Manhwa badges and player counters from canonical progression', () => {
@@ -290,6 +295,26 @@ describe('Application Shell', () => {
     assert.equal(createEchoPresentationReadModel(tamperedState).form, 'normal');
   });
 
+  it('keeps the compact mission dock in phone document flow so it cannot cover a puzzle', () => {
+    const shellSource = readFileSync(
+      resolve(process.cwd(), 'src', 'app', 'shell', 'ApplicationShell.tsx'),
+      'utf8',
+    );
+    const shellStyles = readFileSync(
+      resolve(process.cwd(), 'src', 'app', 'shell', 'application-shell.css'),
+      'utf8',
+    );
+    const objectiveStyles = readFileSync(
+      resolve(process.cwd(), 'src', 'features', 'player-journey', 'core-objective-card.css'),
+      'utf8',
+    );
+
+    assert.ok(shellSource.indexOf('<CoreObjectiveCard') < shellSource.indexOf('<Suspense'));
+    assert.ok(objectiveStyles.includes('.core-objective-card[data-compact] {\n    position: relative;'));
+    assert.ok(shellStyles.includes('.application-shell__stage[data-has-objective="true"] {'));
+    assert.ok(shellStyles.includes('padding-block-start: 0;'));
+  });
+
   it('maps every screen icon to a system, action, and label', () => {
     for (const screen of GAME_SCREEN_DEFINITIONS) {
       const icon = GAME_ICON_REGISTRY[screen.iconId];
@@ -398,7 +423,7 @@ describe('Application Shell', () => {
     }
   });
 
-  it('keeps both room prototypes dormant and routes play to puzzles', () => {
+  it('keeps both room prototypes dormant and does not expose their route early', () => {
     assert.equal(OPENING_ROOM_3D_ENABLED, false);
     assert.equal(AWAKENING_WARD_ENABLED, false);
     useShellStore.setState({
@@ -409,16 +434,8 @@ describe('Application Shell', () => {
     });
 
     useShellStore.getState().navigate('play');
-    assert.equal(useShellStore.getState().currentScreen, 'puzzles');
-    assert.equal(
-      useShellStore.getState().previousScreen,
-      'psychological-state',
-    );
-
-    useShellStore.getState().goBack();
-    assert.equal(
-      useShellStore.getState().currentScreen,
-      'psychological-state',
-    );
+    assert.equal(resolveFeatureGatedScreen('play'), 'puzzles');
+    assert.equal(useShellStore.getState().currentScreen, 'main-menu');
+    assert.equal(useShellStore.getState().routeAccessNotice?.reason, 'progress-syncing');
   });
 });

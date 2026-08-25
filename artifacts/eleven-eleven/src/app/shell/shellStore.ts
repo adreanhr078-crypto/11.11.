@@ -12,6 +12,12 @@ import type { NavigationCategoryId } from './navigationTypes';
 import {
   resolveFeatureGatedScreen,
 } from '../config/featureFlags';
+import {
+  createInitialExperienceEntitlements,
+  resolveExperienceRoute,
+  type ExperienceEntitlements,
+  type ExperienceLockReason,
+} from '../../application/player-journey/playerExperienceEntitlements';
 import type {
   AdConsent,
 } from '../../domain/echo-network/adPolicy';
@@ -20,16 +26,33 @@ import type { TelemetryConsent } from '../../domain/telemetry/telemetryContracts
 
 export type { GameScreenId } from './screenRegistry';
 
+export interface RouteAccessNotice {
+  requestedScreen: GameScreenId;
+  redirectedScreen: GameScreenId;
+  reason: ExperienceLockReason;
+}
+
 interface ShellState {
   currentScreen: GameScreenId;
   previousScreen: GameScreenId | null;
   navigationCategory: NavigationCategoryId | null;
   pauseOpen: boolean;
   manhwaReaderLaunchRequested: boolean;
+  /** A local focus request only; the Puzzle API remains the discovery authority. */
+  storyPuzzleDiscoveryRequest: string | null;
+  experienceEntitlements: ExperienceEntitlements;
+  /** Bumped after a server-owned Network eligibility transition. */
+  experienceNetworkRefreshEpoch: number;
+  routeAccessNotice: RouteAccessNotice | null;
   navigate: (screen: GameScreenId) => void;
   requestManhwaReader: () => void;
   consumeManhwaReaderLaunch: () => void;
+  requestStoryPuzzleDiscovery: (puzzleId: string) => void;
+  consumeStoryPuzzleDiscoveryRequest: () => void;
   goBack: () => void;
+  setExperienceEntitlements: (entitlements: ExperienceEntitlements) => void;
+  requestExperienceNetworkRefresh: () => void;
+  dismissRouteAccessNotice: () => void;
   openNavigation: (category: NavigationCategoryId) => void;
   closeNavigation: () => void;
   openPause: () => void;
@@ -74,23 +97,58 @@ function writeScreenLocation(
   else window.history.pushState(state, '', `#/${screen}`);
 }
 
+function resolveShellScreen(
+  screen: string,
+  entitlements: ExperienceEntitlements,
+) {
+  const featureResolved = resolveFeatureGatedScreen(
+    LEGACY_SCREEN_ALIASES[screen] ?? screen,
+  );
+  const requestedScreen = GAME_SCREEN_IDS.includes(featureResolved as GameScreenId)
+    ? featureResolved as GameScreenId
+    : 'main-menu';
+  return resolveExperienceRoute(requestedScreen, entitlements);
+}
+
+function routeNoticeFrom(
+  resolution: ReturnType<typeof resolveShellScreen>,
+): RouteAccessNotice | null {
+  if (resolution.allowed || !resolution.reason) return null;
+  return {
+    requestedScreen: resolution.requestedScreen,
+    redirectedScreen: resolution.screen,
+    reason: resolution.reason,
+  };
+}
+
 export const useShellStore = create<ShellState>((set, get) => ({
   currentScreen: screenFromLocation(),
   previousScreen: null,
   navigationCategory: null,
   pauseOpen: false,
   manhwaReaderLaunchRequested: false,
+  storyPuzzleDiscoveryRequest: null,
+  experienceEntitlements: createInitialExperienceEntitlements(),
+  experienceNetworkRefreshEpoch: 0,
+  routeAccessNotice: null,
   navigate(screen) {
-    const normalized = resolveFeatureGatedScreen(
-      LEGACY_SCREEN_ALIASES[screen] ?? screen,
-    ) as GameScreenId;
+    const resolution = resolveShellScreen(
+      screen,
+      get().experienceEntitlements,
+    );
+    const normalized = resolution.screen;
     const current = get().currentScreen;
-    writeScreenLocation(normalized, normalized === current ? 'replace' : 'push');
+    writeScreenLocation(
+      normalized,
+      !resolution.allowed || normalized === current ? 'replace' : 'push',
+    );
     if (normalized === current) {
       set({
         navigationCategory: null,
         pauseOpen: false,
         manhwaReaderLaunchRequested: false,
+        storyPuzzleDiscoveryRequest: null,
+        routeAccessNotice: routeNoticeFrom(resolution),
       });
       return;
     }
@@ -100,23 +158,63 @@ export const useShellStore = create<ShellState>((set, get) => ({
       navigationCategory: null,
       pauseOpen: false,
       manhwaReaderLaunchRequested: false,
+      storyPuzzleDiscoveryRequest: null,
+      routeAccessNotice: routeNoticeFrom(resolution),
     });
   },
   requestManhwaReader() {
+    const resolution = resolveShellScreen(
+      'memories',
+      get().experienceEntitlements,
+    );
     const current = get().currentScreen;
-    writeScreenLocation('memories', current === 'memories' ? 'replace' : 'push');
+    const screen = resolution.screen;
+    writeScreenLocation(
+      screen,
+      !resolution.allowed || current === screen ? 'replace' : 'push',
+    );
     set({
-      currentScreen: 'memories',
-      previousScreen: current === 'memories'
+      currentScreen: screen,
+      previousScreen: current === screen
         ? get().previousScreen
         : current,
       navigationCategory: null,
       pauseOpen: false,
-      manhwaReaderLaunchRequested: true,
+      manhwaReaderLaunchRequested: resolution.allowed && screen === 'memories',
+      storyPuzzleDiscoveryRequest: null,
+      routeAccessNotice: routeNoticeFrom(resolution),
     });
   },
   consumeManhwaReaderLaunch: () => set({
     manhwaReaderLaunchRequested: false,
+  }),
+  requestStoryPuzzleDiscovery(puzzleId) {
+    const resolution = resolveShellScreen(
+      'puzzles',
+      get().experienceEntitlements,
+    );
+    const current = get().currentScreen;
+    const screen = resolution.screen;
+    writeScreenLocation(
+      screen,
+      !resolution.allowed || current === screen ? 'replace' : 'push',
+    );
+    set({
+      currentScreen: screen,
+      previousScreen: current === screen
+        ? get().previousScreen
+        : current,
+      navigationCategory: null,
+      pauseOpen: false,
+      manhwaReaderLaunchRequested: false,
+      storyPuzzleDiscoveryRequest: resolution.allowed && screen === 'puzzles'
+        ? puzzleId
+        : null,
+      routeAccessNotice: routeNoticeFrom(resolution),
+    });
+  },
+  consumeStoryPuzzleDiscoveryRequest: () => set({
+    storyPuzzleDiscoveryRequest: null,
   }),
   goBack() {
     const { previousScreen } = get();
@@ -128,15 +226,31 @@ export const useShellStore = create<ShellState>((set, get) => ({
       window.history.back();
       return;
     }
-    writeScreenLocation(previousScreen ?? 'psychological-state', 'replace');
+    get().navigate(previousScreen ?? 'psychological-state');
+  },
+  setExperienceEntitlements(entitlements) {
+    const current = get().currentScreen;
+    const resolution = resolveShellScreen(current, entitlements);
+    if (!resolution.allowed) {
+      writeScreenLocation(resolution.screen, 'replace');
+    }
     set({
-      currentScreen: previousScreen ?? 'psychological-state',
-      previousScreen: null,
+      experienceEntitlements: entitlements,
+      currentScreen: resolution.screen,
+      previousScreen: resolution.allowed ? get().previousScreen : null,
       navigationCategory: null,
       pauseOpen: false,
       manhwaReaderLaunchRequested: false,
+      storyPuzzleDiscoveryRequest: null,
+      routeAccessNotice: routeNoticeFrom(resolution),
     });
   },
+  requestExperienceNetworkRefresh() {
+    set((state) => ({
+      experienceNetworkRefreshEpoch: state.experienceNetworkRefreshEpoch + 1,
+    }));
+  },
+  dismissRouteAccessNotice: () => set({ routeAccessNotice: null }),
   openNavigation: (category) => set({ navigationCategory: category }),
   closeNavigation: () => set({ navigationCategory: null }),
   openPause: () => set({ pauseOpen: true }),
@@ -145,14 +259,19 @@ export const useShellStore = create<ShellState>((set, get) => ({
 
 function syncScreenFromLocation(): void {
   const nextScreen = screenFromLocation();
-  const currentScreen = useShellStore.getState().currentScreen;
-  if (nextScreen === currentScreen) return;
+  const shell = useShellStore.getState();
+  const resolution = resolveShellScreen(nextScreen, shell.experienceEntitlements);
+  const currentScreen = shell.currentScreen;
+  if (resolution.screen === currentScreen && resolution.allowed) return;
+  if (!resolution.allowed) writeScreenLocation(resolution.screen, 'replace');
   useShellStore.setState({
-    currentScreen: nextScreen,
+    currentScreen: resolution.screen,
     previousScreen: null,
     navigationCategory: null,
     pauseOpen: false,
     manhwaReaderLaunchRequested: false,
+    storyPuzzleDiscoveryRequest: null,
+    routeAccessNotice: routeNoticeFrom(resolution),
   });
 }
 

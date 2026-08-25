@@ -242,17 +242,74 @@
   text-align: center;
 }
 
-.psychological-state__quick-links {
+.psychological-state__echo-line {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.4rem;
+  gap: 0.22rem;
+  padding: 0.65rem 0.72rem;
+  border-inline-start: 2px solid rgb(var(--evs-primary-rgb) / 74%);
+  background: linear-gradient(90deg, rgb(var(--evs-primary-rgb) / 10%), transparent 92%);
 }
 
-.psychological-state__quick-links .gds-button {
-  min-inline-size: 0;
-  min-block-size: 2.35rem;
-  padding-inline: 0.5rem;
+.psychological-state__echo-line small {
+  color: var(--evs-primary);
+  font: 700 var(--gds-type-2xs) var(--gds-font-mono);
+  letter-spacing: 0.09em;
+}
+
+.psychological-state__echo-line p {
+  margin: 0;
+  color: var(--gds-text-secondary);
+  font-size: var(--gds-type-xs);
+  line-height: 1.55;
+}
+
+/* Normal document flow is intentional: Mini Echo never floats over the
+   bottom navigation, Manhwa reader, or an active puzzle control. */
+.psychological-state__mini-echo {
+  justify-self: end;
+  margin-block: 0.08rem;
+}
+
+.psychological-state__channels-disclosure {
+  border-block-start: 1px solid rgb(255 255 255 / 9%);
+}
+
+.psychological-state__channels-disclosure > summary {
+  display: flex;
+  align-items: center;
+  min-block-size: 2.75rem;
+  cursor: pointer;
+  color: var(--gds-text-secondary);
+  font: 600 var(--gds-type-2xs) var(--gds-font-mono);
+  letter-spacing: 0.07em;
+  list-style: none;
+}
+
+.psychological-state__channels-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.psychological-state__channels-disclosure > summary::after {
+  content: "+";
+  margin-inline-start: auto;
+  color: var(--evs-primary);
+  font-size: 1.1rem;
+}
+
+.psychological-state__channels-disclosure[open] > summary::after {
+  content: "−";
+}
+
+.psychological-state__channels-disclosure > summary:focus-visible {
+  outline: 2px solid var(--evs-primary);
+  outline-offset: -0.2rem;
+}
+
+.psychological-state__channels-disclosure > p {
+  margin: 0 0 0.55rem;
+  color: var(--gds-text-muted);
   font-size: var(--gds-type-2xs);
+  line-height: 1.45;
 }
 
 @keyframes psychological-camera {
@@ -379,13 +436,28 @@
     grid-row: 2;
   }
 
-  .psychological-state__quick-links .gds-button {
-    min-block-size: 1.85rem;
-    padding-block: 0.22rem;
-  }
-
   .psychological-state__start-game > small {
     display: none;
+  }
+
+  .psychological-state__echo-line {
+    padding: 0.35rem 0.5rem;
+  }
+
+  .psychological-state__echo-line p {
+    font-size: 0.62rem;
+    line-height: 1.35;
+  }
+
+  .psychological-state__channels-disclosure > summary {
+    min-block-size: 1.85rem;
+    font-size: 0.54rem;
+  }
+}
+
+@media (max-width: 44rem) {
+  .psychological-state__mini-echo {
+    justify-self: stretch;
   }
 }
 
@@ -407,16 +479,6 @@
   .psychological-state__start-game > .gds-button {
     min-block-size: 1.9rem;
     padding-block: 0.18rem;
-  }
-
-  .psychological-state__quick-links {
-    gap: 0.24rem;
-  }
-
-  .psychological-state__quick-links .gds-button {
-    min-block-size: 1.6rem;
-    padding-block: 0.12rem;
-    font-size: 0.5rem;
   }
 
   .psychological-state__channels {

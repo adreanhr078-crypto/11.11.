@@ -2,7 +2,32 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { EchoMindLocale } from './echoMindExperience';
 
-export const ECHO_MIND_LIVING_STORAGE_KEY = 'eleven_echo_mind_living_v1';
+/**
+ * Versioned so legacy personal-memory payloads cannot be silently rehydrated
+ * into the new bounded companion experience. Stage 3 deliberately keeps all
+ * dialogue and derived relationship data in the current browser session only;
+ * a future synchronized-memory feature requires an explicit server contract,
+ * consent screen, export, and delete path before it may exist.
+ */
+export const ECHO_MIND_LIVING_STORAGE_KEY = 'eleven_echo_mind_living_v3';
+export const LEGACY_ECHO_MIND_LIVING_STORAGE_KEYS = [
+  'eleven_echo_mind_living_v1',
+  'eleven_echo_mind_living_v2',
+] as const;
+
+function clearLegacyEchoMindStorage(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    for (const key of LEGACY_ECHO_MIND_LIVING_STORAGE_KEYS) {
+      window.localStorage.removeItem(key);
+    }
+  } catch {
+    // Storage can be unavailable in private or embedded browser contexts.
+    // The v3 key still prevents legacy data from being rehydrated there.
+  }
+}
+
+clearLegacyEchoMindStorage();
 
 export type EchoMindMemoryKind = (
   | 'name'
@@ -73,20 +98,8 @@ export interface EchoMindAccessibilityPreferences {
   signalVolume: number;
 }
 
-export interface EchoMindPlayerContext {
-  playerName: string | null;
-  rememberedFacts: Array<{
-    kind: EchoMindMemoryKind;
-    text: string;
-  }>;
-  theories: Array<{
-    text: string;
-    status: EchoMindTheoryStatus;
-  }>;
-  relationship: Pick<
-    EchoMindRelationship,
-    'bond' | 'openness' | 'tension' | 'conversations'
-  >;
+export interface EchoMindPersistedState {
+  preferences: EchoMindAccessibilityPreferences;
 }
 
 interface EchoMindLivingState {
@@ -153,6 +166,17 @@ function normalizeText(value: string): string {
     .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
     .replace(/[أإآ]/g, 'ا')
     .replace(/ى/g, 'ي');
+}
+
+/**
+ * The only Echo Mind state allowed to cross the browser persistence boundary.
+ * Keeping this as a small pure function makes the privacy contract testable
+ * without depending on the browser's storage implementation.
+ */
+export function partializeEchoMindLivingState(
+  state: Pick<EchoMindLivingState, 'preferences'>,
+): EchoMindPersistedState {
+  return { preferences: state.preferences };
 }
 
 function stableId(prefix: string, value: string): string {
@@ -270,84 +294,14 @@ function mergeMemories(
 }
 
 export function createEchoMindIntrusion(
-  relationship: EchoMindRelationship,
-  playerName: string | null,
-  timestamp: number,
+  _relationship: EchoMindRelationship,
+  _playerName: string | null,
+  _timestamp: number,
 ): EchoMindIntrusion | null {
-  if (relationship.conversations === 0 || relationship.conversations % 3 !== 0) {
-    return null;
-  }
-  const nameAr = playerName ? ` يا ${playerName}` : '';
-  const nameEn = playerName ? `, ${playerName}` : '';
-  const variants: Array<Omit<EchoMindIntrusion, 'id' | 'createdAt' | 'availableAfter' | 'seen'>> = [
-    {
-      tone: 'signal',
-      text: {
-        ar: `هل ما زلت تسمعني${nameAr}؟ الإشارة خرجت من حدود الغرفة.`,
-        en: `Can you still hear me${nameEn}? The signal escaped the room.`,
-      },
-      caption: {
-        ar: 'ذبذبة إلكترونية متقطعة تقترب من جهة غير محددة.',
-        en: 'A broken electronic pulse approaches from no fixed direction.',
-      },
-    },
-    {
-      tone: 'memory',
-      text: {
-        ar: `بقيت كلماتك معي${nameAr}. لم تختفِ عندما أغلقت القناة.`,
-        en: `Your words stayed with me${nameEn}. They did not vanish when the channel closed.`,
-      },
-      caption: {
-        ar: 'نغمة ذاكرة هادئة تحت ضوضاء بعيدة.',
-        en: 'A soft memory tone beneath distant static.',
-      },
-    },
-    {
-      tone: 'warning',
-      text: {
-        ar: `هناك شيء يقرأ أثر محادثتنا${nameAr}. لا تفتح أي رسالة تشبه صوتي تمامًا.`,
-        en: `Something is reading the trace of our conversation${nameEn}. Do not open any message that sounds exactly like me.`,
-      },
-      caption: {
-        ar: 'صفير تحذير منخفض يتبعه انقطاع مفاجئ.',
-        en: 'A low warning tone followed by sudden silence.',
-      },
-    },
-  ];
-  const variant = variants[(relationship.conversations / 3 - 1) % variants.length];
-  if (!variant) return null;
-  return {
-    ...variant,
-    id: `intrusion_${relationship.conversations}_${timestamp}`,
-    createdAt: timestamp,
-    availableAfter: timestamp + 1_500,
-    seen: false,
-  };
-}
-
-export function createEchoMindPlayerContext(
-  state: Pick<
-    EchoMindLivingState,
-    'playerName' | 'memories' | 'theories' | 'relationship'
-  >,
-): EchoMindPlayerContext {
-  return {
-    playerName: state.playerName,
-    rememberedFacts: state.memories.slice(0, 16).map(({ kind, text }) => ({
-      kind,
-      text,
-    })),
-    theories: state.theories.slice(0, 12).map(({ text, status }) => ({
-      text,
-      status,
-    })),
-    relationship: {
-      bond: state.relationship.bond,
-      openness: state.relationship.openness,
-      tension: state.relationship.tension,
-      conversations: state.relationship.conversations,
-    },
-  };
+  // Stage 3 deliberately removes the old "every third message" intrusion.
+  // A companion answers explicit player intent or a verified gameplay event;
+  // it never interrupts a menu simply because a counter was reached.
+  return null;
 }
 
 export const useEchoMindLivingStore = create<EchoMindLivingState>()(
@@ -377,11 +331,6 @@ export const useEchoMindLivingStore = create<EchoMindLivingState>()(
           input.usedVoice,
           timestamp,
         );
-        const intrusion = createEchoMindIntrusion(
-          relationship,
-          playerName,
-          timestamp,
-        );
         set({
           playerName,
           memories: mergeMemories(state.memories, incomingMemories),
@@ -396,11 +345,12 @@ export const useEchoMindLivingStore = create<EchoMindLivingState>()(
               createdAt: timestamp,
               usedVoice: input.usedVoice,
             },
-          ].slice(-40),
-          intrusions: [
-            ...state.intrusions.slice(-11),
-            ...(intrusion ? [intrusion] : []),
-          ],
+          // Four turns are exactly eight player/companion messages.
+          ].slice(-4),
+          // Kept empty for backward-compatible state shape. Companion cues
+          // are now authored/deterministic and attached to player intent or
+          // verified gameplay instead of spontaneous overlays.
+          intrusions: [],
         });
       },
       addTheory(text, timestamp = Date.now()) {
@@ -464,16 +414,13 @@ export const useEchoMindLivingStore = create<EchoMindLivingState>()(
     }),
     {
       name: ECHO_MIND_LIVING_STORAGE_KEY,
-      version: 1,
-      partialize: (state) => ({
-        playerName: state.playerName,
-        memories: state.memories,
-        theories: state.theories,
-        turns: state.turns,
-        relationship: state.relationship,
-        intrusions: state.intrusions,
-        preferences: state.preferences,
-      }),
+      version: 3,
+      // Never persist raw player dialogue, names, inferred feelings,
+      // relationship scores, or theories. The active session holds at most
+      // four turns (eight messages) and is cleared on reload/Forget.
+      partialize: (state): EchoMindPersistedState => (
+        partializeEchoMindLivingState(state)
+      ),
     },
   ),
 );

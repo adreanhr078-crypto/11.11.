@@ -70,6 +70,11 @@ test('the authenticated ticket boundary rejects a new queue ticket for a server-
   const env: PlayerApiEnv = {
     FIREBASE_PROJECT_ID: 'eleven-test',
     FIREBASE_WEB_API_KEY: 'web-api-key',
+    PLAYER_ROLLOUT_POLICY: JSON.stringify({
+      version: 1,
+      expiresAt: '2099-01-01T00:00:00.000Z',
+      networkEnabled: true,
+    }),
     PLAYER_REALTIME_URL: 'http://127.0.0.1:8790',
     REALTIME_TICKET_SECRET: 'test-ticket-secret-that-is-longer-than-thirty-two-characters',
     PLAYER_DB: new LeaseDatabase(),

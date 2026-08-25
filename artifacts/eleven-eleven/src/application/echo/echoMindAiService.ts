@@ -15,9 +15,6 @@ import {
 import {
   getCurrentAuthToken,
 } from '../../features/auth/authService';
-import type {
-  EchoMindPlayerContext,
-} from './echoMindLivingStore';
 
 export interface EchoMindHistoryMessage {
   role: 'user' | 'assistant';
@@ -54,7 +51,6 @@ export interface EchoMindKnowledgeContext {
     questions: string[];
     knowledge: string[];
   }>;
-  playerRelationship?: EchoMindPlayerContext;
 }
 
 export interface StreamEchoMindAiInput {
@@ -90,7 +86,6 @@ function getAiEndpoint(): string {
 export function createEchoMindKnowledgeContext(
   state: GameState,
   locale: EchoMindLocale,
-  playerRelationship?: EchoMindPlayerContext,
 ): EchoMindKnowledgeContext {
   const unlockedMemoryIds = new Set(state.narrative.unlockedMemoryIds);
   const unlockedFragmentIds = new Set(
@@ -148,7 +143,6 @@ export function createEchoMindKnowledgeContext(
     // invent Echo dialogue. Future owner-authored dialogue can enter here via
     // Canon-safe knowledge gates rather than the retired local campaign.
     revealedStoryBeats: [],
-    ...(playerRelationship ? { playerRelationship } : {}),
   };
 }
 
@@ -209,7 +203,10 @@ export async function streamEchoMindAiResponse({
     body: JSON.stringify({
       message,
       locale,
-      history: history.slice(-12),
+      // The current player message is sent separately below. Keep seven prior
+      // entries so the provider never receives more than eight dialogue
+      // messages in total for this temporary, non-persistent session.
+      history: history.slice(-7),
       context,
       safetyIdentifier,
     }),

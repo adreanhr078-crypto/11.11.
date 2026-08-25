@@ -2,6 +2,12 @@ export interface PlayerApiEnv {
   FIREBASE_PROJECT_ID?: string;
   FIREBASE_WEB_API_KEY?: string;
   PLAYER_ALLOWED_ORIGINS?: string;
+  /**
+   * Non-secret, deployment-owned JSON policy consumed by /api/player/rollout.
+   * The endpoint validates this value and fails closed for every feature when
+   * it is missing, malformed, or expired.
+   */
+  PLAYER_ROLLOUT_POLICY?: string;
   PLAYER_TELEMETRY_ENABLED?: string;
   PLAYER_REALTIME_URL?: string;
   REALTIME_TICKET_SECRET?: string;

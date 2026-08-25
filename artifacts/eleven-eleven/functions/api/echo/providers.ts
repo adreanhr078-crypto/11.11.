@@ -102,6 +102,19 @@ const DEFAULT_CLOUDFLARE_MODELS = [
   '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
 ];
 
+/**
+ * Free conversation must never leave a player waiting behind an unbounded
+ * provider failover chain. This is a product and safety boundary, not merely
+ * a default: Operations may lower it, but cannot raise it above six seconds.
+ */
+export const MAX_ECHO_CHAT_DEADLINE_MS = 6_000;
+
+export interface EchoProviderTiming {
+  attemptLimit: number;
+  perAttemptTimeoutMs: number;
+  deadlineMs: number;
+}
+
 const DEFAULT_GROQ_MODELS = [
   'openai/gpt-oss-120b',
   'openai/gpt-oss-20b',
@@ -459,28 +472,41 @@ export function hasConfiguredEchoProvider(env: EchoProviderEnv): boolean {
   );
 }
 
+export function resolveEchoProviderTiming(
+  env: EchoProviderEnv,
+): EchoProviderTiming {
+  const deadlineMs = boundedInteger(
+    env.ECHO_PROVIDER_DEADLINE_MS,
+    MAX_ECHO_CHAT_DEADLINE_MS,
+    2_000,
+    MAX_ECHO_CHAT_DEADLINE_MS,
+  );
+  return {
+    attemptLimit: boundedInteger(
+      env.ECHO_MAX_PROVIDER_ATTEMPTS,
+      10,
+      1,
+      24,
+    ),
+    perAttemptTimeoutMs: boundedInteger(
+      env.ECHO_PROVIDER_TIMEOUT_MS,
+      4_000,
+      2_000,
+      deadlineMs,
+    ),
+    deadlineMs,
+  };
+}
+
 export async function generateEchoReply(
   input: GenerateEchoReplyInput,
 ): Promise<string> {
   const attempts = createAttempts(input);
-  const attemptLimit = boundedInteger(
-    input.env.ECHO_MAX_PROVIDER_ATTEMPTS,
-    10,
-    1,
-    24,
-  );
-  const perAttemptTimeout = boundedInteger(
-    input.env.ECHO_PROVIDER_TIMEOUT_MS,
-    12_000,
-    2_000,
-    30_000,
-  );
-  const deadlineMs = boundedInteger(
-    input.env.ECHO_PROVIDER_DEADLINE_MS,
-    32_000,
-    5_000,
-    60_000,
-  );
+  const {
+    attemptLimit,
+    perAttemptTimeoutMs: perAttemptTimeout,
+    deadlineMs,
+  } = resolveEchoProviderTiming(input.env);
   const deadline = Date.now() + deadlineMs;
 
   for (const attempt of attempts.slice(0, attemptLimit)) {

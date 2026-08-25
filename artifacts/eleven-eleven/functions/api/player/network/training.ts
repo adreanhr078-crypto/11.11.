@@ -10,6 +10,7 @@ import {
 } from '../_shared';
 import { requirePlayerDatabase } from '../_database';
 import { ensureNetworkPlayer } from '../_network';
+import { requirePlayerRolloutFeature } from '../_rolloutPolicy';
 
 const trainingSchema = z.object({
   training: z.enum(['chess', 'coop']),
@@ -33,6 +34,7 @@ export async function onRequestPost({ request, env }: PlayerApiContext): Promise
     if (!parsed.success) {
       throw new PlayerApiError(400, 'invalid_training_receipt', 'Training receipt is invalid.');
     }
+    requirePlayerRolloutFeature(env.PLAYER_ROLLOUT_POLICY, 'networkEnabled');
     const database = requirePlayerDatabase(env);
     await ensureNetworkPlayer(database, account);
     // A locally asserted training button must never unlock Ranked.  A future

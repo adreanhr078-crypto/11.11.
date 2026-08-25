@@ -60,6 +60,28 @@ export interface NetworkTicketResponse {
   expiresAt: string;
 }
 
+export type VerifiedChessTrainingStepId =
+  | 'develop-a-knight'
+  | 'escape-check'
+  | 'capture-hanging-queen';
+
+export interface VerifiedChessTrainingSnapshot {
+  protocolVersion: 1;
+  training: 'chess';
+  session: {
+    id: string;
+    status: 'active' | 'completed' | 'expired';
+    version: number;
+    expiresAt: string;
+    stepIndex: number;
+    step: VerifiedChessTrainingStepId | null;
+    goal: string | null;
+    /** Server-issued board only. It is intentionally never a submit field. */
+    fen?: string;
+    completedAt: string | null;
+  };
+}
+
 export interface NetworkMatchReplay {
   version: 1;
   receiptId: string;
@@ -92,6 +114,134 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function asNonNegativeInteger(value: unknown): number | null {
+  return typeof value === 'number'
+    && Number.isSafeInteger(value)
+    && value >= 0
+    ? value
+    : null;
+}
+
+/**
+ * The Network overview participates in route entitlement decisions, so its
+ * eligibility projection is parsed rather than trusted through a TypeScript
+ * assertion.  A malformed response fails closed at the caller.
+ */
+function parseNetworkEligibility(value: unknown): NetworkEligibilitySnapshot | null {
+  if (!isRecord(value)) return null;
+  const casualChessCompleted = asNonNegativeInteger(value.casualChessCompleted);
+  if (casualChessCompleted === null
+    || typeof value.chessTrainingCompleted !== 'boolean'
+    || typeof value.rankedChessUnlocked !== 'boolean'
+    || typeof value.coopTrainingCompleted !== 'boolean'
+    || typeof value.communityRulesAccepted !== 'boolean'
+    || typeof value.ageGateConfirmed !== 'boolean') {
+    return null;
+  }
+  // Do not let an inconsistent display response publish a Ranked CTA.
+  if (value.rankedChessUnlocked
+    && (!value.chessTrainingCompleted || casualChessCompleted < 3)) return null;
+  return {
+    chessTrainingCompleted: value.chessTrainingCompleted,
+    casualChessCompleted,
+    rankedChessUnlocked: value.rankedChessUnlocked,
+    coopTrainingCompleted: value.coopTrainingCompleted,
+    communityRulesAccepted: value.communityRulesAccepted,
+    ageGateConfirmed: value.ageGateConfirmed,
+  };
+}
+
+function parseNetworkSnapshot(value: unknown): NetworkSnapshot | null {
+  if (!isRecord(value)) return null;
+  const eligibility = parseNetworkEligibility(value.eligibility);
+  if (!eligibility
+    || !Array.isArray(value.ratings)
+    || !Array.isArray(value.recentMatches)
+    || !Array.isArray(value.cosmetics)
+    || !Array.isArray(value.seasonProgress)
+    || !Array.isArray(value.characterBonds)) return null;
+  // Detailed read models are non-authoritative presentation data; keep their
+  // existing typed contract while the admission-bearing eligibility above is
+  // fully validated.  If the response changes shape, no optional route opens.
+  return {
+    eligibility,
+    ratings: value.ratings as NetworkRatingSnapshot[],
+    recentMatches: value.recentMatches as NetworkMatchSummary[],
+    cosmetics: value.cosmetics.filter((item): item is string => typeof item === 'string'),
+    seasonProgress: value.seasonProgress as NetworkSeasonProgress[],
+    characterBonds: value.characterBonds as Array<{ character_id: string; bond_points: number }>,
+  };
+}
+
+function isChessSquare(value: unknown): value is string {
+  return typeof value === 'string' && /^[a-h][1-8]$/.test(value);
+}
+
+function isExactUtcTimestamp(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) return false;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) && new Date(timestamp).toISOString() === value;
+}
+
+function parseVerifiedChessTraining(value: unknown): VerifiedChessTrainingSnapshot | null {
+  if (!isRecord(value)
+    || value.protocolVersion !== 1
+    || value.training !== 'chess'
+    || !isRecord(value.session)) return null;
+  const session = value.session;
+  const id = session.id;
+  const status = session.status;
+  const version = typeof session.version === 'number' && Number.isSafeInteger(session.version)
+    ? session.version
+    : null;
+  const expiresAt = session.expiresAt;
+  const stepIndex = typeof session.stepIndex === 'number' && Number.isSafeInteger(session.stepIndex)
+    ? session.stepIndex
+    : null;
+  const completedAt = session.completedAt;
+  const step = session.step;
+  const validStep = step === 'develop-a-knight'
+    || step === 'escape-check'
+    || step === 'capture-hanging-queen';
+  const expectedStep = ['develop-a-knight', 'escape-check', 'capture-hanging-queen'] as const;
+  if (typeof id !== 'string'
+    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
+    || (status !== 'active' && status !== 'completed' && status !== 'expired')
+    || version === null
+    || version < 0
+    || stepIndex === null
+    || stepIndex < 0
+    || stepIndex > 3
+    || !isExactUtcTimestamp(expiresAt)
+    || (completedAt !== null && !isExactUtcTimestamp(completedAt))) return null;
+
+  const active = status === 'active';
+  const completed = status === 'completed';
+  if ((active && (!validStep
+      || expectedStep[stepIndex] !== step
+      || typeof session.fen !== 'string'
+      || session.fen.length < 1
+      || session.fen.length > 160))
+    || (!active && (step !== null || 'fen' in session))
+    || (completed && completedAt === null)
+    || (!completed && completedAt !== null)) return null;
+  return {
+    protocolVersion: 1,
+    training: 'chess',
+    session: {
+      id,
+      status,
+      version,
+      expiresAt,
+      stepIndex,
+      step: validStep ? step : null,
+      goal: typeof session.goal === 'string' ? session.goal.slice(0, 240) : null,
+      ...(active ? { fen: session.fen as string } : {}),
+      completedAt,
+    },
+  };
+}
+
 async function networkRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const session = await getCurrentAuthSession();
   const response = await fetchPlayerRequest(`${apiRoot()}${path}`, {
@@ -122,8 +272,13 @@ async function networkRequest<T>(path: string, init?: RequestInit): Promise<T> {
   return value as T;
 }
 
-export function fetchEchoNetwork(): Promise<NetworkSnapshot> {
-  return networkRequest<NetworkSnapshot>('/network');
+export async function fetchEchoNetwork(): Promise<NetworkSnapshot> {
+  const value = await networkRequest<unknown>('/network');
+  const snapshot = parseNetworkSnapshot(value);
+  if (!snapshot) {
+    throw new EchoNetworkApiError(502, 'invalid_response', 'Echo Network returned an invalid response.');
+  }
+  return snapshot;
 }
 
 export function issueNetworkTicket(input: {
@@ -158,6 +313,37 @@ export async function completeNetworkTraining(
     },
   );
   return response.eligibility;
+}
+
+export async function startOrResumeVerifiedChessTraining(): Promise<VerifiedChessTrainingSnapshot> {
+  const value = await networkRequest<unknown>('/network/chess-training');
+  const snapshot = parseVerifiedChessTraining(value);
+  if (!snapshot) {
+    throw new EchoNetworkApiError(502, 'invalid_response', 'Verified chess training returned an invalid response.');
+  }
+  return snapshot;
+}
+
+export async function submitVerifiedChessTrainingMove(input: {
+  sessionId: string;
+  idempotencyKey: string;
+  expectedVersion: number;
+  from: string;
+  to: string;
+  promotion?: 'q' | 'r' | 'b' | 'n';
+}): Promise<VerifiedChessTrainingSnapshot> {
+  if (!isChessSquare(input.from) || !isChessSquare(input.to)) {
+    throw new EchoNetworkApiError(400, 'invalid_training_move', 'Chess training move is invalid.');
+  }
+  const value = await networkRequest<unknown>('/network/chess-training', {
+    method: 'POST',
+    body: JSON.stringify({ version: 1, ...input }),
+  });
+  const snapshot = parseVerifiedChessTraining(value);
+  if (!snapshot) {
+    throw new EchoNetworkApiError(502, 'invalid_response', 'Verified chess training returned an invalid response.');
+  }
+  return snapshot;
 }
 
 export interface CommunityPostSnapshot {
@@ -260,3 +446,5 @@ export function submitForgePuzzle(input: ForgeSubmissionInput): Promise<{
     body: JSON.stringify(input),
   });
 }
+
+export { parseNetworkEligibility, parseNetworkSnapshot, parseVerifiedChessTraining };

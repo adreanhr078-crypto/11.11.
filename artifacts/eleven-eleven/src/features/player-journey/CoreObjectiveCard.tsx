@@ -15,6 +15,7 @@ export function CoreObjectiveCard({ compact = false }: { compact?: boolean }) {
   const latestActivity = useStoryPuzzleStore((state) => state.latestActivity);
   const navigate = useShellStore((state) => state.navigate);
   const requestManhwaReader = useShellStore((state) => state.requestManhwaReader);
+  const requestStoryPuzzleDiscovery = useShellStore((state) => state.requestStoryPuzzleDiscovery);
   const locale = useUiPreferencesStore((state) => state.locale);
   const objective = deriveCorePlayerObjective(snapshot, locale);
   const Icon = objectiveIcon[objective.kind];
@@ -42,7 +43,14 @@ export function CoreObjectiveCard({ compact = false }: { compact?: boolean }) {
       <p className="core-objective-card__echo"><b>Echo</b> {reaction}</p>
       <button
         type="button"
-        onClick={() => objective.screen === 'memories' ? requestManhwaReader() : navigate(objective.screen)}
+        onClick={() => {
+          if (objective.secretPuzzleId) {
+            requestStoryPuzzleDiscovery(objective.secretPuzzleId);
+            return;
+          }
+          if (objective.screen === 'memories') requestManhwaReader();
+          else navigate(objective.screen);
+        }}
       >
         {objective.actionLabel}<ActionChevron aria-hidden="true" />
       </button>

@@ -4,6 +4,8 @@ import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
 import {
   appendUniqueRouteToken,
+  isExactImageReconstructionPermutation,
+  normalizeImageReconstructionDraft,
   normalizeSignalSelection,
   removeRouteTokenAt,
   swapPuzzlePieces,
@@ -22,6 +24,23 @@ describe('Stage 3 opening puzzle vertical slice', () => {
     assert.deepEqual(toggleSignalSelection(['58', 'channel-11'], '42'), ['42', 'channel-11']);
     assert.deepEqual(toggleSignalSelection(['58', 'channel-11'], 'channel-11'), ['58']);
     assert.deepEqual(normalizeSignalSelection(['unknown', 'channel-13', '42']), ['42', 'channel-13']);
+  });
+
+  it('makes the opening signal tactile while keeping the displayed candidates separate from server truth', () => {
+    const screen = source('src/features/screens/PuzzleScreen.tsx');
+    const stylesheet = source('src/features/screens/story-puzzle-experience.css');
+
+    assert.match(screen, /className="story-signal-board__tuner"/);
+    assert.match(screen, /type="range"/);
+    assert.match(screen, /aria-valuetext=\{signalCopy\.tunerValue\(frequencyProbe\)\}/);
+    assert.match(screen, /data-frequency-index=\{selectedProbeIndex\}/);
+    assert.match(screen, /className="story-signal-board__field-guide"/);
+    assert.match(screen, /signalGuide\.balanceTitle/);
+    assert.match(screen, /signalGuide\.cleanTitle/);
+    assert.match(screen, /story-signal-board__guide-wave/);
+    assert.match(stylesheet, /\.story-signal-board__tuner input \{/);
+    assert.match(stylesheet, /\.story-signal-board__field-guide/);
+    assert.doesNotMatch(screen, /targetFrequency|targetChannel|data-target/);
   });
 
   it('keeps later signal stages playable through visible candidates without publishing a target field', () => {
@@ -51,6 +70,18 @@ describe('Stage 3 opening puzzle vertical slice', () => {
     assert.deepEqual(appendUniqueRouteToken(route, 'extra', 4), route);
     assert.deepEqual(removeRouteTokenAt(route, 1), ['signal', 'memory', 'echo']);
     assert.deepEqual(swapPuzzlePieces(route, 'signal', 'memory'), ['memory', 'access', 'signal', 'echo']);
+  });
+
+  it('offers an optional desktop drag path without removing the keyboard route controls', () => {
+    const screen = source('src/features/screens/PuzzleScreen.tsx');
+    const stylesheet = source('src/features/screens/story-puzzle-experience.css');
+
+    assert.match(screen, /const placeDraggedToken = \(targetIndex: number\)/);
+    assert.match(screen, /onDragOver=\{\(event\) =>/);
+    assert.match(screen, /onDrop=\{\(event\) =>/);
+    assert.match(screen, /data-drop-target=\{dropSlot === index\}/);
+    assert.match(screen, /moveSelected\(-1\)/);
+    assert.match(stylesheet, /li\[data-drop-target="true"\]/);
   });
 
   it('gives the visible route one unambiguous source and sink without moving verification to the client', () => {
@@ -101,7 +132,29 @@ describe('Stage 3 opening puzzle vertical slice', () => {
     assert.match(openingSlice, /allowRotation: false/);
     assert.match(screen, /aria-pressed=\{selectedPiece === pieceId\}/);
     assert.match(screen, /story-image-puzzle__status/);
+    assert.match(screen, /className="story-image-puzzle__grid"\s+dir="ltr"/);
     assert.match(stylesheet, /\.story-image-puzzle__art \{ position: relative; min-block-size: 2\.75rem; touch-action: manipulation;/);
+    assert.match(stylesheet, /\.story-image-puzzle__grid \{[^}]*direction: ltr;/);
+  });
+
+  it('normalizes Torn Memory drafts to physical canvas pieces without learning its solution', () => {
+    const canonical = Array.from({ length: 9 }, (_, index) => `piece-${index}`);
+    const normalizedCanonical = normalizeImageReconstructionDraft({
+      imageOrder: canonical,
+      rotations: { 'piece-0': 0, stale: 3 },
+    }, 3, 3, false);
+    assert.deepEqual(normalizedCanonical.imageOrder, canonical);
+    assert.deepEqual(normalizedCanonical.rotations, Object.fromEntries(
+      canonical.map((pieceId) => [pieceId, 0]),
+    ));
+
+    const normalizedMalformed = normalizeImageReconstructionDraft({
+      imageOrder: ['piece-0', 'piece-0', 'unknown', 'piece-2', 'piece-4', 'piece-4', 'piece-8'],
+      rotations: { 'piece-0': 3, stale: 1 },
+    }, 3, 3, false);
+    assert.equal(isExactImageReconstructionPermutation(normalizedMalformed.imageOrder, 3, 3), true);
+    assert.equal(Object.hasOwn(normalizedMalformed.rotations, 'stale'), false);
+    assert.equal(Object.values(normalizedMalformed.rotations).every((rotation) => rotation === 0), true);
   });
 
   it('ships bounded, versioned puzzle art and keeps the signal atmosphere non-interactive', () => {

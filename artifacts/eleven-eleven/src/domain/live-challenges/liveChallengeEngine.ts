@@ -34,7 +34,8 @@ export const LIVE_REWARD_CONFIG = Object.freeze({
   dailyCoinsByDifficulty: Object.freeze({ standard: 25, focused: 40, deep: 60 }),
 });
 
-export const LIVE_HINT_COSTS = Object.freeze([0, 12, 24] as const);
+/** Every live hint is a server-priced, append-only ledger choice. */
+export const LIVE_HINT_COSTS = Object.freeze([6, 12, 24] as const);
 
 export interface LiveTemplate {
   templateId: string;

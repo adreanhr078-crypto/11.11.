@@ -13,6 +13,11 @@ import type { MatchReceipt } from '../domain/echo-network/contracts';
 
 const originalFetch = globalThis.fetch;
 const MATCH_ID = 'match_replay_1111';
+const NETWORK_ROLLOUT_POLICY = JSON.stringify({
+  version: 1,
+  expiresAt: '2099-01-01T00:00:00.000Z',
+  networkEnabled: true,
+});
 const RECEIPT: MatchReceipt = {
   version: 1,
   receiptId: '73ed42fa-534f-42c6-9655-7e5b5be6efaf',
@@ -122,6 +127,7 @@ describe('protected Echo Network replay gateway', () => {
       env: {
         FIREBASE_PROJECT_ID: 'test-project',
         FIREBASE_WEB_API_KEY: 'test-key',
+        PLAYER_ROLLOUT_POLICY: NETWORK_ROLLOUT_POLICY,
         PLAYER_DB: new ReplayDatabase(),
         REPLAYS: replayBucket({
           version: 1,
@@ -148,6 +154,7 @@ describe('protected Echo Network replay gateway', () => {
       env: {
         FIREBASE_PROJECT_ID: 'test-project',
         FIREBASE_WEB_API_KEY: 'test-key',
+        PLAYER_ROLLOUT_POLICY: NETWORK_ROLLOUT_POLICY,
         PLAYER_DB: new ReplayDatabase(),
         REPLAYS: replayBucket({}, requested),
       },
@@ -163,6 +170,7 @@ describe('protected Echo Network replay gateway', () => {
       env: {
         FIREBASE_PROJECT_ID: 'test-project',
         FIREBASE_WEB_API_KEY: 'test-key',
+        PLAYER_ROLLOUT_POLICY: NETWORK_ROLLOUT_POLICY,
         PLAYER_DB: new ReplayDatabase(),
         REPLAYS: replayBucket({
           version: 1,

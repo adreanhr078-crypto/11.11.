@@ -43,8 +43,10 @@ import { useCollectionStore } from '../collection/collectionStore';
 import { useStoryPuzzleStore } from '../story-puzzles/storyPuzzleStore';
 import {
   appendUniqueRouteToken,
+  isExactImageReconstructionPermutation,
   isLoadBalanceReady,
   loadBalanceTotal,
+  normalizeImageReconstructionDraft,
   normalizeLoadBalanceAssignments,
   readSignalSelection,
   removeRouteTokenAt,
@@ -55,13 +57,17 @@ import {
   useShellStore,
   useUiPreferencesStore,
 } from '../../app/shell/shellStore';
-import { deriveCorePlayerObjective } from '../../application/player-journey/corePlayerLoop';
+import {
+  deriveCorePlayerObjective,
+  type CorePlayerObjective,
+} from '../../application/player-journey/corePlayerLoop';
 import {
   playPuzzleCompletionSound,
   primeRewardAudio,
 } from '../../infrastructure/audio/puzzleRewardAudio';
 import { requestEchoTransformationCinematic } from '../../ui/presentation/EchoTransformationCinematic';
 import { EchoPresence } from '../../ui/presentation/EchoPresence';
+import { MiniEchoCompanion } from '../echo/MiniEchoCompanion';
 import { emitExperienceCue } from '../../ui/presentation/experienceCues';
 import './story-puzzle-experience.css';
 
@@ -155,6 +161,17 @@ function normalizePuzzleDraft(
   draft: StoryPuzzleDraft,
 ): StoryPuzzleDraft {
   const normalized = cloneDraft(draft);
+  if (puzzle.mechanic === 'image-reconstruction' && puzzle.image) {
+    return {
+      ...normalized,
+      ...normalizeImageReconstructionDraft(
+        normalized,
+        puzzle.image.rows,
+        puzzle.image.columns,
+        puzzle.image.allowRotation,
+      ),
+    };
+  }
   if (puzzle.mechanic !== 'load-balancing') return normalized;
   return {
     ...normalized,
@@ -262,9 +279,12 @@ function draftReadiness(
       );
     }
     if (mechanic === 'image-reconstruction') {
-      const count = (puzzle.image?.rows ?? 0) * (puzzle.image?.columns ?? 0);
       return complete(
-        new Set(draft.imageOrder).size === count && draft.imageOrder.length === count,
+        isExactImageReconstructionPermutation(
+          draft.imageOrder,
+          puzzle.image?.rows ?? 0,
+          puzzle.image?.columns ?? 0,
+        ),
         'Arrange every shard as you see it, then submit the record for verification. Piece correctness remains hidden until submission.',
       );
     }
@@ -319,9 +339,12 @@ function draftReadiness(
         'اختر قياسًا وقناة ثم أرسلهما إلى السجل للتحقق.',
       );
     case 'image-reconstruction': {
-      const count = (puzzle.image?.rows ?? 0) * (puzzle.image?.columns ?? 0);
       return complete(
-        new Set(draft.imageOrder).size === count && draft.imageOrder.length === count,
+        isExactImageReconstructionPermutation(
+          draft.imageOrder,
+          puzzle.image?.rows ?? 0,
+          puzzle.image?.columns ?? 0,
+        ),
         'رتّب كل الشظايا كما تراها، ثم أرسل السجل للتحقق. لن تظهر صحة القطع قبل الإرسال.',
       );
     }
@@ -518,6 +541,7 @@ function EvidenceBoard({
       comparison: 'مقارنة السجلات',
       records: 'السجلات المتاحة',
       record: (index: number, label: string) => `السجل ${String(index + 1).padStart(2, '0')}: ${label}`,
+      node: (index: number) => `عقدة ${String(index + 1).padStart(2, '0')}`,
       deduction: 'حدّد الأدلة المتوافقة، ثم ثبّت تسلسلها في السجل. يمكنك إلغاء أي اختيار قبل الإرسال.',
       comparisonHint: 'قارن السجل مع المرجع قبل تثبيت النتيجة. يمكنك إلغاء أي اختيار قبل الإرسال.',
     }
@@ -527,6 +551,7 @@ function EvidenceBoard({
       comparison: 'RECORD COMPARISON',
       records: 'Available records',
       record: (index: number, label: string) => `Record ${String(index + 1).padStart(2, '0')}: ${label}`,
+      node: (index: number) => `NODE ${String(index + 1).padStart(2, '0')}`,
       deduction: 'Select compatible evidence, then arrange it in the record. You can remove any choice before submitting.',
       comparisonHint: 'Compare the record with the reference before committing. You can remove any choice before submitting.',
     };
@@ -556,7 +581,7 @@ function EvidenceBoard({
                 tokens: selectedTokens(selected, option.id, maximum),
               })}
             >
-              <small>NODE {String(index + 1).padStart(2, '0')}</small>
+              <small>{copy.node(index)}</small>
               <strong>{option.label[locale]}</strong>
               {option.detail && <span>{option.detail[locale]}</span>}
               <span>{recordSignal(option.id, locale)}</span>
@@ -571,13 +596,14 @@ function EvidenceBoard({
 
 function PuzzleReference({ reference }: { reference?: StoryPuzzleReference }) {
   const locale = useUiPreferencesStore((state) => state.locale);
+  const fieldNotes = locale === 'ar' ? 'ملاحظات الدليل' : 'FIELD NOTES';
   if (!reference) return null;
   return (
     <section className="story-puzzle-reference" aria-label={reference.title[locale]}>
       <header>
         <BookOpenCheck aria-hidden="true" />
         <span>{reference.title[locale]}</span>
-        <small>FIELD NOTES</small>
+        <small>{fieldNotes}</small>
       </header>
       <ul>
         {reference.entries.map((entry, index) => (
@@ -811,8 +837,13 @@ function ImageReconstructionBoard({
 }: ImageReconstructionBoardProps) {
   const locale = useUiPreferencesStore((state) => state.locale);
   const image = puzzle.image!;
-  const count = image.rows * image.columns;
-  const pieces = draft.imageOrder.length === count ? draft.imageOrder : shuffledPieces(count);
+  const normalizedImageDraft = normalizeImageReconstructionDraft(
+    draft,
+    image.rows,
+    image.columns,
+    image.allowRotation,
+  );
+  const pieces = normalizedImageDraft.imageOrder;
   const {
     assetKey,
     assetStatus,
@@ -856,32 +887,31 @@ function ImageReconstructionBoard({
     onVisualAssetStateChange?.(assetStatus);
   }, [assetStatus, onVisualAssetStateChange]);
 
-  useEffect(() => {
-    if (image.allowRotation) return;
-    const normalized = Object.fromEntries(
-      Array.from({ length: count }, (_, index) => [`piece-${index}`, 0]),
+  const commitImageDraft = (next: StoryPuzzleDraft) => {
+    const normalized = normalizeImageReconstructionDraft(
+      next,
+      image.rows,
+      image.columns,
+      image.allowRotation,
     );
-    const needsReset = Object.entries(normalized).some(([pieceId, rotation]) => (
-      draft.rotations[pieceId] !== rotation
-    ));
-    if (needsReset) onChange({ ...draft, rotations: normalized });
-  }, [count, draft, image.allowRotation, onChange]);
+    onChange({ ...next, ...normalized });
+  };
 
   const swapPieces = (fromPiece: string, toPiece: string) => {
     if (disabled || assetStatus !== 'ready' || fromPiece === toPiece) return;
     const next = swapPuzzlePieces(pieces, fromPiece, toPiece);
-    onChange({ ...draft, imageOrder: next });
+    commitImageDraft({ ...draft, imageOrder: next });
     setSelectedPiece(null);
     setLastAction('swapped');
   };
 
   const rotatePiece = (pieceId: string) => {
     if (disabled || assetStatus !== 'ready' || !image.allowRotation) return;
-    onChange({
+    commitImageDraft({
       ...draft,
       rotations: {
-        ...draft.rotations,
-        [pieceId]: ((draft.rotations[pieceId] ?? 0) + 1) % 4,
+        ...normalizedImageDraft.rotations,
+        [pieceId]: ((normalizedImageDraft.rotations[pieceId] ?? 0) + 1) % 4,
       },
     });
   };
@@ -929,6 +959,7 @@ function ImageReconstructionBoard({
           {assetStatus === 'loading' && <p className="story-puzzle-visual-loading" role="status">{imageCopy.loading}</p>}
           <div
             className="story-image-puzzle__grid"
+            dir="ltr"
             aria-busy={assetStatus === 'loading'}
             style={{
               '--rows': image.rows,
@@ -940,7 +971,7 @@ function ImageReconstructionBoard({
               const sourceIndex = Number(pieceId.replace('piece-', ''));
               const column = sourceIndex % image.columns;
               const row = Math.floor(sourceIndex / image.columns);
-              const rotation = draft.rotations[pieceId] ?? 0;
+              const rotation = normalizedImageDraft.rotations[pieceId] ?? 0;
               const interactionDisabled = disabled || assetStatus !== 'ready';
               return (
                 <article
@@ -1298,6 +1329,10 @@ function SignalCalibrationBoard({
       board: 'مختبر معايرة الإشارة',
       instruction: 'قارن مقدار الانحراف عن خط القياس، ثم افحص الأثر الثانوي في كل مرحّل. السجل وحده يحسم الفرضية بعد إرسالها.',
       readings: 'مجسات التردد',
+      tuner: 'قرص ضبط التردد',
+      tunerValue: (probe: SignalProbe | undefined) => probe
+        ? `الضبط الحالي: المجس ${probe.scan}، ${probe.readout.ar}`
+        : 'لم يتم ضبط مجس بعد. حرّك القرص لالتقاط قراءة.',
       relays: 'مرحلات القناة',
       reading: 'مجس',
       relay: 'مرحل',
@@ -1308,6 +1343,10 @@ function SignalCalibrationBoard({
       board: 'Signal calibration lab',
       instruction: 'Compare each deviation against the measurement line, then inspect the secondary trace on every relay. Only the record decides after you submit a hypothesis.',
       readings: 'Frequency probes',
+      tuner: 'Frequency tuning dial',
+      tunerValue: (probe: SignalProbe | undefined) => probe
+        ? `Current tuning: probe ${probe.scan}, ${probe.readout.en}`
+        : 'No probe is tuned yet. Move the dial to capture a reading.',
       relays: 'Channel relays',
       reading: 'Probe',
       relay: 'Relay',
@@ -1316,6 +1355,28 @@ function SignalCalibrationBoard({
     };
   const frequencyProbe = probes.find((probe) => probe.frequency === frequency);
   const channelRelay = channels.find((candidate) => candidate.id === channel);
+  const signalGuide = locale === 'ar'
+    ? {
+      label: 'دليل قراءة إشارة المانهوا',
+      eyebrow: 'أثر المانهوا // اقرأ العلاقة',
+      title: 'لا تبحث عن رقم؛ ابحث عن نبضة يمكن الوثوق بها.',
+      balanceTitle: 'نبضة متوازنة',
+      balanceDetail: 'قارن الصعود والهبوط حول خط الوسط؛ الإيقاع المتزن لا يميل إلى جهة واحدة.',
+      cleanTitle: 'عودة نظيفة',
+      cleanDetail: 'تتبع الرجوع من دون تشعب أو قطع. الضوضاء تترك أثرًا متفرعًا.',
+    }
+    : {
+      label: 'Manhwa signal reading guide',
+      eyebrow: 'MANHWA TRACE // READ THE RELATIONSHIP',
+      title: 'Do not hunt a number; find a pulse you can trust.',
+      balanceTitle: 'Balanced pulse',
+      balanceDetail: 'Compare the rise and fall around the centre line. A stable rhythm does not lean to one side.',
+      cleanTitle: 'Clean return',
+      cleanDetail: 'Follow the return without a fork or break. Interference leaves a split trace.',
+    };
+  const selectedProbeIndex = Math.max(0, probes.findIndex((probe) => (
+    probe.frequency === frequency
+  )));
   const status = frequencyProbe && channelRelay
     ? signalCopy.armed
       .replace('{probe}', `${signalCopy.reading} ${frequencyProbe.scan}`)
@@ -1323,9 +1384,64 @@ function SignalCalibrationBoard({
     : signalCopy.awaiting;
 
   return (
-    <section className="story-signal-board" data-profile={profile} aria-label={signalCopy.board}>
+    <section
+      className="story-signal-board"
+      data-profile={profile}
+      data-frequency-index={selectedProbeIndex}
+      aria-label={signalCopy.board}
+    >
       <div className="story-signal-board__atmosphere" aria-hidden="true" />
       <p className="story-signal-board__instruction">{signalCopy.instruction}</p>
+      <section className="story-signal-board__field-guide" aria-label={signalGuide.label}>
+        <header>
+          <small>{signalGuide.eyebrow}</small>
+          <strong>{signalGuide.title}</strong>
+        </header>
+        <div>
+          <article data-rule="balance">
+            <svg viewBox="0 0 96 42" aria-hidden="true">
+              <path className="story-signal-board__guide-baseline" d="M2 21 H94" />
+              <path className="story-signal-board__guide-wave" d="M3 21 C11 7 19 7 27 21 S43 35 51 21 S67 7 75 21 S87 35 93 21" />
+            </svg>
+            <span><strong>{signalGuide.balanceTitle}</strong><small>{signalGuide.balanceDetail}</small></span>
+          </article>
+          <article data-rule="clean">
+            <svg viewBox="0 0 96 42" aria-hidden="true">
+              <path className="story-signal-board__guide-baseline" d="M2 21 H94" />
+              <path className="story-signal-board__guide-trace" d="M4 21 H28 L38 12 L50 29 L62 16 L74 21 H92" />
+              <circle cx="4" cy="21" r="2" />
+              <circle cx="92" cy="21" r="2" />
+            </svg>
+            <span><strong>{signalGuide.cleanTitle}</strong><small>{signalGuide.cleanDetail}</small></span>
+          </article>
+        </div>
+      </section>
+      <label className="story-signal-board__tuner">
+        <span>{signalCopy.tuner}</span>
+        <input
+          type="range"
+          min="0"
+          max={Math.max(0, probes.length - 1)}
+          step="1"
+          value={selectedProbeIndex}
+          disabled={disabled || probes.length === 0}
+          aria-valuetext={signalCopy.tunerValue(frequencyProbe)}
+          onChange={(event) => {
+            const nextProbe = probes[Number(event.target.value)];
+            if (!nextProbe) return;
+            onChange({
+              ...draft,
+              tokens: toggleSignalSelection(
+                draft.tokens,
+                nextProbe.frequency,
+                frequencyIds,
+                channelIds,
+              ),
+            });
+          }}
+        />
+        <output aria-live="polite">{signalCopy.tunerValue(frequencyProbe)}</output>
+      </label>
       <div className="story-signal-board__probes" role="group" aria-label={signalCopy.readings}>
         {probes.map((probe) => (
           <button
@@ -1394,6 +1510,8 @@ function SystemSequenceBoard({
 }) {
   const locale = useUiPreferencesStore((state) => state.locale);
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
+  const [draggedToken, setDraggedToken] = useState<string | null>(null);
+  const [dropSlot, setDropSlot] = useState<number | null>(null);
   const selected = draft.tokens.filter((token) => options.some((option) => option.id === token));
   const byId = new Map(options.map((option) => [option.id, option]));
   const presentationOptions = [...options].sort((left, right) => (
@@ -1451,6 +1569,20 @@ function SystemSequenceBoard({
     onChange({ ...draft, tokens: removeRouteTokenAt(selected, selectedSlot) });
     setSelectedSlot(null);
   };
+  const placeDraggedToken = (targetIndex: number) => {
+    const token = draggedToken;
+    if (!token || disabled) return;
+    const sourceIndex = selected.indexOf(token);
+    const next = selected.filter((candidate) => candidate !== token);
+    const insertionIndex = sourceIndex >= 0 && sourceIndex < targetIndex
+      ? targetIndex - 1
+      : targetIndex;
+    next.splice(Math.max(0, Math.min(insertionIndex, next.length)), 0, token);
+    onChange({ ...draft, tokens: next.slice(0, 4) });
+    setSelectedSlot(next.indexOf(token));
+    setDraggedToken(null);
+    setDropSlot(null);
+  };
 
   return (
     <section className="story-system-route" aria-label={copy.board}>
@@ -1460,16 +1592,43 @@ function SystemSequenceBoard({
           const token = selected[index];
           const option = token ? byId.get(token) : undefined;
           return (
-            <li key={index} data-filled={Boolean(option)} data-selected={selectedSlot === index}>
+          <li
+            key={index}
+            data-filled={Boolean(option)}
+            data-selected={selectedSlot === index}
+            data-drop-target={dropSlot === index}
+            onDragOver={(event) => {
+              if (!draggedToken || disabled) return;
+              event.preventDefault();
+              setDropSlot(index);
+            }}
+            onDragLeave={() => {
+              if (dropSlot === index) setDropSlot(null);
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              placeDraggedToken(index);
+            }}
+          >
               {option ? (
                 <button
                   type="button"
                   disabled={disabled}
+                  draggable={!disabled}
                   aria-pressed={selectedSlot === index}
                   aria-label={copy.slotLabel
                     .replace('{slot}', String(index + 1))
                     .replace('{label}', option.label[locale])}
                   onClick={() => setSelectedSlot(selectedSlot === index ? null : index)}
+                  onDragStart={(event) => {
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', token);
+                    setDraggedToken(token);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedToken(null);
+                    setDropSlot(null);
+                  }}
                 >
                   <small>{String(index + 1).padStart(2, '0')}</small>
                   <strong>{option.symbol ?? '◇'}</strong>
@@ -1496,6 +1655,7 @@ function SystemSequenceBoard({
               type="button"
               disabled={disabled || isPlaced || selected.length >= 4}
               data-placed={isPlaced}
+              draggable={!disabled && !isPlaced}
               aria-label={copy.availableLabel
                 .replace('{label}', option.label[locale])
                 .replace('{input}', ports.input)
@@ -1503,6 +1663,15 @@ function SystemSequenceBoard({
               onClick={() => {
                 onChange({ ...draft, tokens: appendUniqueRouteToken(selected, option.id, 4) });
                 setSelectedSlot(null);
+              }}
+              onDragStart={(event) => {
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', option.id);
+                setDraggedToken(option.id);
+              }}
+              onDragEnd={() => {
+                setDraggedToken(null);
+                setDropSlot(null);
               }}
             >
               <span aria-hidden="true">{ports.input}</span>
@@ -1968,10 +2137,10 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, s
 
 function RewardMoment({
   onDismiss,
-  onContinueManhwa,
+  onContinueObjective,
 }: {
   onDismiss: () => void;
-  onContinueManhwa: () => void;
+  onContinueObjective: (objective: CorePlayerObjective) => void;
 }) {
   const reward = useStoryPuzzleStore((state) => state.latestReward);
   const locale = useUiPreferencesStore((state) => state.locale);
@@ -2077,8 +2246,16 @@ function RewardMoment({
         </div>
         {reward.perfectBonusCoins > 0 && <strong className="story-reward-moment__perfect">{copy.perfect(reward.perfectBonusCoins)}</strong>}
         <div className="story-reward-moment__actions">
-          <button ref={continueRef} className="story-reward-moment__continue" type="button" onClick={onContinueManhwa}>
-            <BookOpenCheck aria-hidden="true" /> {copy.continueManhwa}
+          <button
+            ref={continueRef}
+            className="story-reward-moment__continue"
+            type="button"
+            onClick={() => onContinueObjective(nextObjective)}
+          >
+            {nextObjective.secretPuzzleId
+              ? <Crosshair aria-hidden="true" />
+              : <BookOpenCheck aria-hidden="true" />}
+            {nextObjective.actionLabel}
           </button>
           <button className="story-reward-moment__dismiss" type="button" onClick={onDismiss}>{copy.dismiss}</button>
         </div>
@@ -2108,8 +2285,20 @@ export default function PuzzleScreen() {
       gateDetail: 'سجّل الدخول لربط أدلة المانهوا وسجل الاستعادة بحسابك.',
       title: 'ألغاز القصة',
       indexLabel: 'قائمة ألغاز القصة',
+      storyInterference: '11.11 // تشويش القصة',
+      mainPath: 'المسار الرئيسي',
+      memoryShards: 'شظايا الذاكرة',
+      echoResonance: 'رنين Echo',
+      coins: 'العملة',
       discovery: 'إشارة سرية قابلة للاكتشاف',
       unlockChannel: 'اضغط لفك القناة',
+      page: (page: number) => `الصفحة ${page}`,
+      secretSignal: 'إشارة سرية',
+      chapter: (chapter: string) => `الفصل ${chapter}`,
+      anomalyChannel: 'قناة الشذوذ',
+      systemChannel: 'قناة النظام',
+      puzzle: (order: number, status: string) => `لغز ${String(order).padStart(2, '0')} // ${status}`,
+      source: (page: number) => `المصدر // ${String(page).padStart(2, '0')}`,
       replayCinematic: 'إعادة مشهد التحول',
       missionLabel: 'هدف هذه الخطوة',
       missionTitle: 'الهدف الآن',
@@ -2119,6 +2308,7 @@ export default function PuzzleScreen() {
       blockedByPage: (page: number) => `افتح المانهوا واقرأ حتى الصفحة ${page}؛ سيُسجّل الدليل تلقائيًا بعد تحميل الصفحة بنجاح.`,
       continueManhwa: 'متابعة المانهوا',
       stage: (index: number) => `الانتقال إلى المرحلة ${index}`,
+      stageProgress: (index: number, total: number) => `المرحلة ${index} / ${total}`,
       confirmStage: 'حفظ المسودة ومتابعة',
       stageDetail: 'تُجمع مداخلات المراحل وتُفحص معًا فقط عند التحقق الأخير.',
       verify: 'تحقق من الاستعادة',
@@ -2129,6 +2319,10 @@ export default function PuzzleScreen() {
       echoResponse: 'استجابة Echo',
       nextObjective: 'الهدف التالي',
       hints: 'تلميحات اللغز',
+      assistanceChannel: 'قناة المساعدة',
+      hint: (index: number) => `تلميح ${String(index).padStart(2, '0')}`,
+      unavailable: 'غير متاح',
+      synchronizing: 'تتم مزامنة السجلات الموثقة…',
       hintDetail: 'استخدام التلميح لا يلغي XP أو الشظية؛ يلغي فقط مكافأة الحل المثالي.',
     }
     : {
@@ -2136,8 +2330,20 @@ export default function PuzzleScreen() {
       gateDetail: 'Sign in to connect Manhwa evidence and the recovery record to your account.',
       title: 'Story Puzzles',
       indexLabel: 'Story puzzle index',
+      storyInterference: '11.11 // STORY INTERFERENCE',
+      mainPath: 'MAIN PATH',
+      memoryShards: 'MEMORY SHARDS',
+      echoResonance: 'ECHO RESONANCE',
+      coins: 'COINS',
       discovery: 'A secret signal is ready to discover',
       unlockChannel: 'Select to unlock the channel',
+      page: (page: number) => `PAGE ${page}`,
+      secretSignal: 'SECRET SIGNAL',
+      chapter: (chapter: string) => `CHAPTER ${chapter}`,
+      anomalyChannel: 'ANOMALY CHANNEL',
+      systemChannel: 'SYSTEM CHANNEL',
+      puzzle: (order: number, status: string) => `PUZZLE ${String(order).padStart(2, '0')} // ${status}`,
+      source: (page: number) => `SOURCE // ${String(page).padStart(2, '0')}`,
       replayCinematic: 'Replay transformation scene',
       missionLabel: 'Objective for this step',
       missionTitle: 'Objective now',
@@ -2147,6 +2353,7 @@ export default function PuzzleScreen() {
       blockedByPage: (page: number) => `Open the Manhwa and read through page ${page}. The evidence is recorded automatically after the page loads successfully.`,
       continueManhwa: 'Continue the Manhwa',
       stage: (index: number) => `Go to stage ${index}`,
+      stageProgress: (index: number, total: number) => `STAGE ${index} / ${total}`,
       confirmStage: 'Save draft & continue',
       stageDetail: 'Stage inputs are collected and verified together only at final submission.',
       verify: 'Verify recovery',
@@ -2157,10 +2364,20 @@ export default function PuzzleScreen() {
       echoResponse: 'Echo response',
       nextObjective: 'Next objective',
       hints: 'Puzzle hints',
+      assistanceChannel: 'ASSISTANCE CHANNEL',
+      hint: (index: number) => `HINT ${String(index).padStart(2, '0')}`,
+      unavailable: 'UNAVAILABLE',
+      synchronizing: 'SYNCHRONIZING VERIFIED RECORDS…',
       hintDetail: 'Using a hint does not remove XP or the shard; it only removes the perfect-solve bonus.',
     };
   const requestManhwaReader = useShellStore(
     (state) => state.requestManhwaReader,
+  );
+  const navigate = useShellStore((state) => state.navigate);
+  const storyPuzzleDiscoveryRequest = useShellStore((state) => state.storyPuzzleDiscoveryRequest);
+  const consumeStoryPuzzleDiscoveryRequest = useShellStore((state) => state.consumeStoryPuzzleDiscoveryRequest);
+  const hasVerifiedReward = useShellStore(
+    (state) => state.experienceEntitlements.snapshot.firstRewardReceived,
   );
   const [selectedPuzzleId, setSelectedPuzzleId] = useState<string>('story_puzzle_01_signal_calibration');
   const [draft, setDraft] = useState<StoryPuzzleDraft>(() => defaultDraft(STORY_PUZZLE_BY_ID.story_puzzle_01_signal_calibration!));
@@ -2177,6 +2394,7 @@ export default function PuzzleScreen() {
   const terminalPuzzleAction = useRef(false);
   const hydratedPuzzleId = useRef<string | null>(null);
   const playedPuzzleCinematics = useRef(new Set<string>());
+  const discoveryButtonRefs = useRef(new Map<string, HTMLButtonElement>());
 
   useEffect(() => {
     if (authStatus === 'signed-in') void actions.load(false, undefined, locale);
@@ -2251,6 +2469,24 @@ export default function PuzzleScreen() {
   const discoverableSecretIds = snapshot?.discoverableSecretPuzzleIds ?? [];
 
   useEffect(() => {
+    const secretId = storyPuzzleDiscoveryRequest;
+    if (!secretId) return;
+    // A route request only focuses an already server-authorized discovery
+    // control. The player must still press it, and the API owns disclosure.
+    if (!discoverableSecretIds.includes(secretId)) {
+      consumeStoryPuzzleDiscoveryRequest();
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      const button = discoveryButtonRefs.current.get(secretId);
+      button?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      button?.focus();
+      consumeStoryPuzzleDiscoveryRequest();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [consumeStoryPuzzleDiscoveryRequest, discoverableSecretIds, storyPuzzleDiscoveryRequest]);
+
+  useEffect(() => {
     if (!visiblePuzzles.some((puzzle) => puzzle.id === selectedPuzzleId)) {
       const next = visiblePuzzles.find((puzzle) => entryById.get(puzzle.id)?.status === 'in_progress')
         ?? visiblePuzzles.find((puzzle) => entryById.get(puzzle.id)?.status === 'available')
@@ -2310,7 +2546,8 @@ export default function PuzzleScreen() {
   const enqueueDraftSave = (puzzleId: string, nextDraft: StoryPuzzleDraft) => {
     // Capture the exact draft at the time of the player action. Later local
     // interactions must enqueue a later write instead of mutating this one.
-    const persistedDraft = cloneDraft(nextDraft);
+    const puzzle = STORY_PUZZLE_BY_ID[puzzleId] ?? selectedPuzzle;
+    const persistedDraft = cloneDraft(normalizePuzzleDraft(puzzle, nextDraft));
     return enqueueSerializedDraftSave(
       draftSaveChain,
       () => actions.saveDraft(puzzleId, persistedDraft, locale),
@@ -2323,12 +2560,13 @@ export default function PuzzleScreen() {
       || selectedEntry.status === 'locked'
       || selectedEntry.status === 'completed'
     ) return;
-    setDraft(next);
+    const normalizedDraft = normalizePuzzleDraft(selectedPuzzle, next);
+    setDraft(normalizedDraft);
     cancelQueuedSave();
     const puzzleId = selectedPuzzle.id;
     saveTimer.current = window.setTimeout(() => {
       saveTimer.current = null;
-      void enqueueDraftSave(puzzleId, next);
+      void enqueueDraftSave(puzzleId, normalizedDraft);
     }, 550);
   };
 
@@ -2354,9 +2592,11 @@ export default function PuzzleScreen() {
       || selectedEntry.status === 'completed'
     ) return null;
     cancelQueuedSave();
+    const normalizedDraft = normalizePuzzleDraft(selectedPuzzle, nextDraft);
+    setDraft(normalizedDraft);
     setBusy(true);
     try {
-      return await enqueueDraftSave(selectedPuzzle.id, nextDraft);
+      return await enqueueDraftSave(selectedPuzzle.id, normalizedDraft);
     } finally {
       setBusy(false);
     }
@@ -2375,7 +2615,9 @@ export default function PuzzleScreen() {
     try {
       // The chain drains every prior debounce first, then makes this exact
       // draft the last write before the hint response updates the snapshot.
-      const saved = await enqueueDraftSave(selectedPuzzle.id, draft);
+      const persistedDraft = normalizePuzzleDraft(selectedPuzzle, draft);
+      setDraft(persistedDraft);
+      const saved = await enqueueDraftSave(selectedPuzzle.id, persistedDraft);
       if (!saved) return;
       await actions.unlockHint(selectedPuzzle.id, index, locale);
     } finally {
@@ -2393,9 +2635,11 @@ export default function PuzzleScreen() {
     try {
       // Do not let a prior autosave return after the authoritative receipt.
       // This exact final draft is serialized after all earlier saves first.
-      const saved = await enqueueDraftSave(selectedPuzzle.id, draft);
+      const submissionDraft = normalizePuzzleDraft(selectedPuzzle, draft);
+      setDraft(submissionDraft);
+      const saved = await enqueueDraftSave(selectedPuzzle.id, submissionDraft);
       if (!saved) return;
-      const receipt = await actions.complete(selectedPuzzle.id, draft, locale);
+      const receipt = await actions.complete(selectedPuzzle.id, submissionDraft, locale);
       if (receipt?.awarded) {
         emitExperienceCue({ name: 'puzzle-reward', sourceId: selectedPuzzle.id });
         if (audioEnabled) playPuzzleCompletionSound(sfxVolume);
@@ -2422,16 +2666,26 @@ export default function PuzzleScreen() {
     queueSave(next);
   };
 
-  const continueToNextManhwa = () => {
-    actions.dismissReward();
-    requestManhwaReader();
-  };
-
   const discover = async (secretId: string) => {
     setBusy(true);
     const next = await actions.discover(secretId, locale);
     setBusy(false);
     if (next) setSelectedPuzzleId(secretId);
+  };
+
+  const continueToObjective = (objective: CorePlayerObjective) => {
+    actions.dismissReward();
+    if (objective.secretPuzzleId) {
+      // This is a conscious player action, not a reward-side unlock. The
+      // idempotent endpoint validates the discovery condition again.
+      void discover(objective.secretPuzzleId);
+      return;
+    }
+    if (objective.screen === 'memories') {
+      requestManhwaReader();
+      return;
+    }
+    navigate(objective.screen);
   };
 
   if (authStatus !== 'signed-in') {
@@ -2447,12 +2701,12 @@ export default function PuzzleScreen() {
   return (
     <div className="story-puzzle-screen" data-mechanic={selectedPuzzle.mechanic}>
       <header className="story-puzzle-screen__header">
-        <div><small>11.11 // STORY INTERFERENCE</small><h1>{screenCopy.title}</h1></div>
+        <div><small>{screenCopy.storyInterference}</small><h1>{screenCopy.title}</h1></div>
         <dl>
-          <div><dt>MAIN PATH</dt><dd dir="ltr">{snapshot?.mainCompletedCount ?? 0} / 14</dd></div>
-          <div><dt>MEMORY SHARDS</dt><dd dir="ltr">{snapshot?.shardCount ?? 0} / 20</dd></div>
-          <div><dt>ECHO RESONANCE</dt><dd>{snapshot?.echoResonance.total ?? 0}</dd></div>
-          <div><dt><Coins aria-hidden="true" /> COINS</dt><dd>{snapshot?.coinBalance ?? 0}</dd></div>
+          <div><dt>{screenCopy.mainPath}</dt><dd dir="ltr">{snapshot?.mainCompletedCount ?? 0} / 14</dd></div>
+          <div><dt>{screenCopy.memoryShards}</dt><dd dir="ltr">{snapshot?.shardCount ?? 0} / 20</dd></div>
+          <div><dt>{screenCopy.echoResonance}</dt><dd>{snapshot?.echoResonance.total ?? 0}</dd></div>
+          <div><dt><Coins aria-hidden="true" /> {screenCopy.coins}</dt><dd>{snapshot?.coinBalance ?? 0}</dd></div>
         </dl>
       </header>
 
@@ -2467,11 +2721,15 @@ export default function PuzzleScreen() {
               className="story-puzzle-index__discovery"
               disabled={busy}
               onClick={() => void discover(secretId)}
+              ref={(node) => {
+                if (node) discoveryButtonRefs.current.set(secretId, node);
+                else discoveryButtonRefs.current.delete(secretId);
+              }}
             >
               <span><Crosshair aria-hidden="true" /></span>
               <i>
                 <strong>{screenCopy.discovery}</strong>
-                <small>PAGE {secret.source.globalPageNumber} // {screenCopy.unlockChannel}</small>
+                <small>{screenCopy.page(secret.source.globalPageNumber)} // {screenCopy.unlockChannel}</small>
               </i>
             </button>
           );
@@ -2485,7 +2743,7 @@ export default function PuzzleScreen() {
               data-status={status} disabled={status === 'locked'} onClick={() => selectPuzzle(puzzle)}
             >
               <span>{status === 'completed' ? <Check aria-hidden="true" /> : puzzle.classification === 'secret' ? <Crosshair aria-hidden="true" /> : String(puzzle.order).padStart(2, '0')}</span>
-              <i><strong>{puzzle.classification === 'secret' && status === 'hidden' ? '///' : puzzle.title[locale]}</strong><small>{puzzle.classification === 'secret' ? 'SECRET SIGNAL' : `CHAPTER ${puzzle.chapterId.slice(-1)}`}</small></i>
+              <i><strong>{puzzle.classification === 'secret' && status === 'hidden' ? '///' : puzzle.title[locale]}</strong><small>{puzzle.classification === 'secret' ? screenCopy.secretSignal : screenCopy.chapter(puzzle.chapterId.slice(-1))}</small></i>
               {status === 'locked' && <LockKeyhole aria-hidden="true" />}
             </button>
           );
@@ -2495,12 +2753,12 @@ export default function PuzzleScreen() {
       <main className="story-puzzle-workspace">
         <section className="story-puzzle-console">
           <header>
-            <span><Activity aria-hidden="true" /> {selectedPuzzle.classification === 'secret' ? 'ANOMALY CHANNEL' : 'SYSTEM CHANNEL'}</span>
-            <small>PUZZLE {String(selectedPuzzle.order).padStart(2, '0')} // {statusLabel(selectedEntry.status, locale)}</small>
+            <span><Activity aria-hidden="true" /> {selectedPuzzle.classification === 'secret' ? screenCopy.anomalyChannel : screenCopy.systemChannel}</span>
+            <small>{screenCopy.puzzle(selectedPuzzle.order, statusLabel(selectedEntry.status, locale))}</small>
           </header>
           <div className="story-puzzle-console__title">
             <div><small>{selectedPuzzle.mechanic.replace('-', ' ').toUpperCase()}</small><h2>{selectedPuzzle.title[locale]}</h2><p>{selectedPuzzle.objective[locale]}</p></div>
-            <span className="story-puzzle-console__page">SOURCE // {String(selectedPuzzle.source.globalPageNumber).padStart(2, '0')}</span>
+            <span className="story-puzzle-console__page">{screenCopy.source(selectedPuzzle.source.globalPageNumber)}</span>
             {selectedPuzzle.cinematicStageId && selectedEntry.status !== 'locked' && (
               <button
                 type="button"
@@ -2512,6 +2770,14 @@ export default function PuzzleScreen() {
             )}
           </div>
           <PuzzleReference reference={selectedPuzzle.reference} />
+
+          <MiniEchoCompanion
+            className="story-puzzle-console__mini-echo"
+            available={hasVerifiedReward}
+            locale={locale}
+            objectiveKind="solve"
+            onSuggestedRoute={navigate}
+          />
 
           {selectedEntry.status !== 'locked' && selectedEntry.status !== 'completed' && (
             <section className="story-puzzle-console__mission" aria-label={screenCopy.missionLabel}>
@@ -2555,7 +2821,7 @@ export default function PuzzleScreen() {
             <>
               {currentStage && (
                 <div className="story-puzzle-stages">
-                  <span dir="ltr">STAGE {stageIndex + 1} / {stageDrafts.length}</span>
+                  <span dir="ltr">{screenCopy.stageProgress(stageIndex + 1, stageDrafts.length)}</span>
                   <div>{stageDrafts.map((_, index) => (
                     <button
                       key={index}
@@ -2611,15 +2877,16 @@ export default function PuzzleScreen() {
         </section>
 
         <aside className="story-puzzle-hints" aria-label={screenCopy.hints}>
-          <header><CircleHelp aria-hidden="true" /><span>ASSISTANCE CHANNEL</span></header>
+          <header><CircleHelp aria-hidden="true" /><span>{screenCopy.assistanceChannel}</span></header>
           {selectedPuzzle.hints.map((hint, index) => {
             const unlocked = selectedEntry.unlockedHintIndexes.includes(index);
             const preceding = index === 0 || selectedEntry.unlockedHintIndexes.includes(index - 1);
             const cost = selectedEntry.hintCosts[index];
+            const priced = Number.isSafeInteger(cost) && cost > 0;
             return (
               <article key={index} data-unlocked={unlocked}>
-                <small>HINT {String(index + 1).padStart(2, '0')} <strong>{cost === 0 ? 'FREE' : `${cost} ◉`}</strong></small>
-                {unlocked ? <p>{hint[locale]}</p> : <button type="button" disabled={busy || !preceding || selectedEntry.status === 'locked'} onClick={() => void openHint(index)}>{locale === 'ar' ? 'فتح التلميح' : 'Open hint'}</button>}
+                <small>{screenCopy.hint(index + 1)} <strong>{priced ? `${cost} ◉` : screenCopy.unavailable}</strong></small>
+                {unlocked ? <p>{hint[locale]}</p> : <button type="button" disabled={busy || !preceding || !priced || selectedEntry.status === 'locked'} onClick={() => void openHint(index)}>{locale === 'ar' ? 'فتح التلميح' : 'Open hint'}</button>}
               </article>
             );
           })}
@@ -2627,8 +2894,8 @@ export default function PuzzleScreen() {
         </aside>
       </main>
 
-      {storeStatus === 'loading' && !snapshot && <div className="story-puzzle-loading">SYNCHRONIZING VERIFIED RECORDS…</div>}
-      {latestReward && <RewardMoment onDismiss={actions.dismissReward} onContinueManhwa={continueToNextManhwa} />}
+      {storeStatus === 'loading' && !snapshot && <div className="story-puzzle-loading">{screenCopy.synchronizing}</div>}
+      {latestReward && <RewardMoment onDismiss={actions.dismissReward} onContinueObjective={continueToObjective} />}
     </div>
   );
 }

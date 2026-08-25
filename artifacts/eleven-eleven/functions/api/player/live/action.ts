@@ -20,6 +20,11 @@ import {
   useWeeklyHint,
   useDailyHint,
 } from '../_liveChallenges';
+import { requirePlayerRolloutFeature } from '../_rolloutPolicy';
+
+function rolloutFeatureForLiveAction(action: string): 'dailyEnabled' | 'weeklyEnabled' {
+  return action.includes('daily') ? 'dailyEnabled' : 'weeklyEnabled';
+}
 
 export async function onRequestOptions({ request, env }: PlayerApiContext): Promise<Response> {
   return optionsResponse(request, env);
@@ -29,7 +34,6 @@ export async function onRequestPost({ request, env }: PlayerApiContext): Promise
   const headers = corsHeaders(request, env);
   try {
     const { account } = await authenticatePlayer(request, env);
-    const database = requirePlayerDatabase(env);
     const body = await parseLiveAction(await readJsonBody<unknown>(request, {
       maxBytes: 8 * 1024,
       tooLargeCode: 'live_action_too_large',
@@ -37,6 +41,11 @@ export async function onRequestPost({ request, env }: PlayerApiContext): Promise
       invalidCode: 'invalid_live_action',
       invalidMessage: 'Live action is invalid.',
     }));
+    requirePlayerRolloutFeature(
+      env.PLAYER_ROLLOUT_POLICY,
+      rolloutFeatureForLiveAction(body.action),
+    );
+    const database = requirePlayerDatabase(env);
     switch (body.action) {
       case 'start-daily':
         return jsonResponse({ live: await startDaily(database, account) }, 200, headers);

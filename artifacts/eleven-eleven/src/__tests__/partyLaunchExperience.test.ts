@@ -70,8 +70,8 @@ describe('Private party launch experience', () => {
     const coop = source('src/features/echo-network/CoopBreachPanel.tsx');
 
     assert.match(screen, /const partyRoom = useRealtimeRoom\(\{ resumeMatch: authStatus === 'signed-in', locale \}\)/);
-    assert.match(screen, /room=\{partyRoom\}/);
-    assert.match(screen, /partyRoom=\{partyRoom\}/);
+    assert.match(screen, /<ContractChessPanel[\s\S]*room=\{partyRoom\}/);
+    assert.match(screen, /<CoopBreachPanel[\s\S]*room=\{partyRoom\}/);
     assert.match(chess, /roomHasUsableSnapshot\(room\.state\)/);
     assert.match(chess, /const gameplayReady = roomReady && snapshot\?\.state !== null;/);
     assert.match(coop, /roomHasUsableSnapshot\(room\.state\)/);

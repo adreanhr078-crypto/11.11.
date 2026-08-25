@@ -11,6 +11,7 @@ import {
 } from '../_shared';
 import { requirePlayerDatabase } from '../_database';
 import { ensureNetworkPlayer, readNetworkEligibility } from '../_network';
+import { requirePlayerRolloutFeature } from '../_rolloutPolicy';
 
 const acceptanceSchema = z.object({
   rulesVersion: z.literal(1),
@@ -34,6 +35,7 @@ export async function onRequestPost({ request, env }: PlayerApiContext): Promise
     if (!parsed.success) {
       throw new PlayerApiError(400, 'invalid_rules_acceptance', 'Rules acceptance is invalid.');
     }
+    requirePlayerRolloutFeature(env.PLAYER_ROLLOUT_POLICY, 'communityEnabled');
     const db = requirePlayerDatabase(env);
     const now = new Date().toISOString();
     await ensureNetworkPlayer(db, account, now);

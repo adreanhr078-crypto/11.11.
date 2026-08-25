@@ -12,6 +12,7 @@ import {
 } from '../_shared';
 import { requirePlayerDatabase } from '../_database';
 import { ensureNetworkPlayer, readNetworkEligibility } from '../_network';
+import { requirePlayerRolloutFeature } from '../_rolloutPolicy';
 
 const submissionSchema = z.object({
   locale: z.enum(['ar', 'en']),
@@ -47,6 +48,7 @@ export async function onRequestGet({ request, env }: PlayerApiContext): Promise<
   const headers = corsHeaders(request, env);
   try {
     const { account } = await authenticatePlayer(request, env);
+    requirePlayerRolloutFeature(env.PLAYER_ROLLOUT_POLICY, 'forgeSubmissionEnabled');
     const db = requirePlayerDatabase(env);
     await ensureNetworkPlayer(db, account);
     const rows = await db.prepare(`
@@ -85,6 +87,7 @@ export async function onRequestPost({ request, env }: PlayerApiContext): Promise
     if (!parsed.success || parsed.data.answerIndex >= parsed.data.options.length) {
       throw new PlayerApiError(400, 'invalid_forge_submission', 'Puzzle Forge submission is invalid.');
     }
+    requirePlayerRolloutFeature(env.PLAYER_ROLLOUT_POLICY, 'forgeSubmissionEnabled');
     const db = requirePlayerDatabase(env);
     await ensureNetworkPlayer(db, account);
     const eligibility = await readNetworkEligibility(db, account.uid);

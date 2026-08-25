@@ -8,6 +8,7 @@ import {
 } from './_shared';
 import { requirePlayerDatabase } from './_database';
 import { readLiveSnapshot } from './_liveChallenges';
+import { requireAnyPlayerRolloutFeature } from './_rolloutPolicy';
 
 export async function onRequestOptions({ request, env }: PlayerApiContext): Promise<Response> {
   return optionsResponse(request, env);
@@ -17,6 +18,10 @@ export async function onRequestGet({ request, env }: PlayerApiContext): Promise<
   const headers = corsHeaders(request, env);
   try {
     const { account } = await authenticatePlayer(request, env);
+    requireAnyPlayerRolloutFeature(env.PLAYER_ROLLOUT_POLICY, [
+      'dailyEnabled',
+      'weeklyEnabled',
+    ]);
     const live = await readLiveSnapshot(requirePlayerDatabase(env), account);
     return jsonResponse({ live }, 200, headers);
   } catch (error) {

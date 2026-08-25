@@ -149,7 +149,7 @@ export function EchoPresence({
       {showTelemetry && (
         <figcaption className="echo-presence__telemetry">
           <span>
-            <small>ECHO MIND // A-17</small>
+            <small>ECHO // EX-011</small>
             <strong>{label}</strong>
           </span>
           <span>

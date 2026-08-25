@@ -837,4 +837,10 @@
     width: 52vw;
     opacity: 0.78;
   }
+
+  /* This acknowledgement does not convey a player action or result. On a
+     short landscape viewport it is visual noise and can clip against Hero. */
+  .shell-main-menu .shell-main-menu__echo .echo-presence__reaction {
+    display: none;
+  }
 }

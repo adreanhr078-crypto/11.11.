@@ -15,6 +15,7 @@ import type {
 import { PlayerApiError, type FirebaseAccount } from '../../functions/api/player/_shared';
 import type { StoryPuzzleDraft } from '../domain/story-puzzles/storyPuzzleContracts';
 import { STORY_PUZZLES } from '../content/puzzles/storyPuzzleCatalog';
+import { normalizeImageReconstructionDraft } from '../features/story-puzzles/verticalSliceInteractions';
 
 interface CompletionRow {
   userId: string;
@@ -486,6 +487,53 @@ describe('server-authoritative Story Puzzle gateway', () => {
     assert.equal(reward.awarded, true);
     assert.equal(database.discoveries.size, 1, 'completion cannot create a second discovery receipt');
     assert.equal(database.fragments.size, 3);
+  });
+
+  it('accepts the physical Torn Memory arrangement emitted by the RTL-safe client and rejects its mirror', async () => {
+    const database = new StoryPuzzleDatabase();
+    database.seedPage(account.uid, 'manhwa_ch01_page_02');
+    await completeStoryPuzzle(database, account, 'story_puzzle_01_signal_calibration', draft({
+      tokens: ['58', 'channel-11'],
+    }));
+    database.seedPage(account.uid, 'manhwa_ch01_page_03');
+    await completeStoryPuzzle(database, account, 'story_puzzle_02_system_sequence', draft({
+      tokens: ['signal', 'access', 'memory', 'echo'],
+    }));
+    database.seedPage(account.uid, 'manhwa_ch01_page_07');
+    await discoverStoryPuzzle(database, account, 'story_puzzle_03_torn_memory');
+
+    await assert.rejects(
+      () => completeStoryPuzzle(database, account, 'story_puzzle_03_torn_memory', draft({
+        imageOrder: ['piece-2', 'piece-1', 'piece-0', 'piece-5', 'piece-4', 'piece-3', 'piece-8', 'piece-7', 'piece-6'],
+        rotations: Object.fromEntries(Array.from({ length: 9 }, (_, index) => [`piece-${index}`, 0])),
+      })),
+      (error) => error instanceof PlayerApiError && error.code === 'puzzle_not_verified',
+    );
+
+    const uiDraft = normalizeImageReconstructionDraft({
+      imageOrder: Array.from({ length: 9 }, (_, index) => `piece-${index}`),
+      rotations: { 'piece-0': 3, stale: 1 },
+    }, 3, 3, false);
+    const persistedDraft = draft(uiDraft);
+    const snapshot = await saveStoryPuzzleDraft(
+      database,
+      account,
+      'story_puzzle_03_torn_memory',
+      persistedDraft,
+    );
+    const savedEntry = snapshot.entries.find((entry) => (
+      entry.puzzleId === 'story_puzzle_03_torn_memory'
+    ));
+    assert.deepEqual(savedEntry?.draft, persistedDraft);
+
+    const reward = await completeStoryPuzzle(
+      database,
+      account,
+      'story_puzzle_03_torn_memory',
+      savedEntry!.draft!,
+    );
+    assert.equal(reward.awarded, true);
+    assert.equal(database.completions.size, 3);
   });
 
   it('keeps every hint priced atomically, rejects insufficient coins, and removes only the perfect bonus', async () => {

@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
+import { LIVE_HINT_COSTS } from '../domain/live-challenges/liveChallengeEngine';
 import {
   liveDailyPeriodKeyFor,
   liveDailyTemplateFor,
@@ -9,6 +12,15 @@ import {
 } from '../../functions/api/player/_liveChallenges';
 
 describe('live challenge server windows', () => {
+  it('prices every Daily and Weekly hint through the server-owned live ledger', () => {
+    assert.deepEqual(LIVE_HINT_COSTS, [6, 12, 24]);
+    const api = readFileSync(resolve(process.cwd(), 'functions/api/player/_liveChallenges.ts'), 'utf8');
+    const migration = readFileSync(resolve(process.cwd(), 'migrations/0008_live_challenges.sql'), 'utf8');
+    assert.equal((api.match(/LIVE_HINT_COSTS\[hintIndex\]/g) ?? []).length, 2);
+    assert.match(migration, /CREATE TRIGGER enforce_live_hint_balance/);
+    assert.match(migration, /CREATE TRIGGER record_live_hint_spend/);
+  });
+
   it('changes the daily period at 11:11 UTC, not at a client-selected clock', () => {
     assert.equal(liveDailyPeriodKeyFor(Date.parse('2026-08-10T11:10:59.000Z')), '2026-08-09');
     assert.equal(liveDailyPeriodKeyFor(Date.parse('2026-08-10T11:11:00.000Z')), '2026-08-10');

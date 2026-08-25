@@ -6,6 +6,8 @@ import {
   extractResponsesText,
   generateEchoReply,
   hasConfiguredEchoProvider,
+  MAX_ECHO_CHAT_DEADLINE_MS,
+  resolveEchoProviderTiming,
 } from '../../functions/api/echo/providers';
 
 describe('Echo Mind provider pool', () => {
@@ -98,6 +100,18 @@ describe('Echo Mind provider pool', () => {
     assert.equal(hasConfiguredEchoProvider({
       AI: { run: async () => ({ response: 'ready' }) },
     }), true);
+  });
+
+  it('caps every free-chat provider deadline at six seconds even when remote config is malformed or too high', () => {
+    assert.deepEqual(resolveEchoProviderTiming({
+      ECHO_MAX_PROVIDER_ATTEMPTS: '99',
+      ECHO_PROVIDER_TIMEOUT_MS: '99999',
+      ECHO_PROVIDER_DEADLINE_MS: '60000',
+    }), {
+      attemptLimit: 24,
+      perAttemptTimeoutMs: MAX_ECHO_CHAT_DEADLINE_MS,
+      deadlineMs: MAX_ECHO_CHAT_DEADLINE_MS,
+    });
   });
 
   it('silently falls through to the next model after a provider failure', async () => {

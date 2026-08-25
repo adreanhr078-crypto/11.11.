@@ -9,6 +9,7 @@ import {
 } from '../_shared';
 import { requirePlayerDatabase } from '../_database';
 import { ensureNetworkPlayer } from '../_network';
+import { requirePlayerRolloutFeature } from '../_rolloutPolicy';
 
 interface PostRow {
   post_id: string;
@@ -30,6 +31,7 @@ export async function onRequestGet({ request, env }: PlayerApiContext): Promise<
   const headers = corsHeaders(request, env);
   try {
     const { account } = await authenticatePlayer(request, env);
+    requirePlayerRolloutFeature(env.PLAYER_ROLLOUT_POLICY, 'communityEnabled');
     const db = requirePlayerDatabase(env);
     await ensureNetworkPlayer(db, account);
     const url = new URL(request.url);

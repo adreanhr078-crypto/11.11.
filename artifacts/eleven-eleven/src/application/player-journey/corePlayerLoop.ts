@@ -10,6 +10,12 @@ export interface CorePlayerObjective {
   echoLine: string;
   actionLabel: string;
   screen: GameScreenId;
+  /**
+   * A server-discovered anomaly may become the immediate objective. This is
+   * only a presentation target: the Puzzle gateway still decides whether it
+   * may be discovered and opened.
+   */
+  secretPuzzleId?: string;
 }
 
 /** The one answer a first-time player must always be able to see: what now? */
@@ -17,6 +23,35 @@ export function deriveCorePlayerObjective(
   snapshot: StoryPuzzleSnapshot | null,
   locale: NetworkLocale = 'ar',
 ): CorePlayerObjective {
+  // Secret signals are returned only by the authoritative story snapshot.
+  // When one exists it deserves a clear, deliberate hand-off instead of
+  // being hidden behind the puzzle index while the player is told to read a
+  // later chapter.
+  const discoverableSecret = snapshot?.discoverableSecretPuzzleIds
+    .map((puzzleId) => STORY_PUZZLES.find((puzzle) => (
+      puzzle.id === puzzleId && puzzle.classification === 'secret'
+    )))
+    .find((puzzle): puzzle is typeof STORY_PUZZLES[number] => Boolean(puzzle));
+  if (discoverableSecret) {
+    return locale === 'en' ? {
+      kind: 'solve',
+      title: 'Inspect the detected memory shard',
+      detail: `A fragment surfaced after page ${discoverableSecret.source.globalPageNumber}. Open its channel and inspect the record before the trail goes cold.`,
+      echoLine: 'This did not come from the normal route. Let us look at it carefully.',
+      actionLabel: 'Inspect fragment',
+      screen: 'puzzles',
+      secretPuzzleId: discoverableSecret.id,
+    } : {
+      kind: 'solve',
+      title: 'افحص شظية الذاكرة المرصودة',
+      detail: `ظهرت شظية بعد الصفحة ${discoverableSecret.source.globalPageNumber}. افتح قناتها وافحص السجل قبل أن يبرد الأثر.`,
+      echoLine: 'لم تأتِ هذه من المسار المعتاد. لنفحصها بهدوء.',
+      actionLabel: 'افحص الشظية',
+      screen: 'puzzles',
+      secretPuzzleId: discoverableSecret.id,
+    };
+  }
+
   const nextPuzzle = STORY_PUZZLES.find((puzzle) => (
     puzzle.classification === 'main'
     && snapshot?.entries.find((entry) => entry.puzzleId === puzzle.id)?.status !== 'completed'
