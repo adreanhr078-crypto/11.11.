@@ -1395,13 +1395,25 @@ function SignalCalibrationBoard({
   // key, so seeding from the persisted selection is safe.
   const probeFrequencies = probes.map((probe) => Number(probe.frequency));
   const dialScale = signalDialScale(probeFrequencies);
+  // A practical keyboard stride: at most ~24 arrow presses across the span,
+  // always finer than the smallest lock radius so no centre can be skipped.
+  const dialStep = Math.max(1, Math.round(dialScale.span / 24));
   const [dialValue, setDialValue] = useState<number>(() => {
     const tuned = frequency !== undefined ? Number(frequency) : Number.NaN;
     return Number.isFinite(tuned) ? tuned : dialScale.min;
   });
+  // A lock that originated from this very dial must not yank the thumb back
+  // to the centre mid-sweep; only external changes (probe card tap, restored
+  // draft) re-seat the dial position.
+  const dialArmedRef = useRef<string | null>(null);
   useEffect(() => {
     const tuned = frequency !== undefined ? Number(frequency) : Number.NaN;
-    if (Number.isFinite(tuned)) setDialValue(tuned);
+    if (!Number.isFinite(tuned)) return;
+    if (dialArmedRef.current === frequency) {
+      dialArmedRef.current = null;
+      return;
+    }
+    setDialValue(tuned);
   }, [frequency]);
   const acquisition = signalAcquisition(dialValue, probeFrequencies);
   const liveWavePath = buildLiveSignalWavePath(acquisition.clarity);
@@ -1448,7 +1460,7 @@ function SignalCalibrationBoard({
       </section>
       <figure
         className="story-signal-board__scope"
-        style={{ '--noise': String(1 - acquisition.clarity), '--strength': String(acquisition.clarity) } as CSSProperties}
+        style={{ '--strength': String(acquisition.clarity) } as CSSProperties}
         data-clarity={meterBand(acquisition.clarity)}
       >
         <svg viewBox="0 0 120 54" role="img" aria-label={signalCopy.scope}>
@@ -1477,7 +1489,7 @@ function SignalCalibrationBoard({
           type="range"
           min={dialScale.min}
           max={dialScale.max}
-          step="1"
+          step={dialStep}
           value={dialValue}
           disabled={disabled || probes.length === 0}
           aria-valuetext={acquisition.locked && nearestProbe ? signalCopy.tunerValue(nearestProbe) : signalCopy.between}
@@ -1489,6 +1501,7 @@ function SignalCalibrationBoard({
             const nextAcquisition = signalAcquisition(next, probeFrequencies);
             const target = probes[nextAcquisition.nearestIndex];
             if (!target || !nextAcquisition.locked || target.frequency === frequency) return;
+            dialArmedRef.current = target.frequency;
             onChange({
               ...draft,
               tokens: toggleSignalSelection(

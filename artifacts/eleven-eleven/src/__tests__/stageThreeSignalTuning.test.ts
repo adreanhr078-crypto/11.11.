@@ -63,9 +63,18 @@ describe('Stage 3.2 continuous signal tuning', () => {
     assert.match(screen, /min=\{dialScale\.min\}/);
     assert.match(screen, /max=\{dialScale\.max\}/);
     assert.match(screen, /signalAcquisition\(next, probeFrequencies\)/);
+    // A self-originated lock must not yank the thumb back mid-sweep; only
+    // external selection changes re-seat the dial.
+    assert.match(screen, /dialArmedRef\.current = target\.frequency;/);
+    assert.match(screen, /if \(dialArmedRef\.current === frequency\) \{/);
+    // Keyboard stride stays practical and can never skip a lock radius.
+    assert.match(screen, /const dialStep = Math\.max\(1, Math\.round\(dialScale\.span \/ 24\)\);/);
+    assert.match(screen, /step=\{dialStep\}/);
     // The ghost silhouette is present and described to assistive tech.
     assert.match(screen, /story-signal-board__scope-ghost/);
     assert.match(screen, /aria-label=\{signalCopy\.scope\}/);
+    // No dead custom properties: only consumed tokens are emitted.
+    assert.doesNotMatch(screen, /'--noise'/);
   });
 });
 
