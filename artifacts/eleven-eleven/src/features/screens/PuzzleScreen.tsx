@@ -43,6 +43,8 @@ import { useCollectionStore } from '../collection/collectionStore';
 import { useStoryPuzzleStore } from '../story-puzzles/storyPuzzleStore';
 import {
   appendUniqueRouteToken,
+  buildLiveSignalWavePath,
+  diagnoseSequenceContradiction,
   isExactImageReconstructionPermutation,
   isLoadBalanceReady,
   loadBalanceTotal,
@@ -50,6 +52,8 @@ import {
   normalizeLoadBalanceAssignments,
   readSignalSelection,
   removeRouteTokenAt,
+  signalAcquisition,
+  signalDialScale,
   swapPuzzlePieces,
   toggleSignalSelection,
 } from '../story-puzzles/verticalSliceInteractions';
@@ -1338,6 +1342,11 @@ function SignalCalibrationBoard({
       relay: 'مرحل',
       awaiting: 'بانتظار مجس ومرحل.',
       armed: 'تم تسليح {probe} وربط {relay}. أرسل الفرضية إلى السجل للتحقق.',
+      scope: 'نطاق الالتقاط الحي: قارن الموجة الحية بظل النبضة الموثوقة.',
+      ghost: 'ظل النبضة الموثوقة من دليل المانهوا',
+      strength: 'قوة الالتقاط',
+      noise: 'التشويش',
+      between: 'بين القراءات؛ واصل توجيه القرص حتى يثبت الالتقاط.',
     }
     : {
       board: 'Signal calibration lab',
@@ -1352,6 +1361,11 @@ function SignalCalibrationBoard({
       relay: 'Relay',
       awaiting: 'Awaiting one probe and one relay.',
       armed: '{probe} armed and {relay} linked. Submit the hypothesis to the record for verification.',
+      scope: 'Live acquisition scope: compare the live wave with the trusted-pulse silhouette.',
+      ghost: 'Trusted-pulse silhouette from the manhwa guide',
+      strength: 'Acquisition strength',
+      noise: 'Noise',
+      between: 'Between readings; keep steering the dial until the lock holds.',
     };
   const frequencyProbe = probes.find((probe) => probe.frequency === frequency);
   const channelRelay = channels.find((candidate) => candidate.id === channel);
@@ -1377,6 +1391,22 @@ function SignalCalibrationBoard({
   const selectedProbeIndex = Math.max(0, probes.findIndex((probe) => (
     probe.frequency === frequency
   )));
+  // Continuous tuning state. The component remounts per puzzle/stage via its
+  // key, so seeding from the persisted selection is safe.
+  const probeFrequencies = probes.map((probe) => Number(probe.frequency));
+  const dialScale = signalDialScale(probeFrequencies);
+  const [dialValue, setDialValue] = useState<number>(() => {
+    const tuned = frequency !== undefined ? Number(frequency) : Number.NaN;
+    return Number.isFinite(tuned) ? tuned : dialScale.min;
+  });
+  useEffect(() => {
+    const tuned = frequency !== undefined ? Number(frequency) : Number.NaN;
+    if (Number.isFinite(tuned)) setDialValue(tuned);
+  }, [frequency]);
+  const acquisition = signalAcquisition(dialValue, probeFrequencies);
+  const liveWavePath = buildLiveSignalWavePath(acquisition.clarity);
+  const nearestProbe = probes[acquisition.nearestIndex];
+  const meterBand = (level: number) => (level >= 0.66 ? 'high' : level >= 0.33 ? 'medium' : 'low');
   const status = frequencyProbe && channelRelay
     ? signalCopy.armed
       .replace('{probe}', `${signalCopy.reading} ${frequencyProbe.scan}`)
@@ -1416,31 +1446,61 @@ function SignalCalibrationBoard({
           </article>
         </div>
       </section>
+      <figure
+        className="story-signal-board__scope"
+        style={{ '--noise': String(1 - acquisition.clarity), '--strength': String(acquisition.clarity) } as CSSProperties}
+        data-clarity={meterBand(acquisition.clarity)}
+      >
+        <svg viewBox="0 0 120 54" role="img" aria-label={signalCopy.scope}>
+          <path className="story-signal-board__scope-baseline" d="M2 27 H118" />
+          <path
+            className="story-signal-board__scope-ghost"
+            d="M3 27 C12 12 20 12 30 27 S48 42 58 27 S76 12 86 27 S104 42 116 27"
+          />
+          <path className="story-signal-board__scope-live" d={liveWavePath} />
+        </svg>
+        <figcaption className="story-signal-board__meters">
+          <span className="story-signal-board__meter" data-level={meterBand(acquisition.clarity)}>
+            <small>{signalCopy.strength}</small>
+            <i style={{ '--level': String(acquisition.clarity) } as CSSProperties} />
+          </span>
+          <span className="story-signal-board__meter" data-level={meterBand(1 - acquisition.clarity)}>
+            <small>{signalCopy.noise}</small>
+            <i style={{ '--level': String(1 - acquisition.clarity) } as CSSProperties} />
+          </span>
+          <span className="story-signal-board__ghost-hint">{signalCopy.ghost}</span>
+        </figcaption>
+      </figure>
       <label className="story-signal-board__tuner">
         <span>{signalCopy.tuner}</span>
         <input
           type="range"
-          min="0"
-          max={Math.max(0, probes.length - 1)}
+          min={dialScale.min}
+          max={dialScale.max}
           step="1"
-          value={selectedProbeIndex}
+          value={dialValue}
           disabled={disabled || probes.length === 0}
-          aria-valuetext={signalCopy.tunerValue(frequencyProbe)}
+          aria-valuetext={acquisition.locked && nearestProbe ? signalCopy.tunerValue(nearestProbe) : signalCopy.between}
           onChange={(event) => {
-            const nextProbe = probes[Number(event.target.value)];
-            if (!nextProbe) return;
+            const next = Number(event.target.value);
+            setDialValue(next);
+            // Locking happens only through the player's own dial movement;
+            // the armed reading still has to satisfy the manhwa relationship.
+            const nextAcquisition = signalAcquisition(next, probeFrequencies);
+            const target = probes[nextAcquisition.nearestIndex];
+            if (!target || !nextAcquisition.locked || target.frequency === frequency) return;
             onChange({
               ...draft,
               tokens: toggleSignalSelection(
                 draft.tokens,
-                nextProbe.frequency,
+                target.frequency,
                 frequencyIds,
                 channelIds,
               ),
             });
           }}
         />
-        <output aria-live="polite">{signalCopy.tunerValue(frequencyProbe)}</output>
+        <output aria-live="polite">{acquisition.locked && nearestProbe ? signalCopy.tunerValue(nearestProbe) : signalCopy.between}</output>
       </label>
       <div className="story-signal-board__probes" role="group" aria-label={signalCopy.readings}>
         {probes.map((probe) => (
@@ -2868,12 +2928,38 @@ export default function PuzzleScreen() {
             </>
           )}
           {error && <p className="story-puzzle-console__error" role="alert"><TriangleAlert aria-hidden="true" /> {error}</p>}
-          {latestActivity?.kind === 'puzzle-attempt-rejected' && latestActivity.puzzleId === selectedPuzzle.id && (
-            <aside className="story-puzzle-console__echo-retry" aria-label={screenCopy.echoRetry} role="status" aria-live="polite">
-              <EchoPresence variant="mini" showTelemetry={false} label="Echo" />
-              <div className="story-puzzle-console__echo-retry-copy"><small>{screenCopy.echoResponse}</small><p><strong>Echo:</strong> {locale === 'ar' ? 'لم تُحسم الإشارة بعد.' : 'The signal is not resolved yet.'} {retryGuidance(currentStage?.mechanic ?? selectedPuzzle.mechanic, locale)}</p></div>
-            </aside>
-          )}
+          {latestActivity?.kind === 'puzzle-attempt-rejected' && latestActivity.puzzleId === selectedPuzzle.id && (() => {
+            // Deterministic, public-metadata-only diagnosis: Echo names the
+            // KIND of contradiction, never the corrected arrangement.
+            const rejectionMechanic = currentStage?.mechanic ?? selectedPuzzle.mechanic;
+            const sequenceDiagnosis = rejectionMechanic === 'sequence'
+              ? diagnoseSequenceContradiction(activeDraft.tokens, SYSTEM_SEQUENCE_PORTS)
+              : undefined;
+            const diagnosisCopy = locale === 'ar'
+              ? {
+                'no-entry': 'فرضيتك لا تنطلق من منفذ الدخول الموثق؛ تتبّع من أين يبدأ الأثر فعلًا.',
+                'no-exit': 'سلسلتك لا تصل إلى منفذ الخروج الموثق؛ الأثر يحتاج وجهة معلنة.',
+                'impossible-link': `الوصلة عند الخطوة ${String((sequenceDiagnosis?.atStep ?? 0) + 1).padStart(2, '0')} غير ممكنة: مخرج الخطوة السابقة لا يطابق مدخل هذه الخطوة.`,
+              }
+              : {
+                'no-entry': "Your hypothesis does not depart from the documented entry port; trace where the signal actually begins.",
+                'no-exit': 'Your chain never reaches the documented exit port; a trace needs a declared destination.',
+                'impossible-link': `The link at step ${String((sequenceDiagnosis?.atStep ?? 0) + 1).padStart(2, '0')} is impossible: the previous step's output does not match this step's input.`,
+              } as Record<string, string>;
+            return (
+              <aside className="story-puzzle-console__echo-retry" aria-label={screenCopy.echoRetry} role="status" aria-live="polite">
+                <EchoPresence variant="mini" showTelemetry={false} label="Echo" />
+                <div className="story-puzzle-console__echo-retry-copy">
+                  <small>{screenCopy.echoResponse}</small>
+                  <p>
+                    <strong>Echo:</strong> {locale === 'ar' ? 'لم تُحسم الإشارة بعد.' : 'The signal is not resolved yet.'}
+                    {' '}
+                    {sequenceDiagnosis ? diagnosisCopy[sequenceDiagnosis.kind] : retryGuidance(rejectionMechanic, locale)}
+                  </p>
+                </div>
+              </aside>
+            );
+          })()}
         </section>
 
         <aside className="story-puzzle-hints" aria-label={screenCopy.hints}>

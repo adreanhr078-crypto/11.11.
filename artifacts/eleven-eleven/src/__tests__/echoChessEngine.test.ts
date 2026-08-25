@@ -11,6 +11,7 @@ import {
 } from '../domain/echo-network/echoChessEngine';
 import {
   createEchoChessEnginePort,
+  replaceEchoChessEnginePort,
   workerTimeoutMs,
 } from '../features/echo-network/echoChessWorkerClient';
 
@@ -203,5 +204,33 @@ describe('Echo Duel chess engine', () => {
       SilentWorker.throwOnPost = false;
       Object.assign(globalThis, { Worker: originalWorker });
     }
+  });
+
+  it('replaces the terminal Worker port when a player starts a new duel', () => {
+    let previousDisposed = false;
+    const previous = {
+      chooseMove: async () => ({
+        ok: false as const,
+        code: 'no_legal_move' as const,
+        message: 'This port has failed.',
+      }),
+      dispose: () => { previousDisposed = true; },
+    };
+    const fresh = {
+      chooseMove: async () => ({
+        ok: false as const,
+        code: 'no_legal_move' as const,
+        message: 'Fresh port placeholder.',
+      }),
+      dispose: () => undefined,
+    };
+    const replacement = replaceEchoChessEnginePort(previous, () => fresh);
+
+    assert.equal(previousDisposed, true);
+    assert.equal(replacement, fresh);
+
+    const panel = readFileSync(resolve(process.cwd(), 'src/features/echo-network/ContractChessPanel.tsx'), 'utf8');
+    assert.match(panel, /engineRef\.current = replaceEchoChessEnginePort\(engineRef\.current\);/);
+    assert.match(panel, /if \(engineRef\.current === engine\) engineRef\.current = null;/);
   });
 });

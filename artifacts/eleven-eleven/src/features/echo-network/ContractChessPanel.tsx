@@ -24,7 +24,10 @@ import { GameButton, GameProgress, GlassPanel, HudPanel } from '../../ui/design-
 import { MiniEchoCompanion } from '../echo/MiniEchoCompanion';
 import { useShellStore } from '../../app/shell/shellStore';
 import { isRecoverableMatchState, roomHasUsableSnapshot, type RealtimeRoomController } from './useRealtimeRoom';
-import { createEchoChessEnginePort } from './echoChessWorkerClient';
+import {
+  createEchoChessEnginePort,
+  replaceEchoChessEnginePort,
+} from './echoChessWorkerClient';
 
 const PIECES: Record<Color, Record<PieceSymbol, string>> = {
   w: { k: '♔', q: '♕', r: '♖', b: '♗', n: '♘', p: '♙' },
@@ -743,7 +746,7 @@ function LocalEchoDuel({
     return () => {
       activeRequestRef.current += 1;
       engine.dispose();
-      engineRef.current = null;
+      if (engineRef.current === engine) engineRef.current = null;
     };
   }, []);
 
@@ -819,6 +822,10 @@ function LocalEchoDuel({
   const startNewDuel = () => {
     activeRequestRef.current += 1;
     sequenceRef.current = 0;
+    // A failed Worker port is intentionally terminal.  Replacing it here
+    // makes the visible "New duel" recovery action real instead of leaving
+    // Echo permanently unable to calculate.
+    engineRef.current = replaceEchoChessEnginePort(engineRef.current);
     setState(createContractChessState('standard', 'rapid'));
     setPlayerMoves(0);
     setDuelSeed(createDuelSeed());

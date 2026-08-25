@@ -71,7 +71,12 @@ describe('Story puzzle visual asset accessibility', () => {
     const screen = source('src/features/screens/PuzzleScreen.tsx');
 
     assert.match(screen, /const priced = Number\.isSafeInteger\(cost\) && cost > 0;/);
-    assert.match(screen, /\{priced \? `\$\{cost\} ◉` : 'UNAVAILABLE'\}/);
+    // The unavailable label is localized through screenCopy; verify the
+    // player-facing branch rather than pinning the surrounding JSX shape.
+    assert.ok(screen.includes('screenCopy.hint(index + 1)'));
+    assert.ok(screen.includes('priced ? `${cost} ◉` : screenCopy.unavailable'));
+    assert.match(screen, /unavailable: 'UNAVAILABLE',/);
+    assert.match(screen, /unavailable: 'غير متاح',/);
     assert.match(screen, /disabled=\{busy \|\| !preceding \|\| !priced \|\| selectedEntry\.status === 'locked'\}/);
     assert.doesNotMatch(screen, /cost === 0 \? 'FREE'/);
   });

@@ -93,7 +93,9 @@ describe('core journey localization', () => {
     assert.ok(puzzle.includes('probe.readout[locale]'));
     assert.ok(puzzle.includes('candidate.readout[locale]'));
     assert.ok(puzzle.includes('const imageCopy = locale === \'ar\''));
-    assert.ok(puzzle.includes('retryGuidance(currentStage?.mechanic ?? selectedPuzzle.mechanic, locale)'));
+    assert.ok(puzzle.includes('const rejectionMechanic = currentStage?.mechanic ?? selectedPuzzle.mechanic;'));
+    assert.ok(puzzle.includes('retryGuidance(rejectionMechanic, locale)'));
+    assert.ok(puzzle.includes("diagnoseSequenceContradiction(activeDraft.tokens, SYSTEM_SEQUENCE_PORTS)"));
     assert.ok(puzzle.includes("title: 'Memory shard acquired'"));
     assert.ok(puzzle.includes("continueManhwa: 'Continue the Manhwa'"));
     assert.ok(puzzle.includes('{copy.title}'));

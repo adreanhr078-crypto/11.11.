@@ -32,7 +32,9 @@ describe('Stage 3 opening puzzle vertical slice', () => {
 
     assert.match(screen, /className="story-signal-board__tuner"/);
     assert.match(screen, /type="range"/);
-    assert.match(screen, /aria-valuetext=\{signalCopy\.tunerValue\(frequencyProbe\)\}/);
+    // The continuous dial describes the nearest locked reading, or guides the
+    // player to keep steering while between readings.
+    assert.match(screen, /aria-valuetext=\{acquisition\.locked && nearestProbe \? signalCopy\.tunerValue\(nearestProbe\) : signalCopy\.between\}/);
     assert.match(screen, /data-frequency-index=\{selectedProbeIndex\}/);
     assert.match(screen, /className="story-signal-board__field-guide"/);
     assert.match(screen, /signalGuide\.balanceTitle/);

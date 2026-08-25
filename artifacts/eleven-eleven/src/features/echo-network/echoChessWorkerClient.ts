@@ -122,4 +122,18 @@ export function createEchoChessEnginePort(): EchoChessEnginePort {
   };
 }
 
+/**
+ * A Worker is deliberately fail-closed after an error or timeout.  Starting a
+ * new local duel must therefore create a fresh port instead of reusing the
+ * failed one; this helper keeps that recovery explicit and independently
+ * testable.
+ */
+export function replaceEchoChessEnginePort(
+  previous: EchoChessEnginePort | null,
+  createPort: () => EchoChessEnginePort = createEchoChessEnginePort,
+): EchoChessEnginePort {
+  previous?.dispose();
+  return createPort();
+}
+
 export { workerTimeoutMs };
