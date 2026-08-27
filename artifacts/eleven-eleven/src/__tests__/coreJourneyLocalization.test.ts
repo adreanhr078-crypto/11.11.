@@ -127,12 +127,14 @@ describe('core journey localization', () => {
 
   it('keeps post-reward achievement feedback in the selected language and direction', () => {
     const achievement = source('src/ui/presentation/AchievementPresentationOverlay.tsx');
+    const achievementCss = source('src/ui/presentation/achievement-presentation.css');
 
     assert.ok(achievement.includes("const locale = useUiPreferencesStore((state) => state.locale);"));
-    assert.ok(achievement.includes("dismiss: 'تخطي / متابعة'"));
-    assert.ok(achievement.includes("dismiss: 'SKIP / CONTINUE'"));
     assert.ok(achievement.includes("dir={locale === 'ar' ? 'rtl' : 'ltr'}"));
-    assert.ok(achievement.includes('aria-label={copy.dismissLabel}'));
+    assert.ok(achievement.includes('role="status"'));
+    assert.ok(achievement.includes('aria-live="polite"'));
+    assert.ok(achievement.includes('aria-label={copy.label(presentation?.name ?? current.title)}'));
+    assert.ok(achievementCss.includes('pointer-events: none;'));
   });
 
   it('keeps the Chess lobby and authoritative match briefing in the selected language', () => {

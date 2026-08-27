@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
+import { enqueueSerializedDraftSave } from '../features/story-puzzles/storyPuzzleDraftQueue';
 
 function source(relativePath: string): string {
   return readFileSync(resolve(process.cwd(), relativePath), 'utf8');
@@ -52,7 +53,7 @@ describe('Story puzzle visual asset accessibility', () => {
     assert.doesNotMatch(screen, /correctAnswer|rawSolution|targetFrequency|targetChannel/);
   });
 
-  it('flushes a local draft before a hint and does not rehydrate the active puzzle on its snapshot response', () => {
+  it('flushes a local draft before a confirmed hint purchase and does not rehydrate the active puzzle on its snapshot response', () => {
     const screen = source('src/features/screens/PuzzleScreen.tsx');
     const openHint = screen.slice(
       screen.indexOf('const openHint = async'),
@@ -64,7 +65,11 @@ describe('Story puzzle visual asset accessibility', () => {
     assert.match(screen, /hydratedPuzzleId\.current = selectedPuzzle\.id;/);
     assert.match(openHint, /const persistedDraft = normalizePuzzleDraft\(selectedPuzzle, draft\);[\s\S]*?await enqueueDraftSave\(selectedPuzzle\.id, persistedDraft\);[\s\S]*?await actions\.unlockHint\(selectedPuzzle\.id, index, locale\);/);
     assert.doesNotMatch(openHint, /defaultDraft\(|setDraftResetVersion/);
-    assert.match(screen, /onClick=\{\(\) => void openHint\(index\)\}/);
+    assert.match(screen, /function HintPurchaseDialog\(/);
+    assert.match(screen, /role="dialog"/);
+    assert.match(screen, /aria-modal="true"/);
+    assert.match(screen, /onClick=\{\(\) => setPendingHintIndex\(index\)\}/);
+    assert.doesNotMatch(screen, /onClick=\{\(\) => void openHint\(index\)\}/);
   });
 
   it('never presents a malformed hint price as free or lets it reset the current draft', () => {
@@ -77,8 +82,18 @@ describe('Story puzzle visual asset accessibility', () => {
     assert.ok(screen.includes('priced ? `${cost} ◉` : screenCopy.unavailable'));
     assert.match(screen, /unavailable: 'UNAVAILABLE',/);
     assert.match(screen, /unavailable: 'غير متاح',/);
-    assert.match(screen, /disabled=\{busy \|\| !preceding \|\| !priced \|\| selectedEntry\.status === 'locked'\}/);
+    assert.match(screen, /selectedEntry\.status === 'completed' \? <p className="story-puzzle-hints__state">\{screenCopy\.hintCompleted\}<\/p>/);
+    assert.match(screen, /const insufficientCoins = priced && cost > balance;/);
+    assert.match(screen, /screenCopy\.hintNeedCoins\(cost - balance\)/);
+    assert.match(screen, /onClick=\{\(\) => continueToObjective\(nextObjective\)\}/);
     assert.doesNotMatch(screen, /cost === 0 \? 'FREE'/);
+  });
+
+  it('states base verified coins in the reward moment, not only a perfect bonus', () => {
+    const screen = source('src/features/screens/PuzzleScreen.tsx');
+    assert.match(screen, /coins: 'Verified coins'/);
+    assert.match(screen, /<div><dt>\{copy\.coins\}<\/dt><dd>\+\{reward\.coinsGranted\} ◉<\/dd><\/div>/);
+    assert.match(screen, /Server-verified receipt/);
   });
 
   it('serializes autosave, hint, and completion writes so a stale draft cannot replace a receipt', () => {
@@ -101,47 +116,33 @@ describe('Story puzzle visual asset accessibility', () => {
   });
 
   it('keeps a deferred autosave ahead of the current draft and terminal receipt', async () => {
-    const { createServer } = await import('vite');
-    const server = await createServer({
-      server: { middlewareMode: true },
-      appType: 'custom',
+    const chain: { current: Promise<unknown> } = { current: Promise.resolve() };
+    const order: string[] = [];
+    let releaseAutosave: (value: string) => void = () => undefined;
+    const deferredAutosave = new Promise<string>((resolveAutosave) => {
+      releaseAutosave = resolveAutosave;
     });
-    try {
-      const screen = await server.ssrLoadModule('/src/features/screens/PuzzleScreen.tsx');
-      const enqueue = screen.enqueueSerializedDraftSave as <T>(
-        chain: { current: Promise<unknown> },
-        save: () => Promise<T>,
-      ) => Promise<T | null>;
-      const chain: { current: Promise<unknown> } = { current: Promise.resolve() };
-      const order: string[] = [];
-      let releaseAutosave: (value: string) => void = () => undefined;
-      const deferredAutosave = new Promise<string>((resolveAutosave) => {
-        releaseAutosave = resolveAutosave;
-      });
 
-      const autosave = enqueue(chain, async () => {
-        order.push('autosave');
-        return deferredAutosave;
-      });
-      const currentDraft = enqueue(chain, async () => {
-        order.push('current-draft');
-        return 'current-draft';
-      });
-      const receipt = currentDraft.then(async (saved) => {
-        if (!saved) return null;
-        order.push('completion');
-        return 'receipt';
-      });
+    const autosave = enqueueSerializedDraftSave(chain, async () => {
+      order.push('autosave');
+      return deferredAutosave;
+    });
+    const currentDraft = enqueueSerializedDraftSave(chain, async () => {
+      order.push('current-draft');
+      return 'current-draft';
+    });
+    const receipt = currentDraft.then(async (saved) => {
+      if (!saved) return null;
+      order.push('completion');
+      return 'receipt';
+    });
 
-      await new Promise<void>((resolveTick) => setTimeout(resolveTick, 0));
-      assert.deepEqual(order, ['autosave']);
-      releaseAutosave('old-draft');
-      assert.equal(await autosave, 'old-draft');
-      assert.equal(await currentDraft, 'current-draft');
-      assert.equal(await receipt, 'receipt');
-      assert.deepEqual(order, ['autosave', 'current-draft', 'completion']);
-    } finally {
-      await server.close();
-    }
+    await new Promise<void>((resolveTick) => setTimeout(resolveTick, 0));
+    assert.deepEqual(order, ['autosave']);
+    releaseAutosave('old-draft');
+    assert.equal(await autosave, 'old-draft');
+    assert.equal(await currentDraft, 'current-draft');
+    assert.equal(await receipt, 'receipt');
+    assert.deepEqual(order, ['autosave', 'current-draft', 'completion']);
   });
 });

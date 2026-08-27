@@ -396,6 +396,10 @@ function isInsufficientCoinBalanceError(error: unknown): boolean {
   return error instanceof Error && /insufficient verified coins/i.test(error.message);
 }
 
+function isCompletedStoryPuzzleError(error: unknown): boolean {
+  return error instanceof Error && /story puzzle already complete/i.test(error.message);
+}
+
 export async function completeStoryPuzzle(
   database: PlayerDatabase,
   account: FirebaseAccount,
@@ -421,20 +425,25 @@ export async function completeStoryPuzzle(
   if (!isServerStoryPuzzleSubmissionCorrect(puzzle.id, draft)) {
     throw new PlayerApiError(422, 'puzzle_not_verified', 'The puzzle solution could not be verified.');
   }
-  const perfect = entry.unlockedHintIndexes.length === 0;
   const now = new Date().toISOString();
   const rewardKey = createXpRewardKey('puzzle', puzzle.id);
-  const bonus = perfect ? serverDefinition.balance.perfectBonusCoins : 0;
   try {
     await database.batch([
       database.prepare(`
         INSERT INTO player_story_puzzle_completion_events (
           user_id, puzzle_id, chapter_id, classification, source_page_id,
           source_page_number, perfect_solve, completed_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ) SELECT ?, ?, ?, ?, ?, ?,
+          CASE WHEN EXISTS (
+            SELECT 1
+            FROM player_story_puzzle_hint_events
+            WHERE user_id = ? AND puzzle_id = ?
+          ) THEN 0 ELSE 1 END,
+          ?
       `).bind(
         account.uid, puzzle.id, puzzle.chapterId, puzzle.classification,
-        puzzle.source.pageId, puzzle.source.globalPageNumber, perfect ? 1 : 0, now,
+        puzzle.source.pageId, puzzle.source.globalPageNumber,
+        account.uid, puzzle.id, now,
       ),
       ...(puzzle.classification === 'secret' ? [database.prepare(`
         INSERT OR IGNORE INTO player_story_puzzle_discovery_events (
@@ -460,11 +469,24 @@ export async function completeStoryPuzzle(
       `).bind(
         account.uid, `${puzzle.id}:base:v1`, puzzle.id, serverDefinition.balance.coins, now,
       ),
-      ...(bonus > 0 ? [database.prepare(`
+      ...(serverDefinition.balance.perfectBonusCoins > 0 ? [database.prepare(`
         INSERT INTO player_coin_events (
           user_id, event_key, source_type, source_id, amount, recorded_at
-        ) VALUES (?, ?, 'story_puzzle_perfect', ?, ?, ?)
-      `).bind(account.uid, `${puzzle.id}:perfect:v1`, puzzle.id, bonus, now)] : []),
+        ) SELECT ?, ?, 'story_puzzle_perfect', ?, ?, ?
+        WHERE EXISTS (
+          SELECT 1
+          FROM player_story_puzzle_completion_events
+          WHERE user_id = ? AND puzzle_id = ? AND perfect_solve = 1
+        )
+      `).bind(
+        account.uid,
+        `${puzzle.id}:perfect:v1`,
+        puzzle.id,
+        serverDefinition.balance.perfectBonusCoins,
+        now,
+        account.uid,
+        puzzle.id,
+      )] : []),
       database.prepare(`DELETE FROM player_story_puzzle_progress WHERE user_id = ? AND puzzle_id = ?`).bind(account.uid, puzzle.id),
       xpProgressionUpdateStatement(database, account.uid, now),
     ]);
@@ -484,15 +506,20 @@ export async function completeStoryPuzzle(
       snapshot: afterRace,
     };
   }
+  const snapshot = await readStoryPuzzleSnapshot(database, account);
+  const completedEntry = snapshot.entries.find((candidate) => candidate.puzzleId === puzzle.id);
+  const perfectBonusCoins = completedEntry?.perfectSolve
+    ? serverDefinition.balance.perfectBonusCoins
+    : 0;
   return {
     awarded: true,
     puzzleId: puzzle.id,
     xpGranted: serverDefinition.balance.xp,
     coinsGranted: serverDefinition.balance.coins,
-    perfectBonusCoins: bonus,
+    perfectBonusCoins,
     shardId: serverDefinition.shardId,
     echoImpact: STORY_PUZZLE_ECHO_IMPACTS[puzzle.id]!,
-    snapshot: await readStoryPuzzleSnapshot(database, account),
+    snapshot,
   };
 }
 
@@ -534,6 +561,9 @@ export async function unlockStoryPuzzleHint(
   } catch (error) {
     if (isInsufficientCoinBalanceError(error)) {
       throw new PlayerApiError(409, 'insufficient_coins', 'Not enough verified coins for this hint.');
+    }
+    if (isCompletedStoryPuzzleError(error)) {
+      throw new PlayerApiError(409, 'puzzle_completed', 'Hints cannot be purchased after completion.');
     }
     if (!isUniqueConflict(error)) throw error;
     const afterRace = await readStoryPuzzleSnapshot(database, account);

@@ -41,6 +41,7 @@ import { useAuthStore } from '../auth/authStore';
 import { usePlayerProgressionStore } from '../player-progression/playerProgressionStore';
 import { useCollectionStore } from '../collection/collectionStore';
 import { useStoryPuzzleStore } from '../story-puzzles/storyPuzzleStore';
+import { enqueueSerializedDraftSave } from '../story-puzzles/storyPuzzleDraftQueue';
 import {
   appendUniqueRouteToken,
   buildLiveSignalWavePath,
@@ -78,23 +79,6 @@ import './story-puzzle-experience.css';
 const EMPTY_STORY_PUZZLE_ENTRIES: readonly StoryPuzzleSnapshotEntry[] = Object.freeze([]);
 const MATRIX_TILE_IDS = ['tile1', 'tile2', 'tile3', 'tile4'] as const;
 const MEMORY_LAYER_IDS = ['layer1', 'layer2', 'layer3', 'layer4'] as const;
-
-/**
- * Preserve write order without moving puzzle authority into the browser.
- * A caller still decides what to save; this only prevents an older response
- * from reaching the store after a newer player action.
- */
-export function enqueueSerializedDraftSave<T>(
-  chain: { current: Promise<unknown> },
-  save: () => Promise<T>,
-): Promise<T | null> {
-  const request = chain.current
-    .catch(() => undefined)
-    .then(save)
-    .catch(() => null);
-  chain.current = request;
-  return request;
-}
 
 const emptyDraft = (): StoryPuzzleDraft => ({
   stageIndex: 0,
@@ -2226,6 +2210,8 @@ function RewardMoment({
       detected: 'تم رصد شظية ذاكرة في النظام',
       title: 'تم اكتساب شظية ذاكرة',
       shard: 'شظية',
+      coins: 'عملات موثقة',
+      receipt: 'الإيصال موثق خادميًا',
       echoResonance: 'تناغم Echo',
       perfect: (coins: number) => `حل مثالي +${coins} عملات`,
       echoResponse: 'استجابة Echo',
@@ -2237,6 +2223,8 @@ function RewardMoment({
       detected: 'System memory fragment detected',
       title: 'Memory shard acquired',
       shard: 'Shard',
+      coins: 'Verified coins',
+      receipt: 'Server-verified receipt',
       echoResonance: 'Echo resonance',
       perfect: (coins: number) => `Perfect solve +${coins} coins`,
       echoResponse: 'Echo response',
@@ -2302,8 +2290,10 @@ function RewardMoment({
         <p id="story-reward-description">{puzzle?.completionMessage[locale] ?? (locale === 'ar' ? 'تمت الاستعادة.' : 'Recovery complete.')}</p>
         <dl>
           <div><dt>XP</dt><dd>+{reward.xpGranted}</dd></div>
+          <div><dt>{copy.coins}</dt><dd>+{reward.coinsGranted} ◉</dd></div>
           <div><dt>{copy.shard}</dt><dd dir="ltr">{reward.snapshot.shardCount} / 20</dd></div>
         </dl>
+        <small className="story-reward-moment__receipt"><Check aria-hidden="true" /> {copy.receipt}</small>
         <div className="story-reward-moment__echo-impact">
           <Activity aria-hidden="true" />
           <span><small>{copy.echoResonance}</small><strong>+{reward.echoImpact.amount} · {reward.echoImpact.label[locale]}</strong></span>
@@ -2338,11 +2328,141 @@ function RewardMoment({
   );
 }
 
+/**
+ * Visual design review: this is a lightweight React/CSS confirmation surface,
+ * not a cinematic asset. It reuses the existing reward-panel material so the
+ * irreversible coin decision remains fast, localized, keyboard-safe, and
+ * within the first-play payload. Reduced Motion keeps the same information
+ * with no entrance animation.
+ */
+function HintPurchaseDialog({
+  hintNumber,
+  cost,
+  balance,
+  busy,
+  error,
+  onCancel,
+  onConfirm,
+}: {
+  hintNumber: number;
+  cost: number;
+  balance: number;
+  busy: boolean;
+  error: string | null;
+  onCancel: () => void;
+  onConfirm: () => Promise<void>;
+}) {
+  const locale = useUiPreferencesStore((state) => state.locale);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const confirmRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const busyRef = useRef(busy);
+  const copy = locale === 'ar'
+    ? {
+      channel: 'تأكيد معاملة العملة',
+      title: `فتح التلميح ${String(hintNumber).padStart(2, '0')}؟`,
+      detail: 'سيُفتح هذا الدليل لحسابك فقط. تُحفظ مسودة اللغز كما هي، ولا تُمنح أي مكافأة من هذه الشاشة.',
+      cost: 'التكلفة',
+      balance: 'الرصيد الموثق',
+      after: 'الرصيد بعد الفتح',
+      cancel: 'إلغاء',
+      confirm: `فتح مقابل ${cost} ◉`,
+      busy: 'جارٍ التحقق من المعاملة…',
+    }
+    : {
+      channel: 'COIN PURCHASE CONFIRMATION',
+      title: `Open hint ${String(hintNumber).padStart(2, '0')}?`,
+      detail: 'This clue opens only for your account. Your puzzle draft stays intact, and this panel never grants a reward.',
+      cost: 'COST',
+      balance: 'VERIFIED BALANCE',
+      after: 'BALANCE AFTER OPENING',
+      cancel: 'Cancel',
+      confirm: `Open for ${cost} ◉`,
+      busy: 'Verifying transaction…',
+    };
+  useEffect(() => {
+    busyRef.current = busy;
+  }, [busy]);
+
+  useEffect(() => {
+    previousFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const frame = window.requestAnimationFrame(() => confirmRef.current?.focus());
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !busyRef.current) {
+        event.preventDefault();
+        onCancel();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      const items = focusable ? [...focusable] : [];
+      if (items.length === 0) return;
+      const first = items[0]!;
+      const last = items.at(-1)!;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('keydown', onKeyDown);
+      previousFocusRef.current?.focus();
+    };
+  }, [onCancel]);
+
+  return createPortal(
+    <div className="story-hint-purchase" role="presentation">
+      <section
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="story-hint-purchase-title"
+        aria-describedby="story-hint-purchase-description"
+      >
+        <small>{copy.channel}</small>
+        <h2 id="story-hint-purchase-title">{copy.title}</h2>
+        <p id="story-hint-purchase-description">{copy.detail}</p>
+        <dl>
+          <div><dt>{copy.cost}</dt><dd dir="ltr">−{cost} ◉</dd></div>
+          <div><dt>{copy.balance}</dt><dd dir="ltr">{balance} ◉</dd></div>
+          <div><dt>{copy.after}</dt><dd dir="ltr">{Math.max(0, balance - cost)} ◉</dd></div>
+        </dl>
+        {error && <p className="story-hint-purchase__error" role="alert"><TriangleAlert aria-hidden="true" /> {error}</p>}
+        <p className="story-hint-purchase__status" role="status" aria-live="polite">
+          {busy ? copy.busy : ''}
+        </p>
+        <div className="story-hint-purchase__actions">
+          <button type="button" disabled={busy} onClick={onCancel}>{copy.cancel}</button>
+          <button
+            ref={confirmRef}
+            type="button"
+            disabled={busy || balance < cost}
+            onClick={() => void onConfirm()}
+          >
+            <Coins aria-hidden="true" /> {copy.confirm}
+          </button>
+        </div>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
 export default function PuzzleScreen() {
   const authStatus = useAuthStore((state) => state.status);
   const storeStatus = useStoryPuzzleStore((state) => state.status);
   const snapshot = useStoryPuzzleStore((state) => state.snapshot);
   const error = useStoryPuzzleStore((state) => state.error);
+  const errorCode = useStoryPuzzleStore((state) => state.errorCode);
   const latestReward = useStoryPuzzleStore((state) => state.latestReward);
   const latestActivity = useStoryPuzzleStore((state) => state.latestActivity);
   const actions = useStoryPuzzleStore((state) => state.actions);
@@ -2395,6 +2515,11 @@ export default function PuzzleScreen() {
       assistanceChannel: 'قناة المساعدة',
       hint: (index: number) => `تلميح ${String(index).padStart(2, '0')}`,
       unavailable: 'غير متاح',
+      hintCompleted: 'أُغلق بعد إتمام الاستعادة.',
+      hintOrder: 'افتح التلميح السابق أولًا.',
+      hintNeedCoins: (missing: number) => `تحتاج ${missing} ◉ موثقة إضافية. أكمل هدف القصة التالي لكسب عملات.`,
+      earnCoins: 'افتح الهدف التالي',
+      openHint: 'فتح التلميح',
       synchronizing: 'تتم مزامنة السجلات الموثقة…',
       hintDetail: 'استخدام التلميح لا يلغي XP أو الشظية؛ يلغي فقط مكافأة الحل المثالي.',
     }
@@ -2440,6 +2565,11 @@ export default function PuzzleScreen() {
       assistanceChannel: 'ASSISTANCE CHANNEL',
       hint: (index: number) => `HINT ${String(index).padStart(2, '0')}`,
       unavailable: 'UNAVAILABLE',
+      hintCompleted: 'Closed after recovery is complete.',
+      hintOrder: 'Open the previous hint first.',
+      hintNeedCoins: (missing: number) => `You need ${missing} more verified ◉. Complete your next story objective to earn coins.`,
+      earnCoins: 'Open next objective',
+      openHint: 'Open hint',
       synchronizing: 'SYNCHRONIZING VERIFIED RECORDS…',
       hintDetail: 'Using a hint does not remove XP or the shard; it only removes the perfect-solve bonus.',
     };
@@ -2456,6 +2586,7 @@ export default function PuzzleScreen() {
   const [draft, setDraft] = useState<StoryPuzzleDraft>(() => defaultDraft(STORY_PUZZLE_BY_ID.story_puzzle_01_signal_calibration!));
   const [draftResetVersion, setDraftResetVersion] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [pendingHintIndex, setPendingHintIndex] = useState<number | null>(null);
   const [visualAssetState, setVisualAssetState] = useState<{
     context: string;
     status: PuzzleVisualAssetStatus;
@@ -2468,6 +2599,7 @@ export default function PuzzleScreen() {
   const hydratedPuzzleId = useRef<string | null>(null);
   const playedPuzzleCinematics = useRef(new Set<string>());
   const discoveryButtonRefs = useRef(new Map<string, HTMLButtonElement>());
+  const closeHintPurchase = useCallback(() => setPendingHintIndex(null), []);
 
   useEffect(() => {
     if (authStatus === 'signed-in') void actions.load(false, undefined, locale);
@@ -2675,13 +2807,13 @@ export default function PuzzleScreen() {
     }
   };
 
-  const openHint = async (index: number) => {
+  const openHint = async (index: number): Promise<boolean> => {
     if (
       busy
       || terminalPuzzleAction.current
       || selectedEntry.status === 'locked'
       || selectedEntry.status === 'completed'
-    ) return;
+    ) return false;
     terminalPuzzleAction.current = true;
     cancelQueuedSave();
     setBusy(true);
@@ -2691,12 +2823,19 @@ export default function PuzzleScreen() {
       const persistedDraft = normalizePuzzleDraft(selectedPuzzle, draft);
       setDraft(persistedDraft);
       const saved = await enqueueDraftSave(selectedPuzzle.id, persistedDraft);
-      if (!saved) return;
-      await actions.unlockHint(selectedPuzzle.id, index, locale);
+      if (!saved) return false;
+      const unlockedHint = await actions.unlockHint(selectedPuzzle.id, index, locale);
+      return Boolean(unlockedHint);
     } finally {
       terminalPuzzleAction.current = false;
       setBusy(false);
     }
+  };
+
+  const confirmHintPurchase = async () => {
+    if (pendingHintIndex === null) return;
+    const purchased = await openHint(pendingHintIndex);
+    if (purchased) setPendingHintIndex(null);
   };
 
   const complete = async () => {
@@ -2940,7 +3079,7 @@ export default function PuzzleScreen() {
               </div>
             </>
           )}
-          {error && <p className="story-puzzle-console__error" role="alert"><TriangleAlert aria-hidden="true" /> {error}</p>}
+          {error && pendingHintIndex === null && <div className="story-puzzle-console__error" role="alert"><TriangleAlert aria-hidden="true" /> <span>{error}</span>{errorCode === 'insufficient_coins' && <button type="button" onClick={() => continueToObjective(nextObjective)}>{screenCopy.earnCoins}</button>}</div>}
           {latestActivity?.kind === 'puzzle-attempt-rejected' && latestActivity.puzzleId === selectedPuzzle.id && (() => {
             // Deterministic, public-metadata-only diagnosis: Echo names the
             // KIND of contradiction, never the corrected arrangement.
@@ -2982,10 +3121,17 @@ export default function PuzzleScreen() {
             const preceding = index === 0 || selectedEntry.unlockedHintIndexes.includes(index - 1);
             const cost = selectedEntry.hintCosts[index];
             const priced = Number.isSafeInteger(cost) && cost > 0;
+            const balance = snapshot?.coinBalance ?? 0;
+            const insufficientCoins = priced && cost > balance;
             return (
               <article key={index} data-unlocked={unlocked}>
                 <small>{screenCopy.hint(index + 1)} <strong>{priced ? `${cost} ◉` : screenCopy.unavailable}</strong></small>
-                {unlocked ? <p>{hint[locale]}</p> : <button type="button" disabled={busy || !preceding || !priced || selectedEntry.status === 'locked'} onClick={() => void openHint(index)}>{locale === 'ar' ? 'فتح التلميح' : 'Open hint'}</button>}
+                {unlocked ? <p>{hint[locale]}</p>
+                  : selectedEntry.status === 'completed' ? <p className="story-puzzle-hints__state">{screenCopy.hintCompleted}</p>
+                    : !preceding ? <p className="story-puzzle-hints__state">{screenCopy.hintOrder}</p>
+                      : !priced ? <p className="story-puzzle-hints__state">{screenCopy.unavailable}</p>
+                        : insufficientCoins ? <div className="story-puzzle-hints__insufficient"><p>{screenCopy.hintNeedCoins(cost - balance)}</p><button type="button" disabled={busy} onClick={() => continueToObjective(nextObjective)}>{screenCopy.earnCoins}</button></div>
+                          : <button type="button" disabled={busy || selectedEntry.status === 'locked'} onClick={() => setPendingHintIndex(index)}>{screenCopy.openHint}</button>}
               </article>
             );
           })}
@@ -2994,6 +3140,18 @@ export default function PuzzleScreen() {
       </main>
 
       {storeStatus === 'loading' && !snapshot && <div className="story-puzzle-loading">{screenCopy.synchronizing}</div>}
+      {pendingHintIndex !== null && (() => {
+        const cost = selectedEntry.hintCosts[pendingHintIndex] ?? 0;
+        return <HintPurchaseDialog
+          hintNumber={pendingHintIndex + 1}
+          cost={cost}
+          balance={snapshot?.coinBalance ?? 0}
+          busy={busy}
+          error={error}
+          onCancel={closeHintPurchase}
+          onConfirm={confirmHintPurchase}
+        />;
+      })()}
       {latestReward && <RewardMoment onDismiss={actions.dismissReward} onContinueObjective={continueToObjective} />}
     </div>
   );

@@ -465,27 +465,33 @@ export default function MemoryScreen() {
       </div>
 
       <section className="final-manhwa-reader__timeline" aria-label={copy.timeline}>
-        <div className="final-manhwa-reader__timeline-track">
+        <div className="final-manhwa-reader__timeline-track" aria-hidden="true">
           {FINAL_MANHWA_PAGES.map((page) => (
-            <button
+            <span
               key={page.id}
-              type="button"
               className="final-manhwa-reader__timeline-page"
               data-current={activePage.id === page.id}
               data-viewed={viewedPageIds.has(page.id)}
               data-locked={!readerPageIds.has(page.id)}
               data-story-gated={!accessiblePageIds.has(page.id)}
-              disabled={!readerPageIds.has(page.id)}
-              onClick={() => jumpToPage(page.globalPageNumber)}
-              aria-label={readerPageIds.has(page.id)
-                ? `${copy.page} ${page.globalPageNumber}`
-                : accessiblePageIds.has(page.id)
-                  ? `${copy.page} ${page.globalPageNumber} ${copy.requiresPrevious}`
-                  : `${copy.page} ${page.globalPageNumber} ${copy.requiresPuzzle}`}
             />
           ))}
         </div>
-        <span>{copy.drag}</span>
+        <label className="final-manhwa-reader__timeline-scrubber">
+          <span>{copy.pageIndicator(activePage.globalPageNumber, Math.max(1, maxSequentialPage))}</span>
+          <input
+            type="range"
+            min={1}
+            max={Math.max(1, maxSequentialPage)}
+            value={activePage.globalPageNumber}
+            disabled={maxSequentialPage <= 1}
+            dir="ltr"
+            onChange={(event) => jumpToPage(Number(event.currentTarget.value))}
+            aria-label={copy.timeline}
+            aria-valuetext={copy.pageIndicator(activePage.globalPageNumber, Math.max(1, maxSequentialPage))}
+          />
+        </label>
+        <span>{locale === 'ar' ? 'استخدم شريط الصفحات أو أزرار السابق والتالي.' : 'Use the page control or Previous and Next.'}</span>
       </section>
 
       {viewerPageId && (

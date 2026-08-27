@@ -3,6 +3,7 @@ import { useStoryPuzzleStore } from '../../features/story-puzzles/storyPuzzleSto
 import { useAchievementPresentationQueue } from '../../application/ui/achievementPresentationQueue';
 import { useUiPreferencesStore } from '../../app/shell/shellStore';
 import { playAchievementUnlockSound } from '../../infrastructure/audio/puzzleRewardAudio';
+import { localizeCollectionAchievement } from '../../domain/collection/collectionPresentation';
 
 export function AchievementPresentationOverlay() {
   const current = useAchievementPresentationQueue((state) => state.queue[0] ?? null);
@@ -11,6 +12,13 @@ export function AchievementPresentationOverlay() {
   const audioEnabled = useUiPreferencesStore((state) => state.audioEnabled);
   const sfxVolume = useUiPreferencesStore((state) => state.sfxVolume);
   const locale = useUiPreferencesStore((state) => state.locale);
+  const presentation = current
+    ? localizeCollectionAchievement({
+      id: current.achievementId,
+      name: current.title,
+      description: current.description,
+    }, locale)
+    : null;
   const copy = locale === 'ar'
     ? {
       priority: 'سجل النظام // أولوية',
@@ -26,8 +34,6 @@ export function AchievementPresentationOverlay() {
       updated: 'SYSTEM RECORD UPDATED',
       unlocked: 'ACHIEVEMENT UNLOCKED',
       cosmetic: 'COSMETIC RECORD ADDED',
-      dismiss: 'SKIP / CONTINUE',
-      dismissLabel: 'Dismiss achievement and continue playing',
       label: (title: string) => `Achievement unlocked: ${title}`,
     };
 
@@ -36,7 +42,7 @@ export function AchievementPresentationOverlay() {
     if (audioEnabled) {
       playAchievementUnlockSound(current.tier, sfxVolume);
     }
-    const duration = current.tier === 'system' ? 5200 : current.tier === 'rare' ? 3400 : 2200;
+    const duration = current.tier === 'system' ? 7000 : current.tier === 'rare' ? 5600 : 4200;
     const timer = window.setTimeout(dismiss, duration);
     return () => window.clearTimeout(timer);
   }, [audioEnabled, current, dismiss, rewardOpen, sfxVolume]);
@@ -50,8 +56,9 @@ export function AchievementPresentationOverlay() {
       dir={locale === 'ar' ? 'rtl' : 'ltr'}
       lang={locale}
       role="status"
-      aria-live="assertive"
-      aria-label={copy.label(current.title)}
+      aria-live="polite"
+      aria-atomic="true"
+      aria-label={copy.label(presentation?.name ?? current.title)}
     >
       <div className="achievement-presentation__scan" aria-hidden="true" />
       <div className="achievement-presentation__emblem" aria-hidden="true">
@@ -60,13 +67,12 @@ export function AchievementPresentationOverlay() {
       <div className="achievement-presentation__copy">
         <small>{current.tier === 'system' ? copy.priority : copy.updated}</small>
         <strong>{copy.unlocked}</strong>
-        <h2>{current.title}</h2>
-        <p>{current.description}</p>
+        <h2>{presentation?.name ?? current.title}</h2>
+        <p>{presentation?.description ?? current.description}</p>
         {current.rewardCosmetics.length > 0 && (
           <span className="achievement-presentation__reward">{copy.cosmetic}</span>
         )}
       </div>
-      <button type="button" aria-label={copy.dismissLabel} onClick={dismiss}>{copy.dismiss}</button>
     </div>
   );
 }

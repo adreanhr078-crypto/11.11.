@@ -40,6 +40,12 @@ describe('Stage 3.2 continuous signal tuning', () => {
     }
   });
 
+  it('starts in an unarmed between-readings state until the player deliberately tunes a probe', () => {
+    const scale = signalDialScale(frequencies);
+    assert.equal(signalAcquisition(scale.min, frequencies).locked, false);
+    assert.equal(signalAcquisition(scale.max, frequencies).locked, false);
+  });
+
   it('raises acquisition clarity monotonically toward a centre without naming correctness', () => {
     const far = signalAcquisition(30, frequencies).clarity;
     const nearer = signalAcquisition(38, frequencies).clarity;

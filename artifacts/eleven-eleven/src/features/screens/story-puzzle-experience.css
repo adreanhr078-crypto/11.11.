@@ -640,7 +640,7 @@
 .story-image-puzzle__piece { position: relative; min-inline-size: 0; overflow: hidden; border: 1px solid rgb(0 0 0 / 75%); background: #000; cursor: grab; }
 .story-image-puzzle__piece[data-selected="true"] { outline: 2px solid var(--story-red); outline-offset: -2px; }
 .story-image-puzzle__art { inline-size: 100%; block-size: 100%; border: 0; background-repeat: no-repeat; cursor: inherit; transition: transform .2s ease; }
-.story-image-puzzle__rotate { position: absolute; inset: .2rem .2rem auto auto; display: grid; place-items: center; inline-size: 1.55rem; block-size: 1.55rem; border: 1px solid rgb(255 255 255 / 36%); border-radius: 50%; color: #eefaff; background: rgb(2 8 12 / 76%); cursor: pointer; }
+.story-image-puzzle__rotate { position: absolute; inset: .2rem .2rem auto auto; display: grid; place-items: center; inline-size: var(--gds-touch-target); block-size: var(--gds-touch-target); border: 1px solid rgb(255 255 255 / 36%); border-radius: 50%; color: #eefaff; background: rgb(2 8 12 / 76%); cursor: pointer; touch-action: manipulation; }
 .story-image-puzzle__rotate svg { inline-size: .73rem; }
 .story-image-puzzle p { margin: 0; color: #91a7b1; font-size: .68rem; line-height: 1.65; }
 
@@ -725,7 +725,7 @@
 .story-puzzle-console__readiness svg { inline-size: .85rem; flex: 0 0 auto; }
 .story-puzzle-anomaly { display: flex; align-items: center; gap: .5rem; margin-block-start: .75rem; padding: .42rem .55rem; border: 1px dashed rgb(255 66 102 / 54%); color: #ffa4b2; background: rgb(255 66 102 / 5%); cursor: pointer; animation: story-anomaly 1.8s steps(2, end) infinite; }
 .story-puzzle-anomaly span { font: 900 1rem var(--gds-font-mono, monospace); }.story-puzzle-anomaly small { font: 700 .55rem var(--gds-font-mono, monospace); letter-spacing: .1em; }
-.story-puzzle-console__error { display: flex; align-items: center; gap: .4rem; margin: .65rem 0 0; padding: .55rem .6rem; border-inline-start: 2px solid var(--story-red); color: #ffadba; background: rgb(255 66 102 / 7%); font-size: .72rem; }.story-puzzle-console__error svg { flex: 0 0 auto; inline-size: .95rem; }
+.story-puzzle-console__error { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin: .65rem 0 0; padding: .55rem .6rem; border-inline-start: 2px solid var(--story-red); color: #ffadba; background: rgb(255 66 102 / 7%); font-size: .72rem; line-height: 1.5; }.story-puzzle-console__error svg { flex: 0 0 auto; inline-size: .95rem; }.story-puzzle-console__error span { flex: 1 1 13rem; }.story-puzzle-console__error button { min-block-size: 2.75rem; padding: .38rem .6rem; border: 1px solid rgb(255 204 104 / 46%); color: #fff1ce; background: rgb(96 58 16 / 28%); font: 800 .6rem var(--gds-font-body, sans-serif); cursor: pointer; }
 .story-puzzle-console__echo-retry { display: grid; grid-template-columns: 3.25rem minmax(0, 1fr); align-items: center; gap: .55rem; margin-block-start: .55rem; padding: .5rem .6rem; border: 1px solid rgb(57 230 255 / 24%); background: linear-gradient(90deg, rgb(57 230 255 / 8%), transparent); box-shadow: inset .18rem 0 0 rgb(57 230 255 / 42%); }
 .story-puzzle-console__echo-retry .echo-presence { inline-size: 3.1rem; block-size: 3.1rem; }
 .story-puzzle-console__echo-retry .echo-presence__reaction { display: none; }
@@ -739,6 +739,7 @@
 .story-puzzle-hints article[data-unlocked="true"] { border-color: rgb(57 230 255 / 34%); background: rgb(57 230 255 / 5%); }
 .story-puzzle-hints article small { display: flex; justify-content: space-between; color: #8fa8b5; }.story-puzzle-hints article small strong { color: #ffbd59; }
 .story-puzzle-hints article p { margin: 0; color: #d0e0e8; font-size: .72rem; line-height: 1.7; }.story-puzzle-hints article button { justify-self: start; min-block-size: 3rem; font-size: .62rem; }
+.story-puzzle-hints__state { color: #92a7b2 !important; }.story-puzzle-hints__insufficient { display: grid; gap: .4rem; padding: .48rem; border: 1px dashed rgb(255 204 104 / 34%); background: linear-gradient(90deg, rgb(113 76 17 / 16%), transparent); }.story-puzzle-hints__insufficient p { color: #ffe1a1 !important; }.story-puzzle-hints__insufficient button { border-color: rgb(255 204 104 / 50%) !important; color: #fff0cb !important; background: rgb(96 58 16 / 24%) !important; }
 .story-puzzle-hints footer { display: flex; gap: .4rem; margin-block-start: .3rem; color: #8297a2; font-size: .63rem; line-height: 1.7; }.story-puzzle-hints footer svg { flex: 0 0 auto; inline-size: .86rem; color: var(--story-cyan); }
 
 .story-puzzle-loading { position: fixed; z-index: 6; inset: auto 1.2rem 1rem auto; padding: .55rem .75rem; border: 1px solid rgb(57 230 255 / 42%); color: var(--story-cyan); background: rgb(1 9 13 / 92%); font: 700 .58rem var(--gds-font-mono, monospace); letter-spacing: .08em; }
@@ -764,6 +765,16 @@
 .story-reward-moment__continue { border-color: rgb(57 230 255 / 70%) !important; color: #effdff !important; background: linear-gradient(110deg, rgb(57 230 255 / 29%), rgb(4 22 31 / 88%)) !important; }
 .story-reward-moment__continue svg { inline-size: 1rem; color: var(--story-cyan); }
 .story-reward-moment__dismiss { color: #a8c0ca !important; }
+.story-reward-moment__receipt { display: inline-flex; align-items: center; justify-content: center; gap: .32rem; margin-block: -.35rem .55rem; color: #8debf9 !important; }.story-reward-moment__receipt svg { inline-size: .8rem; }
+
+/* Coin confirmation is deliberately a code-native panel: it must remain
+   readable, localizable, focus-safe, and lightweight on a first mobile play. */
+.story-hint-purchase { position: fixed; z-index: 1350; inset: 0; display: grid; place-items: center; min-block-size: 100dvh; padding: 1rem; overflow: auto; overscroll-behavior: contain; background: radial-gradient(circle at 50% 20%, rgb(255 204 104 / 13%), transparent 26rem), rgb(0 2 5 / 87%); backdrop-filter: blur(.55rem); animation: story-reward-backdrop .2s ease-out both; }
+.story-hint-purchase > section { inline-size: min(100%, 27rem); max-block-size: calc(100dvh - 2rem); padding: clamp(1rem, 3vw, 1.35rem); overflow: auto; border: 1px solid rgb(255 204 104 / 56%); color: #eefaff; background: linear-gradient(145deg, rgb(255 204 104 / 11%), transparent 42%), linear-gradient(315deg, rgb(57 230 255 / 8%), transparent 54%), #050e15; box-shadow: 0 0 3rem rgb(255 204 104 / 12%); clip-path: polygon(1rem 0, 100% 0, 100% calc(100% - 1rem), calc(100% - 1rem) 100%, 0 100%, 0 1rem); animation: story-reward-panel .28s cubic-bezier(.16,.86,.24,1.12) both; }
+.story-hint-purchase small { color: #ffcf78; font: 800 .58rem var(--gds-font-mono, monospace); letter-spacing: .1em; }.story-hint-purchase h2 { margin: .55rem 0 .32rem; color: #f7fbff; font-size: clamp(1.2rem, 4.5vw, 1.55rem); }.story-hint-purchase > section > p { margin: 0; color: #bfd1da; font-size: .78rem; line-height: 1.7; }
+.story-hint-purchase dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .42rem; margin: .95rem 0 .65rem; }.story-hint-purchase dl div { min-inline-size: 0; padding: .54rem .42rem; border: 1px solid rgb(255 204 104 / 22%); background: rgb(255 204 104 / 4%); }.story-hint-purchase dt { overflow: hidden; color: #b9a77e; font: 800 .5rem/1.35 var(--gds-font-mono, monospace); letter-spacing: .06em; text-overflow: ellipsis; white-space: nowrap; }.story-hint-purchase dd { margin: .28rem 0 0; color: #ffdc9c; font: 800 .76rem var(--gds-font-mono, monospace); }
+.story-hint-purchase__error { display: flex; align-items: flex-start; gap: .38rem; margin: .2rem 0 !important; padding: .55rem; border-inline-start: 2px solid #ff4266; color: #ffd5de !important; background: rgb(255 66 102 / 10%); font: 700 .65rem/1.55 var(--gds-font-body, sans-serif) !important; }.story-hint-purchase__error svg { flex: 0 0 auto; inline-size: .9rem; color: #ff6380; }
+.story-hint-purchase__status { min-block-size: 1.25rem; color: #8debf9 !important; font-size: .67rem !important; }.story-hint-purchase__actions { display: grid; grid-template-columns: 1fr 1.25fr; gap: .5rem; }.story-hint-purchase button { display: inline-flex; align-items: center; justify-content: center; gap: .35rem; min-block-size: 3rem; padding: .45rem .65rem; border: 1px solid rgb(57 230 255 / 36%); color: #dffbff; background: rgb(4 22 31 / 90%); font: 800 .65rem var(--gds-font-body, sans-serif); cursor: pointer; transition: transform .16s ease, border-color .16s ease, background .16s ease; }.story-hint-purchase button:last-child { border-color: rgb(255 204 104 / 70%); color: #fff8e9; background: linear-gradient(110deg, rgb(141 86 19 / 66%), rgb(40 24 5 / 88%)); }.story-hint-purchase button svg { inline-size: .9rem; }.story-hint-purchase button:hover:not(:disabled) { transform: translateY(-1px); border-color: #ffdc92; }.story-hint-purchase button:focus-visible { outline: 2px solid #39e6ff; outline-offset: 3px; }.story-hint-purchase button:disabled { cursor: not-allowed; opacity: .55; }
 
 /* This dialog is portalled to body so its viewport lock is never captured by
    a transformed application stage. Keep it fully reachable on small phones. */
@@ -817,6 +828,8 @@
   .story-puzzle-anomaly,
   .story-puzzle-index__discovery,
   .story-reward-moment,
+  .story-hint-purchase,
+  .story-hint-purchase > section,
   .story-reward-moment > section,
   .story-reward-moment__shard,
   .story-signal-board__probes button[data-selected="true"] svg path:last-child,
@@ -838,6 +851,8 @@
 [data-gds-motion="reduced"] .story-puzzle-index__discovery,
 [data-gds-motion="reduced"] .story-reward-moment,
 [data-gds-motion="reduced"] .story-reward-moment > section,
+[data-gds-motion="reduced"] .story-hint-purchase,
+[data-gds-motion="reduced"] .story-hint-purchase > section,
 [data-gds-motion="reduced"] .story-reward-moment__shard,
 [data-gds-motion="reduced"] .story-signal-board__probes button[data-selected="true"] svg path:last-child,
 [data-gds-motion="reduced"] .story-signal-board__relays button[data-selected="true"] svg path + path,

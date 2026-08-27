@@ -26,6 +26,7 @@ import {
   WEEKLY_REWARD_PREVIEW,
   weeklyRewardPlanFor,
 } from '../../../src/domain/live-challenges/weeklyRewardCatalog';
+import { createXpRewardKey } from '../../../src/domain/player-progression/playerProgression';
 import type { RarePlayerAvatarId } from '../../../src/domain/player-profile/playerProfile';
 import { ensurePlayerProgressionRow } from './_progressionRepository';
 import { readRareUnlockedAvatarIds } from './_avatarOwnership';
@@ -41,6 +42,58 @@ const RESET_MINUTES = 11 * 60 + 11;
 const RESET_HOUR = Math.floor(RESET_MINUTES / 60);
 const RESET_MINUTE = RESET_MINUTES % 60;
 const WEEKLY_STAGE_COUNT = SMART_WEEKLY_STAGE_COUNT;
+
+/**
+ * Live challenges are not merely hidden navigation. The player must have a
+ * server-issued Manhwa receipt before a Daily or Weekly route can create a
+ * draft, sell a hint, or issue a reward.
+ */
+export type LiveChallengeMode = 'daily' | 'weekly';
+
+export function requiredStoryChapterForLiveChallenge(
+  mode: LiveChallengeMode,
+): 'chapter_1' | 'chapter_2' {
+  return mode === 'daily' ? 'chapter_1' : 'chapter_2';
+}
+
+export async function hasLiveChallengeProgression(
+  database: PlayerDatabase,
+  account: FirebaseAccount,
+  mode: LiveChallengeMode,
+): Promise<boolean> {
+  const chapterId = requiredStoryChapterForLiveChallenge(mode);
+  const receipt = await database.prepare(`
+    SELECT reward_key
+    FROM xp_reward_events
+    WHERE user_id = ? AND reward_key = ?
+    LIMIT 1
+  `).bind(
+    account.uid,
+    createXpRewardKey('manhwa', chapterId),
+  ).first<{ reward_key: string }>();
+  return Boolean(receipt?.reward_key);
+}
+
+export async function requireLiveChallengeProgression(
+  database: PlayerDatabase,
+  account: FirebaseAccount,
+  mode: LiveChallengeMode,
+): Promise<void> {
+  if (!await hasLiveChallengeProgression(database, account, mode)) {
+    throw new PlayerApiError(
+      409,
+      `${mode}_story_locked`,
+      mode === 'daily'
+        ? 'Complete Chapter 1 before opening Daily signals.'
+        : 'Complete Chapter 2 before opening the Weekly trial.',
+    );
+  }
+}
+
+/** Kept pure so duplicate delivery semantics are covered without D1 timing. */
+export function didInsertLiveHint(result: PlayerDatabaseResult | undefined): boolean {
+  return Number(result?.meta?.changes ?? 0) > 0;
+}
 
 interface DefinitionRow {
   challenge_id: string;
@@ -201,10 +254,43 @@ function isConflict(error: unknown): boolean {
   return error instanceof Error && /unique|constraint/i.test(error.message);
 }
 
+function isLivePerfectHintConflict(error: unknown): boolean {
+  return error instanceof Error && /live perfect solve requires no hint/i.test(error.message);
+}
+
+async function hasLiveHint(
+  db: PlayerDatabase,
+  uid: string,
+  challengeId: string,
+  matchStages = false,
+): Promise<boolean> {
+  const row = matchStages
+    ? await db.prepare(`
+      SELECT 1 AS used
+      FROM live_challenge_hint_events
+      WHERE user_id = ? AND challenge_id LIKE ?
+      LIMIT 1
+    `).bind(uid, `${challengeId}:stage:%`).first<{ used: number }>()
+    : await db.prepare(`
+      SELECT 1 AS used
+      FROM live_challenge_hint_events
+      WHERE user_id = ? AND challenge_id = ?
+      LIMIT 1
+    `).bind(uid, challengeId).first<{ used: number }>();
+  return Boolean(row?.used);
+}
+
 async function ensureDefinitions(
   db: PlayerDatabase,
   nowMs: number,
-): Promise<{ daily: DefinitionRow; weekly: DefinitionRow; stages: DefinitionRow[]; periodKey: string; weekId: string }> {
+  includeWeekly = true,
+): Promise<{
+  daily: DefinitionRow;
+  weekly: DefinitionRow | null;
+  stages: DefinitionRow[];
+  periodKey: string;
+  weekId: string;
+}> {
   const periodKey = periodKeyFor(nowMs);
   const weekId = weekIdFor(periodKey);
   const dailyTemplate = liveDailyTemplateFor(periodKey);
@@ -238,8 +324,8 @@ async function ensureDefinitions(
     publicValue: unknown; solutionValue: unknown; fingerprint?: string;
   }> = [
     { id: dailyId, kind: 'daily', period: periodKey, mechanic: dailyTemplate.mechanic, publicValue: dailyPublic, solutionValue: solution(dailyTemplate), fingerprint: smartLiveFingerprint(dailyTemplate) },
-    { id: weeklyId, kind: 'weekly', period: weekId, mechanic: weeklyPublic.mechanic, publicValue: weeklyPublic, solutionValue: { stages: weeklyStageTemplates.map(solution), memoryFragmentId: `weekly_memory_shard_${weekId}`, reward: weeklyReward } satisfies LiveWeeklySolution },
-    ...weeklyStageTemplates.map((template, index) => ({
+    ...(includeWeekly ? [{ id: weeklyId, kind: 'weekly' as const, period: weekId, mechanic: weeklyPublic.mechanic, publicValue: weeklyPublic, solutionValue: { stages: weeklyStageTemplates.map(solution), memoryFragmentId: `weekly_memory_shard_${weekId}`, reward: weeklyReward } satisfies LiveWeeklySolution }] : []),
+    ...(includeWeekly ? weeklyStageTemplates.map((template, index) => ({
       id: `${weeklyId}:stage:${index}`,
       kind: 'weekly' as const,
       period: weekId,
@@ -247,7 +333,7 @@ async function ensureDefinitions(
       publicValue: weeklyPublic.stages[index],
       solutionValue: solution(template),
       fingerprint: smartLiveFingerprint(template),
-    })),
+    })) : []),
   ];
   for (const definition of definitions) {
     if (definition.fingerprint) {
@@ -299,8 +385,10 @@ async function ensureDefinitions(
   const stages = result
     .filter((row) => row.challenge_id.startsWith(`${weeklyId}:stage:`))
     .sort((left, right) => left.challenge_id.localeCompare(right.challenge_id));
-  if (!daily || stages.length !== WEEKLY_STAGE_COUNT) throw new Error('Live definitions were not cached.');
-  const weekly: DefinitionRow = {
+  if (!daily || (includeWeekly && stages.length !== WEEKLY_STAGE_COUNT)) {
+    throw new Error('Live definitions were not cached.');
+  }
+  const weekly: DefinitionRow | null = includeWeekly ? {
     challenge_id: weeklyId,
     challenge_kind: 'weekly',
     period_key: weekId,
@@ -312,8 +400,20 @@ async function ensureDefinitions(
       memoryFragmentId: `weekly_memory_shard_${weekId}`,
       reward: weeklyReward,
     } satisfies LiveWeeklySolution),
-  };
+  } : null;
   return { daily, weekly, stages, periodKey, weekId };
+}
+
+/** Weekly actions must be explicitly gated before their definitions exist. */
+function requireWeeklyDefinition(definition: DefinitionRow | null): DefinitionRow {
+  if (!definition) {
+    throw new PlayerApiError(
+      409,
+      'weekly_story_locked',
+      'Complete Chapter 2 before opening the Weekly trial.',
+    );
+  }
+  return definition;
 }
 
 function publicFromRow(row: DefinitionRow): LiveChallengePublicDefinition {
@@ -465,13 +565,22 @@ export async function readLiveSnapshot(
   nowMs = Date.now(),
 ): Promise<LiveChallengesSnapshot> {
   await ensurePlayerProgressionRow(db, account);
-  const definitions = await ensureDefinitions(db, nowMs);
+  // Daily access must not materialize Weekly prompts, rewards, or a progress
+  // row. The Chapter 2 receipt is checked here as well as at weekly actions.
+  const weeklyUnlocked = await hasLiveChallengeProgression(db, account, 'weekly');
+  const definitions = await ensureDefinitions(db, nowMs, weeklyUnlocked);
+  const weeklyDefinition = definitions.weekly;
+  if (weeklyUnlocked && !weeklyDefinition) {
+    throw new Error('Weekly definitions were not cached for an entitled player.');
+  }
   const now = new Date(nowMs).toISOString();
   await ensureDailyAttempt(db, account.uid, definitions.daily, now);
-  await ensureWeeklyProgress(db, account.uid, definitions.weekId, now);
-  const [dailyResult, weeklyResult, recoveryResult, recoveryReward, dailyMastery, weeklyMastery] = await Promise.all([
+  if (weeklyDefinition) {
+    await ensureWeeklyProgress(db, account.uid, definitions.weekId, now);
+  }
+  const [dailyResult, weeklyResult, recoveryResult, recoveryReward, dailyMastery, weeklyMastery, balance] = await Promise.all([
     db.prepare(`SELECT challenge_id, period_key, status, draft_json, hints_used, perfect_solve, started_at, completed_at FROM live_player_daily_attempts WHERE user_id = ? AND challenge_id = ?`).bind(account.uid, definitions.daily.challenge_id).first<DailyAttemptRow>(),
-    db.prepare(`
+    weeklyDefinition ? db.prepare(`
       SELECT
         progress.week_id,
         progress.status,
@@ -490,18 +599,21 @@ export async function readLiveSnapshot(
         ) AS current_stage_hints_used
       FROM live_player_weekly_progress AS progress
       WHERE progress.user_id = ? AND progress.week_id = ?
-    `).bind(definitions.weekly.challenge_id, account.uid, definitions.weekId).first<WeeklyRow>(),
+    `).bind(weeklyDefinition.challenge_id, account.uid, definitions.weekId).first<WeeklyRow>() : Promise.resolve(null),
     db.prepare(`SELECT COUNT(*) AS total FROM live_player_daily_attempts WHERE user_id = ? AND period_key >= ? AND period_key < ? AND status = 'completed'`).bind(account.uid, definitions.weekId, shiftDate(definitions.weekId, 7)).first<CountRow>(),
     db.prepare(`SELECT reward_key FROM live_challenge_reward_events WHERE user_id = ? AND reward_key = ?`).bind(account.uid, `weekly-recovery:${definitions.weekId}:v1`).first<{ reward_key: string }>(),
     db.prepare(`SELECT COUNT(*) AS total FROM live_player_daily_attempts WHERE user_id = ? AND status = 'completed'`).bind(account.uid).first<CountRow>(),
     db.prepare(`SELECT COUNT(*) AS total FROM live_player_weekly_progress WHERE user_id = ? AND status = 'completed'`).bind(account.uid).first<CountRow>(),
+    db.prepare(`SELECT COALESCE(SUM(amount), 0) AS total FROM player_coin_events WHERE user_id = ?`).bind(account.uid).first<CountRow>(),
   ]);
   const dailyRow = dailyResult;
   const weeklyRow = weeklyResult;
   const dailyPublic = publicFromRow(definitions.daily);
-  const weeklyPublic = parseJson<LiveChallengePublicDefinition & { stages: readonly LiveChallengePublicDefinition[] }>(definitions.weekly.public_definition_json, {
-    ...publicFromRow(definitions.weekly), stages: [],
-  });
+  const weeklyPublic = weeklyDefinition
+    ? parseJson<LiveChallengePublicDefinition & { stages: readonly LiveChallengePublicDefinition[] }>(weeklyDefinition.public_definition_json, {
+      ...publicFromRow(weeklyDefinition), stages: [],
+    })
+    : null;
   const recoveryDays = integer(recoveryResult?.total);
   return {
     daily: {
@@ -515,7 +627,7 @@ export async function readLiveSnapshot(
       draft: draftFromRow(dailyRow?.draft_json),
       completedAt: dailyRow?.completed_at ?? null,
     },
-    weekly: {
+    weekly: weeklyDefinition && weeklyPublic ? {
       status: statusFromRow(weeklyRow),
       weekId: definitions.weekId,
       weekStartsAt: new Date(resetAtFor(definitions.weekId)).toISOString(),
@@ -533,11 +645,12 @@ export async function readLiveSnapshot(
       recoveryTargetDays: 5,
       recoveryRewardClaimed: Boolean(recoveryReward),
       perfectWeek: Boolean(weeklyRow?.status === 'completed' && integer(weeklyRow?.hints_used) === 0),
-    },
+    } : null,
     dailyHistory: await readDailyHistory(db, account.uid),
     timezone: LIVE_TIMEZONE,
     resetLabel: LIVE_RESET_LABEL,
     balanceVersion: LIVE_BALANCE_VERSION,
+    coinBalance: integer(balance?.total),
     mastery: {
       dailySignalsRecovered: integer(dailyMastery?.total),
       weeklyTrialsCompleted: integer(weeklyMastery?.total),
@@ -551,7 +664,7 @@ export async function startDaily(db: PlayerDatabase, account: FirebaseAccount): 
 
 export async function saveDailyDraft(db: PlayerDatabase, account: FirebaseAccount, draft: unknown): Promise<LiveChallengesSnapshot> {
   await ensurePlayerProgressionRow(db, account);
-  const definitions = await ensureDefinitions(db, Date.now());
+  const definitions = await ensureDefinitions(db, Date.now(), false);
   await ensureDailyAttempt(db, account.uid, definitions.daily, new Date().toISOString());
   const serialized = parseDraft(draft);
   await db.prepare(`
@@ -565,7 +678,7 @@ export async function useDailyHint(db: PlayerDatabase, account: FirebaseAccount,
   const hintIndex = typeof hintValue === 'number' ? hintValue : -1;
   if (!Number.isInteger(hintIndex) || hintIndex < 0 || hintIndex > 2) throw new PlayerApiError(400, 'invalid_hint', 'Hint index is invalid.');
   await ensurePlayerProgressionRow(db, account);
-  const definitions = await ensureDefinitions(db, Date.now());
+  const definitions = await ensureDefinitions(db, Date.now(), false);
   await ensureDailyAttempt(db, account.uid, definitions.daily, new Date().toISOString());
   const attempt = await db.prepare(`SELECT status FROM live_player_daily_attempts WHERE user_id = ? AND challenge_id = ?`).bind(account.uid, definitions.daily.challenge_id).first<Pick<DailyAttemptRow, 'status'>>();
   if (attempt?.status === 'completed') throw new PlayerApiError(409, 'daily_complete', 'The daily signal is already complete.');
@@ -575,10 +688,17 @@ export async function useDailyHint(db: PlayerDatabase, account: FirebaseAccount,
     if (integer(priorHints?.total) !== hintIndex) throw new PlayerApiError(409, 'hint_sequence_locked', 'Unlock the previous hint first.');
     const now = new Date().toISOString();
     try {
-      await db.batch([
+      const results = await db.batch([
         db.prepare(`INSERT OR IGNORE INTO live_challenge_hint_events (user_id, challenge_id, hint_index, coin_cost, used_at) VALUES (?, ?, ?, ?, ?)`).bind(account.uid, definitions.daily.challenge_id, hintIndex, LIVE_HINT_COSTS[hintIndex], now),
         db.prepare(`UPDATE live_player_daily_attempts SET hints_used = (SELECT COUNT(*) FROM live_challenge_hint_events WHERE user_id = ? AND challenge_id = ?), status = CASE WHEN status = 'available' THEN 'in_progress' ELSE status END, started_at = COALESCE(started_at, ?), updated_at = ? WHERE user_id = ? AND challenge_id = ? AND status <> 'completed'`).bind(account.uid, definitions.daily.challenge_id, now, now, account.uid, definitions.daily.challenge_id),
       ]);
+      // INSERT OR IGNORE is the final idempotency boundary. A duplicate that
+      // races past the earlier SELECT is already unlocked, not a new purchase.
+      if (!didInsertLiveHint(results[0])) {
+        const hint = solutionFromRow(definitions.daily).hints[hintIndex];
+        if (!hint) throw new Error('Live daily hint definition is missing.');
+        return { alreadyUnlocked: true, hint, live: await readLiveSnapshot(db, account) };
+      }
     } catch (error) {
       if (error instanceof Error && /insufficient verified coins/i.test(error.message)) throw new PlayerApiError(409, 'insufficient_coins', 'Verified coins are required for this hint.');
       if (error instanceof Error && /previous live hint required/i.test(error.message)) throw new PlayerApiError(409, 'hint_sequence_locked', 'Unlock the previous hint first.');
@@ -592,27 +712,42 @@ export async function useDailyHint(db: PlayerDatabase, account: FirebaseAccount,
   return { alreadyUnlocked: Boolean(existing), hint, live };
 }
 
-export async function completeDaily(db: PlayerDatabase, account: FirebaseAccount, answerValue: unknown): Promise<LiveCompletionReceipt> {
+export async function completeDaily(
+  db: PlayerDatabase,
+  account: FirebaseAccount,
+  answerValue: unknown,
+  retriedAfterPerfectHintRace = false,
+): Promise<LiveCompletionReceipt> {
   await ensurePlayerProgressionRow(db, account);
-  const definitions = await ensureDefinitions(db, Date.now());
+  const definitions = await ensureDefinitions(db, Date.now(), false);
   await ensureDailyAttempt(db, account.uid, definitions.daily, new Date().toISOString());
   const existing = await db.prepare(`SELECT challenge_id, period_key, status, draft_json, hints_used, perfect_solve, started_at, completed_at FROM live_player_daily_attempts WHERE user_id = ? AND challenge_id = ?`).bind(account.uid, definitions.daily.challenge_id).first<DailyAttemptRow>();
   const answer = parseAnswer(answerValue);
   const expected = solutionFromRow(definitions.daily).answer;
   if (existing?.status !== 'completed' && !isLiveAnswerCorrect(answer, expected)) throw new PlayerApiError(422, 'live_answer_incorrect', 'The signal is not stabilized yet.');
   const dailySolution = solutionFromRow(definitions.daily);
-  const perfect = existing?.status === 'completed' ? integer(existing.perfect_solve) === 1 : integer(existing?.hints_used) === 0;
+  const perfect = existing?.status === 'completed'
+    ? integer(existing.perfect_solve) === 1
+    : !await hasLiveHint(db, account.uid, definitions.daily.challenge_id);
   const difficulty = dailySolution.difficulty ?? 'standard';
   const xp = LIVE_REWARD_CONFIG.dailyXpByDifficulty[difficulty] + (perfect ? LIVE_REWARD_CONFIG.dailyPerfectXpBonus : 0);
   const coins = LIVE_REWARD_CONFIG.dailyCoinsByDifficulty[difficulty] + (perfect ? LIVE_REWARD_CONFIG.dailyPerfectCoinsBonus : 0);
   const now = new Date().toISOString();
-  const reward = await rewardLiveEvent(db, account, {
-    rewardKey: `daily:${definitions.periodKey}:v1`, rewardType: 'daily', sourceId: definitions.daily.challenge_id, xp, coins, perfect,
-    reward: dailySolution.reward,
-    ...(existing?.status === 'completed' ? {} : {
-      progressStatement: db.prepare(`UPDATE live_player_daily_attempts SET status = 'completed', draft_json = '{}', perfect_solve = ?, completed_at = COALESCE(completed_at, ?), updated_at = ? WHERE user_id = ? AND challenge_id = ? AND status <> 'completed'`).bind(perfect ? 1 : 0, now, now, account.uid, definitions.daily.challenge_id),
-    }),
-  });
+  let reward: Awaited<ReturnType<typeof rewardLiveEvent>>;
+  try {
+    reward = await rewardLiveEvent(db, account, {
+      rewardKey: `daily:${definitions.periodKey}:v1`, rewardType: 'daily', sourceId: definitions.daily.challenge_id, xp, coins, perfect,
+      reward: dailySolution.reward,
+      ...(existing?.status === 'completed' ? {} : {
+        progressStatement: db.prepare(`UPDATE live_player_daily_attempts SET status = 'completed', draft_json = '{}', perfect_solve = ?, completed_at = COALESCE(completed_at, ?), updated_at = ? WHERE user_id = ? AND challenge_id = ? AND status <> 'completed'`).bind(perfect ? 1 : 0, now, now, account.uid, definitions.daily.challenge_id),
+      }),
+    });
+  } catch (error) {
+    if (perfect && !retriedAfterPerfectHintRace && isLivePerfectHintConflict(error)) {
+      return completeDaily(db, account, answerValue, true);
+    }
+    throw error;
+  }
   await maybeClaimWeeklyRecovery(db, account);
   return {
     kind: 'daily', challengeId: definitions.daily.challenge_id, awarded: reward.awarded, perfectSolve: perfect,
@@ -627,6 +762,7 @@ export async function startWeekly(db: PlayerDatabase, account: FirebaseAccount):
 export async function saveWeeklyDraft(db: PlayerDatabase, account: FirebaseAccount, draft: unknown): Promise<LiveChallengesSnapshot> {
   await ensurePlayerProgressionRow(db, account);
   const definitions = await ensureDefinitions(db, Date.now());
+  requireWeeklyDefinition(definitions.weekly);
   await ensureWeeklyProgress(db, account.uid, definitions.weekId, new Date().toISOString());
   const serialized = parseDraft(draft);
   const now = new Date().toISOString();
@@ -639,6 +775,7 @@ export async function useWeeklyHint(db: PlayerDatabase, account: FirebaseAccount
   if (!Number.isInteger(hintIndex) || hintIndex < 0 || hintIndex > 2) throw new PlayerApiError(400, 'invalid_hint', 'Hint index is invalid.');
   await ensurePlayerProgressionRow(db, account);
   const definitions = await ensureDefinitions(db, Date.now());
+  const weeklyDefinition = requireWeeklyDefinition(definitions.weekly);
   await ensureWeeklyProgress(db, account.uid, definitions.weekId, new Date().toISOString());
   const row = await db.prepare(`SELECT current_stage, status FROM live_player_weekly_progress WHERE user_id = ? AND week_id = ?`).bind(account.uid, definitions.weekId).first<{ current_stage: number | string; status: LiveChallengeStatus }>();
   if (row?.status === 'completed') throw new PlayerApiError(409, 'weekly_complete', 'The weekly trial is already complete.');
@@ -650,10 +787,17 @@ export async function useWeeklyHint(db: PlayerDatabase, account: FirebaseAccount
     if (integer(priorHints?.total) !== hintIndex) throw new PlayerApiError(409, 'hint_sequence_locked', 'Unlock the previous hint first.');
     const now = new Date().toISOString();
     try {
-      await db.batch([
+      const results = await db.batch([
         db.prepare(`INSERT OR IGNORE INTO live_challenge_hint_events (user_id, challenge_id, hint_index, coin_cost, used_at) VALUES (?, ?, ?, ?, ?)`).bind(account.uid, stage.challenge_id, hintIndex, LIVE_HINT_COSTS[hintIndex], now),
-        db.prepare(`UPDATE live_player_weekly_progress SET hints_used = (SELECT COUNT(*) FROM live_challenge_hint_events WHERE user_id = ? AND challenge_id LIKE ?), status = CASE WHEN status = 'available' THEN 'in_progress' ELSE status END, started_at = COALESCE(started_at, ?), updated_at = ? WHERE user_id = ? AND week_id = ?`).bind(account.uid, `${definitions.weekly.challenge_id}:stage:%`, now, now, account.uid, definitions.weekId),
+        db.prepare(`UPDATE live_player_weekly_progress SET hints_used = (SELECT COUNT(*) FROM live_challenge_hint_events WHERE user_id = ? AND challenge_id LIKE ?), status = CASE WHEN status = 'available' THEN 'in_progress' ELSE status END, started_at = COALESCE(started_at, ?), updated_at = ? WHERE user_id = ? AND week_id = ?`).bind(account.uid, `${weeklyDefinition.challenge_id}:stage:%`, now, now, account.uid, definitions.weekId),
       ]);
+      // As with Daily, the unique receipt is the authority for a replayed or
+      // duplicate Queue/client delivery. It must never look like a new sale.
+      if (!didInsertLiveHint(results[0])) {
+        const hint = solutionFromRow(stage).hints[hintIndex];
+        if (!hint) throw new Error('Live weekly hint definition is missing.');
+        return { alreadyUnlocked: true, hint, live: await readLiveSnapshot(db, account) };
+      }
     } catch (error) {
       if (error instanceof Error && /insufficient verified coins/i.test(error.message)) throw new PlayerApiError(409, 'insufficient_coins', 'Verified coins are required for this hint.');
       if (error instanceof Error && /previous live hint required/i.test(error.message)) throw new PlayerApiError(409, 'hint_sequence_locked', 'Unlock the previous hint first.');
@@ -670,13 +814,20 @@ export async function useWeeklyHint(db: PlayerDatabase, account: FirebaseAccount
   };
 }
 
-export async function completeWeeklyStage(db: PlayerDatabase, account: FirebaseAccount, stageValue: unknown, answerValue: unknown): Promise<LiveCompletionReceipt> {
+export async function completeWeeklyStage(
+  db: PlayerDatabase,
+  account: FirebaseAccount,
+  stageValue: unknown,
+  answerValue: unknown,
+  retriedAfterPerfectHintRace = false,
+): Promise<LiveCompletionReceipt> {
   if (typeof stageValue !== 'number' || !Number.isInteger(stageValue) || stageValue < 0 || stageValue >= WEEKLY_STAGE_COUNT) throw new PlayerApiError(400, 'invalid_weekly_stage', 'Weekly stage is invalid.');
   await ensurePlayerProgressionRow(db, account);
   const definitions = await ensureDefinitions(db, Date.now());
+  const weeklyDefinition = requireWeeklyDefinition(definitions.weekly);
   await ensureWeeklyProgress(db, account.uid, definitions.weekId, new Date().toISOString());
   const row = await db.prepare(`SELECT week_id, status, current_stage, completed_stages, draft_json, hints_used, score, started_at, completed_at FROM live_player_weekly_progress WHERE user_id = ? AND week_id = ?`).bind(account.uid, definitions.weekId).first<WeeklyRow>();
-  if (row?.status === 'completed') return { kind: 'weekly', challengeId: definitions.weekly.challenge_id, awarded: false, perfectSolve: integer(row.hints_used) === 0, xpGranted: 0, coinsGranted: 0, live: await readLiveSnapshot(db, account) };
+  if (row?.status === 'completed') return { kind: 'weekly', challengeId: weeklyDefinition.challenge_id, awarded: false, perfectSolve: integer(row.hints_used) === 0, xpGranted: 0, coinsGranted: 0, live: await readLiveSnapshot(db, account) };
   if (stageValue !== integer(row?.current_stage)) throw new PlayerApiError(409, 'weekly_stage_locked', 'Complete the current weekly stage first.');
   const stage = definitions.stages[stageValue]!;
   if (!isLiveAnswerCorrect(parseAnswer(answerValue), solutionFromRow(stage).answer)) throw new PlayerApiError(422, 'live_answer_incorrect', 'The trial stage is not stabilized yet.');
@@ -684,14 +835,14 @@ export async function completeWeeklyStage(db: PlayerDatabase, account: FirebaseA
   const completed = nextStage >= WEEKLY_STAGE_COUNT;
   const now = new Date().toISOString();
   const progressStatement = db.prepare(`UPDATE live_player_weekly_progress SET current_stage = ?, completed_stages = ?, status = ?, draft_json = '{}', score = score + ?, completed_at = CASE WHEN ? = 1 THEN COALESCE(completed_at, ?) ELSE completed_at END, started_at = COALESCE(started_at, ?), updated_at = ? WHERE user_id = ? AND week_id = ? AND current_stage = ? AND status <> 'completed'`).bind(nextStage, nextStage, completed ? 'completed' : 'in_progress', 25, completed ? 1 : 0, now, now, now, account.uid, definitions.weekId, stageValue);
-  const perfect = !integer(row?.hints_used);
+  const perfect = !await hasLiveHint(db, account.uid, weeklyDefinition.challenge_id, true);
   if (!completed) {
     const update = await progressStatement.run();
     if (Number(update.meta?.changes ?? 0) < 1) {
       const latest = await db.prepare(`SELECT status, hints_used FROM live_player_weekly_progress WHERE user_id = ? AND week_id = ?`).bind(account.uid, definitions.weekId).first<Pick<WeeklyRow, 'status' | 'hints_used'>>();
-      return { kind: 'weekly', challengeId: definitions.weekly.challenge_id, awarded: false, perfectSolve: integer(latest?.hints_used) === 0, xpGranted: 0, coinsGranted: 0, live: await readLiveSnapshot(db, account) };
+      return { kind: 'weekly', challengeId: weeklyDefinition.challenge_id, awarded: false, perfectSolve: integer(latest?.hints_used) === 0, xpGranted: 0, coinsGranted: 0, live: await readLiveSnapshot(db, account) };
     }
-    return { kind: 'weekly', challengeId: definitions.weekly.challenge_id, awarded: false, perfectSolve: perfect, xpGranted: 0, coinsGranted: 0, live: await readLiveSnapshot(db, account) };
+    return { kind: 'weekly', challengeId: weeklyDefinition.challenge_id, awarded: false, perfectSolve: perfect, xpGranted: 0, coinsGranted: 0, live: await readLiveSnapshot(db, account) };
   }
   const weeklyRewardContext = completed
     ? await Promise.all([
@@ -708,17 +859,31 @@ export async function completeWeeklyStage(db: PlayerDatabase, account: FirebaseA
     definitions.weekId,
     weeklyRewardContext?.[1] ?? [],
   );
-  const reward = completed ? await rewardLiveEvent(db, account, {
-    rewardKey: `weekly:${definitions.weekId}:v1`, rewardType: 'weekly', sourceId: definitions.weekly.challenge_id, xp: LIVE_REWARD_CONFIG.weeklyTrialXp, coins: LIVE_REWARD_CONFIG.weeklyTrialCoins + (perfect ? LIVE_REWARD_CONFIG.weeklyPerfectBonusCoins : 0), perfect,
-    memoryFragmentId: weeklyRewardPlan.memoryFragmentId,
-    avatarId: weeklyRewardPlan.avatarId,
-    reward: weeklyRewardPlan.reward,
-    progressStatement,
-  }) : { awarded: false, xp: 0, coins: 0, reward: undefined };
-  return { kind: 'weekly', challengeId: definitions.weekly.challenge_id, awarded: reward.awarded, perfectSolve: perfect, xpGranted: reward.xp, coinsGranted: reward.coins, reward: reward.reward, live: await readLiveSnapshot(db, account) };
+  let reward: Awaited<ReturnType<typeof rewardLiveEvent>> | {
+    awarded: false;
+    xp: number;
+    coins: number;
+    reward: undefined;
+  };
+  try {
+    reward = completed ? await rewardLiveEvent(db, account, {
+      rewardKey: `weekly:${definitions.weekId}:v1`, rewardType: 'weekly', sourceId: weeklyDefinition.challenge_id, xp: LIVE_REWARD_CONFIG.weeklyTrialXp, coins: LIVE_REWARD_CONFIG.weeklyTrialCoins + (perfect ? LIVE_REWARD_CONFIG.weeklyPerfectBonusCoins : 0), perfect,
+      memoryFragmentId: weeklyRewardPlan.memoryFragmentId,
+      avatarId: weeklyRewardPlan.avatarId,
+      reward: weeklyRewardPlan.reward,
+      progressStatement,
+    }) : { awarded: false, xp: 0, coins: 0, reward: undefined };
+  } catch (error) {
+    if (completed && perfect && !retriedAfterPerfectHintRace && isLivePerfectHintConflict(error)) {
+      return completeWeeklyStage(db, account, stageValue, answerValue, true);
+    }
+    throw error;
+  }
+  return { kind: 'weekly', challengeId: weeklyDefinition.challenge_id, awarded: reward.awarded, perfectSolve: perfect, xpGranted: reward.xp, coinsGranted: reward.coins, reward: reward.reward, live: await readLiveSnapshot(db, account) };
 }
 
 export async function maybeClaimWeeklyRecovery(db: PlayerDatabase, account: FirebaseAccount): Promise<void> {
+  if (!await hasLiveChallengeProgression(db, account, 'weekly')) return;
   const definitions = await ensureDefinitions(db, Date.now());
   const count = await db.prepare(`SELECT COUNT(*) AS total FROM live_player_daily_attempts WHERE user_id = ? AND period_key >= ? AND period_key < ? AND status = 'completed'`).bind(account.uid, definitions.weekId, shiftDate(definitions.weekId, 7)).first<CountRow>();
   if (integer(count?.total) < 5) return;

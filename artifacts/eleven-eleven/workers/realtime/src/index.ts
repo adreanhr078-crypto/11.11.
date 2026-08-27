@@ -36,6 +36,7 @@ interface RatingRow {
   deviation: number;
   volatility: number;
   games_played: number;
+  rating_revision: number;
 }
 
 function ratingFromRow(row: RatingRow | null): Glicko2Rating {
@@ -45,6 +46,10 @@ function ratingFromRow(row: RatingRow | null): Glicko2Rating {
     volatility: Number(row.volatility),
     gamesPlayed: Number(row.games_played),
   } : { ...DEFAULT_GLICKO2_RATING };
+}
+
+function ratingRevisionFromRow(row: RatingRow | null): number {
+  return Math.max(0, Math.trunc(Number(row?.rating_revision ?? 0)));
 }
 
 function rankedSpeed(mode: MatchReceipt['mode']): 'blitz' | 'rapid' | null {
@@ -482,11 +487,11 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
       const gate = quotaGate(chessQuota);
       const [firstRow, secondRow] = await Promise.all([
         this.env.PLAYER_DB.prepare(`
-          SELECT rating, deviation, volatility, games_played
+          SELECT rating, deviation, volatility, games_played, rating_revision
           FROM chess_ratings WHERE user_id = ? AND speed = ?
         `).bind(first!.uid, speed).first<RatingRow>(),
         this.env.PLAYER_DB.prepare(`
-          SELECT rating, deviation, volatility, games_played
+          SELECT rating, deviation, volatility, games_played, rating_revision
           FROM chess_ratings WHERE user_id = ? AND speed = ?
         `).bind(second!.uid, speed).first<RatingRow>(),
       ]);
@@ -505,36 +510,11 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
       ] as const;
       for (const [index, participant] of [first!, second!].entries()) {
         statements.push(this.env.PLAYER_DB.prepare(`
-          INSERT INTO chess_ratings (
-            user_id, speed, rating, deviation, volatility, games_played, updated_at
-          ) SELECT ?, ?, ?, ?, ?, ?, ? WHERE ${gate.sql}
-          ON CONFLICT(user_id, speed) DO UPDATE SET
-            rating = excluded.rating,
-            deviation = excluded.deviation,
-            volatility = excluded.volatility,
-            games_played = excluded.games_played,
-            updated_at = excluded.updated_at
-          WHERE NOT EXISTS (
-            SELECT 1 FROM chess_rating_events WHERE match_id = ? AND user_id = ?
-          )
-        `).bind(
-          participant.uid,
-          speed,
-          after[index]!.rating,
-          after[index]!.deviation,
-          after[index]!.volatility,
-          after[index]!.gamesPlayed,
-          receipt.completedAt,
-          ...gate.bindings,
-          receipt.matchId,
-          participant.uid,
-        ));
-        statements.push(this.env.PLAYER_DB.prepare(`
           INSERT OR IGNORE INTO chess_rating_events (
             match_id, user_id, speed, rating_before, deviation_before,
             volatility_before, rating_after, deviation_after,
-            volatility_after, recorded_at
-          ) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE ${gate.sql}
+            volatility_after, rating_revision_before, recorded_at
+          ) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE ${gate.sql}
         `).bind(
           receipt.matchId,
           participant.uid,
@@ -545,6 +525,29 @@ export default class EchoRealtimeWorker extends WorkerEntrypoint<Env> {
           after[index]!.rating,
           after[index]!.deviation,
           after[index]!.volatility,
+          ratingRevisionFromRow(index === 0 ? firstRow : secondRow),
+          receipt.completedAt,
+          ...gate.bindings,
+        ));
+        statements.push(this.env.PLAYER_DB.prepare(`
+          INSERT INTO chess_ratings (
+            user_id, speed, rating, deviation, volatility, games_played,
+            rating_revision, updated_at
+          ) SELECT ?, ?, ?, ?, ?, ?, 1, ? WHERE ${gate.sql}
+          ON CONFLICT(user_id, speed) DO UPDATE SET
+            rating = excluded.rating,
+            deviation = excluded.deviation,
+            volatility = excluded.volatility,
+            games_played = excluded.games_played,
+            rating_revision = chess_ratings.rating_revision + 1,
+            updated_at = excluded.updated_at
+        `).bind(
+          participant.uid,
+          speed,
+          after[index]!.rating,
+          after[index]!.deviation,
+          after[index]!.volatility,
+          after[index]!.gamesPlayed,
           receipt.completedAt,
           ...gate.bindings,
         ));

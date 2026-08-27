@@ -41,7 +41,7 @@ export function presentLiveChallengeReward(
 ): RewardPresentation {
   const completed = receipt.kind === 'daily'
     ? receipt.live.daily.status === 'completed'
-    : receipt.live.weekly.status === 'completed';
+    : receipt.live.weekly?.status === 'completed';
   return {
     presentationKey: `live:${receipt.kind}:${receipt.challengeId}`,
     source: 'live-challenge',

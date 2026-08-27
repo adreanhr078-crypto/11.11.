@@ -17,7 +17,9 @@
   box-shadow: 0 1.5rem 5rem rgb(0 0 0 / 58%), 0 0 2rem rgb(72 220 247 / 15%);
   transform: translate(-50%, -50%);
   animation: achievement-presentation-in 360ms var(--gds-ease-enter) both;
-  pointer-events: auto;
+  /* Reward UI owns explicit actions. This status notice never captures input
+     or focus above an active play surface. */
+  pointer-events: none;
 }
 
 .achievement-presentation[data-tier="rare"] {
@@ -115,19 +117,6 @@
 .achievement-presentation__reward {
   color: var(--gds-cyan-400);
   font-size: 0.56rem;
-}
-
-.achievement-presentation > button {
-  position: absolute;
-  inset: auto 0.7rem 0.5rem auto;
-  min-block-size: 3rem;
-  min-inline-size: 3rem;
-  padding-inline: 0.45rem;
-  border: 0;
-  color: var(--gds-text-muted);
-  background: transparent;
-  font: 600 0.55rem var(--gds-font-mono);
-  cursor: pointer;
 }
 
 @keyframes achievement-presentation-in {

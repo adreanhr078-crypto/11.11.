@@ -645,13 +645,12 @@
     padding-block-start: 0.4rem;
   }
 
+  /* Keep the real, localized previous/next labels on narrow screens. A
+     decorative Arabic pseudo-label made the English reader announce Arabic
+     controls and hid the actual navigation purpose from the player. */
   .manhwa-page-viewer__navigation .gds-button__label {
-    font-size: 0;
-  }
-
-  .manhwa-page-viewer__navigation .gds-button__label::after {
     font-size: var(--gds-type-2xs);
-    content: "صفحة";
+    white-space: nowrap;
   }
 }
 

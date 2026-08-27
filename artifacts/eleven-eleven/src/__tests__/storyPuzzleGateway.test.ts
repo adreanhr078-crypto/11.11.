@@ -79,6 +79,7 @@ class StoryPuzzleDatabase implements PlayerDatabase {
   coins = new Map<string, CoinRow>();
   xpRewards = new Map<string, number>();
   fragments = new Map<string, { userId: string; sourceId: string }>();
+  beforeNextBatch: (() => void) | null = null;
 
   prepare(query: string): PlayerDatabaseStatement {
     return new FakeStatement(this, query);
@@ -87,6 +88,9 @@ class StoryPuzzleDatabase implements PlayerDatabase {
   async batch<T = unknown>(
     statements: PlayerDatabaseStatement[],
   ): Promise<PlayerDatabaseResult<T>[]> {
+    const beforeBatch = this.beforeNextBatch;
+    this.beforeNextBatch = null;
+    beforeBatch?.();
     const snapshot = this.snapshot();
     try {
       return statements.map((statement) => (
@@ -144,14 +148,23 @@ class StoryPuzzleDatabase implements PlayerDatabase {
       return { success: true, meta: { changes: 1 } };
     }
     if (query.startsWith('INSERT INTO player_story_puzzle_completion_events')) {
-      const [userId, puzzleId, , , , , perfectSolve, completedAt] = statement.values;
+      const [userId, puzzleId] = statement.values;
       const key = this.key(userId, puzzleId);
       if (this.completions.has(key)) this.unique();
+      const hasHint = [...this.hints.values()].some((hint) => (
+        hint.userId === String(userId) && hint.puzzleId === String(puzzleId)
+      ));
+      const perfectSolve = query.includes('CASE WHEN EXISTS')
+        ? hasHint ? 0 : 1
+        : Number(statement.values[6]);
+      if (perfectSolve === 1 && hasHint) {
+        throw new Error('story puzzle perfect solve requires no hint');
+      }
       this.completions.set(key, {
         userId: String(userId),
         puzzleId: String(puzzleId),
-        perfectSolve: Number(perfectSolve),
-        completedAt: String(completedAt),
+        perfectSolve,
+        completedAt: String(query.includes('CASE WHEN EXISTS') ? statement.values[8] : statement.values[7]),
       });
       return { success: true, meta: { changes: 1 } };
     }
@@ -179,6 +192,10 @@ class StoryPuzzleDatabase implements PlayerDatabase {
     if (query.startsWith('INSERT INTO player_coin_events')) {
       const [userId, eventKey, , amount] = statement.values;
       const key = this.key(userId, eventKey);
+      if (query.includes('FROM player_story_puzzle_completion_events')) {
+        const completion = this.completions.get(this.key(statement.values[5], statement.values[6]));
+        if (completion?.perfectSolve !== 1) return { success: true, meta: { changes: 0 } };
+      }
       if (this.coins.has(key)) this.unique();
       this.coins.set(key, { userId: String(userId), amount: Number(amount) });
       return { success: true, meta: { changes: 1 } };
@@ -200,6 +217,9 @@ class StoryPuzzleDatabase implements PlayerDatabase {
       const [userId, puzzleId, hintIndex, coinCost] = statement.values;
       const key = `${String(userId)}:${String(puzzleId)}:${String(hintIndex)}`;
       if (this.hints.has(key)) this.unique();
+      if (this.completions.has(this.key(userId, puzzleId))) {
+        throw new Error('story puzzle already complete');
+      }
       // Mirrors `enforce_story_puzzle_hint_balance` and
       // `record_story_puzzle_hint_spend` in migration 0006.
       if (Number(coinCost) > 0 && this.coinBalance(String(userId)) < Number(coinCost)) {
@@ -584,6 +604,35 @@ describe('server-authoritative Story Puzzle gateway', () => {
     assert.equal(reward.coinsGranted, 18);
     assert.equal(reward.perfectBonusCoins, 0);
     assert.equal(reward.snapshot.shardCount, 1);
+  });
+
+  it('calculates perfect status inside the completion batch when a paid hint wins the race', async () => {
+    const database = new StoryPuzzleDatabase();
+    database.seedPage(account.uid, 'manhwa_ch01_page_02');
+    database.seedCoins(account.uid, 4);
+    database.beforeNextBatch = () => {
+      database.hints.set(`${account.uid}:story_puzzle_01_signal_calibration:0`, {
+        userId: account.uid,
+        puzzleId: 'story_puzzle_01_signal_calibration',
+        hintIndex: 0,
+      });
+      database.coins.set(`${account.uid}:story_puzzle_01_signal_calibration:hint:0:v1`, {
+        userId: account.uid,
+        amount: -4,
+      });
+    };
+
+    const reward = await completeStoryPuzzle(
+      database,
+      account,
+      'story_puzzle_01_signal_calibration',
+      draft({ tokens: ['58', 'channel-11'] }),
+    );
+
+    assert.equal(reward.awarded, true);
+    assert.equal(reward.perfectBonusCoins, 0);
+    assert.equal(database.completions.get(`${account.uid}:story_puzzle_01_signal_calibration`)?.perfectSolve, 0);
+    assert.equal(database.coinBalance(account.uid), 18, 'the committed hint removes only the perfect bonus');
   });
 
   it('persists a multi-stage draft and restores it from a fresh snapshot', async () => {

@@ -356,6 +356,8 @@ function ContractChessBoard({
   } | null>(null);
   const [announcement, setAnnouncement] = useState('');
   const squareRefs = useRef(new Map<Square, HTMLButtonElement>());
+  const promotionDialogRef = useRef<HTMLDivElement>(null);
+  const promotionReturnFocusRef = useRef<HTMLButtonElement | null>(null);
   const pieceMap = useMemo(
     () => new Map(pieces.map((piece) => [piece.square, piece])),
     [pieces],
@@ -381,6 +383,39 @@ function ContractChessBoard({
     if (lastMove) setAnnouncement(chessCopy(locale).moveRecorded(lastMove.san));
   }, [lastMove?.san, locale]);
 
+  useEffect(() => {
+    if (!pendingPromotion) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      promotionDialogRef.current?.querySelector<HTMLButtonElement>('button:not([disabled])')?.focus();
+    });
+    const onPromotionKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setPendingPromotion(null);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const items = Array.from(promotionDialogRef.current?.querySelectorAll<HTMLButtonElement>('button:not([disabled])') ?? []);
+      if (items.length === 0) return;
+      const first = items[0]!;
+      const last = items.at(-1)!;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', onPromotionKeyDown);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('keydown', onPromotionKeyDown);
+      promotionReturnFocusRef.current?.focus();
+      promotionReturnFocusRef.current = null;
+    };
+  }, [pendingPromotion]);
+
   const squares = useMemo(() => (
     ranks.flatMap((rank) => files.map((file) => `${file}${rank}` as Square))
   ), [files, ranks]);
@@ -391,6 +426,7 @@ function ContractChessBoard({
   };
 
   const commitMove = (from: Square, to: Square, promotion?: 'q' | 'r' | 'b' | 'n') => {
+    promotionReturnFocusRef.current = squareRefs.current.get(to) ?? promotionReturnFocusRef.current;
     onMove(from, to, promotion);
     setSelected(null);
     setPendingPromotion(null);
@@ -402,6 +438,7 @@ function ContractChessBoard({
       const matchingMoves = legalMoves.filter((move) => move.from === selected && move.to === square);
       const promotionOptions = Array.from(new Set(matchingMoves.flatMap((move) => move.promotion ? [move.promotion] : [])));
       if (promotionOptions.length > 0) {
+        promotionReturnFocusRef.current = squareRefs.current.get(square) ?? null;
         setPendingPromotion({ from: selected, to: square, options: promotionOptions });
         return;
       }
@@ -445,7 +482,7 @@ function ContractChessBoard({
       tabIndex={-1}
     >
       <span className="contract-chess-board-frame__seal" aria-hidden="true" />
-      <div className="contract-chess-board" role="grid" aria-label={copy.boardLabel} aria-roledescription="chess board">
+      <div className="contract-chess-board" role="grid" aria-label={copy.boardLabel} aria-roledescription="chess board" aria-hidden={pendingPromotion ? true : undefined}>
         {ranks.map((rank, rankIndex) => (
           <div className="contract-chess-board__row" role="row" key={rank}>
             {files.map((file, fileIndex) => {
@@ -465,7 +502,7 @@ function ContractChessBoard({
                   data-capture={destination && Boolean(piece) || undefined}
                   onClick={() => activate(square)}
                   onKeyDown={(event) => handleKeyDown(event, square)}
-                  disabled={disabled}
+                  disabled={disabled || pendingPromotion !== null}
                   aria-pressed={selected === square}
                   aria-current={lastMove?.to === square ? 'true' : undefined}
                   aria-label={`${square}, ${piece
@@ -497,9 +534,9 @@ function ContractChessBoard({
       </div>
       <p className="contract-chess-board__status" role="status" aria-live="polite" aria-atomic="true">{announcement}</p>
       {pendingPromotion && (
-        <div className="contract-chess-promotion" role="dialog" aria-modal="true" aria-labelledby="contract-chess-promotion-title">
+        <div ref={promotionDialogRef} className="contract-chess-promotion" role="dialog" aria-modal="true" aria-labelledby="contract-chess-promotion-title" aria-describedby="contract-chess-promotion-prompt">
           <strong id="contract-chess-promotion-title">{copy.promotionTitle}</strong>
-          <span>{copy.promotionPrompt}</span>
+          <span id="contract-chess-promotion-prompt">{copy.promotionPrompt}</span>
           <div role="group" aria-label={copy.promotionTitle}>
             {pendingPromotion.options.map((promotion) => (
               <button

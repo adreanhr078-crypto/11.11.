@@ -17,6 +17,7 @@ import {
 import { useCloudSaveStore } from '../cloud-save/cloudSaveStore';
 import { useCollectionStore } from '../collection/collectionStore';
 import { useStoryPuzzleStore } from '../story-puzzles/storyPuzzleStore';
+import { useLiveChallengeStore } from '../live-challenges/liveChallengeStore';
 import { useGameStore } from '../../stores/gameStore';
 import { recordEchoPresenceActivity } from '../../application/ui/echoPresenceActivityStore';
 import {
@@ -173,6 +174,7 @@ function resetUserScopedStores(): void {
   usePlayerProgressionStore.getState().actions.reset();
   useCollectionStore.getState().actions.reset();
   useStoryPuzzleStore.getState().actions.reset();
+  useLiveChallengeStore.getState().actions.reset();
   stopCloudSaveSync();
 }
 

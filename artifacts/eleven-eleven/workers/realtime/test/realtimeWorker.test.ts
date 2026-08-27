@@ -225,6 +225,7 @@ async function installResultPersistenceSchema(): Promise<void> {
         deviation REAL NOT NULL,
         volatility REAL NOT NULL,
         games_played INTEGER NOT NULL,
+        rating_revision INTEGER NOT NULL DEFAULT 0,
         updated_at TEXT NOT NULL,
         PRIMARY KEY (user_id, speed)
       )
@@ -240,9 +241,23 @@ async function installResultPersistenceSchema(): Promise<void> {
         rating_after REAL NOT NULL,
         deviation_after REAL NOT NULL,
         volatility_after REAL NOT NULL,
+        rating_revision_before INTEGER NOT NULL DEFAULT 0,
         recorded_at TEXT NOT NULL,
         PRIMARY KEY (match_id, user_id)
       )
+    `),
+    env.PLAYER_DB.prepare(`
+      CREATE TRIGGER IF NOT EXISTS enforce_chess_rating_event_revision
+      BEFORE INSERT ON chess_rating_events
+      FOR EACH ROW
+      BEGIN
+        SELECT RAISE(ABORT, 'stale chess rating revision')
+        WHERE COALESCE((
+          SELECT rating_revision
+          FROM chess_ratings
+          WHERE user_id = NEW.user_id AND speed = NEW.speed
+        ), 0) <> NEW.rating_revision_before;
+      END
     `),
     env.PLAYER_DB.prepare(`
       CREATE TABLE IF NOT EXISTS season_player_progress (
@@ -506,6 +521,40 @@ describe('Echo realtime Worker', () => {
     `).bind('queue-duplicate-alpha', 'queue-duplicate-beta').first<{ total: number }>()).resolves.toMatchObject({ total: 2 });
   });
 
+  it('rejects a stale ranked rating snapshot instead of overwriting a newer result', async () => {
+    await installResultPersistenceSchema();
+    const now = new Date().toISOString();
+    await env.PLAYER_DB.batch([
+      env.PLAYER_DB.prepare(`
+        INSERT INTO player_progression (user_id, username, total_xp, created_at, updated_at)
+        VALUES ('rating-revision-player', 'Rating Revision', 0, ?, ?)
+      `).bind(now, now),
+      env.PLAYER_DB.prepare(`
+        INSERT INTO chess_ratings (
+          user_id, speed, rating, deviation, volatility, games_played,
+          rating_revision, updated_at
+        ) VALUES ('rating-revision-player', 'blitz', 1512, 280, 0.06, 4, 1, ?)
+      `).bind(now),
+    ]);
+
+    await expect(env.PLAYER_DB.prepare(`
+      INSERT INTO chess_rating_events (
+        match_id, user_id, speed, rating_before, deviation_before,
+        volatility_before, rating_after, deviation_after,
+        volatility_after, rating_revision_before, recorded_at
+      ) VALUES ('stale-rating-match', 'rating-revision-player', 'blitz', 1500, 300, 0.06, 1510, 290, 0.06, 0, ?)
+    `).bind(now).run()).rejects.toThrow(/stale chess rating revision/i);
+
+    await expect(env.PLAYER_DB.prepare(`
+      SELECT rating, games_played, rating_revision
+      FROM chess_ratings WHERE user_id = 'rating-revision-player' AND speed = 'blitz'
+    `).first<{ rating: number; games_played: number; rating_revision: number }>()).resolves.toMatchObject({
+      rating: 1512,
+      games_played: 4,
+      rating_revision: 1,
+    });
+  });
+
   it('records an early resignation for audit without granting XP, bond, or rating', async () => {
     await installResultPersistenceSchema();
     const result = await queuedChessResult({
@@ -719,6 +768,17 @@ describe('Echo realtime Worker', () => {
       SELECT COUNT(*) AS total FROM chess_rating_events
       WHERE user_id IN (?, ?)
     `).bind(alphaUid, betaUid).first<{ total: number }>()).resolves.toMatchObject({ total: 6 });
+    await expect(env.PLAYER_DB.prepare(`
+      SELECT games_played, rating_revision
+      FROM chess_ratings
+      WHERE user_id IN (?, ?)
+      ORDER BY user_id
+    `).bind(alphaUid, betaUid).all<{ games_played: number; rating_revision: number }>()).resolves.toMatchObject({
+      results: [
+        { games_played: 3, rating_revision: 3 },
+        { games_played: 3, rating_revision: 3 },
+      ],
+    });
   });
 
   it('rejects a signed ticket when its target does not match the route', async () => {

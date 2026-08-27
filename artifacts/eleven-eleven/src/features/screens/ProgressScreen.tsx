@@ -9,6 +9,8 @@ import {
 import { Lock, RotateCcw, ScanLine, Sparkles } from 'lucide-react';
 import { createProgressScreenReadModel } from '../../application/ui/gameUiReadModels';
 import { useStoryPuzzleStore } from '../story-puzzles/storyPuzzleStore';
+import { useUiPreferencesStore } from '../../app/shell/shellStore';
+import { localizeCollectionAchievement } from '../../domain/collection/collectionPresentation';
 
 export default function ProgressScreen() {
   const state = useGameStore();
@@ -17,6 +19,7 @@ export default function ProgressScreen() {
   const collectionStatus = useCollectionStore((store) => store.status);
   const collectionError = useCollectionStore((store) => store.error);
   const collectionActions = useCollectionStore((store) => store.actions);
+  const locale = useUiPreferencesStore((store) => store.locale);
   useEffect(() => {
     if (collectionStatus === 'idle') void collectionActions.load();
   }, [collectionActions, collectionStatus]);
@@ -174,12 +177,18 @@ export default function ProgressScreen() {
           <GlassPanel className="collection-hub__achievements" tone="progression" title="ACHIEVEMENTS // SYSTEM RECORDS">
             <div className="collection-hub__counter"><strong dir="ltr">{collection.achievements.filter((achievement) => achievement.unlocked).length} / {collection.achievements.length}</strong><small>UNLOCKED RECORDS</small></div>
             <div className="collection-hub__achievement-list">
-              {collection.achievements.map((achievement) => (
-                <article key={achievement.id} data-unlocked={achievement.unlocked} data-tier={achievement.presentationTier}>
-                  <span aria-hidden="true">{achievement.unlocked ? achievement.icon : '???'}</span>
-                  <div><strong>{achievement.name}</strong><small>{achievement.unlocked ? achievement.description : 'DATA UNAVAILABLE'}</small></div>
-                </article>
-              ))}
+              {collection.achievements.map((achievement) => {
+                const copy = localizeCollectionAchievement(achievement, locale);
+                return (
+                  <article key={achievement.id} data-unlocked={achievement.unlocked} data-tier={achievement.presentationTier}>
+                    <span aria-hidden="true">{achievement.unlocked ? achievement.icon : '???'}</span>
+                    <div>
+                      <strong>{achievement.unlocked ? copy.name : (locale === 'ar' ? 'سجل مصنف' : 'CLASSIFIED RECORD')}</strong>
+                      <small>{achievement.unlocked ? copy.description : (locale === 'ar' ? 'البيانات غير متاحة' : 'DATA UNAVAILABLE')}</small>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
             <p className="collection-hub__note"><Sparkles aria-hidden="true" /> Hidden records stay CLASSIFIED until verified.</p>
           </GlassPanel>

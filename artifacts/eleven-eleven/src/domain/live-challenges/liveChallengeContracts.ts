@@ -130,11 +130,17 @@ export interface LiveDailyHistoryEntry {
 
 export interface LiveChallengesSnapshot {
   daily: LiveDailySnapshot;
-  weekly: LiveWeeklySnapshot;
+  /**
+   * Weekly is deliberately absent until the Chapter 2 server receipt exists.
+   * This is an entitlement boundary, not a decorative locked tab.
+   */
+  weekly: LiveWeeklySnapshot | null;
   dailyHistory: readonly LiveDailyHistoryEntry[];
   timezone: 'UTC';
   resetLabel: '11:11';
   balanceVersion: string;
+  /** Authoritative ledger balance used only to explain hint pricing in UI. */
+  coinBalance: number;
   mastery: {
     dailySignalsRecovered: number;
     weeklyTrialsCompleted: number;

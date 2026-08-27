@@ -1,0 +1,21 @@
+{
+  "generatedAt": "2026-08-25T22:53:21.088Z",
+  "tools": [
+    {
+      "name": "ffmpeg",
+      "found": false
+    },
+    {
+      "name": "blender",
+      "found": false
+    },
+    {
+      "name": "audacity",
+      "found": false
+    },
+    {
+      "name": "imagemagick",
+      "found": false
+    }
+  ]
+}

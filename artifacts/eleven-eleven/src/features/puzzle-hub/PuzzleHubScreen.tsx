@@ -116,7 +116,7 @@ export default function PuzzleHubScreen() {
       daily: liveSnapshot
         ? liveSnapshot.daily.status.replace('_', ' ').toUpperCase()
         : copy.available,
-      weekly: liveSnapshot
+      weekly: liveSnapshot?.weekly
         ? `${liveSnapshot.weekly.completedStages} / ${liveSnapshot.weekly.totalStages} ${copy.stages}`
         : copy.available,
     };

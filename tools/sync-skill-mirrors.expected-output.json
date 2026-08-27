@@ -1,0 +1,5 @@
+{
+  "scannedAt": "DRY_RUN",
+  "status": "EXPECTED_OK",
+  "note": "This is a documentation snapshot of the expected sync-skill-mirrors.mjs output. Real run: node tools/sync-skill-mirrors.mjs"
+}

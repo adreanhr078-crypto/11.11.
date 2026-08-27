@@ -7,7 +7,10 @@ import {
   type PlayerApiContext,
 } from './_shared';
 import { requirePlayerDatabase } from './_database';
-import { readLiveSnapshot } from './_liveChallenges';
+import {
+  readLiveSnapshot,
+  requireLiveChallengeProgression,
+} from './_liveChallenges';
 import { requireAnyPlayerRolloutFeature } from './_rolloutPolicy';
 
 export async function onRequestOptions({ request, env }: PlayerApiContext): Promise<Response> {
@@ -22,7 +25,11 @@ export async function onRequestGet({ request, env }: PlayerApiContext): Promise<
       'dailyEnabled',
       'weeklyEnabled',
     ]);
-    const live = await readLiveSnapshot(requirePlayerDatabase(env), account);
+    const database = requirePlayerDatabase(env);
+    // The snapshot endpoint is also a deep-link boundary: a new player must
+    // not materialize Daily/Weekly state just by requesting this route.
+    await requireLiveChallengeProgression(database, account, 'daily');
+    const live = await readLiveSnapshot(database, account);
     return jsonResponse({ live }, 200, headers);
   } catch (error) {
     return errorResponse(error, headers);

@@ -196,7 +196,9 @@ export default function DashboardScreen() {
               iconId="screen-puzzles"
               label="PUZZLE HUB // 3 MODES"
               description={liveSnapshot
-                ? `DAILY ${liveSnapshot.daily.status.replace('_', ' ').toUpperCase()} // WEEKLY ${liveSnapshot.weekly.completedStages}/${liveSnapshot.weekly.totalStages}`
+                ? liveSnapshot.weekly
+                  ? `DAILY ${liveSnapshot.daily.status.replace('_', ' ').toUpperCase()} // WEEKLY ${liveSnapshot.weekly.completedStages}/${liveSnapshot.weekly.totalStages}`
+                  : `DAILY ${liveSnapshot.daily.status.replace('_', ' ').toUpperCase()}`
                 : 'القصة والإشارة اليومية واختبار النظام الأسبوعي'}
               compact
             />

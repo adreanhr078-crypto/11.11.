@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
+import {
+  shouldRestoreLiveChallengeDraft,
+  toPersistedLiveChallengeDraft,
+} from '../features/live-challenges/liveChallengeDraft';
 
 function source(relativePath: string): string {
   return readFileSync(resolve(process.cwd(), relativePath), 'utf8');
@@ -67,11 +71,16 @@ describe('story puzzle interaction accessibility', () => {
   });
 
   it('keeps visual Daily and Weekly boards stable while draft responses refresh', () => {
-    const liveScreen = source('src/features/live-challenges/LiveChallengesScreen.tsx');
-    assert.match(liveScreen, /\}, \[definition\.id\]\);/);
-    assert.match(liveScreen, /saveDailyDraft\(value \|\| undefined\)/);
-    assert.match(liveScreen, /saveWeeklyDraft\(value \|\| undefined\)/);
-    assert.doesNotMatch(liveScreen, /\[definition\.id, visual\]/);
+    const dailyKey = 'daily:2026-08-26:signal-01';
+    const nextDailyKey = 'daily:2026-08-27:signal-02';
+    const weeklyStageKey = 'weekly:2026-W35:1:trial-stage-02';
+
+    assert.equal(shouldRestoreLiveChallengeDraft(null, dailyKey), true);
+    assert.equal(shouldRestoreLiveChallengeDraft(dailyKey, dailyKey), false);
+    assert.equal(shouldRestoreLiveChallengeDraft(dailyKey, nextDailyKey), true);
+    assert.equal(shouldRestoreLiveChallengeDraft(dailyKey, weeklyStageKey), true);
+    assert.equal(toPersistedLiveChallengeDraft('piece-3,piece-1'), 'piece-3,piece-1');
+    assert.equal(toPersistedLiveChallengeDraft(''), undefined);
   });
 
   it('keeps stage-owned clipping without restricting interactive transition hit testing', () => {

@@ -27,6 +27,8 @@
 .live-challenges__options button { min-height: 2.8rem; border: 1px solid rgb(255 255 255 / 14%); background: rgb(255 255 255 / 4%); color: var(--gds-text-secondary); font: 700 0.7rem var(--gds-font-mono); cursor: pointer; }
 .live-challenges__options button[data-selected="true"] { border-color: var(--gds-red-400); background: rgb(255 52 72 / 15%); color: var(--gds-text-primary); box-shadow: 0 0 1rem rgb(255 52 72 / 18%); }
 .live-challenges__actions { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.8rem; }
+.live-challenges__hint-action { display: grid; gap: 0.28rem; min-inline-size: 0; }
+.live-challenges__hint-action small { max-inline-size: 11rem; color: #ffd166; font: 700 0.53rem/1.35 var(--gds-font-mono); }
 .live-challenges__hint { margin-top: 0.7rem; color: var(--gds-cyan-400); font: 600 0.68rem var(--gds-font-mono); }
 .live-challenges__status { display: block; color: var(--gds-red-400); font: 800 1.3rem var(--gds-font-mono); }
 .live-challenges__side p { color: var(--gds-text-secondary); line-height: 1.55; }
@@ -42,6 +44,23 @@
 .live-challenges__receipt > span { color: var(--gds-cyan-400); font: 700 0.65rem var(--gds-font-mono); }
 .live-challenges__receipt button { justify-self: start; border: 0; background: transparent; color: var(--gds-text-muted); font: 700 0.58rem var(--gds-font-mono); cursor: pointer; }
 .live-challenges__error { color: var(--gds-red-400); font: 700 0.7rem var(--gds-font-mono); }
+.live-hint-purchase { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left)); }
+.live-hint-purchase__backdrop { position: absolute; inset: 0; border: 0; background: rgb(0 3 8 / 78%); backdrop-filter: blur(9px); cursor: default; }
+.live-hint-purchase__dialog { position: relative; display: grid; gap: 0.8rem; inline-size: min(100%, 31rem); padding: clamp(1rem, 3vw, 1.5rem); border: 1px solid rgb(255 209 102 / 68%); background: linear-gradient(135deg, rgb(255 209 102 / 12%), transparent 38%), linear-gradient(165deg, rgb(72 220 247 / 9%), transparent 64%), rgb(2 8 14 / 98%); box-shadow: 0 1.5rem 5rem rgb(0 0 0 / 66%), inset 0 0 2.2rem rgb(255 209 102 / 7%); }
+.live-hint-purchase__dialog:focus-visible { outline: 2px solid var(--gds-cyan-400); outline-offset: 4px; }
+.live-hint-purchase__dialog > small { color: #ffd166; font: 800 0.58rem var(--gds-font-mono); letter-spacing: 0.12em; }
+.live-hint-purchase__dialog h2, .live-hint-purchase__dialog p { margin: 0; }
+.live-hint-purchase__dialog h2 { color: var(--gds-text-primary); font-size: clamp(1.15rem, 4vw, 1.55rem); }
+.live-hint-purchase__dialog > p { color: var(--gds-text-secondary); line-height: 1.7; }
+.live-hint-purchase__dialog dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.45rem; margin: 0; }
+.live-hint-purchase__dialog dl div { display: grid; gap: 0.25rem; min-inline-size: 0; padding: 0.58rem; border: 1px solid rgb(72 220 247 / 18%); background: rgb(255 255 255 / 3%); }
+.live-hint-purchase__dialog dt { color: var(--gds-text-muted); font: 700 0.51rem var(--gds-font-mono); letter-spacing: 0.07em; }
+.live-hint-purchase__dialog dd { display: inline-flex; align-items: center; gap: 0.25rem; margin: 0; color: #ffe7a1; font: 800 0.88rem var(--gds-font-mono); }
+.live-hint-purchase__dialog dd svg { inline-size: 0.85rem; block-size: 0.85rem; color: #ffd166; }
+.live-hint-purchase__dialog footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; }
+.live-hint-purchase__dialog footer .gds-button { min-block-size: 3rem; }
+.live-hint-purchase__error { display: flex; align-items: flex-start; gap: 0.4rem; margin: 0; padding: 0.55rem; border-inline-start: 2px solid var(--gds-red-400); background: rgb(255 52 72 / 8%); color: #ffd7df !important; font: 700 0.62rem/1.55 var(--gds-font-mono); }
+.live-hint-purchase__error svg { flex: 0 0 auto; inline-size: 0.9rem; block-size: 0.9rem; color: var(--gds-red-400); }
 .live-visual-puzzle { margin: 0.85rem 0; padding: 0.65rem; border: 1px solid rgb(72 220 247 / 24%); background: linear-gradient(135deg, rgb(72 220 247 / 8%), transparent 48%), rgb(0 3 8 / 74%); }
 .live-visual-puzzle__status { display: block; margin-top: 0.55rem; color: var(--gds-text-muted); font: 600 0.6rem var(--gds-font-mono); }
 .live-memory-board { display: grid; grid-template-columns: repeat(var(--memory-columns), minmax(0, 1fr)); gap: 0.28rem; max-width: 28rem; margin-inline: auto; aspect-ratio: 3 / 2; padding: 0.28rem; border: 1px solid rgb(72 220 247 / 32%); background: rgb(72 220 247 / 5%); }
@@ -96,6 +115,8 @@
   .live-wiring-board__current { grid-column: 1 / -1; grid-row: 2; }
   .live-wiring-board__column:last-child { grid-column: 2; grid-row: 1; }
   .live-visual-puzzle--choice { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .live-hint-purchase__dialog dl { grid-template-columns: 1fr; }
+  .live-hint-purchase__dialog footer .gds-button { flex: 1 1 10rem; }
 }
 @media (min-width: 48rem) and (max-height: 35rem) and (orientation: landscape) {
   .live-challenges__grid { grid-template-columns: minmax(0, 1.45fr) minmax(12rem, 0.65fr); gap: 0.55rem; }
@@ -105,5 +126,5 @@
   .live-challenges__instructions { margin-block: 0.35rem; line-height: 1.4; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .live-challenges__options button, .live-challenges__receipt { transition: none !important; animation: none !important; }
+  .live-challenges__options button, .live-challenges__receipt, .live-hint-purchase__dialog { transition: none !important; animation: none !important; }
 }

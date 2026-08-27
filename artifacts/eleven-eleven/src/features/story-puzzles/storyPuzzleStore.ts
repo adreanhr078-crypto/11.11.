@@ -18,6 +18,7 @@ import {
 } from '../../infrastructure/player-progression/playerProgressionApi';
 
 export type StoryPuzzleLoadStatus = 'idle' | 'loading' | 'ready' | 'error';
+export type StoryPuzzleErrorCode = string | null;
 
 interface StoryPuzzleActions {
   load: (force?: boolean, expectedUid?: string, locale?: NetworkLocale) => Promise<StoryPuzzleSnapshot | null>;
@@ -33,6 +34,7 @@ interface StoryPuzzleStoreState {
   status: StoryPuzzleLoadStatus;
   snapshot: StoryPuzzleSnapshot | null;
   error: string | null;
+  errorCode: StoryPuzzleErrorCode;
   latestReward: StoryPuzzleRewardReceipt | null;
   latestActivity: StoryPuzzleActivity | null;
   actions: StoryPuzzleActions;
@@ -45,6 +47,7 @@ const STORY_PUZZLE_ERROR_COPY = {
   ar: {
     locked: 'لم يتم التحقق من دليل القصة المطلوب بعد.',
     insufficientCoins: 'لا تملك عملات موثقة كافية لفتح هذا التلميح.',
+    completed: 'اكتمل هذا اللغز بالفعل؛ لا يمكن شراء تلميح بعد إصدار الإيصال.',
     rejected: 'الاستعادة غير مكتملة بعد. راجع الإشارة وحاول مجددًا.',
     unauthorized: 'انتهت جلسة الحساب. سجّل الدخول من جديد.',
     unavailable: 'تعذر الاتصال بقناة الألغاز. حاول مرة أخرى.',
@@ -52,13 +55,14 @@ const STORY_PUZZLE_ERROR_COPY = {
   en: {
     locked: 'The required story evidence has not been verified yet.',
     insufficientCoins: 'You do not have enough verified coins to open this hint.',
+    completed: 'This puzzle is already complete; hints cannot be purchased after its receipt is issued.',
     rejected: 'The recovery is not complete yet. Recheck the signal and try again.',
     unauthorized: 'Your account session ended. Sign in again.',
     unavailable: 'The puzzle channel could not be reached. Try again.',
   },
 } as const;
 
-function friendlyError(error: unknown, locale: NetworkLocale = 'ar'): string {
+export function friendlyError(error: unknown, locale: NetworkLocale = 'ar'): string {
   const copy = STORY_PUZZLE_ERROR_COPY[locale];
   if (error instanceof PlayerProgressionApiError) {
     if (error.code === 'puzzle_locked' || error.code === 'secret_not_detected') {
@@ -66,6 +70,9 @@ function friendlyError(error: unknown, locale: NetworkLocale = 'ar'): string {
     }
     if (error.code === 'insufficient_coins') {
       return copy.insufficientCoins;
+    }
+    if (error.code === 'puzzle_completed') {
+      return copy.completed;
     }
     if (error.code === 'puzzle_not_verified') {
       return copy.rejected;
@@ -77,26 +84,35 @@ function friendlyError(error: unknown, locale: NetworkLocale = 'ar'): string {
   return copy.unavailable;
 }
 
+function codeForError(error: unknown): StoryPuzzleErrorCode {
+  return error instanceof PlayerProgressionApiError ? error.code : null;
+}
+
 export const useStoryPuzzleStore = create<StoryPuzzleStoreState>((set, get) => ({
   status: 'idle',
   snapshot: null,
   error: null,
+  errorCode: null,
   latestReward: null,
   latestActivity: null,
   actions: {
     async load(force = false, expectedUid?: string, locale: NetworkLocale = 'ar') {
       if (loadRequest) return loadRequest;
       const version = ++requestVersion;
-      set({ status: 'loading', error: null });
+      set({ status: 'loading', error: null, errorCode: null });
       const request = (async () => {
         try {
           const snapshot = await fetchStoryPuzzleState(expectedUid);
           if (version === requestVersion) {
-            set({ status: 'ready', snapshot, error: null, latestActivity: null });
+            set({ status: 'ready', snapshot, error: null, errorCode: null, latestActivity: null });
           }
           return snapshot;
         } catch (error) {
-          if (version === requestVersion) set({ status: 'error', error: friendlyError(error, locale) });
+          if (version === requestVersion) set({
+            status: 'error',
+            error: friendlyError(error, locale),
+            errorCode: codeForError(error),
+          });
           return null;
         }
       })();
@@ -111,13 +127,14 @@ export const useStoryPuzzleStore = create<StoryPuzzleStoreState>((set, get) => (
     async saveDraft(puzzleId, draft, locale: NetworkLocale = 'ar') {
       try {
         const snapshot = await saveStoryPuzzleProgress(puzzleId, draft);
-        set({ status: 'ready', snapshot, error: null });
+        set({ status: 'ready', snapshot, error: null, errorCode: null });
         return snapshot;
       } catch (error) {
         const rejected = error instanceof PlayerProgressionApiError
           && error.code === 'puzzle_not_verified';
         set({
           error: friendlyError(error, locale),
+          errorCode: codeForError(error),
           latestActivity: rejected
             ? { kind: 'puzzle-attempt-rejected', puzzleId, occurredAt: Date.now() }
             : null,
@@ -142,6 +159,7 @@ export const useStoryPuzzleStore = create<StoryPuzzleStoreState>((set, get) => (
           status: 'ready',
           snapshot: receipt.snapshot,
           error: null,
+          errorCode: null,
           latestReward: receipt,
           latestActivity: { kind, puzzleId, occurredAt: Date.now() },
         });
@@ -152,6 +170,7 @@ export const useStoryPuzzleStore = create<StoryPuzzleStoreState>((set, get) => (
           && error.code === 'puzzle_not_verified';
         set({
           error: friendlyError(error, locale),
+          errorCode: codeForError(error),
           latestActivity: rejected
             ? { kind: 'puzzle-attempt-rejected', puzzleId, occurredAt: Date.now() }
             : null,
@@ -168,6 +187,7 @@ export const useStoryPuzzleStore = create<StoryPuzzleStoreState>((set, get) => (
           status: 'ready',
           snapshot,
           error: null,
+          errorCode: null,
           latestActivity: {
             kind: 'secret-puzzle-discovered',
             puzzleId,
@@ -177,7 +197,7 @@ export const useStoryPuzzleStore = create<StoryPuzzleStoreState>((set, get) => (
         recordEchoPresenceActivity({ kind: 'secret-puzzle-discovered', puzzleId });
         return snapshot;
       } catch (error) {
-        set({ error: friendlyError(error, locale) });
+        set({ error: friendlyError(error, locale), errorCode: codeForError(error) });
         return null;
       }
     },
@@ -189,6 +209,7 @@ export const useStoryPuzzleStore = create<StoryPuzzleStoreState>((set, get) => (
           status: 'ready',
           snapshot: response.puzzleState,
           error: null,
+          errorCode: null,
           latestActivity: {
             kind: 'hint-used',
             puzzleId,
@@ -198,7 +219,7 @@ export const useStoryPuzzleStore = create<StoryPuzzleStoreState>((set, get) => (
         recordEchoPresenceActivity({ kind: 'hint-used', puzzleId });
         return response.puzzleState;
       } catch (error) {
-        set({ error: friendlyError(error, locale) });
+        set({ error: friendlyError(error, locale), errorCode: codeForError(error) });
         return null;
       }
     },
@@ -214,6 +235,7 @@ export const useStoryPuzzleStore = create<StoryPuzzleStoreState>((set, get) => (
         status: 'idle',
         snapshot: null,
         error: null,
+        errorCode: null,
         latestReward: null,
         latestActivity: null,
       });

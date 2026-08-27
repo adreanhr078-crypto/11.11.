@@ -1,0 +1,135 @@
+{
+  "_about": {
+    "purpose": "Audit and metadata trail for MCP servers declared in .kilo/kilo.json. Kept SEPARATE from kilo.json so that Kilo's config round-trip never strips the human-readable metadata. The owner owns this file. Sync it manually if you change kilo.json.",
+    "maintained_by": "wave1-mcp-audit + wave4.1-refactor",
+    "last_updated": "2026-08-26",
+    "rollout_phase": "wave4.1",
+    "schema_safety_note": "The fields in this file are NOT part of the official Kilo MCP schema. They exist solely for human-readable audit, rollback, and review purposes. They will never affect runtime behavior.",
+    "sister_file": ".kilo/kilo.json",
+    "sister_audit_log": ".kilo/audit/pre-change.log"
+  },
+  "mcp": {
+    "airbyte-agent-mcp": {
+      "category": "data-integration",
+      "added_by": "kilo-bootstrap",
+      "added_at": "2026-08-26",
+      "disabled_at": "2026-08-26",
+      "disabled_by": "wave1-mcp-audit",
+      "notes": "Disabled by Wave 1. Unrelated to 11.11 (project uses Cloudflare + Firebase, not Airbyte). Backup at .kilo/kilo.json.backup-wave1.",
+      "project_relevance": "low",
+      "rollback": "Set enabled=true or restore from kilo.json.backup-wave1"
+    },
+    "airbyte-knowledge-mcp": {
+      "category": "knowledge-base",
+      "added_by": "kilo-bootstrap",
+      "added_at": "2026-08-26",
+      "disabled_at": "2026-08-26",
+      "disabled_by": "wave1-mcp-audit",
+      "notes": "Disabled by Wave 1. Unrelated to 11.11. Backup at .kilo/kilo.json.backup-wave1.",
+      "project_relevance": "low",
+      "rollback": "Set enabled=true or restore from kilo.json.backup-wave1"
+    },
+    "astronomer-docs-mcp": {
+      "category": "docs",
+      "added_by": "kilo-bootstrap",
+      "added_at": "2026-08-26",
+      "disabled_at": "2026-08-26",
+      "disabled_by": "wave1-mcp-audit",
+      "notes": "Disabled by Wave 1. Unrelated to 11.11. Backup at .kilo/kilo.json.backup-wave1.",
+      "project_relevance": "low",
+      "rollback": "Set enabled=true or restore from kilo.json.backup-wave1"
+    },
+    "awslabs-kinesis-mcp-server": {
+      "category": "aws-streaming",
+      "added_by": "kilo-bootstrap",
+      "added_at": "2026-08-26",
+      "disabled_at": "2026-08-26",
+      "disabled_by": "wave1-mcp-audit",
+      "notes": "Disabled by Wave 1. Project uses Cloudflare Workers, not AWS Kinesis. Backup at .kilo/kilo.json.backup-wave1.",
+      "project_relevance": "low",
+      "rollback": "Set enabled=true or restore from kilo.json.backup-wave1"
+    },
+    "amazon-keyspaces-mcp": {
+      "category": "aws-database",
+      "added_by": "kilo-bootstrap",
+      "added_at": "2026-08-26",
+      "disabled_at": "2026-08-26",
+      "disabled_by": "wave1-mcp-audit",
+      "notes": "Disabled by Wave 1. Project uses Cloudflare D1, not AWS Keyspaces. Backup at .kilo/kilo.json.backup-wave1.",
+      "project_relevance": "low",
+      "rollback": "Set enabled=true or restore from kilo.json.backup-wave1"
+    },
+    "aws-redshift-mcp": {
+      "category": "aws-warehouse",
+      "added_by": "kilo-bootstrap",
+      "added_at": "2026-08-26",
+      "disabled_at": "2026-08-26",
+      "disabled_by": "wave1-mcp-audit",
+      "notes": "Disabled by Wave 1. Project uses Cloudflare D1, not AWS Redshift. Backup at .kilo/kilo.json.backup-wave1.",
+      "project_relevance": "low",
+      "rollback": "Set enabled=true or restore from kilo.json.backup-wave1"
+    },
+    "cloudflare-docs-mcp": {
+      "category": "cloudflare-docs",
+      "added_at": "2026-08-26",
+      "added_by": "wave1-mcp-upgrade",
+      "verified_at": "2026-08-26",
+      "verification": {
+        "https_status_docs_mcp": 405,
+        "https_status_docs_sse": 410,
+        "url_reachable": true,
+        "url_source": "https://github.com/cloudflare/mcp-server-cloudflare (official)"
+      },
+      "notes": "Read-only access to Cloudflare Workers, D1, R2, Durable Objects, Pages, Wrangler documentation. Uses mcp-remote as stdio-to-Streamable-HTTP proxy (recommended by Cloudflare for non-native Streamable HTTP clients). Used for: API reference lookup, schema examples, best practices during development.",
+      "project_relevance": "critical",
+      "read_only": true,
+      "scope": ["workers", "d1", "r2", "durable-objects", "pages", "wrangler"]
+    },
+    "cloudflare-bindings-mcp": {
+      "category": "cloudflare-runtime",
+      "added_at": "2026-08-26",
+      "added_by": "wave1-mcp-upgrade",
+      "verified_at": "2026-08-26",
+      "verification": {
+        "https_status_bindings_mcp": 401,
+        "url_reachable": true,
+        "url_source": "https://github.com/cloudflare/mcp-server-cloudflare (official)"
+      },
+      "notes": "Read-only inspection of Cloudflare Workers runtime: D1 databases, R2 buckets, Durable Objects, KV namespaces. NO deploy permission. NO write access. NO secrets. Uses mcp-remote proxy. Will require OAuth flow on first connection (handled transparently by mcp-remote). 401 Unauthorized on raw GET is expected (MCP requires POST).",
+      "project_relevance": "critical",
+      "read_only": true,
+      "scope": ["d1-list", "d1-schema-readonly", "r2-list", "do-list", "kv-list"],
+      "explicitly_denied": [
+        "deploy",
+        "d1-execute-write",
+        "r2-write",
+        "do-write",
+        "secrets-read",
+        "token-rotation"
+      ]
+    },
+    "playwright-mcp": {
+      "category": "browser-automation",
+      "added_at": "2026-08-26",
+      "added_by": "wave1-mcp-upgrade",
+      "verified_at": "2026-08-26",
+      "verification": {
+        "package": "@playwright/mcp",
+        "publisher": "Microsoft (official Playwright team)",
+        "url_source": "https://github.com/microsoft/playwright-mcp",
+        "npm_weekly_downloads": 88372
+      },
+      "notes": "Local Playwright MCP from Microsoft. --isolated mode ensures no persistent storage state between sessions. --headless for CI/safety. --browser=chromium for fastest startup. Used for: E2E browser testing, screenshot validation, console error detection, UI flow verification.",
+      "project_relevance": "critical",
+      "scope": [
+        "browser-navigate",
+        "browser-screenshot",
+        "browser-console",
+        "browser-click",
+        "browser-fill",
+        "browser-evaluate"
+      ],
+      "safety_flags": ["--isolated", "--headless"]
+    }
+  }
+}

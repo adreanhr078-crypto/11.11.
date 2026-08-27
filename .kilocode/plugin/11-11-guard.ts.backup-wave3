@@ -1,0 +1,141 @@
+/**
+ * .kilocode/plugin/11-11-guard.ts (BACKUP — pre-Wave 3)
+ *
+ * Original guard before Wave 3 enhancements.
+ * Backup created on 2026-08-26.
+ *
+ * Enhancements added in Wave 3:
+ * - Persistent PRE_CHANGE_AUDIT_LOG written to disk
+ * - validatePreChange() hook for preflight before any edit
+ * - validatePostChange() hook for postflight after any edit
+ * - Expanded SECRET_PATTERNS for in-diff secret detection
+ * - Canon violation detection in pre-tool hook
+ * - Hint messages (advisory) instead of throws for non-frozen violations
+ */
+
+import { execSync } from "node:child_process";
+
+type ToolInput = { tool: string; sessionID: string; callID: string };
+type ToolBeforeOutput = { args: Record<string, unknown> };
+type ToolAfterOutput = { title: string; output: string; metadata: Record<string, unknown> };
+type CommandInput = { command: string; sessionID: string; arguments: string };
+type CommandOutput = { parts: Array<{ type: string; text?: string }> };
+type ShellInput = { cwd: string; sessionID?: string; callID?: string };
+type ShellOutput = { env: Record<string, string> };
+type EventInput = { event: { type: string; properties?: Record<string, unknown> } };
+
+const FROZEN_PATTERNS = [
+  /artifacts\/eleven-eleven\/src\/puzzles\.ts$/,
+  /artifacts\/eleven-eleven\/src\/lore\.ts$/,
+  /artifacts\/eleven-eleven\/src\/domain\/cinematics\//,
+  /artifacts\/eleven-eleven\/src\/content\/puzzles\//,
+  /artifacts\/eleven-eleven\/functions\/api\/player\/_storyPuzzleDefinitions\.ts$/,
+  /artifacts\/eleven-eleven\/src\/domain\/live-challenges\/smartLivePuzzleGenerator\.ts$/,
+];
+
+const AUDIT_LOG: Array<{ ts: string; tool: string; args: string }> = [];
+
+function isFrozenPath(path: string | undefined): boolean {
+  if (!path) return false;
+  return FROZEN_PATTERNS.some((p) => p.test(path));
+}
+
+function isWriteTool(tool: string): boolean {
+  return ["write", "edit", "apply_patch", "multiedit"].includes(tool);
+}
+
+function getEditedPath(args: Record<string, unknown>): string | undefined {
+  const a = args as Record<string, unknown>;
+  return (a.filePath ?? a.path ?? a.file) as string | undefined;
+}
+
+function runQualityGate(): string {
+  try {
+    const out = execSync("npm run agent:preflight 2>&1 || true", {
+      encoding: "utf8",
+      timeout: 60_000,
+    });
+    return out;
+  } catch (e) {
+    return `preflight failed: ${(e as Error).message}`;
+  }
+}
+
+export const 11_11_guard = async () => {
+  return {
+    "tool.execute.before": async (
+      input: ToolInput,
+      output: ToolBeforeOutput
+    ): Promise<void> => {
+      if (!isWriteTool(input.tool)) return;
+
+      const path = getEditedPath(output.args);
+      if (isFrozenPath(path)) {
+        throw new Error(
+          `BLOCKED: ${path} is in a frozen system. ` +
+            `See artifacts/eleven-eleven/AGENT_RULES.md section 6 for the list. ` +
+            `Request explicit owner direction before modifying.`
+        );
+      }
+
+      AUDIT_LOG.push({
+        ts: new Date().toISOString(),
+        tool: input.tool,
+        args: path ?? JSON.stringify(output.args).slice(0, 200),
+      });
+    },
+
+    "tool.execute.after": async (
+      input: ToolInput,
+      output: ToolAfterOutput
+    ): Promise<void> => {
+      if (!isWriteTool(input.tool)) return;
+      const path = getEditedPath(output.args as Record<string, unknown>);
+      if (!path) return;
+      output.metadata = {
+        ...output.metadata,
+        guard: {
+          audit: AUDIT_LOG.length,
+          path,
+          ts: new Date().toISOString(),
+        },
+      };
+    },
+
+    "command.execute.before": async (
+      input: CommandInput,
+      output: CommandOutput
+    ): Promise<void> => {
+      if (input.command === "/code" || input.command === "code") {
+        const gateOut = runQualityGate();
+        output.parts = [
+          { type: "text", text: "## preflight\n```\n" + gateOut + "\n```" },
+        ];
+      }
+    },
+
+    "shell.env": async (
+      _input: ShellInput,
+      output: ShellOutput
+    ): Promise<void> => {
+      output.env = {
+        ...output.env,
+        ELEVEN_ELEVEN_PROJECT: "1",
+        NODE_11_11_GUARD: "active",
+      };
+    },
+
+    event: async (input: EventInput): Promise<void> => {
+      if (input.event.type === "file.edited") {
+        const props = input.event.properties ?? {};
+        const path = (props.path as string) ?? "";
+        if (isFrozenPath(path)) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[11.11-guard] WARNING: edited frozen file ${path}. Verify owner approval.`
+          );
+        }
+      }
+    },
+  };
+};

@@ -906,13 +906,14 @@
   grid-template-columns: repeat(71, minmax(2px, 1fr));
   gap: 2px;
   direction: ltr;
+  pointer-events: none;
 }
 
 .final-manhwa-reader__timeline-page {
-  height: .55rem;
+  display: block;
+  block-size: .55rem;
   border: 0;
   background: rgba(235, 247, 255, .16);
-  cursor: pointer;
 }
 
 .final-manhwa-reader__timeline-page[data-viewed="true"] {
@@ -937,10 +938,42 @@
   background: rgba(255, 61, 95, .055);
 }
 
+.final-manhwa-reader__timeline-scrubber {
+  display: grid;
+  grid-template-columns: minmax(7rem, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: .65rem;
+  min-block-size: var(--gds-touch-target);
+  color: rgba(235, 247, 255, .78);
+  font: 700 .62rem var(--gds-font-mono, monospace);
+  letter-spacing: .06em;
+}
+
+.final-manhwa-reader__timeline-scrubber input {
+  inline-size: 100%;
+  min-block-size: var(--gds-touch-target);
+  margin: 0;
+  accent-color: var(--final-red);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.final-manhwa-reader__timeline-scrubber input:disabled {
+  cursor: not-allowed;
+  opacity: .48;
+}
+
 .final-manhwa-reader__timeline > span {
   color: rgba(235, 247, 255, .48);
   font-size: .68rem;
   text-align: center;
+}
+
+@media (max-width: 36rem) {
+  .final-manhwa-reader__timeline-scrubber {
+    grid-template-columns: 1fr;
+    gap: .18rem;
+  }
 }
 
 .final-manhwa-reader__preload {

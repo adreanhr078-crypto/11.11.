@@ -1,0 +1,102 @@
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  "snapshot": false,
+  "mcp": {
+    "airbyte-agent-mcp": {
+      "type": "remote",
+      "url": "https://mcp.airbyte.ai/mcp",
+      "enabled": true,
+      "_meta": {
+        "category": "data-integration",
+        "added_by": "kilo-bootstrap",
+        "added_at": "2026-08-26",
+        "notes": "Unrelated to 11.11. Kept for potential future use.",
+        "project_relevance": "low"
+      }
+    },
+    "airbyte-knowledge-mcp": {
+      "type": "remote",
+      "url": "https://airbyte.mcp.kapa.ai",
+      "enabled": true,
+      "_meta": {
+        "category": "knowledge-base",
+        "added_by": "kilo-bootstrap",
+        "added_at": "2026-08-26",
+        "notes": "Unrelated to 11.11. Kept for potential future use.",
+        "project_relevance": "low"
+      }
+    },
+    "astronomer-docs-mcp": {
+      "type": "remote",
+      "url": "https://www.astronomer.io/docs/_mcp/server",
+      "enabled": true,
+      "_meta": {
+        "category": "docs",
+        "added_by": "kilo-bootstrap",
+        "added_at": "2026-08-26",
+        "notes": "Unrelated to 11.11. Kept for potential future use.",
+        "project_relevance": "low"
+      }
+    },
+    "awslabs-kinesis-mcp-server": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "awslabs.kinesis-mcp-server==0.1.2"
+      ],
+      "environment": {
+        "AWS_PROFILE": "1",
+        "AWS_REGION": "1",
+        "KINESIS-READONLY": "true"
+      },
+      "enabled": true,
+      "_meta": {
+        "category": "aws-streaming",
+        "added_by": "kilo-bootstrap",
+        "added_at": "2026-08-26",
+        "notes": "Unrelated to 11.11 (project uses Cloudflare, not AWS). Kept for potential future use.",
+        "project_relevance": "low"
+      }
+    },
+    "amazon-keyspaces-mcp": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "awslabs.amazon-keyspaces-mcp-server==0.0.14"
+      ],
+      "environment": {
+        "AWS_PROFILE": "1",
+        "AWS_REGION": "1",
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "enabled": true,
+      "_meta": {
+        "category": "aws-database",
+        "added_by": "kilo-bootstrap",
+        "added_at": "2026-08-26",
+        "notes": "Unrelated to 11.11 (project uses D1, not Keyspaces). Kept for potential future use.",
+        "project_relevance": "low"
+      }
+    },
+    "aws-redshift-mcp": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "awslabs.redshift-mcp-server==0.0.25"
+      ],
+      "environment": {
+        "AWS_PROFILE": "1",
+        "AWS_REGION": "1",
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "enabled": true,
+      "_meta": {
+        "category": "aws-warehouse",
+        "added_by": "kilo-bootstrap",
+        "added_at": "2026-08-26",
+        "notes": "Unrelated to 11.11 (project uses D1, not Redshift). Kept for potential future use.",
+        "project_relevance": "low"
+      }
+    }
+  }
+}

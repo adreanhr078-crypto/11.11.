@@ -17,13 +17,19 @@ import {
   saveWeeklyDraft,
   startDaily,
   startWeekly,
+  requireLiveChallengeProgression,
+  type LiveChallengeMode,
   useWeeklyHint,
   useDailyHint,
 } from '../_liveChallenges';
 import { requirePlayerRolloutFeature } from '../_rolloutPolicy';
 
+function liveModeForAction(action: string): LiveChallengeMode {
+  return action.includes('daily') ? 'daily' : 'weekly';
+}
+
 function rolloutFeatureForLiveAction(action: string): 'dailyEnabled' | 'weeklyEnabled' {
-  return action.includes('daily') ? 'dailyEnabled' : 'weeklyEnabled';
+  return liveModeForAction(action) === 'daily' ? 'dailyEnabled' : 'weeklyEnabled';
 }
 
 export async function onRequestOptions({ request, env }: PlayerApiContext): Promise<Response> {
@@ -46,6 +52,7 @@ export async function onRequestPost({ request, env }: PlayerApiContext): Promise
       rolloutFeatureForLiveAction(body.action),
     );
     const database = requirePlayerDatabase(env);
+    await requireLiveChallengeProgression(database, account, liveModeForAction(body.action));
     switch (body.action) {
       case 'start-daily':
         return jsonResponse({ live: await startDaily(database, account) }, 200, headers);

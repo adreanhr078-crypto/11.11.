@@ -199,9 +199,12 @@
 
 .application-shell__skip-link {
   position: absolute;
+  display: inline-flex;
+  align-items: center;
   z-index: calc(var(--gds-z-hud) + 4);
   inset-block-start: 0.5rem;
   inset-inline-start: 0.5rem;
+  min-block-size: var(--gds-touch-target);
   padding: 0.55rem 0.75rem;
   transform: translateY(-160%);
   border-radius: 0.35rem;

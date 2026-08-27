@@ -143,7 +143,10 @@ export function signalAcquisition(
   const lockRadius = gaps.length > 0 ? Math.min(...gaps) / 2 : scale.span / 2;
   const reach = Math.max(lockRadius * 3, 1);
   const clarity = Math.max(0, Math.min(1, 1 - nearestDistance / reach));
-  return { nearestIndex, clarity, locked: nearestDistance <= lockRadius };
+  // A midpoint or the padded initial dial boundary is not a confirmed probe.
+  // The player must deliberately steer into a reading rather than arrive at a
+  // misleadingly pre-locked state before touching the control.
+  return { nearestIndex, clarity, locked: nearestDistance < lockRadius };
 }
 
 /** Deterministic pseudo-noise so SSR, tests, and clients render identically. */

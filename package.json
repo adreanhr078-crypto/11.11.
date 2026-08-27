@@ -23,7 +23,16 @@
     "doctor:files": "node artifacts/eleven-eleven/tools/project-doctor/index.mjs doctor:files",
     "doctor:build": "node artifacts/eleven-eleven/tools/project-doctor/index.mjs doctor:build",
     "agent:preflight": "node artifacts/eleven-eleven/tools/project-doctor/index.mjs agent:preflight",
-    "agent:postflight": "node artifacts/eleven-eleven/tools/project-doctor/index.mjs agent:postflight"
+    "agent:postflight": "node artifacts/eleven-eleven/tools/project-doctor/index.mjs agent:postflight",
+    "media:validate": "npx tsx tools/media/validate-assets.ts",
+    "env:check": "npx tsx tools/environment-setup/check-environment.ts",
+    "env:setup": "npx tsx tools/environment-setup/setup-media-tools.ts",
+    "blender:export-gltf": "npx tsx tools/blender/run-blender.ts -- export-gltf",
+    "blender:render-cinematic": "npx tsx tools/blender/run-blender.ts -- render-cinematic",
+    "unity:run": "npx tsx tools/unity/run-unity.ts --",
+    "canva:create": "npx tsx tools/canva/run-canva.ts --",
+    "comfyui:generate": "npx tsx tools/stable-diffusion/run-comfyui.ts --",
+    "tts:generate": "npx tsx tools/ai-audio/run-tts.ts --"
   },
   "private": true,
   "devDependencies": {
@@ -39,6 +48,7 @@
     "p-limit": "^7.3.1",
     "p-retry": "^7.1.1",
     "pg": "^8.23.0",
+    "playwright": "^1.62.1",
     "prettier": "^3.8.1",
     "tailwindcss": "^4.3.1",
     "tsx": "^4.22.4",
