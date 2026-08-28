@@ -1,21 +1,30 @@
 {
-  "generatedAt": "2026-08-25T22:53:21.088Z",
-  "tools": [
-    {
-      "name": "ffmpeg",
-      "found": false
-    },
-    {
-      "name": "blender",
-      "found": false
-    },
-    {
-      "name": "audacity",
-      "found": false
-    },
-    {
-      "name": "imagemagick",
-      "found": false
-    }
+  "schemaVersion": 1,
+  "runtimeDecision": "web-first-three-r3f",
+  "required": [
+    "blender",
+    "ffmpeg",
+    "ffprobe",
+    "toktx",
+    "gltf-transform",
+    "gltf-validator",
+    "sharp",
+    "edge"
+  ],
+  "optional": [
+    "imagemagick"
+  ],
+  "deferred": {
+    "unity": "Install only after a measured browser vertical slice fails or a native-runtime greenlight is approved.",
+    "comfyui": "Use connected generation tools instead on the current 8 GB Intel-UHD workstation.",
+    "audacity": "Add when approved VO, music, or recorded SFX enters production."
+  },
+  "environmentVariables": [
+    "BLENDER_EXE",
+    "FFMPEG_EXE",
+    "FFPROBE_EXE",
+    "TOKTX_EXE",
+    "EDGE_EXE",
+    "MAGICK_EXE"
   ]
 }

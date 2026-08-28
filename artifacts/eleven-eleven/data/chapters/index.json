@@ -4,64 +4,64 @@
     {
       "id": "chapter_1",
       "order": 1,
-      "title": { "ar": "الصحوة", "en": "Awakening" },
-      "description": { "ar": "الفصل الأول", "en": "Chapter one" },
+      "title": { "ar": "التجربة والنظام", "en": "The Experiment and the System" },
+      "description": { "ar": "مرحلة الاستيقاظ داخل تجربة 11:11", "en": "Awakening inside the 11:11 experiment" },
       "glyph": "01",
-      "color": "#c8785a",
+      "color": "#6d3aa8",
       "puzzleRange": [1, 100]
     },
     {
       "id": "chapter_2",
       "order": 2,
-      "title": { "ar": "المراقب الذي لا يرمش", "en": "The Watcher Who Never Blinks" },
-      "description": { "ar": "الفصل الثاني", "en": "Chapter two" },
+      "title": { "ar": "اكتشاف الحقيقة", "en": "Discovering the Truth" },
+      "description": { "ar": "محتوى قصصي غير منشور", "en": "Unpublished story content" },
       "glyph": "02",
-      "color": "#d08a54",
+      "color": "#7438a8",
       "puzzleRange": [101, 250]
     },
     {
       "id": "chapter_3",
       "order": 3,
-      "title": { "ar": "الأشياء التي يجب أن تنساها", "en": "Things You Must Forget" },
-      "description": { "ar": "الفصل الثالث", "en": "Chapter three" },
+      "title": { "ar": "مواجهة كينجا", "en": "Confronting Kenja" },
+      "description": { "ar": "محتوى قصصي غير منشور", "en": "Unpublished story content" },
       "glyph": "03",
-      "color": "#5a8aaa",
+      "color": "#9d2439",
       "puzzleRange": [251, 400]
     },
     {
       "id": "chapter_4",
       "order": 4,
-      "title": { "ar": "غير مكشوف", "en": "Unrevealed" },
+      "title": { "ar": "ظهور Zero والعقد", "en": "Zero and the Contract" },
       "description": { "ar": "محتوى قصصي غير منشور", "en": "Unpublished story content" },
       "glyph": "04",
-      "color": "#aa8b40",
+      "color": "#b51e35",
       "puzzleRange": [401, 550]
     },
     {
       "id": "chapter_5",
       "order": 5,
-      "title": { "ar": "غير مكشوف", "en": "Unrevealed" },
+      "title": { "ar": "صراع Echo مع القوة", "en": "Echo's Struggle with Power" },
       "description": { "ar": "محتوى قصصي غير منشور", "en": "Unpublished story content" },
       "glyph": "05",
-      "color": "#b55252",
+      "color": "#8131a5",
       "puzzleRange": [551, 700]
     },
     {
       "id": "chapter_6",
       "order": 6,
-      "title": { "ar": "غير مكشوف", "en": "Unrevealed" },
+      "title": { "ar": "هيكتور وحقيقة الخلود", "en": "Hector and the Truth of Immortality" },
       "description": { "ar": "محتوى قصصي غير منشور", "en": "Unpublished story content" },
       "glyph": "06",
-      "color": "#d04a4a",
+      "color": "#922540",
       "puzzleRange": [701, 850]
     },
     {
       "id": "chapter_7",
       "order": 7,
-      "title": { "ar": "غير مكشوف", "en": "Unrevealed" },
-      "description": { "ar": "محتوى قصصي غير منشور", "en": "Unpublished story content" },
+      "title": { "ar": "قيد التطوير", "en": "In Development" },
+      "description": { "ar": "امتداد قصصي غير معتمد بعد", "en": "Story extension not yet approved" },
       "glyph": "07",
-      "color": "#8d6fb3",
+      "color": "#6d587f",
       "puzzleRange": [851, 1000]
     }
   ]

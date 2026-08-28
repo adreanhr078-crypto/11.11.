@@ -4,96 +4,88 @@ import type {
   CanonRegistry,
 } from './canonTypes';
 
-export const CANON_VERSION = 'long-fall-v1';
+export const CANON_VERSION = 'echo-network-evolving-v1';
 
 export const CANON_CHAPTERS = [
   {
     id: 'chapter_1',
     order: 1,
-    title: { ar: 'الصحوة', en: 'Awakening' },
-    publicationStatus: 'runtime-published',
+    title: { ar: 'التجربة والنظام', en: 'The Experiment and the System' },
+    publicationStatus: 'authored-internal',
   },
   {
     id: 'chapter_2',
     order: 2,
-    title: {
-      ar: 'المراقب الذي لا يرمش',
-      en: 'The Watcher Who Never Blinks',
-    },
-    publicationStatus: 'runtime-published',
+    title: { ar: 'اكتشاف الحقيقة', en: 'Discovering the Truth' },
+    publicationStatus: 'unpublished',
   },
   {
     id: 'chapter_3',
     order: 3,
-    title: {
-      ar: 'الأشياء التي يجب أن تنساها',
-      en: 'Things You Must Forget',
-    },
-    publicationStatus: 'runtime-published',
+    title: { ar: 'مواجهة كينجا', en: 'Confronting Kenja' },
+    publicationStatus: 'unpublished',
   },
   {
     id: 'chapter_4',
     order: 4,
-    title: { ar: 'غير مكشوف', en: 'Unrevealed' },
-    publicationStatus: 'runtime-published',
+    title: { ar: 'ظهور Zero والعقد', en: 'Zero and the Contract' },
+    publicationStatus: 'unpublished',
   },
-  ...(['chapter_5', 'chapter_6', 'chapter_7'] as const).map(
-    (id, index): CanonChapter => ({
-      id,
-      order: index + 5,
-      title: { ar: 'غير مكشوف', en: 'Unrevealed' },
-      publicationStatus: 'unpublished',
-    }),
-  ),
+  {
+    id: 'chapter_5',
+    order: 5,
+    title: { ar: 'صراع Echo مع القوة', en: "Echo's Struggle with Power" },
+    publicationStatus: 'unpublished',
+  },
+  {
+    id: 'chapter_6',
+    order: 6,
+    title: { ar: 'هيكتور وحقيقة الخلود', en: 'Hector and the Truth of Immortality' },
+    publicationStatus: 'unpublished',
+  },
+  {
+    id: 'chapter_7',
+    order: 7,
+    title: { ar: 'قيد التطوير', en: 'In Development' },
+    publicationStatus: 'unpublished',
+  },
 ] as const satisfies readonly CanonChapter[];
 
 export const PUBLIC_CANON_CHARACTERS = [
   {
     id: 'echo',
     name: { ar: 'إيكو', en: 'Echo' },
-    role: {
-      ar: 'الطفل في قلب نظام 11:11',
-      en: 'The child at the heart of the 11:11 System',
-    },
+    role: { ar: 'بطل القصة والتجربة الناجحة', en: 'The protagonist and successful subject' },
     publicBio: {
-      ar: 'يستيقظ إيكو بذاكرة ممزقة، ويحاول استعادة ما فقده دون أن يعرف الثمن الكامل للتذكّر.',
-      en: 'Echo wakes with a fractured memory and tries to recover what was lost without knowing the full price of remembering.',
+      ar: 'شاب عادي يدخل تجربة الخلود من دون معرفة حقيقتها الكاملة، ويستيقظ داخل النظام محاولًا فهم ما حدث والخروج.',
+      en: 'An ordinary young man who enters the immortality experiment without knowing its full truth and wakes inside the system seeking answers and escape.',
     },
   },
   {
     id: 'yuki',
     name: { ar: 'يوكي', en: 'Yuki' },
-    role: {
-      ar: 'الصديقة الأقرب إلى إيكو',
-      en: "Echo's closest friend",
-    },
+    role: { ar: 'صديق إيكو المقرب منذ الطفولة', en: "Echo's closest childhood friend" },
     publicBio: {
-      ar: 'اسم بقي حاضرًا عندما اختفت أسماء أخرى من ذاكرة إيكو.',
-      en: "A name that remained when other names disappeared from Echo's memory.",
+      ar: 'صاحب الشعر الأبيض الذي يظهر في البداية بصورة غامضة خلف الزجاج، ويحمل معرفة لا يكشفها لإيكو.',
+      en: 'The white-haired friend first seen mysteriously behind glass, carrying knowledge he does not reveal to Echo.',
+    },
+  },
+  {
+    id: 'shizuka',
+    name: { ar: 'شيزوكا', en: 'Shizuka' },
+    role: { ar: 'رفيقة الطفولة والحب الأول لإيكو', en: "Echo's childhood companion and first love" },
+    publicBio: {
+      ar: 'تمثل ماضي إيكو الإنساني والحياة الطبيعية التي يحاول الحفاظ عليها.',
+      en: "She represents Echo's human past and the ordinary life he tries to preserve.",
     },
   },
   {
     id: 'kenja',
     name: { ar: 'كينجا', en: 'Kenja' },
-    role: {
-      ar: 'والد إيكو والعالِم خلف التجربة',
-      en: "Echo's father and the scientist behind the experiment",
-    },
+    role: { ar: 'والد إيكو والعالم خلف تجربة الخلود', en: "Echo's father and the scientist behind the immortality experiment" },
     publicBio: {
-      ar: 'قاد تجربة مرتبطة بالوعي البشري ونظام 11:11، لكن دوافعه الكاملة لا تزال محجوبة.',
-      en: 'He led an experiment tied to human consciousness and the 11:11 System, while his complete motives remain concealed.',
-    },
-  },
-  {
-    id: 'lina',
-    name: { ar: 'لينا', en: 'Lina' },
-    role: {
-      ar: 'والدة إيكو',
-      en: "Echo's mother",
-    },
-    publicBio: {
-      ar: 'حضور مفقود في ذاكرة إيكو، ولا تزال حقيقة ما حدث لها غير مكتملة.',
-      en: "A missing presence in Echo's memory whose fate has not yet been fully revealed.",
+      ar: 'يقود تجربة Echo لدراسة حدود الوعي والخلود، ويضع نجاح المشروع فوق علاقته بابنه.',
+      en: 'He leads the Echo experiment to test the limits of consciousness and immortality, placing the project above his bond with his son.',
     },
   },
 ] as const satisfies readonly CanonCharacter[];
@@ -101,8 +93,8 @@ export const PUBLIC_CANON_CHARACTERS = [
 export const CANON_REGISTRY = Object.freeze({
   canonVersion: CANON_VERSION,
   storyStatus: 'ongoing',
-  runtimePublishedChapterIds: ['chapter_1', 'chapter_2', 'chapter_3', 'chapter_4'],
-  authoredInternalChapterIds: [],
+  runtimePublishedChapterIds: [],
+  authoredInternalChapterIds: ['chapter_1'],
   chapters: CANON_CHAPTERS,
   publicCharacters: PUBLIC_CANON_CHARACTERS,
 } as const satisfies CanonRegistry);

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import archiveManifest from '../../docs/internal/narrative/2026-07-26/ar/manifest.json';
+import currentManifest from '../../docs/internal/narrative/current/ar/manifest.json';
 import {
   CANON_CHAPTERS,
   CANON_REGISTRY,
@@ -13,69 +13,52 @@ import {
 import { CORE_LORE } from '../lore';
 
 describe('canonical story authority', () => {
-  it('keeps the archived authored sources internal while publishing the approved final Manhwa', () => {
-    assert.equal(CANON_VERSION, 'long-fall-v1');
+  it('uses both Owner-approved Echo Network references and no old Long Fall authority', () => {
+    assert.equal(CANON_VERSION, 'echo-network-evolving-v1');
     assert.equal(CANON_REGISTRY.storyStatus, 'ongoing');
+    assert.equal(currentManifest.canonVersion, CANON_VERSION);
+    assert.equal(currentManifest.canonStatus, 'canonical-authority');
+    assert.equal(currentManifest.storyStatus, 'ongoing');
+    assert.equal(currentManifest.documents.length, 2);
     assert.deepEqual(
-      CANON_REGISTRY.authoredInternalChapterIds,
-      [],
+      currentManifest.documents.map((document) => document.id),
+      ['story-bible', 'narrative-master'],
     );
-    assert.equal(archiveManifest.canonVersion, CANON_VERSION);
-    assert.equal(archiveManifest.canonStatus, 'canonical-authority');
-    assert.equal(archiveManifest.storyStatus, 'ongoing');
-    assert.equal(archiveManifest.documents.length, 3);
-    assert.ok(archiveManifest.documents.every((document) => (
+    assert.ok(currentManifest.documents.every((document) => (
       document.canonStatus === 'canonical-authority'
       && document.runtimeIncluded === false
-      && document.spoilerLevel === 'full'
+      && document.originalSha256.length === 64
     )));
   });
 
-  it('keeps unreleased authored material out of the runtime projection', () => {
-    assert.deepEqual(
-      CANON_REGISTRY.runtimePublishedChapterIds,
-      ['chapter_1', 'chapter_2', 'chapter_3', 'chapter_4'],
-    );
-
+  it('keeps unreached secrets out of the runtime-safe projection', () => {
     const runtimeProjection = JSON.stringify(CORE_LORE);
-    for (const unreleasedTerm of [
-      'ZERO',
-      'Nara',
-      'Archivist',
-      'Demon King',
-      'Obedient Son',
-      'True 11:12',
+    for (const unreachedTerm of [
+      'Hector',
+      'روح واحدة',
+      'one soul',
+      'قتل',
+      'murder',
     ]) {
-      assert.equal(runtimeProjection.includes(unreleasedTerm), false);
+      assert.equal(runtimeProjection.includes(unreachedTerm), false);
     }
+    assert.equal(CORE_LORE.productionIdentity.echoNeckMark, 'EX-011');
+    assert.equal(CORE_LORE.productionIdentity.placement, 'direct-skin');
   });
 
-  it('publishes approved chapter titles without inventing future chapters', () => {
-    const chapterTwo = CANON_CHAPTERS.find(({ id }) => id === 'chapter_2');
-    const chapterThree = CANON_CHAPTERS.find(({ id }) => id === 'chapter_3');
-    assert.equal(chapterTwo?.title.ar, 'المراقب الذي لا يرمش');
-    assert.equal(chapterThree?.title.ar, 'الأشياء التي يجب أن تنساها');
-
-    const unrevealedChapters = CANON_CHAPTERS.filter(
-      ({ order }) => order >= 5,
-    );
-    assert.equal(unrevealedChapters.length, 3);
-    assert.ok(unrevealedChapters.every((chapter) => (
+  it('publishes no unfinished Manhwa chapter as current Canon', () => {
+    assert.deepEqual(CANON_REGISTRY.runtimePublishedChapterIds, []);
+    assert.deepEqual(CANON_REGISTRY.authoredInternalChapterIds, ['chapter_1']);
+    assert.equal(CANON_CHAPTERS[0]?.publicationStatus, 'authored-internal');
+    assert.ok(CANON_CHAPTERS.slice(1).every((chapter) => (
       chapter.publicationStatus === 'unpublished'
-      && chapter.title.en === 'Unrevealed'
     )));
-    const chapterFour = CANON_CHAPTERS.find(({ id }) => id === 'chapter_4');
-    assert.equal(chapterFour?.publicationStatus, 'runtime-published');
-    assert.equal(chapterFour?.title.en, 'Unrevealed');
   });
 
-  it('keeps the content registry aligned with the canonical projection', () => {
-    assert.equal(CONTENT_MANIFEST.contentVersion, 'canon-long-fall-v1');
-
+  it('keeps the data registry aligned with the evolving Canon labels', () => {
+    assert.equal(CONTENT_MANIFEST.contentVersion, 'canon-echo-network-evolving-v1');
     for (const canonChapter of CANON_CHAPTERS) {
-      const contentChapter = CHAPTER_DEFINITIONS.find(
-        ({ id }) => id === canonChapter.id,
-      );
+      const contentChapter = CHAPTER_DEFINITIONS.find(({ id }) => id === canonChapter.id);
       assert.deepEqual(contentChapter?.title, canonChapter.title);
     }
   });

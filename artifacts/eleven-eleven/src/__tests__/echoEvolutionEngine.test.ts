@@ -100,8 +100,8 @@ function fixtures() {
   return { stages, events, progress };
 }
 
-describe('runtime final Manhwa publication boundary', () => {
-  it('publishes only approved final-Manhwa stages and Canon events', () => {
+describe('legacy runtime Manhwa isolation boundary', () => {
+  it('keeps pre-replacement runtime events isolated from the current Canon publication state', () => {
     assert.deepEqual(
       RUNTIME_ECHO_EVOLUTION_STAGES.map(({ stageId }) => stageId),
       [
@@ -119,12 +119,7 @@ describe('runtime final Manhwa publication boundary', () => {
         'manhwa_chapter_04_black_echo_protocol',
       ],
     );
-    assert.deepEqual(CANON_REGISTRY.runtimePublishedChapterIds, [
-      'chapter_1',
-      'chapter_2',
-      'chapter_3',
-      'chapter_4',
-    ]);
+    assert.deepEqual(CANON_REGISTRY.runtimePublishedChapterIds, []);
     assert.ok(RUNTIME_ECHO_EVOLUTION_STAGES.every(
       ({ chapterId, published, playerVisible }) => (
         ['chapter_1', 'chapter_4'].includes(chapterId)
@@ -182,7 +177,7 @@ describe('runtime final Manhwa publication boundary', () => {
   });
 });
 
-describe('pure Long Fall evolution engine', () => {
+describe('pure receipt-driven Echo evolution engine', () => {
   it('requires a published event definition and its valid source proof', () => {
     const { stages, events, progress } = fixtures();
 

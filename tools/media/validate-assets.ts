@@ -1,152 +1,173 @@
-/**
- * tools/media/validate-assets.ts
- *
- * Lightweight media validators for the 11.11 asset pipeline.
- * Run from repo root:
- *   npx tsx tools/media/validate-assets.ts
- *
- * This tool does not modify files. It reports PASS/FAIL/UNVERIFIED
- * for each checked asset category.
- */
+import { spawnSync } from 'node:child_process';
+import { existsSync, readdirSync, statSync } from 'node:fs';
+import { extname, join, relative, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-import { statSync, readdirSync, existsSync } from 'node:fs';
-import { join, extname, basename } from 'node:path';
+import sharp from 'sharp';
 
-const PUBLIC_ASSETS = join(process.cwd(), 'artifacts', 'eleven-eleven', 'public', 'assets');
+import { readConfiguredPath } from '../environment-setup/tool-resolution';
+import budgets from './asset-budgets.json';
+import { validateGlb } from './validate-glb';
 
-const MAX_CINEMATIC_MP4_MB = 10;
-const MAX_UI_IMAGE_MB = 2.5;
-const ALLOWED_IMAGE_EXTS = new Set(['.webp', '.png', '.jpg', '.jpeg']);
-const ALLOWED_VIDEO_EXTS = new Set(['.mp4', '.webm']);
-const ALLOWED_AUDIO_EXTS = new Set(['.mp3', '.ogg', '.wav', '.flac', '.aac']);
+type AssetResult = {
+  asset: string;
+  kind: 'image' | 'video' | 'audio' | 'glb';
+  status: 'PASS' | 'FAIL';
+  bytes: number;
+  details: Record<string, unknown>;
+  failures: string[];
+};
 
-function mb(sizeBytes: number): number {
-  return sizeBytes / (1024 * 1024);
+type Probe = {
+  streams?: Array<{
+    codec_type?: string;
+    codec_name?: string;
+    width?: number;
+    height?: number;
+  }>;
+  format?: { duration?: string; size?: string; format_name?: string };
+};
+
+const REPO_ROOT = resolve(import.meta.dirname, '..', '..');
+const PUBLIC_ASSETS = join(REPO_ROOT, 'artifacts', 'eleven-eleven', 'public', 'assets');
+const IMAGE_EXTENSIONS = new Set(['.avif', '.gif', '.jpeg', '.jpg', '.png', '.webp']);
+const VIDEO_EXTENSIONS = new Set(['.mp4', '.webm']);
+const AUDIO_EXTENSIONS = new Set(['.aac', '.flac', '.m4a', '.mp3', '.ogg', '.opus', '.wav']);
+
+function walk(directory: string): string[] {
+  if (!existsSync(directory)) return [];
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    return entry.isDirectory() ? walk(path) : [path];
+  });
 }
 
-function walk(dir: string, acc: string[] = []): string[] {
-  if (!existsSync(dir)) return acc;
-  for (const entry of readdirSync(dir, { withFileTypes: true, recursive: true })) {
-    // Node <20 may not support recursive; fallback to manual walk if needed.
-    // For simplicity, we use a single-level + manual recursion here.
+function displayPath(path: string): string {
+  return relative(REPO_ROOT, path).replaceAll('\\', '/');
+}
+
+function ffprobe(path: string): Probe {
+  const executable = readConfiguredPath('FFPROBE_EXE') ?? (process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe');
+  const result = spawnSync(executable, [
+    '-v', 'error',
+    '-show_streams',
+    '-show_format',
+    '-of', 'json',
+    path,
+  ], { encoding: 'utf8', timeout: 30_000, windowsHide: true });
+  if (result.status !== 0) {
+    throw new Error(result.stderr || result.stdout || `ffprobe exited with ${result.status ?? 'unknown'}`);
   }
-  // Manual recursive walk for compatibility:
+  return JSON.parse(result.stdout) as Probe;
+}
+
+async function checkImage(path: string): Promise<AssetResult> {
+  const bytes = statSync(path).size;
+  const failures: string[] = [];
+  let details: Record<string, unknown> = {};
   try {
-    const entries = readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const full = join(dir, entry.name);
-      if (entry.isDirectory()) {
-        walk(full, acc);
-      } else {
-        acc.push(full);
+    const metadata = await sharp(path, { animated: true }).metadata();
+    details = {
+      format: metadata.format,
+      width: metadata.width,
+      height: metadata.height,
+      pages: metadata.pages ?? 1,
+      space: metadata.space,
+      hasAlpha: metadata.hasAlpha,
+    };
+    if (!metadata.width || !metadata.height) failures.push('Image decoder returned no dimensions.');
+    if ((metadata.width ?? 0) > budgets.images.maxDimension || (metadata.height ?? 0) > budgets.images.maxDimension) {
+      failures.push(`Dimensions ${metadata.width}x${metadata.height} exceed ${budgets.images.maxDimension}px.`);
+    }
+  } catch (error) {
+    failures.push(`Sharp decode failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  if (bytes > budgets.images.maxBytes) failures.push(`File size ${bytes} exceeds ${budgets.images.maxBytes} bytes.`);
+  return { asset: displayPath(path), kind: 'image', status: failures.length ? 'FAIL' : 'PASS', bytes, details, failures };
+}
+
+function checkMedia(path: string, kind: 'video' | 'audio'): AssetResult {
+  const bytes = statSync(path).size;
+  const failures: string[] = [];
+  let details: Record<string, unknown> = {};
+  try {
+    const probe = ffprobe(path);
+    const video = probe.streams?.find((stream) => stream.codec_type === 'video');
+    const audio = probe.streams?.find((stream) => stream.codec_type === 'audio');
+    details = {
+      format: probe.format?.format_name,
+      durationSeconds: Number(probe.format?.duration ?? 0),
+      videoCodec: video?.codec_name,
+      audioCodec: audio?.codec_name,
+      width: video?.width,
+      height: video?.height,
+    };
+    if (kind === 'video') {
+      if (!video?.codec_name) failures.push('No video stream.');
+      if (video?.codec_name && !budgets.cinematics.allowedVideoCodecs.includes(video.codec_name)) failures.push(`Video codec ${video.codec_name} is not approved.`);
+      if ((video?.width ?? 0) > budgets.cinematics.maxWidth || (video?.height ?? 0) > budgets.cinematics.maxHeight) {
+        failures.push(`Dimensions ${video?.width}x${video?.height} exceed the cinematic budget.`);
       }
-    }
-  } catch {
-    // ignore unreadable dirs
-  }
-  return acc;
-}
-
-function checkImages(): { pass: number; fail: number; unverified: number; notes: string[] } {
-  let pass = 0, fail = 0, unverified = 0;
-  const notes: string[] = [];
-  const dir = join(PUBLIC_ASSETS, 'ui');
-  if (!existsSync(dir)) {
-    notes.push('UNVERIFIED: public/assets/ui/ does not exist yet.');
-    return { pass, fail, unverified: 1, notes };
-  }
-  for (const file of walk(dir)) {
-    const ext = extname(file).toLowerCase();
-    if (!ALLOWED_IMAGE_EXTS.has(ext)) continue;
-    const size = statSync(file).size;
-    if (mb(size) > MAX_UI_IMAGE_MB) {
-      notes.push(`FAIL: ${basename(file)} is ${mb(size).toFixed(2)} MB (budget ${MAX_UI_IMAGE_MB} MB)`);
-      fail++;
+      if (audio?.codec_name && !budgets.cinematics.allowedAudioCodecs.includes(audio.codec_name)) failures.push(`Audio codec ${audio.codec_name} is not approved for cinematics.`);
+      if (bytes > budgets.cinematics.maxBytes) failures.push(`File size ${bytes} exceeds ${budgets.cinematics.maxBytes} bytes.`);
     } else {
-      pass++;
+      if (!audio?.codec_name) failures.push('No audio stream.');
+      if (audio?.codec_name && !budgets.audio.allowedCodecs.includes(audio.codec_name)) failures.push(`Audio codec ${audio.codec_name} is not approved.`);
+      if (bytes > budgets.audio.maxBytes) failures.push(`File size ${bytes} exceeds ${budgets.audio.maxBytes} bytes.`);
     }
+  } catch (error) {
+    failures.push(`ffprobe failed: ${error instanceof Error ? error.message : String(error)}`);
   }
-  return { pass, fail, unverified, notes };
+  return { asset: displayPath(path), kind, status: failures.length ? 'FAIL' : 'PASS', bytes, details, failures };
 }
 
-function checkCinematicVideo(): { pass: number; fail: number; unverified: number; notes: string[] } {
-  let pass = 0, fail = 0, unverified = 0;
-  const notes: string[] = [];
-  const dir = join(PUBLIC_ASSETS, 'cinematics');
-  if (!existsSync(dir)) {
-    notes.push('UNVERIFIED: public/assets/cinematics/ does not exist yet.');
-    return { pass, fail, unverified: 1, notes };
-  }
-  for (const file of walk(dir)) {
-    const ext = extname(file).toLowerCase();
-    if (!ALLOWED_VIDEO_EXTS.has(ext)) continue;
-    const size = statSync(file).size;
-    if (mb(size) > MAX_CINEMATIC_MP4_MB) {
-      notes.push(`FAIL: ${basename(file)} is ${mb(size).toFixed(2)} MB (budget ${MAX_CINEMATIC_MP4_MB} MB)`);
-      fail++;
-    } else {
-      pass++;
-    }
-  }
-  return { pass, fail, unverified, notes };
-}
-
-function checkSkills(): { pass: number; fail: number; unverified: number; notes: string[] } {
-  let pass = 0, fail = 0, unverified = 0;
-  const notes: string[] = [];
-  const required = [
-    '.agents/skills/11-11-ui/SKILL.md',
-    '.agents/skills/11.11-autonomous-quality-gate/SKILL.md',
-    '.agents/skills/11.11-player-experience-loop/SKILL.md',
-    '.agents/skills/11-11-chess/SKILL.md',
-    '.agents/skills/11-11-puzzles/SKILL.md',
-    '.agents/skills/11-11-audio/SKILL.md',
-    '.agents/skills/11-11-cinematic-assets/SKILL.md',
-    '.agents/skills/11-11-image-generation/SKILL.md',
-    '.agents/skills/11-11-free-media-tools/SKILL.md',
-    '.kilo/skills/11-11-chess/SKILL.md',
-    '.kilo/skills/11-11-puzzles/SKILL.md',
-    '.kilo/skills/11-11-audio/SKILL.md',
-    '.kilo/skills/11-11-cinematic-assets/SKILL.md',
-    '.kilo/skills/11-11-image-generation/SKILL.md',
-    '.kilo/skills/11-11-free-media-tools/SKILL.md',
-  ];
-  for (const rel of required) {
-    const full = join(process.cwd(), rel);
-    if (existsSync(full)) {
-      pass++;
-    } else {
-      notes.push(`FAIL: missing skill ${rel}`);
-      fail++;
-    }
-  }
-  return { pass, fail, unverified, notes };
-}
-
-function main(): void {
-  const results = {
-    images: checkImages(),
-    cinematicVideo: checkCinematicVideo(),
-    skills: checkSkills(),
+async function checkGlb(path: string): Promise<AssetResult> {
+  const report = await validateGlb(path, true);
+  const failures = (report.failures as string[] | undefined) ?? [];
+  return {
+    asset: displayPath(path),
+    kind: 'glb',
+    status: report.status === 'PASS' ? 'PASS' : 'FAIL',
+    bytes: statSync(path).size,
+    details: report,
+    failures,
   };
-
-  console.log('\n=== 11.11 Media Environment Validation ===\n');
-  for (const [key, res] of Object.entries(results)) {
-    console.log(`[${key}] pass=${res.pass} fail=${res.fail} unverified=${res.unverified}`);
-    for (const note of res.notes) console.log(`  ${note}`);
-  }
-
-  const totalFail = Object.values(results).reduce((s, r) => s + r.fail, 0);
-  const totalUnverified = Object.values(results).reduce((s, r) => s + r.unverified, 0);
-  console.log(`\nTotal fail=${totalFail} unverified=${totalUnverified}`);
-  if (totalFail > 0) {
-    console.log('RESULT: FAIL');
-    process.exitCode = 1;
-  } else if (totalUnverified > 0) {
-    console.log('RESULT: UNVERIFIED');
-  } else {
-    console.log('RESULT: PASS');
-  }
 }
 
-main();
+export async function validatePublicAssets(): Promise<AssetResult[]> {
+  if (!existsSync(PUBLIC_ASSETS)) throw new Error(`Missing public asset root: ${PUBLIC_ASSETS}`);
+  const results: AssetResult[] = [];
+  for (const path of walk(PUBLIC_ASSETS).sort()) {
+    const extension = extname(path).toLowerCase();
+    if (IMAGE_EXTENSIONS.has(extension)) results.push(await checkImage(path));
+    else if (VIDEO_EXTENSIONS.has(extension)) results.push(checkMedia(path, 'video'));
+    else if (AUDIO_EXTENSIONS.has(extension)) results.push(checkMedia(path, 'audio'));
+    else if (extension === '.glb') results.push(await checkGlb(path));
+  }
+  return results;
+}
+
+async function main(): Promise<void> {
+  const results = await validatePublicAssets();
+  const failures = results.filter((result) => result.status === 'FAIL');
+  const counts = results.reduce<Record<string, number>>((accumulator, result) => {
+    accumulator[result.kind] = (accumulator[result.kind] ?? 0) + 1;
+    return accumulator;
+  }, {});
+  console.log(JSON.stringify({
+    status: failures.length ? 'FAIL' : 'PASS',
+    root: displayPath(PUBLIC_ASSETS),
+    checked: results.length,
+    counts,
+    failures,
+  }, null, 2));
+  if (failures.length) process.exitCode = 1;
+}
+
+const invokedPath = process.argv[1] ? pathToFileURL(process.argv[1]).href : '';
+if (import.meta.url === invokedPath) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.stack ?? error.message : String(error));
+    process.exitCode = 1;
+  });
+}

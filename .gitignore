@@ -59,5 +59,11 @@ Thumbs.db
 # not cover this path.
 artifacts/eleven-eleven/.tmp/
 
+# Blender autosaves and deterministic intermediate media outputs.
+*.blend1
+artifacts/eleven-eleven/art/blender/intermediate/
+artifacts/eleven-eleven/art/blender/renders/
+artifacts/eleven-eleven/art/blender/exports/
+
 # Vercel - ignore pnpm lockfile to prevent Vercel from using pnpm
 pnpm-lock.yaml

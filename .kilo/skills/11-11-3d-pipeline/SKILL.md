@@ -1,11 +1,10 @@
 ---
 name: 11-11-3d-pipeline
 description: >-
-  End-to-end 3D asset pipeline for 11.11: author in Blender, export GLB/GLTF
-  for Three.js or future Unity, encode WebM cinematics with FFmpeg, pack
-  sprites with ImageMagick, and validate for lazy-loading budgets. Use this
-  skill as the unified entry point for all 3D/cinematic/image work. Do not
-  modify frozen game logic.
+  End-to-end 11.11 production pipeline for Blender-authored GLB assets,
+  cinematic frame sequences, optimized WebM/MP4, image validation, and
+  Three/R3F integration. Use for any 3D, cinematic, model, texture, or
+  production-media change. Preserve Canon and server-owned gameplay.
 metadata:
   category: tooling
   source:
@@ -14,55 +13,76 @@ metadata:
     license: project-internal
 ---
 
-# 11.11 3D Pipeline Skill
+# 11.11 3D Pipeline
 
-This skill unifies Blender, FFmpeg, ImageMagick, and Three.js/GLB
-integration into a single workflow for 11.11 cinematic and interactive 3D.
+The active runtime is web-first: Blender authors assets and Three/R3F renders
+interactive GLB. Unity is deferred until a measured browser vertical slice
+fails its quality or performance gate. Never introduce another runtime merely
+because it is installed.
 
-## Pipeline stages
+## Required lifecycle
 
-1. **Author:** Blender → GLB (interactive) or PNG sequence (cinematic).
-2. **Validate:** ImageMagick/FFmpeg → alpha, codec, size, duration checks.
-3. **Compress:** FFmpeg → WebM (VP9) or MP4 (H.264) with target bitrate.
-4. **Integrate:** Lazy-load in React/Three.js with reserved dimensions + CSS fallback.
-5. **Verify:** Browser runtime evidence, reduced-motion fallback, mute state.
+1. Run `npm run agent:preflight` from `artifacts/eleven-eleven`.
+2. Read `AGENT_RULES.md`, the UI visual contract, Blender pipeline reference,
+   and the current Canon source register.
+3. Run `npm run env:check` from the repository root.
+4. Use the lightest format that earns its cost:
+   - React/CSS for live UI and readable text.
+   - Sprites/static layers for parallax.
+   - WebM/MP4 plus poster for fixed cinematics.
+   - GLB only for interaction that benefits from real-time depth.
+5. Export to ignored intermediate storage, validate, optimize, validate again,
+   then publish only the approved optimized output.
+6. Integrate with lazy loading, reserved dimensions, loading/error fallback,
+   Reduced Motion, mute, and a non-WebGL fallback.
+7. Run `npm run media:validate`, browser/runtime verification when applicable,
+   and the mandatory autonomous quality gate.
 
-## Active implementation facts
+## Canon and draft rules
 
-- **Three.js:** `@react-three/fiber` and `@react-three/drei` are installed.
-- **GLB loading:** Use `useGLTF` from `@react-three/drei` for lazy-loaded models.
-- **Visual contract:** `.agents/skills/11-11-ui/references/visual-contract.md`.
-- **Blender pipeline:** `.agents/skills/11-11-ui/references/blender-pipeline.md`.
-- **Awakening Ward:** Uses Phaser isometric sprites exported from Blender.
-- **Existing GLB/cinematic assets:** `public/assets/cinematics/` and `public/assets/ui/`.
+- The approved Story Bible is an evolving Canon source; draft Manhwa pages are
+  visual direction until their dialogue and final sequence are locked.
+- Do not bake readable Arabic/English UI text into Blender, images, or video.
+- Echo's approved direct-skin neck mark is `EX-011`; keep it as a replaceable
+  decal so Zero corruption can evolve around it without replacing the mark.
+- Zero appears only according to the Story Bible's progressive reveal rule.
+- Generated concepts are not production assets until source, rights, visual
+  continuity, performance, and integration are documented.
 
-## Command-line examples
+## Commands
 
 ```bash
-# Blender: export GLB from blend file
-blender --background scene.blend --python export_glb.py
-
-# Blender: render PNG sequence
-blender --background scene.blend --python render_sequence.py
-
-# FFmpeg: PNG sequence → WebM
-ffmpeg -y -framerate 24 -i frame_%04d.png -c:v libvpx-vp9 -crf 30 -b:v 0 output.webm
-
-# ImageMagick: verify alpha
-magick identify -format "%A" model.glb
+npm run env:check
+npm run media:smoke
+npm run media:validate
+npm run blender:doctor
+npm run blender:export-gltf -- --blend scene.blend --output model.raw.glb
+npm run gltf:validate -- --input model.raw.glb --strict
+npm run gltf:optimize -- --input model.raw.glb --output model.glb --profile character --texture-mode ktx2
+npm run cinematic:encode -- --input frame_%04d.png --output scene.webm --poster scene.webp --fps 24
 ```
 
-## Required workflow
+`media:smoke` must prove Blender scene creation, GLB export, Khronos validation,
+Meshopt/KTX preparation, Blender re-import, PNG rendering, FFmpeg encoding, and
+poster extraction without requiring system installation.
 
-1. Run `npm run agent:preflight` before any edit. Stop on failure.
-2. Read the visual contract and blender pipeline references.
-3. Author in Blender, export with the lightest suitable format.
-4. Validate with ImageMagick/FFmpeg.
-5. Integrate with lazy loading + CSS fallback.
-6. Run `npm run agent:postflight` after integration. If it fails, do not declare success.
+## Production budgets
 
-## What is frozen and must not change
+The source of truth is `tools/media/asset-budgets.json`. Do not weaken budgets
+to make an asset pass. Optimize the asset or document a measured exception.
+Interactive character clips must resolve at least Idle, Walk, Run, and
+Interact. One rig may produce GLB, a Mini Echo sprite atlas, and fixed WebM.
 
-- Canon puzzle logic, story endings, Memory Shards counts.
-- Achievement registry and cinematic scene authority.
-- Reward authority or duplicate-request replay rules.
+## Tool policy
+
+- Required: portable Blender, FFmpeg/ffprobe, portable KTX tools, pinned glTF
+  Transform, Khronos validator, Sharp, and Microsoft Edge.
+- ImageMagick is optional; Sharp is the supported fallback.
+- ComfyUI is deferred on low-memory Intel-UHD hardware. Connected image/video
+  applications may be used for concepts only under the rights rule above.
+- Audacity is deferred until approved VO/SFX exists.
+
+## Frozen authority
+
+Do not modify puzzle solutions, rewards, receipts, achievements, progression,
+authentication, story endings, or Canon state from presentation tooling.

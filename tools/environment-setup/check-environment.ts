@@ -1,69 +1,36 @@
-/**
- * tools/environment-setup/check-environment.ts
- *
- * Verifies that the 11.11 development environment has the expected
- * free media tools available on PATH.
- *
- * Run from repo root:
- *   npx tsx tools/environment-setup/check-environment.ts
- */
+import { pathToFileURL } from 'node:url';
 
-import { execSync } from 'node:child_process';
+import { checkTools, requiredToolFailures } from './tool-resolution';
 
-type ToolInfo = { name: string; found: boolean; version?: string; installHint: string };
+export function printEnvironmentReport(json = false): number {
+  const tools = checkTools();
+  const failures = requiredToolFailures(tools);
 
-const TOOLS: ToolInfo[] = [
-  {
-    name: 'ffmpeg',
-    installHint: 'Install via https://ffmpeg.org/download.html (winget, brew, or chocolatey)',
-  },
-  {
-    name: 'blender',
-    installHint: 'Install via https://www.blender.org/download/',
-  },
-  {
-    name: 'audacity',
-    installHint: 'Install via https://www.audacityteam.org/download/',
-  },
-  {
-    name: 'imagemagick',
-    installHint: 'Install via https://imagemagick.org/script/download.php',
-  },
-];
-
-function detectVersion(cmd: string): string | undefined {
-  try {
-    const out = execSync(`${cmd} --version`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
-    const first = out.split(/\r?\n/)[0] ?? '';
-    return first.trim();
-  } catch {
-    return undefined;
+  if (json) {
+    console.log(JSON.stringify({ status: failures.length === 0 ? 'PASS' : 'FAIL', tools }, null, 2));
+    return failures.length === 0 ? 0 : 1;
   }
+
+  console.log('\n=== 11.11 Production Toolchain Doctor ===\n');
+  for (const tool of tools) {
+    const status = tool.requirement === 'deferred'
+      ? 'DEFERRED'
+      : tool.healthy
+        ? 'PASS'
+        : tool.requirement === 'optional'
+          ? 'OPTIONAL'
+          : 'FAIL';
+    const detail = [tool.version, tool.path].filter(Boolean).join(' | ');
+    console.log(`[${status}] ${tool.id}${detail ? ` — ${detail}` : ''}`);
+    console.log(`  ${tool.note}`);
+  }
+
+  console.log(`\nRequired failures: ${failures.length}`);
+  console.log(failures.length === 0 ? 'RESULT: PASS' : 'RESULT: FAIL');
+  return failures.length === 0 ? 0 : 1;
 }
 
-export function checkTools(): ToolInfo[] {
-  return TOOLS.map((t) => {
-    const version = detectVersion(t.name);
-    return { ...t, found: Boolean(version), version };
-  });
+const invokedPath = process.argv[1] ? pathToFileURL(process.argv[1]).href : '';
+if (import.meta.url === invokedPath) {
+  process.exitCode = printEnvironmentReport(process.argv.includes('--json'));
 }
-
-function main(): void {
-  const results = checkTools();
-  console.log('\n=== 11.11 Free Media Tools Environment Check ===\n');
-  for (const tool of results) {
-    const status = tool.found ? 'FOUND' : 'MISSING';
-    console.log(`[${status}] ${tool.name}${tool.version ? ` — ${tool.version}` : ''}`);
-    if (!tool.found) console.log(`  install: ${tool.installHint}`);
-  }
-  const missing = results.filter((t) => !t.found);
-  console.log(`\nMissing: ${missing.length} / ${results.length}`);
-  if (missing.length > 0) {
-    console.log('RESULT: UNVERIFIED — install missing tools to complete media pipeline.');
-    process.exitCode = 1;
-  } else {
-    console.log('RESULT: PASS');
-  }
-}
-
-main();

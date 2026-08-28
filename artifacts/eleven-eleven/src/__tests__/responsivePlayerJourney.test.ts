@@ -51,4 +51,21 @@ describe('responsive player journey contract', () => {
     assert.doesNotMatch(menu, /Android Landscape Cinematic Interface/);
     assert.match(onboarding, /MOBILE BROWSER READY/);
   });
+
+  it('keeps short landscape onboarding headings clear of decorative header branding', async () => {
+    const { readFile } = await import('node:fs/promises');
+    const onboardingCss = await readFile(
+      new URL('../features/onboarding/first-time-onboarding.css', import.meta.url),
+      'utf8',
+    );
+
+    assert.match(
+      onboardingCss,
+      /@media \(max-height: 35rem\) and \(orientation: landscape\)[\s\S]*\.onboarding-brand,[\s\S]*\.onboarding-header__status \{ display: none; \}/,
+    );
+    assert.match(
+      onboardingCss,
+      /@media \(max-height: 35rem\) and \(orientation: landscape\)[\s\S]*\.onboarding-step-indicator \{ min-width: 0; \}/,
+    );
+  });
 });

@@ -34,6 +34,7 @@ import {
 } from '../cloud-save/cloudSaveStore';
 import { useUiPreferencesStore } from '../../app/shell/shellStore';
 import { useAuthStore } from './authStore';
+import { shouldCloseAuthPanelAfterAuthentication } from './authPanelLifecycle';
 
 interface AuthPanelProps {
   open: boolean;
@@ -93,6 +94,7 @@ export function AuthPanel({ open, onClose }: AuthPanelProps) {
   const passwordId = useId();
   const nameId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
+  const openedWithoutAuthenticatedUserRef = useRef(false);
   const [mode, setMode] = useState<AuthMode>('sign-in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -129,6 +131,27 @@ export function AuthPanel({ open, onClose }: AuthPanelProps) {
     if (user.providerId === 'password') return 'البريد الإلكتروني';
     return 'حساب متصل';
   }, [user]);
+
+  useEffect(() => {
+    if (!open) {
+      openedWithoutAuthenticatedUserRef.current = false;
+      return;
+    }
+
+    if (!signedIn) {
+      openedWithoutAuthenticatedUserRef.current = true;
+      return;
+    }
+
+    if (shouldCloseAuthPanelAfterAuthentication({
+      open,
+      openedWithoutAuthenticatedUser: openedWithoutAuthenticatedUserRef.current,
+      signedIn,
+    })) {
+      openedWithoutAuthenticatedUserRef.current = false;
+      onClose();
+    }
+  }, [onClose, open, signedIn]);
 
   useEffect(() => {
     if (!open || typeof document === 'undefined') return;

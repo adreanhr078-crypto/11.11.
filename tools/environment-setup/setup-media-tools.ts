@@ -1,45 +1,20 @@
 /**
- * tools/environment-setup/setup-media-tools.ts
- *
- * Scaffolds a local media-tools manifest and validates tool availability.
- * This script is intentionally non-interactive and does not install tools.
- *
- * Run from repo root:
- *   npx tsx tools/environment-setup/setup-media-tools.ts
+ * Non-installing environment snapshot. This command never launches installers,
+ * changes PATH, or writes tracked machine-specific state.
  */
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 
-import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
-import { checkTools } from './check-environment';
+import { checkTools, requiredToolFailures } from './tool-resolution';
 
-const MANIFEST_PATH = join(process.cwd(), 'tools', 'environment-setup', 'media-tools.manifest.json');
+const reportPath = resolve('artifacts/eleven-eleven/.tmp/environment/media-toolchain-report.json');
+const tools = checkTools();
+const failures = requiredToolFailures(tools);
 
-type ToolManifest = {
-  generatedAt: string;
-  tools: Array<{ name: string; found: boolean; version?: string }>;
-};
+mkdirSync(dirname(reportPath), { recursive: true });
+writeFileSync(reportPath, `${JSON.stringify({ generatedAt: new Date().toISOString(), tools }, null, 2)}\n`);
 
-function main(): void {
-  const tools = checkTools();
-
-  const manifest: ToolManifest = {
-    generatedAt: new Date().toISOString(),
-    tools: tools.map(({ name, found, version }) => ({ name, found, version })),
-  };
-
-  const dir = join(process.cwd(), 'tools', 'environment-setup');
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  writeFileSync(MANIFEST_PATH, JSON.stringify(manifest, null, 2));
-
-  const missing = tools.filter((t) => !t.found);
-  console.log(`\nWrote manifest: ${MANIFEST_PATH}`);
-  console.log(`Tools found: ${tools.length - missing.length}/${tools.length}`);
-  if (missing.length > 0) {
-    console.log('Missing tools:');
-    for (const t of missing) {
-      console.log(`  - ${t.name}: ${t.installHint}`);
-    }
-  }
-}
-
-main();
+console.log(`Wrote local report: ${reportPath}`);
+console.log('No software was installed and no system settings were changed.');
+console.log(failures.length === 0 ? 'RESULT: PASS' : `RESULT: FAIL (${failures.length} required tool(s))`);
+process.exitCode = failures.length === 0 ? 0 : 1;

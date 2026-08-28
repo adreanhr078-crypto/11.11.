@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "glb": {
+    "maxBytes": 6291456,
+    "maxTriangles": 80000,
+    "maxMeshes": 32,
+    "maxPrimitives": 48,
+    "maxMaterials": 16,
+    "maxTextures": 24,
+    "maxJointsPerSkin": 128
+  },
+  "images": {
+    "maxBytes": 2726298,
+    "maxDimension": 4096
+  },
+  "cinematics": {
+    "maxBytes": 10485760,
+    "maxWidth": 1920,
+    "maxHeight": 1080,
+    "allowedVideoCodecs": [
+      "vp9",
+      "h264"
+    ],
+    "allowedAudioCodecs": [
+      "opus",
+      "aac"
+    ]
+  },
+  "audio": {
+    "maxBytes": 8388608,
+    "allowedCodecs": [
+      "opus",
+      "vorbis",
+      "aac",
+      "mp3",
+      "flac",
+      "pcm_s16le",
+      "pcm_s24le"
+    ]
+  },
+  "worldVerticalSlice": {
+    "maxOptionalDownloadBytesMobile": 15728640,
+    "maxDrawCallsMobile": 80,
+    "maxRuntimeMemoryBytesMobile": 230686720,
+    "targetFpsMobile": 30,
+    "targetFpsDesktop": 60
+  }
+}

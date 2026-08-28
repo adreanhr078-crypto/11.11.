@@ -35,7 +35,8 @@
     "doctor:files": "node ./tools/project-doctor/index.mjs doctor:files",
     "doctor:build": "node ./tools/project-doctor/index.mjs doctor:build",
     "agent:preflight": "node ./tools/project-doctor/index.mjs agent:preflight",
-    "agent:postflight": "node ./tools/project-doctor/index.mjs agent:postflight"
+    "agent:postflight": "node ./tools/project-doctor/index.mjs agent:postflight",
+    "media:validate": "npm --prefix ../.. run media:validate"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.2",

@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "canonVersion": "echo-network-evolving-v1",
+  "canonStatus": "canonical-authority",
+  "storyStatus": "ongoing",
+  "ownerApproved": true,
+  "sourcePriority": [
+    "owner-directive",
+    "story-bible",
+    "narrative-master",
+    "approved-manhwa-publication"
+  ],
+  "documents": [
+    {
+      "id": "story-bible",
+      "file": "story-bible--echo-network.ar.md",
+      "originalFile": "11_11_Echo_Network_Story_Bible.docx",
+      "originalSha256": "6611D77A9360033267FBCC92674523FCE3D0D682471E7544DCEB5882F8E6B982",
+      "canonStatus": "canonical-authority",
+      "runtimeIncluded": false
+    },
+    {
+      "id": "narrative-master",
+      "file": "narrative-master--echo-network.ar.md",
+      "originalFile": "pasted-text.txt",
+      "originalSha256": "0C347C44A8C288FFAA7C2C308A5A4917D60955B641DA7EFEEE8461DE6DEFC88A",
+      "canonStatus": "canonical-authority",
+      "runtimeIncluded": false
+    }
+  ],
+  "lockedProductionDecisions": {
+    "protagonist": "echo",
+    "yukiHair": "white",
+    "echoNeckMark": "EX-011",
+    "echoNeckMarkPlacement": "direct-skin",
+    "zeroMarkTreatment": "additive-evolving-layer"
+  }
+}

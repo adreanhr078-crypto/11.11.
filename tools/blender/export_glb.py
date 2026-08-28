@@ -33,25 +33,44 @@ def parse_args():
             i += 1
     return args
 
+def collection_objects_recursive(collection):
+    objects = list(collection.objects)
+    for child in collection.children:
+        objects.extend(collection_objects_recursive(child))
+    return objects
+
+
 def export_glb(output_path: str, collection_name: str = None):
     # Deselect all
     bpy.ops.object.select_all(action='DESELECT')
 
     # Optionally select only a specific collection
-    if collection_name and collection_name in bpy.data.collections:
+    use_selection = False
+    if collection_name:
+        if collection_name not in bpy.data.collections:
+            raise ValueError(f'Collection not found: {collection_name}')
         coll = bpy.data.collections[collection_name]
-        for obj in coll.objects:
+        for obj in collection_objects_recursive(coll):
             obj.select_set(True)
+        use_selection = True
+
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+
+    export_kwargs = {
+        'filepath': output_path,
+        'export_format': 'GLB',
+        'export_apply': True,
+        'export_animations': True,
+        'export_cameras': False,
+        'export_lights': False,
+        'use_selection': use_selection,
+    }
+    supported = {prop.identifier for prop in bpy.ops.export_scene.gltf.get_rna_type().properties}
+    if 'export_animation_mode' in supported:
+        export_kwargs['export_animation_mode'] = 'ACTIONS'
 
     # Export as GLB
-    bpy.ops.export_scene.gltf(
-        filepath=output_path,
-        export_format='GLB',
-        export_apply=True,
-        export_animations=False,
-        export_cameras=False,
-        export_lights=False,
-    )
+    bpy.ops.export_scene.gltf(**export_kwargs)
     print(f'EXPORTED_GLB: {output_path}')
 
 def main():

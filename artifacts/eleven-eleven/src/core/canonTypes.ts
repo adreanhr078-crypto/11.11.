@@ -12,7 +12,7 @@ export type CanonChapterId =
   | 'chapter_6'
   | 'chapter_7';
 
-export type CanonCharacterId = 'echo' | 'yuki' | 'kenja' | 'lina';
+export type CanonCharacterId = 'echo' | 'yuki' | 'shizuka' | 'kenja';
 
 export type CanonChapterPublicationStatus =
   | 'runtime-published'

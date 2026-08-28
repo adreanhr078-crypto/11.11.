@@ -3,12 +3,36 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
 import { friendlyAuthError } from '../features/auth/authStore';
+import { shouldCloseAuthPanelAfterAuthentication } from '../features/auth/authPanelLifecycle';
 
 function source(relativePath: string): string {
   return readFileSync(resolve(process.cwd(), relativePath), 'utf8');
 }
 
 describe('guest account linking', () => {
+  it('closes a sign-in panel after authentication without closing account management', () => {
+    assert.equal(shouldCloseAuthPanelAfterAuthentication({
+      open: true,
+      openedWithoutAuthenticatedUser: true,
+      signedIn: true,
+    }), true);
+    assert.equal(shouldCloseAuthPanelAfterAuthentication({
+      open: true,
+      openedWithoutAuthenticatedUser: false,
+      signedIn: true,
+    }), false);
+    assert.equal(shouldCloseAuthPanelAfterAuthentication({
+      open: true,
+      openedWithoutAuthenticatedUser: true,
+      signedIn: false,
+    }), false);
+    assert.equal(shouldCloseAuthPanelAfterAuthentication({
+      open: false,
+      openedWithoutAuthenticatedUser: true,
+      signedIn: true,
+    }), false);
+  });
+
   it('exposes a dedicated, accessible link flow only to signed-in guests', () => {
     const panel = source('src/features/auth/AuthPanel.tsx');
 

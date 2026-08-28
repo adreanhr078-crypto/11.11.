@@ -111,7 +111,7 @@ function validProof(proof: ProvenStoryEvent): boolean {
 }
 
 /**
- * Pure Long Fall evolution evaluation.
+ * Pure receipt-driven Echo evolution evaluation.
  *
  * The input deliberately contains no psychological metrics or legacy stage.
  * A published, source-proven story event is the mandatory gate. The returned

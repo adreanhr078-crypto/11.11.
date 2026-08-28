@@ -934,8 +934,14 @@
 
 @media (max-height: 35rem) and (orientation: landscape) {
   .onboarding-shell { padding-top: 0.45rem; }
-  .onboarding-header { min-height: 2.45rem; padding-bottom: 0.35rem; }
+  .onboarding-header {
+    min-height: 2.45rem;
+    justify-content: flex-start;
+    padding-bottom: 0.35rem;
+  }
+  .onboarding-brand,
   .onboarding-header__status { display: none; }
+  .onboarding-step-indicator { min-width: 0; }
   .onboarding-main { gap: 1.2rem; padding: 0.5rem 0; }
   .onboarding-panel { min-height: 0; padding: 0.9rem 1.2rem; }
   .onboarding-panel__topline { top: 0.8rem; right: 1.2rem; left: 1.2rem; padding-bottom: 0.4rem; }

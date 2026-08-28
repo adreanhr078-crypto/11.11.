@@ -1,10 +1,9 @@
 ---
 name: 11-11-blender-cli
 description: >-
-  Invoke Blender headless commands from the agent to export GLB models or
-  render cinematic PNG sequences. Use tools/blender/run-blender.ts as the
-  entry point. Requires Blender installed and on PATH. Do not modify frozen
-  game logic.
+  Run the portable 11.11 Blender toolchain headlessly for deterministic scene
+  creation, GLB export and re-import validation, or cinematic PNG rendering.
+  Use tools/blender/run-blender.ts and never require a system installer.
 metadata:
   category: tooling
   source:
@@ -13,35 +12,48 @@ metadata:
     license: project-internal
 ---
 
-# 11.11 Blender CLI Skill
+# 11.11 Blender CLI
 
-This skill provides the actual CLI interface for Blender operations that
-the agent can invoke programmatically.
+## Environment contract
+
+- Supported production baseline: Blender 5.2 LTS portable.
+- Resolve the executable from task-specific `BLENDER_EXE`, the user's saved
+  environment value, PATH, then the verified portable path.
+- `run-blender.ts` always uses background mode and `--python-exit-code 1`.
+- Never invoke an MSI/EXE installer or modify machine PATH from this skill.
 
 ## Entry points
 
-- `npx tsx tools/blender/run-blender.ts -- export-gltf --blend <file> --output <path> [--collection <name>]`
-- `npx tsx tools/blender/run-blender.ts -- render-cinematic --blend <file> --output-dir <dir> --start <frame> --end <frame> --fps <fps>`
+```bash
+npm run blender:doctor
+npm run blender:smoke
+npx tsx tools/blender/run-blender.ts -- run-python --script <script.py> -- <script args>
+npx tsx tools/blender/run-blender.ts -- export-gltf --blend <scene.blend> --output <raw.glb> [--collection <name>]
+npx tsx tools/blender/run-blender.ts -- render-cinematic --blend <scene.blend> --output-dir <frames> --start 1 --end 120 --fps 24
+```
 
-## Blender Python scripts
+## Scripts and guarantees
 
-- `tools/blender/export_glb.py` — exports selected collection to GLB.
-- `tools/blender/render_cinematic.py` — renders PNG sequence from Blender scene.
+- `create_smoke_scene.py`: creates a tiny non-Canon deterministic test scene.
+- `export_glb.py`: GLB 2.0 export with animations, without cameras or lights.
+- `validate_glb_reimport.py`: proves Blender can re-import the optimized GLB.
+- `validate_character_glb.py`: checks rig, direct-skin identifier decal,
+  animation names, and production complexity ceilings.
+- `render_cinematic.py`: PNG sequence only; FFmpeg performs delivery encoding.
 
-## Environment requirements
+Raw exports belong in ignored intermediate storage. Validate with the Khronos
+validator, optimize with the pinned glTF Transform/KTX2 path, validate again,
+then re-import before publication. A successful Blender exit alone is not proof
+that a model is visually correct or performant.
 
-- Blender 3.0+ installed and on PATH (`blender` on macOS/Linux, `blender.exe` on Windows).
-- Python 3.9+ (bundled with Blender).
-- Node.js 22+ for `npx tsx`.
+## Failure policy
 
-## Error handling
+- Missing file, collection, output, mesh, or animation is a hard failure.
+- Non-zero Blender exit is a hard failure; capture stdout/stderr.
+- If visual runtime evidence is unavailable, report it as unverified.
+- Never bypass a failure by reducing quality budgets or hiding validation.
 
-- Exit code non-zero = Blender failed. Capture stdout/stderr for diagnostics.
-- Missing blend file = agent must verify path before invoking.
-- No Blender on PATH = tool reports missing; agent should fall back to pre-authored assets.
+## Frozen authority
 
-## What is frozen and must not change
-
-- Canon puzzle logic, story endings, Memory Shards counts.
-- Achievement registry and cinematic scene authority.
-- Reward authority or duplicate-request replay rules.
+Blender output contains no readable live UI text and no authoritative puzzle,
+reward, achievement, progression, authentication, or Canon state.

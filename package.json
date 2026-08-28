@@ -25,8 +25,14 @@
     "agent:preflight": "node artifacts/eleven-eleven/tools/project-doctor/index.mjs agent:preflight",
     "agent:postflight": "node artifacts/eleven-eleven/tools/project-doctor/index.mjs agent:postflight",
     "media:validate": "npx tsx tools/media/validate-assets.ts",
+    "media:smoke": "npx tsx tools/media/smoke-pipeline.ts",
+    "gltf:validate": "npx tsx tools/media/validate-glb.ts --",
+    "gltf:optimize": "npx tsx tools/media/optimize-glb.ts --",
+    "cinematic:encode": "npx tsx tools/media/encode-cinematic.ts --",
     "env:check": "npx tsx tools/environment-setup/check-environment.ts",
     "env:setup": "npx tsx tools/environment-setup/setup-media-tools.ts",
+    "blender:doctor": "npx tsx tools/blender/run-blender.ts -- doctor",
+    "blender:smoke": "npx tsx tools/blender/run-blender.ts -- run-python --script tools/blender/create_smoke_scene.py -- --output artifacts/eleven-eleven/.tmp/media-smoke/smoke.blend",
     "blender:export-gltf": "npx tsx tools/blender/run-blender.ts -- export-gltf",
     "blender:render-cinematic": "npx tsx tools/blender/run-blender.ts -- render-cinematic",
     "unity:run": "npx tsx tools/unity/run-unity.ts --",
@@ -36,6 +42,9 @@
   },
   "private": true,
   "devDependencies": {
+    "@gltf-transform/cli": "4.4.2",
+    "@gltf-transform/core": "4.4.2",
+    "@gltf-transform/extensions": "4.4.2",
     "@tanstack/react-query": "^5.101.4",
     "@types/node": "^25.9.3",
     "@types/pg": "^8.21.0",
@@ -44,17 +53,24 @@
     "@vitejs/plugin-react": "^6.0.2",
     "drizzle-orm": "^0.45.2",
     "drizzle-zod": "^0.8.3",
+    "gltf-validator": "2.0.0-dev.3.10",
     "openai": "^6.49.0",
     "p-limit": "^7.3.1",
     "p-retry": "^7.1.1",
     "pg": "^8.23.0",
     "playwright": "^1.62.1",
     "prettier": "^3.8.1",
+    "sharp": "0.35.4",
     "tailwindcss": "^4.3.1",
     "tsx": "^4.22.4",
     "typescript": "~5.9.2",
     "vite": "^8.0.16",
     "zod": "^4.4.3"
+  },
+  "overrides": {
+    "@gltf-transform/cli": {
+      "sharp": "0.35.4"
+    }
   },
   "dependencies": {
     "@capacitor/android": "^8.4.0",
