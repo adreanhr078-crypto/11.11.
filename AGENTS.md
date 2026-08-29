@@ -2,6 +2,20 @@
 
 The active 11.11 application is under `artifacts/eleven-eleven`. Read and preserve its project rules in `artifacts/eleven-eleven/AGENT_RULES.md` before making application changes. Do not modify legacy or unrelated project paths unless the task explicitly requires it.
 
+# Mandatory Product Memory
+
+Before planning, designing, reviewing, or implementing any 11.11 work, read:
+
+1. `artifacts/eleven-eleven/docs/PROJECT_VISION.md`
+2. `artifacts/eleven-eleven/docs/project-memory.json`
+3. `artifacts/eleven-eleven/docs/internal/narrative/current/ar/manifest.json`
+
+Use `$11-11-game-director` for roadmap, system-order, story-to-gameplay,
+third-person, Manhwa, puzzle, progression, economy, or milestone decisions.
+The Owner has explicitly chosen quality over speed and authorized a long,
+evidence-gated production. This does not authorize skipping the current phase,
+building every system at once, or replacing 11.11 with a clone of another game.
+
 # Mandatory 11.11 Quality Gate
 
 For EVERY implementation, bug fix, refactor, UI change, gameplay change,

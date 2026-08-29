@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 1,
+  "visionVersion": "1.0",
+  "updatedAt": "2026-08-29",
+  "ownerApproved": true,
+  "ownerDirective": "Build an original world-class hybrid anime game with quality over speed, using as many evidence-gated phases and professional tools as needed.",
+  "currentPhase": "WAITING_FOR_FINAL_MANHWA",
+  "currentPhaseGate": [
+    "Receive the complete ordered Manhwa at original available quality",
+    "Receive or extract final text and identify pages still subject to change",
+    "Reconcile the Manhwa with the approved Story Bible and Narrative Master",
+    "Obtain Owner approval for the versioned Canon and first playable slice"
+  ],
+  "currentSafeWork": [
+    "Preserve integrity, authentication, save, reward, and rollout authority",
+    "Maintain portable Blender, GLB, video, audio, and Edge validation tooling",
+    "Prepare non-Canon technical prototypes and performance measurements",
+    "Document decisions without publishing unfinished narrative content"
+  ],
+  "lockedProductDecisions": {
+    "format": "hybrid-ui-manhwa-puzzles-cinematics-third-person",
+    "qualityPriority": "quality-over-speed",
+    "thirdPersonArrival": "early-after-short-manhwa-and-one-or-two-puzzles",
+    "signatureTransition": "puzzle-breaks-the-interface-into-the-3d-system",
+    "preTransformationPlay": [
+      "exploration",
+      "environmental-puzzles",
+      "scanning",
+      "stealth",
+      "escape",
+      "survival"
+    ],
+    "combatUnlock": "after-echo-transformation",
+    "realityHubs": [
+      "hospital",
+      "home",
+      "school"
+    ],
+    "systemWorldRole": "missions-dungeons-puzzles-threats-combat-memories",
+    "manhwaRole": "memory-archive-flashbacks-other-viewpoints-clues-discoveries-recaps",
+    "guideDirection": "original-separate-character-not-mini-echo",
+    "chessRole": "echo-favorite-hobby-character-relationship-and-mastery-system",
+    "puzzleCountPolicy": "story-and-mechanic-value-not-a-fixed-count",
+    "graphicsPolicy": "auto-low-medium-high-ultra-with-player-override",
+    "enginePolicy": "measured-r3f-proof-unity-allowed-after-technical-greenlight",
+    "economyPolicy": "fun-progression-and-integrity-before-store-or-random-pulls"
+  },
+  "provisionalUntilFinalManhwa": {
+    "playerIdentity": "the-link-connected-to-echo",
+    "guideName": null,
+    "guideOrigin": null,
+    "exactScreenBreakScene": null,
+    "exactTransformationTiming": null,
+    "exactHospitalAndSchoolChronology": null,
+    "finalPuzzleRoster": null,
+    "finalPlayableCharacterRoster": null
+  },
+  "canonLocks": {
+    "protagonist": "echo",
+    "yukiDescription": "white-haired-childhood-friend",
+    "echoNeckMark": "EX-011",
+    "echoNeckMarkPlacement": "direct-skin",
+    "zeroTreatment": "additive-evolving-layer-never-a-replacement"
+  },
+  "playerJourney": [
+    "launch-and-authentication",
+    "clear-system-objective",
+    "short-manhwa-story-contact",
+    "one-or-two-fair-system-puzzles",
+    "signature-interface-fracture",
+    "3d-system-arrival",
+    "guide-manifestation-and-action-tutorial",
+    "exploration-scan-puzzle-stealth-escape",
+    "torture-pressure-and-echo-transformation",
+    "combat-unlock-and-consequence",
+    "hospital-awakening",
+    "home-school-yuki-shizuka-relationships",
+    "echo-chess-hobby",
+    "reality-fractures-and-system-return",
+    "story-exploration-dialogue-puzzle-combat-memory-reward-development-loop",
+    "progressive-character-profile-collection-social-season-economy-unlocks"
+  ],
+  "systemsReleaseOrder": [
+    "authority-auth-save-rollout-accessibility-localization-performance-quality",
+    "final-manhwa-ingestion-and-story-to-gameplay-blueprint",
+    "connected-ui-manhwa-and-opening-puzzles",
+    "screen-break-transition-and-first-3d-environment",
+    "third-person-controller-camera-input-interaction-checkpoints-quality-tiers",
+    "original-guide-ui-and-3d-presence",
+    "environmental-puzzles-scanning-stealth-escape-and-threat-ai",
+    "transformation-cinematic-and-gameplay-change",
+    "combat-abilities-enemy-ai-feedback-and-accessibility",
+    "hospital-home-school-quests-dialogue-relationships-and-world-state",
+    "echo-chess-journey-then-optional-casual-and-ranked",
+    "character-progression-abilities-equipment-party-profile-and-collection",
+    "additional-world-story-puzzles-enemies-bosses-characters-and-cinematics",
+    "cosmetic-store-and-account-safe-ownership",
+    "daily-weekly-seasonal-world-grounded-return",
+    "community-and-creation-after-moderation-readiness",
+    "optional-random-pulls-after-product-legal-integrity-disclosure-and-owner-gates",
+    "native-platform-operations-load-legal-and-global-release"
+  ],
+  "firstSlice": {
+    "targetMinutes": "20-30",
+    "flow": [
+      "short-manhwa",
+      "fair-system-puzzle",
+      "screen-fracture",
+      "3d-arrival",
+      "guide-manifestation",
+      "room-exploration",
+      "environmental-puzzle",
+      "threat-or-chase",
+      "EX-011-discovery",
+      "escape-objective-or-hospital-threshold"
+    ],
+    "forbiddenScope": [
+      "open-world",
+      "large-playable-roster",
+      "production-store",
+      "paid-random-pulls",
+      "full-season-system",
+      "duplicate-gameplay-engines"
+    ]
+  },
+  "mandatorySkills": [
+    "11-11-game-director",
+    "11.11-player-experience-loop",
+    "11.11-autonomous-quality-gate"
+  ],
+  "verifiedTooling": {
+    "blender": {
+      "status": "verified-ready-for-non-canon-prototypes",
+      "version": "5.2.1 LTS",
+      "distribution": "portable",
+      "headlessCli": true,
+      "blendCreationSmoke": true,
+      "glbExport": true,
+      "glbReimportValidation": true,
+      "dracoLibrary": true,
+      "meshOptimizerLibrary": true,
+      "verifiedAt": "2026-08-29",
+      "productionConstraint": "Do not lock final characters, story cinematics, or Canon environments before the final Manhwa gate."
+    },
+    "assetPipeline": {
+      "status": "verified-ready",
+      "verifiedAt": "2026-08-29",
+      "ffmpeg": "9.0.1",
+      "ffprobe": "9.0.1",
+      "toktx": "4.4.2",
+      "gltfTransform": "4.4.2",
+      "gltfValidator": "2.0.0-dev.3.10",
+      "sharp": "0.35.4",
+      "imageMagick": "7.1.2-29-optional"
+    },
+    "runtimeQa": {
+      "preferredBrowser": "Microsoft Edge",
+      "edgeVersionVerified": "152.0.4191.53",
+      "verifiedAt": "2026-08-29"
+    },
+    "unity": {
+      "status": "deferred-until-measured-technical-greenlight"
+    }
+  },
+  "sourceOfTruth": {
+    "productVision": "docs/PROJECT_VISION.md",
+    "productMemory": "docs/project-memory.json",
+    "canonManifest": "docs/internal/narrative/current/ar/manifest.json"
+  }
+}

@@ -1,81 +1,111 @@
-# 11.11 Project - Agent Rules
+# 11.11 Project Agent Rules
 
-## قواعد إلزامية لأي Agent يعمل على هذا المشروع
+These rules apply to every agent working in the active application.
 
-### 1. الفحص الإجباري
+## 1. Read the durable project memory first
 
-قبل أي تعديل، يجب تشغيل:
+Before analysis, planning, design, code, content, or asset work, read in order:
+
+1. `docs/PROJECT_VISION.md`
+2. `docs/project-memory.json`
+3. `docs/internal/narrative/current/ar/manifest.json`
+4. The current Story Bible and Narrative Master selected by that manifest when
+   the task touches story, characters, puzzles, cinematics, dialogue, or world
+   design.
+
+The product vision controls product direction. The narrative manifest controls
+Canon. Neither source silently overrides the other.
+
+Use `$11-11-game-director` for any roadmap, phase, system-order, Manhwa,
+third-person, progression, economy, or cross-system decision.
+
+## 2. Current phase is authoritative
+
+Read `currentPhase` and `currentPhaseGate` from `docs/project-memory.json`.
+Do not skip that gate or begin a later system merely because its toolchain is
+available. Update the phase only after the Owner approves the transition and
+the completed phase passes `$11.11-autonomous-quality-gate`.
+
+The Owner accepts a multi-year, many-milestone production. Quality over speed
+does not mean uncontrolled scope: every milestone must remain playable,
+testable, bounded, and evidence-gated.
+
+## 3. Mandatory checks
+
+Before any edit, run from the repository root:
+
 ```bash
 npm run agent:preflight
 ```
 
-بعد أي تعديل، يجب تشغيل:
+After any edit, run:
+
 ```bash
 npm run agent:postflight
 ```
 
-### 2. شروط نجاح التقرير
+Also invoke and satisfy `$11.11-autonomous-quality-gate`. Run targeted tests,
+content validation, TypeScript, the production build, media validation, Worker
+checks, and Edge runtime verification whenever applicable. Never convert
+missing runtime evidence into PASS.
 
-ممنوع إعلان النجاح بدون:
-- ✅ TypeScript PASS
-- ✅ Build PASS  
-- ✅ doctor counts PASS أو تقرير واضح عن الفشل
+## 4. Product and player-experience invariants
 
-### 3. قيود التعديل
+- Build one connected game, not a collection of independent screens.
+- Preserve the approved hybrid identity: live system UI, Manhwa memory/story,
+  fair puzzles, cinematic transitions, third-person exploration and combat,
+  relationships, and Echo's chess hobby.
+- Reveal systems progressively in the order recorded in project memory.
+- Keep every player-facing step understandable: objective, world meaning,
+  interaction, consequence, and next action.
+- Quality may scale by device; gameplay truth, accessibility, and story may not.
+- Use adaptive Low/Medium/High/Ultra presentation with an explicit player
+  override and tested fallbacks.
+- Use Blender, Unity, Three/R3F, video, audio, and generation tools only when
+  they earn their production and performance cost.
+- Large-game inspiration is a quality benchmark, never permission to copy
+  another game's characters, world, UI, music, assets, or signature systems.
+- Build attachment through story, characters, discovery, mastery, and welcome
+  return loops. Do not use coercive engagement or deceptive dark patterns.
 
-- ممنوع تعديل أكثر من نظام واحد في نفس المهمة
-- ممنوع حذف ملفات بدون تقرير وموافقة
-- ممنوع الانتقال إلى Achievements أو Cinematics إذا توجد شاشة بيضاء أو build fail
-- ممنوع تكرار تقرير قديم بدون تشغيل أوامر فعلية
+## 5. Authority and safety invariants
 
-### 4. معالجة الأخطاء
+- Rewards, ratings, inventory ownership, progression receipts, puzzle
+  verification, economy, and unlocks remain server authoritative.
+- Presentation may react to a receipt; it may not mint or replay one.
+- AI assistants and companion dialogue never decide puzzle correctness,
+  rewards, chess legality, Canon, inventory, or progression.
+- Do not expose secrets, credentials, private player data, solution payloads,
+  or unpublished Canon.
+- Paid random rewards, if ever approved, come only after the economy and legal
+  gate recorded in project memory. Never build them early as a retention patch.
 
-إذا ظهر خطأ Console أو Build، يجب نسخ الخطأ كاملاً:
-```
-Error: [Full error message here]
-Stack trace if available
-```
+## 6. Canon and content rules
 
-### 5. الأولويات الحالية
+- Echo is the protagonist. Yuki is the white-haired childhood friend.
+- Echo's direct-skin neck identifier is `EX-011`; Zero may add an evolving
+  layer around it but never replaces it.
+- The final Manhwa handoff is required before locking story-specific gameplay,
+  cinematic chronology, final character production, or replacement puzzles.
+- There is no arbitrary target count for puzzles, memories, cinematics,
+  achievements, characters, or endings. Content exists only when it earns a
+  distinct player decision, emotion, discovery, or gameplay purpose.
+- Legacy narrative may remain only behind an explicit compatibility boundary;
+  it is not current Canon and must not leak into new authored work.
 
-1. **أولوية قصوى:** إصلاح الشاشة البيضاء
-2. **بعد الإصلاح:** فحص Edge
-3. **لاحقاً:** إضافة النهاية الخامسة (الآن 4، المطلوب 5)
-4. **ممنوع حالياً:** البدء بـ Achievements أو Cinematics
+## 7. Worktree discipline
 
-### 6. ما لا يمكن تعديله الآن
+- Inspect `git status`, `git diff`, recent commits, and `git diff --check`.
+- Preserve unrelated Owner changes and do not rewrite or delete them.
+- Do not delete material without explicit authorization and a recovery note.
+- Do not create commits, deploy, publish, buy services, or mutate remote state
+  unless the Owner explicitly requests it.
+- Report exact errors and warnings. Do not repeat a prior PASS without rerunning
+  the relevant command.
 
-- ❌ منطق اللعبة
-- ❌ الألغاز
-- ❌ Memory Shards
-- ❌ النهايات
-- ❌ Achievements
-- ❌ Cinematic Scenes
+## 8. Completion
 
-### 7. آليات العمل
-
-```
-قبل التعديل → agent:preflight
-    ↓
-إذا فشل → أوقف واعرض الخطأ
-    ↓
-إذا نجح → نفذ التعديل المطلوب فقط
-    ↓
-بعد التعديل → agent:postflight
-    ↓
-إذا فشل → لا تعلن النجاح، أظهر الأخطاء
-    ↓
-إذا نجح → أعلن النجاح مع التقرير الكامل
-```
-
-### 8. أهداف العدادات المتوقعة
-
-- 1000 puzzles
-- 835 memory shards
-- 129 achievements
-- 52 cinematic scenes
-- 5 endings
-
-## ملاحظة هامة
-
-هذه القواعد إلزامية وليست اختيارية. أي Agent يتجاهلها يعرض المشروع للخطر.
+Do not report a phase complete until implementation, tests, quality gate,
+player review, responsive behavior, accessibility, performance, and required
+runtime evidence all pass. If evidence is external or unavailable, report the
+specific surface as `UNVERIFIED` or `BLOCKED`; do not lower the bar.
