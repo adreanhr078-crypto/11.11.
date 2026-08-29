@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "status": "verified-deferred-portable-candidate",
+  "engine": "Godot Standard",
+  "version": "4.7.2-stable",
+  "officialBuild": "4.7.2.stable.official.ed1daf0bf",
+  "platform": "windows-x86_64",
+  "distribution": "portable-zip",
+  "officialDownload": "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip",
+  "officialChecksums": "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/SHA512-SUMS.txt",
+  "archiveBytes": 86013866,
+  "sha256": "731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953",
+  "sha512": "83decd58fdf67b9d657958a1ae6bf1929c20785315a81effe245874cdc57acb709bf868e00778a96984338c1b29dafdb453c6847747694621c6ecf5da2259993",
+  "preferredExecutable": "Godot_v4.7.2-stable_win64_console.exe",
+  "portableRoot": "C:/Tools/Godot-4.7.2-stable",
+  "portableSelfContainedRequired": true,
+  "dotNetRequired": false,
+  "exportTemplatesDownloaded": false,
+  "runtimeIntegrationApproved": false,
+  "productionGreenlight": false,
+  "currentPhaseChanged": false,
+  "openWorldAuthorized": false,
+  "allowedNow": [
+    "resolver-and-doctor-tests",
+    "headless-import-and-scene-smoke",
+    "neutral-room-performance-benchmark",
+    "non-canon-glb-import-and-animation-comparison"
+  ],
+  "forbiddenNow": [
+    "runtime-embedding",
+    "duplicate-gameplay-authority",
+    "auth-save-reward-or-api-authority",
+    "canon-character-or-environment-production",
+    "final-cinematics",
+    "open-world-production",
+    "export-platform-module-downloads"
+  ]
+}

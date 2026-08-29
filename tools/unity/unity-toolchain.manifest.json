@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "status": "prepared-deferred-owner-declined-local-install",
+  "runtimeIntegrationApproved": false,
+  "productionGreenlight": false,
+  "localInstallAuthorized": false,
+  "downloadInstallerNow": false,
+  "targetEditor": {
+    "releaseLine": "Unity 6.3 LTS",
+    "version": "6000.3.23f1",
+    "changeset": "09d2ecc7fb28",
+    "releaseDate": "2026-08-26",
+    "officialReleasePage": "https://unity.com/releases/editor/whats-new/6000.3.23f1",
+    "officialWindowsInstaller": "https://download.unity3d.com/download_unity/09d2ecc7fb28/Windows64EditorInstaller/UnitySetup64-6000.3.23f1.exe",
+    "installerBytesObserved": 4125667560,
+    "windowsFormat": "exe-installer",
+    "officialPortableZipAvailable": false,
+    "sha256": null
+  },
+  "resolutionOrder": [
+    "UNITY_EXE",
+    "PATH",
+    "C:/Tools/Unity*/Editor/Unity.exe",
+    "Unity Hub editor folders"
+  ],
+  "allowedBeforeGreenlight": [
+    "tool-resolution-tests",
+    "non-canon-editor-smoke",
+    "neutral-room-benchmark",
+    "engine-performance-comparison"
+  ],
+  "forbiddenBeforeGreenlight": [
+    "runtime-embedding",
+    "final-character-production",
+    "canon-cinematics",
+    "open-world-production",
+    "credentials-or-license-files-in-git"
+  ],
+  "firstInstallProfileAfterOwnerApproval": {
+    "editor": true,
+    "modules": [],
+    "reason": "Prove batch startup, activation, Arabic text, Intel-UHD stability, and an empty room before downloading platform modules."
+  },
+  "futureModulesAfterMeasuredNeed": [
+    "Windows Build Support (IL2CPP)",
+    "Web Build Support",
+    "Android Build Support with SDK NDK and OpenJDK"
+  ],
+  "activation": {
+    "interactiveUnityIdRequiredForStablePersonalFlow": true,
+    "storeCredentialsInRepository": false,
+    "unityCliAlternative": "experimental-not-a-production-dependency"
+  },
+  "activeAlternative": "Blender 5.2 LTS plus Three.js/React Three Fiber; portable Godot is isolated to measured non-Canon comparison proofs"
+}

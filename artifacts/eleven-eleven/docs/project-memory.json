@@ -13,7 +13,7 @@
   ],
   "currentSafeWork": [
     "Preserve integrity, authentication, save, reward, and rollout authority",
-    "Maintain portable Blender, GLB, video, audio, and Edge validation tooling",
+    "Maintain portable Blender, Godot proof, GLB, video, audio, and Edge validation tooling",
     "Prepare non-Canon technical prototypes and performance measurements",
     "Document decisions without publishing unfinished narrative content"
   ],
@@ -31,18 +31,14 @@
       "survival"
     ],
     "combatUnlock": "after-echo-transformation",
-    "realityHubs": [
-      "hospital",
-      "home",
-      "school"
-    ],
+    "realityHubs": ["hospital", "home", "school"],
     "systemWorldRole": "missions-dungeons-puzzles-threats-combat-memories",
     "manhwaRole": "memory-archive-flashbacks-other-viewpoints-clues-discoveries-recaps",
     "guideDirection": "original-separate-character-not-mini-echo",
     "chessRole": "echo-favorite-hobby-character-relationship-and-mastery-system",
     "puzzleCountPolicy": "story-and-mechanic-value-not-a-fixed-count",
     "graphicsPolicy": "auto-low-medium-high-ultra-with-player-override",
-    "enginePolicy": "measured-r3f-proof-unity-allowed-after-technical-greenlight",
+    "enginePolicy": "three-r3f-current-runtime-godot-portable-candidate-unity-future-candidate-all-require-measured-greenlight",
     "economyPolicy": "fun-progression-and-integrity-before-store-or-random-pulls"
   },
   "provisionalUntilFinalManhwa": {
@@ -159,7 +155,35 @@
       "verifiedAt": "2026-08-29"
     },
     "unity": {
-      "status": "deferred-until-measured-technical-greenlight"
+      "status": "tooling-prepared-local-install-declined",
+      "target": "Unity 6.3 LTS 6000.3.23f1",
+      "changeset": "09d2ecc7fb28",
+      "officialPortableWindowsEditor": false,
+      "resolverAndSafeCliPrepared": true,
+      "editorInstalled": false,
+      "activationVerified": false,
+      "productionGreenlight": false,
+      "localInstallAuthorized": false,
+      "installerDownloadAuthorized": false,
+      "activeLocalAlternative": "portable-blender-plus-three-r3f-with-isolated-godot-comparison",
+      "constraint": "Do not download or install Unity on this machine without a new explicit Owner instruction. A supported Windows Editor requires official installation and activation."
+    },
+    "godot": {
+      "status": "verified-deferred-portable-candidate",
+      "version": "4.7.2.stable.official.ed1daf0bf",
+      "distribution": "official-standard-windows-x86_64-zip",
+      "portableRoot": "C:/Tools/Godot-4.7.2-stable",
+      "sha512Verified": true,
+      "selfContainedMarker": true,
+      "headlessCli": true,
+      "headlessImportSmoke": true,
+      "headlessSceneSmoke": true,
+      "dotNetRequired": false,
+      "exportTemplatesDownloaded": false,
+      "runtimeIntegrationApproved": false,
+      "productionGreenlight": false,
+      "verifiedAt": "2026-08-29",
+      "constraint": "Use only isolated non-Canon technical proofs until the final Manhwa gate and a measured single-runtime engine decision."
     }
   },
   "sourceOfTruth": {

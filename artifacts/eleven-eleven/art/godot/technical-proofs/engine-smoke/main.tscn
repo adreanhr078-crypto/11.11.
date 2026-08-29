@@ -1,0 +1,27 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/smoke.gd" id="1_smoke"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_smoke"]
+albedo_color = Color(0.58, 0.03, 0.09, 1)
+metallic = 0.72
+roughness = 0.24
+
+[sub_resource type="BoxMesh" id="BoxMesh_smoke"]
+material = SubResource("StandardMaterial3D_smoke")
+size = Vector3(1.8, 1.8, 1.8)
+
+[node name="EngineSmoke" type="Node3D"]
+script = ExtResource("1_smoke")
+
+[node name="ProofMesh" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxMesh_smoke")
+
+[node name="ProofLight" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-42, -28, 0)
+light_color = Color(0.86, 0.78, 1, 1)
+light_energy = 1.35
+
+[node name="ProofCamera" type="Camera3D" parent="."]
+position = Vector3(0, 0.25, 4.5)
+current = true

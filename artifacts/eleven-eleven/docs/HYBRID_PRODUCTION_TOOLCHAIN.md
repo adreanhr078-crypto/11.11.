@@ -4,8 +4,9 @@
 
 11.11 remains web-first. Blender authors characters, environments, animation,
 and fixed cinematic frames; Three.js/React Three Fiber renders interactive GLB
-inside the current application. Unity is a future greenlight decision, not a
-dependency of Part 1 or the first third-person vertical slice.
+inside the current application. Portable Godot is an isolated measured candidate
+and Unity is a future workstation greenlight decision; neither is a dependency
+of Part 1 or the first third-person vertical slice.
 
 This decision preserves login, server-owned rewards, puzzles, progression,
 Arabic/English UI, and the existing browser/mobile reach while allowing one
@@ -50,15 +51,16 @@ for legibility-critical signals. Color is never the sole carrier of meaning.
 
 No system installer is required by the pipeline.
 
-| Capability | Production path |
-|---|---|
-| Blender | `BLENDER_EXE`, verified portable Blender 5.2 LTS |
-| FFmpeg | `FFMPEG_EXE` and `FFPROBE_EXE` |
-| KTX2 | `TOKTX_EXE`, verified portable KTX 4.4.2 |
-| GLB optimization | pinned `@gltf-transform/cli` 4.4.2 |
-| GLB validation | pinned Khronos `gltf-validator` |
-| Image inspection | pinned Sharp; ImageMagick optional |
-| Browser QA | `EDGE_EXE`; Microsoft Edge only |
+| Capability       | Production path                                     |
+| ---------------- | --------------------------------------------------- |
+| Blender          | `BLENDER_EXE`, verified portable Blender 5.2 LTS    |
+| FFmpeg           | `FFMPEG_EXE` and `FFPROBE_EXE`                      |
+| KTX2             | `TOKTX_EXE`, verified portable KTX 4.4.2            |
+| GLB optimization | pinned `@gltf-transform/cli` 4.4.2                  |
+| GLB validation   | pinned Khronos `gltf-validator`                     |
+| Image inspection | pinned Sharp; ImageMagick optional                  |
+| Browser QA       | `EDGE_EXE`; Microsoft Edge only                     |
+| Engine candidate | `GODOT_EXE`; verified portable Godot 4.7.2 Standard |
 
 Run:
 
@@ -66,11 +68,60 @@ Run:
 npm run env:check
 npm run media:smoke
 npm run media:validate
+npm run godot:doctor
+npm run godot:smoke
 ```
 
 `media:smoke` must pass the entire non-Canon test chain: Blender scene creation,
 raw GLB export, strict validation, Meshopt/KTX preparation, strict validation,
 Blender re-import, PNG render, VP9 WebM encode, poster extraction, and ffprobe.
+
+## Godot portable candidate contract
+
+Godot 4.7.2 Standard is verified from its official Windows x86*64 ZIP at
+`C:/Tools/Godot-4.7.2-stable`. The archive SHA-512 matches the official release
+checksum and `\_sc*`keeps editor state self-contained beside the executable.
+The exact artifact, hashes, and restrictions are recorded in`tools/godot/godot-toolchain.manifest.json`.
+
+Only `godot:doctor` and the tracked non-Canon `godot:smoke` proof are authorized.
+No .NET build, export templates, runtime embedding, Canon scene, or gameplay
+authority has been added. Godot must later be compared with Three/R3F using the
+same neutral room and assets across startup time, frame time, peak memory, input,
+GLB animation, build size, streaming, mobile thermals, accessibility, bilingual
+UI, and authoritative receipt integration. One runtime wins that measured gate;
+the project will not maintain duplicate gameplay engines.
+
+## Unity readiness contract
+
+Unity is prepared as an optional measured engine candidate, not selected as the
+current runtime. The pinned evaluation target is Unity 6.3 LTS
+`6000.3.23f1` (`09d2ecc7fb28`). The exact official source and restrictions are
+recorded in `tools/unity/unity-toolchain.manifest.json`.
+
+Windows does not have an official portable Unity Editor ZIP. The official
+Windows artifact is an EXE installer, and Personal licensing normally requires
+interactive Unity ID activation. Do not unpack the installer and call the
+result portable, do not store a license or credentials in the repository, and
+do not treat the experimental Unity CLI as a production dependency.
+
+After the engine greenlight, install the pinned Editor in a dedicated location,
+set `UNITY_EXE` to its exact executable, and run:
+
+```bash
+npm run unity:doctor
+npm run unity:typecheck
+npm run unity:test
+```
+
+Start with the Editor only. Add Windows, Web, or Android build modules only
+after a measured proof needs them. Availability never changes the current
+`WAITING_FOR_FINAL_MANHWA` phase or authorizes a second gameplay authority.
+
+The Owner has declined installing Unity on the current machine. Do not download
+or run its installer unless a later explicit Owner instruction changes that
+decision. The active local 3D production path is therefore portable Blender
+plus Three.js/React Three Fiber in the existing web runtime. A future Unity
+comparison may run on a separately approved workstation or cloud environment.
 
 ## Asset flow
 
@@ -133,4 +184,4 @@ Intel-UHD machine. Audacity is deferred until approved VO/SFX exists.
 5. Map each puzzle to a specific shown clue; remove stale puzzles.
 6. Storyboard only the cinematic moments that gain value from motion.
 7. Lock Echo/Yuki turnarounds before final sculpt, rig, or facial blendshapes.
-8. Produce one 10–15 minute hybrid slice before expanding the world.
+8. Produce one 20–30 minute hybrid slice before expanding the world.

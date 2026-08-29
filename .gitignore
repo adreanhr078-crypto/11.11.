@@ -65,5 +65,25 @@ artifacts/eleven-eleven/art/blender/intermediate/
 artifacts/eleven-eleven/art/blender/renders/
 artifacts/eleven-eleven/art/blender/exports/
 
+# Isolated Unity technical proofs. Keep source, ProjectSettings, and pinned
+# Packages manifests; exclude generated editor/build state at any depth.
+artifacts/eleven-eleven/art/unity/**/Library/
+artifacts/eleven-eleven/art/unity/**/Temp/
+artifacts/eleven-eleven/art/unity/**/Obj/
+artifacts/eleven-eleven/art/unity/**/Logs/
+artifacts/eleven-eleven/art/unity/**/UserSettings/
+artifacts/eleven-eleven/art/unity/**/MemoryCaptures/
+artifacts/eleven-eleven/art/unity/**/Builds/
+artifacts/eleven-eleven/art/unity/**/*.csproj
+artifacts/eleven-eleven/art/unity/**/*.sln
+
+# Isolated Godot technical proofs. Keep project.godot, scenes, scripts, and
+# authored resources; exclude editor import state and any future build output.
+artifacts/eleven-eleven/art/godot/**/.godot/
+artifacts/eleven-eleven/art/godot/**/.mono/
+artifacts/eleven-eleven/art/godot/**/builds/
+artifacts/eleven-eleven/art/godot/**/exports/
+artifacts/eleven-eleven/art/godot/**/*.translation
+
 # Vercel - ignore pnpm lockfile to prevent Vercel from using pnpm
 pnpm-lock.yaml

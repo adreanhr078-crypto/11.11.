@@ -52,7 +52,7 @@ third person, relationships, transformation, and chess as part of Echo's mind.
 8. **Puzzle count follows story value.** The campaign may need far more than 20
    puzzles, but no target number is a quality metric. Every puzzle must offer a
    distinct decision or interaction and reveal, change, or deepen something.
-9. **Heavy tools are allowed.** Blender, Unity, Three/R3F, procedural tooling,
+9. **Heavy tools are allowed.** Blender, Godot, Unity, Three/R3F, procedural tooling,
    audio/video production, and other professional tools may be used when they
    improve the proven experience. Tool availability never justifies premature
    production or a second disconnected runtime.
@@ -196,9 +196,10 @@ No shop, gacha, broad roster, or open world belongs in this proof.
 
 The current application remains the authoritative account, UI, Manhwa, puzzle,
 chess, progression, and service shell. The first measured third-person proof may
-use the existing Three/R3F runtime. Unity is explicitly allowed for production
-when a bounded technical proof shows that it provides materially better combat,
-animation, world streaming, tooling, or cross-platform quality.
+use the existing Three/R3F runtime. Portable Godot and a future Unity workstation
+are explicitly allowed as measured engine candidates when a bounded technical
+proof shows materially better combat, animation, world streaming, tooling, or
+cross-platform quality.
 
 Do not migrate by enthusiasm. Compare actual startup cost, memory, frame time,
 input, asset streaming, visual fidelity, mobile thermals, build size,
@@ -222,8 +223,18 @@ Microsoft Edge as the required runtime QA target. Exact observed versions and
 verification date live in `docs/project-memory.json` so later agents can check
 for drift instead of assuming readiness.
 
+Godot 4.7.2 Standard is verified as a self-contained portable candidate on the
+current workstation. Its headless import/scene proof is deliberately non-Canon;
+availability does not select it as the production runtime, permit an open world,
+or give it authority over authentication, saves, rewards, or story progression.
+
 Unity remains an allowed future production option, not the current runtime by
 default. It must earn a greenlight through the measured engine comparison above.
+The Owner has declined a local Unity installation; do not install or download
+its Windows installer without a new explicit instruction. Continue local 3D
+proofs with portable Blender, the existing Three/R3F runtime, and isolated Godot
+benchmarks. A future Unity evaluation may use a separately approved workstation
+or cloud environment.
 
 ## Visual identity
 
