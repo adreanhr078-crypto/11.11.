@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
@@ -11,19 +11,54 @@ const FRAMES = join(OUTPUT_ROOT, 'frames');
 const VIDEO = join(OUTPUT_ROOT, 'smoke.webm');
 const POSTER = join(OUTPUT_ROOT, 'smoke-poster.webp');
 
-function run(label: string, script: string, args: string[], timeout = 10 * 60_000): void {
+function terminateProcessTree(pid: number): void {
+  if (process.platform === 'win32') {
+    spawnSync('taskkill.exe', ['/pid', String(pid), '/T', '/F'], {
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+    return;
+  }
+  try {
+    process.kill(-pid, 'SIGTERM');
+  } catch {
+    try {
+      process.kill(pid, 'SIGTERM');
+    } catch {
+      // The process may have exited between the timeout and termination.
+    }
+  }
+}
+
+function run(label: string, script: string, args: string[], timeout = 10 * 60_000): Promise<void> {
   console.log(`\n[${label}]`);
   const tsxCli = join(REPO_ROOT, 'node_modules', 'tsx', 'dist', 'cli.mjs');
-  const result = spawnSync(process.execPath, [tsxCli, script, '--', ...args], {
-    cwd: REPO_ROOT,
-    encoding: 'utf8',
-    timeout,
-    windowsHide: true,
+  return new Promise((resolveRun, rejectRun) => {
+    const child = spawn(process.execPath, [tsxCli, script, '--', ...args], {
+      cwd: REPO_ROOT,
+      stdio: 'inherit',
+      shell: false,
+      windowsHide: true,
+      detached: process.platform !== 'win32',
+    });
+    let settled = false;
+    const settle = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (error) rejectRun(error);
+      else resolveRun();
+    };
+    const timer = setTimeout(() => {
+      if (child.pid) terminateProcessTree(child.pid);
+      settle(new Error(`${label} timed out after ${timeout}ms.`));
+    }, timeout);
+    child.on('error', (error) => settle(new Error(`${label} failed to start: ${error.message}`)));
+    child.on('close', (code) => {
+      if (code === 0) settle();
+      else settle(new Error(`${label} failed with exit code ${code ?? 'unknown'}.`));
+    });
   });
-  if (result.stdout) process.stdout.write(result.stdout);
-  if (result.stderr) process.stderr.write(result.stderr);
-  if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error(`${label} failed with exit code ${result.status ?? 'unknown'}.`);
 }
 
 function assertOutput(path: string, minimumBytes = 1): void {
@@ -31,21 +66,21 @@ function assertOutput(path: string, minimumBytes = 1): void {
   if (statSync(path).size < minimumBytes) throw new Error(`Expected output is unexpectedly small: ${path}`);
 }
 
-function main(): void {
-  run('Blender scene creation', 'tools/blender/run-blender.ts', [
+async function main(): Promise<void> {
+  await run('Blender scene creation', 'tools/blender/run-blender.ts', [
     'run-python', '--script', 'tools/blender/create_smoke_scene.py', '--',
     '--output', 'artifacts/eleven-eleven/.tmp/media-smoke/smoke.blend',
   ]);
   assertOutput(BLEND, 1024);
 
-  run('Raw GLB export', 'tools/blender/run-blender.ts', [
+  await run('Raw GLB export', 'tools/blender/run-blender.ts', [
     'export-gltf', '--blend', 'artifacts/eleven-eleven/.tmp/media-smoke/smoke.blend',
     '--output', 'artifacts/eleven-eleven/.tmp/media-smoke/smoke.raw.glb',
   ]);
   assertOutput(RAW_GLB, 1024);
 
-  run('Raw GLB validation', 'tools/media/validate-glb.ts', ['--input', RAW_GLB, '--strict']);
-  run('GLB optimization', 'tools/media/optimize-glb.ts', [
+  await run('Raw GLB validation', 'tools/media/validate-glb.ts', ['--input', RAW_GLB, '--strict']);
+  await run('GLB optimization', 'tools/media/optimize-glb.ts', [
     '--input', RAW_GLB,
     '--output', OPTIMIZED_GLB,
     '--profile', 'character',
@@ -53,12 +88,12 @@ function main(): void {
     '--force',
   ]);
   assertOutput(OPTIMIZED_GLB, 1024);
-  run('Optimized GLB validation', 'tools/media/validate-glb.ts', ['--input', OPTIMIZED_GLB, '--strict']);
-  run('Blender GLB re-import', 'tools/blender/run-blender.ts', [
+  await run('Optimized GLB validation', 'tools/media/validate-glb.ts', ['--input', OPTIMIZED_GLB, '--strict']);
+  await run('Blender GLB re-import', 'tools/blender/run-blender.ts', [
     'run-python', '--script', 'tools/blender/validate_glb_reimport.py', '--', '--input', OPTIMIZED_GLB,
   ]);
 
-  run('Cinematic frame render', 'tools/blender/run-blender.ts', [
+  await run('Cinematic frame render', 'tools/blender/run-blender.ts', [
     'render-cinematic', '--blend', 'artifacts/eleven-eleven/.tmp/media-smoke/smoke.blend',
     '--output-dir', 'artifacts/eleven-eleven/.tmp/media-smoke/frames',
     '--start', '1', '--end', '12', '--fps', '12',
@@ -68,7 +103,7 @@ function main(): void {
     : 0;
   if (frameCount !== 12) throw new Error(`Expected exactly 12 rendered frames, found ${frameCount}.`);
 
-  run('Cinematic encoding', 'tools/media/encode-cinematic.ts', [
+  await run('Cinematic encoding', 'tools/media/encode-cinematic.ts', [
     '--input', join(FRAMES, 'frame_%04d.png'),
     '--output', VIDEO,
     '--poster', POSTER,
@@ -92,9 +127,7 @@ function main(): void {
   }, null, 2));
 }
 
-try {
-  main();
-} catch (error) {
+main().catch((error) => {
   console.error(error instanceof Error ? error.stack ?? error.message : String(error));
   process.exitCode = 1;
-}
+});
