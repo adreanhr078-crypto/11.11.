@@ -1,3 +1,4 @@
+import { FINAL_MANHWA_ASSET_ROOT } from '../../content/manhwa/finalManhwa';
 import {
   RARE_PLAYER_AVATAR_IDS,
   type RarePlayerAvatarId,
@@ -17,54 +18,74 @@ export const WEEKLY_REWARD_PREVIEW: LiveChallengeReward = Object.freeze({
   icon: '✦',
 });
 
+const OPENING_MANHWA_IMAGES = Object.freeze([
+  `${FINAL_MANHWA_ASSET_ROOT}/page-007.webp`,
+  `${FINAL_MANHWA_ASSET_ROOT}/page-009.webp`,
+] as const);
+
+const OPENING_SOURCE_LABELS = Object.freeze([
+  'المانهوا المصححة · الصفحة 7',
+  'المانهوا المصححة · الصفحة 9',
+] as const);
+
+/**
+ * The `rare_*` values are durable player-profile compatibility keys. The
+ * corrected publication has no approved character-avatar mapping yet, so the
+ * live reward surface deliberately presents neutral archive signals instead
+ * of inferring a person, transformation, or unreleased reveal from old art.
+ */
 const CHARACTER_REWARDS: Readonly<Record<RarePlayerAvatarId, LiveChallengeReward>> = Object.freeze({
   rare_yuki: {
     tier: 'rare', kind: 'avatar', rewardId: 'avatar:rare_yuki', avatarId: 'rare_yuki',
-    label: 'أفاتار يوكي النادر', icon: '◇', imageSrc: '/assets/avatars/rare-yuki-v1.webp',
-    storyExcerpt: 'إشارة يوكي الدافئة بقيت مرساة بشرية داخل ذاكرة إيكو.', sourceLabel: 'المانهوا · الصفحة 24',
+    label: 'شارة أرشيف نادرة 01', icon: '◇', imageSrc: OPENING_MANHWA_IMAGES[0],
+    storyExcerpt: 'إشارة افتتاح محفوظة من بوابة 11:11؛ لا تمثل كشفاً سردياً جديداً.', sourceLabel: OPENING_SOURCE_LABELS[0],
   },
   rare_nara: {
     tier: 'rare', kind: 'avatar', rewardId: 'avatar:rare_nara', avatarId: 'rare_nara',
-    label: 'أفاتار نارا النادر', icon: '◇', imageSrc: '/assets/avatars/rare-nara-v1.webp',
-    storyExcerpt: 'أثر وداع نارا لم يختفِ؛ تحوّل إلى شظية تقاوم المحو.', sourceLabel: 'المانهوا · الصفحة 18',
+    label: 'شارة أرشيف نادرة 02', icon: '◇', imageSrc: OPENING_MANHWA_IMAGES[1],
+    storyExcerpt: 'أثر آمن من الأرشيف المصحح، مخصص للواجهة فقط حتى اعتماد خريطة الشخصيات.', sourceLabel: OPENING_SOURCE_LABELS[1],
   },
   rare_kenja: {
     tier: 'rare', kind: 'avatar', rewardId: 'avatar:rare_kenja', avatarId: 'rare_kenja',
-    label: 'أفاتار كينجا النادر', icon: '◇', imageSrc: '/assets/avatars/rare-kenja-v1.webp',
-    storyExcerpt: 'سجل كينجا يربط المعرفة المحظورة بأثر زيرو في العقد الثالث عشر.', sourceLabel: 'المانهوا · الصفحات 35–45',
+    label: 'شارة أرشيف نادرة 03', icon: '◇', imageSrc: OPENING_MANHWA_IMAGES[0],
+    storyExcerpt: 'نبضة مرجعية من الافتتاح؛ لا تثبت هوية شخص أو دوراً في القصة.', sourceLabel: OPENING_SOURCE_LABELS[0],
   },
   rare_lina: {
     tier: 'rare', kind: 'avatar', rewardId: 'avatar:rare_lina', avatarId: 'rare_lina',
-    label: 'أفاتار لينا النادر', icon: '◇', imageSrc: '/assets/avatars/rare-lina-v1.webp',
-    storyExcerpt: 'بروتوكول لينا ظهر عند لحظة العقد الثاني ليعيد تعريف حدود إيكو.', sourceLabel: 'المانهوا · الصفحات 58–60',
+    label: 'شارة أرشيف نادرة 04', icon: '◇', imageSrc: OPENING_MANHWA_IMAGES[1],
+    storyExcerpt: 'شظية واجهة محايدة من الإصدار المصحح، بلا علاقة أو تحول سردي معتمد.', sourceLabel: OPENING_SOURCE_LABELS[1],
   },
   rare_zero: {
     tier: 'rare', kind: 'avatar', rewardId: 'avatar:rare_zero', avatarId: 'rare_zero',
-    label: 'أفاتار زيرو النادر', icon: '◇', imageSrc: '/assets/avatars/rare-zero-v1.webp',
-    storyExcerpt: 'زيرو ليس ضوضاء عابرة؛ أثره يراقب الشقوق التي تتركها العقود.', sourceLabel: 'المانهوا · الصفحات 35–54',
+    label: 'شارة أرشيف نادرة 05', icon: '◇', imageSrc: OPENING_MANHWA_IMAGES[0],
+    storyExcerpt: 'تردد مبكر من الأرشيف؛ يعرض الغموض فقط ولا يكشف كياناً أو عقداً.', sourceLabel: OPENING_SOURCE_LABELS[0],
   },
 });
 
+/**
+ * These IDs are retained to avoid mutating historic weekly receipts. Their
+ * player-facing copy and art are versioned-neutral opening fragments.
+ */
 const MEMORY_SHARDS = [
   {
-    id: 'yuki-warm-signal', title: 'شظية: الإشارة الدافئة', imageSrc: '/manhwa/final/page-024.webp',
-    excerpt: 'ذكرى يوكي الدافئة بقيت داخل إيكو حتى عندما حاول النظام تفكيكها.', source: 'المانهوا · الصفحة 24',
+    id: 'yuki-warm-signal', title: 'شظية: نبض الافتتاح', imageSrc: OPENING_MANHWA_IMAGES[0],
+    excerpt: 'نبضة افتتاحية تعيد ترتيب الإشارة من دون إضافة كشف أو شخصية جديدة.', source: OPENING_SOURCE_LABELS[0],
   },
   {
-    id: 'nara-farewell', title: 'شظية: وداع نارا', imageSrc: '/manhwa/final/page-018.webp',
-    excerpt: 'وداع نارا ترك أثرًا يمكن استعادته من بين الشظايا البنفسجية.', source: 'المانهوا · الصفحة 18',
+    id: 'nara-farewell', title: 'شظية: نافذة الأرشيف', imageSrc: OPENING_MANHWA_IMAGES[1],
+    excerpt: 'نافذة موثقة من الأرشيف المصحح؛ الهدف منها تدريب القراءة البصرية لا تأويل القصة.', source: OPENING_SOURCE_LABELS[1],
   },
   {
-    id: 'kenja-zero-record', title: 'شظية: سجل كينجا', imageSrc: '/manhwa/final/page-040.webp',
-    excerpt: 'سجل كينجا يكشف أن أثر زيرو كان حاضرًا قبل اكتمال التحول.', source: 'المانهوا · الصفحة 40',
+    id: 'kenja-zero-record', title: 'شظية: مسار الإشارة', imageSrc: OPENING_MANHWA_IMAGES[0],
+    excerpt: 'مسار إشارة قصير يربط الملاحظة بالحل من دون كشف مرحلة لاحقة.', source: OPENING_SOURCE_LABELS[0],
   },
   {
-    id: 'lina-protocol', title: 'شظية: بروتوكول لينا', imageSrc: '/manhwa/final/page-060.webp',
-    excerpt: 'ظهور لينا يفتح بروتوكولًا جديدًا في ذاكرة العقد الثاني.', source: 'المانهوا · الصفحة 60',
+    id: 'lina-protocol', title: 'شظية: مفتاح الوصول', imageSrc: OPENING_MANHWA_IMAGES[1],
+    excerpt: 'مفتاح واجهة محايد يوضح أن الأرشيف يستجيب للترتيب الصحيح فقط.', source: OPENING_SOURCE_LABELS[1],
   },
   {
-    id: 'black-echo', title: 'شظية: بلاك إيكو', imageSrc: '/manhwa/final/page-062.webp',
-    excerpt: 'بلاك إيكو هو حالة عقدية موثقة، لا تخمينًا يصنعه اللاعب.', source: 'المانهوا · الصفحة 62',
+    id: 'black-echo', title: 'شظية: أثر صامت', imageSrc: OPENING_MANHWA_IMAGES[0],
+    excerpt: 'أثر هادئ من الافتتاح يحافظ على الغموض إلى أن تعتمد مراجعة الـCanon الصفحات التالية.', source: OPENING_SOURCE_LABELS[0],
   },
 ] as const;
 

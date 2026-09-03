@@ -2,6 +2,12 @@ import { create } from 'zustand';
 import type {
   LeaderboardPlayer,
 } from '../../domain/player-progression/playerProgression';
+import {
+  createXpRewardKey,
+} from '../../domain/player-progression/playerProgression';
+import {
+  getFinalManhwaChapterRewardSourceId,
+} from '../../content/manhwa/finalManhwa';
 import type {
   PlayerProfile,
   PlayerProfileUpdateInput,
@@ -259,7 +265,9 @@ PlayerProgressionStoreState>((set, get) => ({
     },
 
     claimManhwaChapterReward(chapterId, finalPageNumber) {
-      const rewardKey = `manhwa:${chapterId}:v1`;
+      const rewardSourceId = getFinalManhwaChapterRewardSourceId(chapterId);
+      if (!rewardSourceId) return Promise.resolve(false);
+      const rewardKey = createXpRewardKey('manhwa', rewardSourceId);
       if (claimedRewardKeys.has(rewardKey)) return Promise.resolve(true);
       const existing = inFlightRewardClaims.get(rewardKey);
       if (existing) return existing;

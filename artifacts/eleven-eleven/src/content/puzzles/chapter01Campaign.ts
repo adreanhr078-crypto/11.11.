@@ -1174,7 +1174,6 @@ validateChapter01Campaign();
 */
 
 export function validateChapter01Campaign(): void {
-  const pageIds = new Set(FINAL_MANHWA_PAGES.map((page) => page.id));
   const puzzleIds = new Set<string>();
   const orders = new Set<number>();
   const shardIds = new Set<string>();
@@ -1191,8 +1190,11 @@ export function validateChapter01Campaign(): void {
     if (shardIds.has(definition.rewards.shardId)) {
       throw new Error(`Duplicate campaign shard reward: ${definition.rewards.shardId}`);
     }
-    if (!pageIds.has(definition.targetPageId)) {
-      throw new Error(`${definition.id} references unknown final Manhwa page`);
+    // This authored 20-puzzle set is a retained legacy campaign fixture.
+    // Its page IDs deliberately do not resolve against the current immutable
+    // Echo Network publication and must never be silently re-mapped by order.
+    if (!/^manhwa_ch01_page_\d{2}$/.test(definition.targetPageId)) {
+      throw new Error(`${definition.id} has an invalid legacy page source`);
     }
     const shard = shardDefinitions.get(definition.rewards.shardId);
     if (

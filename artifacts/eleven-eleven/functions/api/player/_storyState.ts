@@ -6,10 +6,15 @@ import {
 import {
   FINAL_MANHWA_CHAPTERS,
   FINAL_MANHWA_PAGE_BY_ID,
+  FINAL_MANHWA_PAGES,
+  getFinalManhwaChapterRewardSourceId,
 } from '../../../src/content/manhwa/finalManhwa';
 import {
   createXpRewardKey,
 } from '../../../src/domain/player-progression/playerProgression';
+import {
+  deriveStoryPuzzleManhwaAccess,
+} from '../../../src/domain/manhwa/storyPuzzleManhwaAccess';
 import {
   normalizeAuthoritativeStoryState,
   type AuthoritativeStoryState,
@@ -47,12 +52,12 @@ interface FragmentRow {
   fragment_id: string;
 }
 
-interface RewardTimestampRow {
-  granted_at: string;
+interface ReadPageRow {
+  page_id: string;
 }
 
-interface ReadPageRow {
-  global_page_number: number | string;
+interface StoryPuzzleCompletionRow {
+  puzzle_id: string;
 }
 
 export interface ManhwaReaderCheckpoint {
@@ -108,6 +113,7 @@ export function parseManhwaReaderCheckpoint(
   const page = FINAL_MANHWA_PAGE_BY_ID[checkpoint.pageId];
   if (
     !page
+    || !page.published
     || page.chapterId !== checkpoint.chapterId
     || page.globalPageNumber !== checkpoint.globalPageNumber
   ) {
@@ -138,6 +144,33 @@ async function recordManhwaPageCheckpoint(
   ).run();
 }
 
+/**
+ * The server owns the reader window. A page being published means its asset
+ * exists in the release; it does not mean a client may skip the preceding
+ * Story Puzzle to record or redeem it.
+ */
+async function assertCheckpointWithinReaderWindow(
+  database: PlayerDatabase,
+  uid: string,
+  pageId: string,
+): Promise<void> {
+  const completed = await database.prepare(`
+    SELECT puzzle_id
+    FROM player_story_puzzle_completion_events
+    WHERE user_id = ?
+  `).bind(uid).all<StoryPuzzleCompletionRow>();
+  const access = deriveStoryPuzzleManhwaAccess(
+    (completed.results ?? []).map((row) => row.puzzle_id),
+  );
+  if (!access.accessiblePageIds.includes(pageId)) {
+    throw new PlayerApiError(
+      409,
+      'story_page_locked',
+      'The next Story Puzzle must be verified before this Manhwa page can be read.',
+    );
+  }
+}
+
 async function hasReadChapterThroughPage(
   database: PlayerDatabase,
   uid: string,
@@ -147,29 +180,34 @@ async function hasReadChapterThroughPage(
   const chapter = FINAL_MANHWA_CHAPTERS.find((candidate) => (
     candidate.chapterId === chapterId
   ));
-  if (!chapter || throughPageNumber < chapter.startPage || throughPageNumber > chapter.endPage) {
+  if (
+    !chapter
+    || !chapter.published
+    || throughPageNumber < chapter.startPage
+    || throughPageNumber > chapter.endPage
+  ) {
     return false;
   }
+  const expectedPageIds = FINAL_MANHWA_PAGES
+    .filter((page) => (
+      page.published
+      && page.chapterId === chapterId
+      && page.globalPageNumber >= chapter.startPage
+      && page.globalPageNumber <= throughPageNumber
+    ))
+    .map((page) => page.id);
+  if (expectedPageIds.length !== throughPageNumber - chapter.startPage + 1) {
+    return false;
+  }
+  const placeholders = expectedPageIds.map(() => '?').join(', ');
   const records = await database.prepare(`
-    SELECT global_page_number
+    SELECT page_id
     FROM player_manhwa_page_records
     WHERE user_id = ?
-      AND chapter_id = ?
-      AND global_page_number >= ?
-      AND global_page_number <= ?
-  `).bind(
-    uid,
-    chapterId,
-    chapter.startPage,
-    throughPageNumber,
-  ).all<ReadPageRow>();
-  const readPageNumbers = new Set(
-    (records.results ?? []).map((row) => Number(row.global_page_number)),
-  );
-  for (let pageNumber = chapter.startPage; pageNumber <= throughPageNumber; pageNumber += 1) {
-    if (!readPageNumbers.has(pageNumber)) return false;
-  }
-  return true;
+      AND page_id IN (${placeholders})
+  `).bind(uid, ...expectedPageIds).all<ReadPageRow>();
+  const readPageIds = new Set((records.results ?? []).map((row) => row.page_id));
+  return expectedPageIds.every((pageId) => readPageIds.has(pageId));
 }
 
 async function hasReward(
@@ -206,7 +244,12 @@ async function assertCheckpointPrerequisites(
   const completedChapter = await hasReward(
     database,
     uid,
-    createXpRewardKey('manhwa', event.source.requiredCompletedChapterId),
+    createXpRewardKey(
+      'manhwa',
+      getFinalManhwaChapterRewardSourceId(
+        event.source.requiredCompletedChapterId,
+      )!,
+    ),
   );
   if (!completedChapter) {
     throw new PlayerApiError(
@@ -240,58 +283,11 @@ async function assertCheckpointPrerequisites(
   }
 }
 
-/**
- * Existing players can only be backfilled from the established, server-issued
- * Chapter 4 completion receipt. No local page number or client state is used.
- */
-async function backfillVerifiedChapterFourEvents(
-  database: PlayerDatabase,
-  account: FirebaseAccount,
-): Promise<void> {
-  const completion = await database.prepare(`
-    SELECT granted_at
-    FROM xp_reward_events
-    WHERE user_id = ? AND reward_key = ?
-    LIMIT 1
-  `).bind(
-    account.uid,
-    createXpRewardKey('manhwa', 'chapter_4'),
-  ).first<RewardTimestampRow>();
-  if (!completion?.granted_at || Number.isNaN(Date.parse(completion.granted_at))) {
-    return;
-  }
-
-  for (const event of FINAL_MANHWA_CANON_EVENTS) {
-    await database.prepare(`
-      INSERT OR IGNORE INTO player_canon_event_records (
-        user_id,
-        event_id,
-        event_version,
-        source_type,
-        source_id,
-        source_page_id,
-        source_page_number,
-        reached_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(
-      account.uid,
-      event.eventId,
-      event.eventVersion,
-      event.source.sourceType,
-      event.source.chapterId,
-      event.source.pageId,
-      event.source.globalPageNumber,
-      completion.granted_at,
-    ).run();
-  }
-}
-
 async function readSnapshot(
   database: PlayerDatabase,
   account: FirebaseAccount,
 ): Promise<AuthoritativeStoryState> {
   await ensurePlayerProgressionRow(database, account);
-  await backfillVerifiedChapterFourEvents(database, account);
   const [events, chapters, fragments] = await Promise.all([
     database.prepare(`
       SELECT
@@ -319,8 +315,11 @@ async function readSnapshot(
       ORDER BY found_at ASC, fragment_id ASC
     `).bind(account.uid).all<FragmentRow>(),
   ]);
-  const validChapterIds = new Set<string>(
-    FINAL_MANHWA_CHAPTERS.map((chapter) => chapter.chapterId),
+  const chapterByPublicationSourceId = new Map(
+    FINAL_MANHWA_CHAPTERS.map((chapter) => [
+      chapter.publicationChapterId,
+      chapter,
+    ]),
   );
   return normalizeAuthoritativeStoryState({
     canonEventReceipts: (events.results ?? []).map((row) => ({
@@ -333,8 +332,11 @@ async function readSnapshot(
       reachedAt: row.reached_at,
     })),
     completedChapterIds: (chapters.results ?? [])
-      .map((row) => row.source_id)
-      .filter((chapterId) => validChapterIds.has(chapterId)),
+      .map((row) => chapterByPublicationSourceId.get(row.source_id))
+      .filter((chapter): chapter is (typeof FINAL_MANHWA_CHAPTERS)[number] => (
+        Boolean(chapter?.published)
+      ))
+      .map((chapter) => chapter.chapterId),
     discoveredMemoryFragmentIds: (fragments.results ?? [])
       .map((row) => row.fragment_id),
     syncedAt: new Date().toISOString(),
@@ -357,7 +359,11 @@ export async function claimManhwaStoryCheckpoint(
   storyState: AuthoritativeStoryState;
 }> {
   await ensurePlayerProgressionRow(database, account);
-  await backfillVerifiedChapterFourEvents(database, account);
+  await assertCheckpointWithinReaderWindow(
+    database,
+    account.uid,
+    checkpoint.pageId,
+  );
   await recordManhwaPageCheckpoint(database, account, checkpoint);
   const events = getFinalManhwaCanonEventsForCheckpoint(checkpoint);
   const claimedEventIds: string[] = [];

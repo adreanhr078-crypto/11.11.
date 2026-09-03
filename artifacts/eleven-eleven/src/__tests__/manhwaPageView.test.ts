@@ -6,7 +6,7 @@ import {
   createManhwaPageAuthoredEffect,
 } from '../application/game/manhwaPageEffectAdapter';
 import {
-  FINAL_MANHWA_PAGE_BY_ID,
+  FINAL_MANHWA_PAGE_BY_GLOBAL_NUMBER,
   FINAL_MANHWA_PAGES,
 } from '../content/manhwa/finalManhwa';
 import {
@@ -21,24 +21,22 @@ import {
 import {
   applyManhwaPageViewTransaction,
 } from '../domain/manhwa/manhwaPageViewTransaction';
-import {
-  GAME_SAVE_VERSION,
-  mergeGameState,
-  migrateGameState,
-  partializeGameState,
-} from '../infrastructure/persistence/gamePersistence';
 import type {
   GameStateGetter,
   GameStateSetter,
 } from '../application/game/statePorts';
 import { buildInitialState } from '../stores/gameStoreHelpers';
 
+function page(number: number) {
+  const result = FINAL_MANHWA_PAGE_BY_GLOBAL_NUMBER[number];
+  assert.ok(result, `Expected V3 Manhwa page ${number}.`);
+  return result;
+}
+
 function createHarness(initial: GameState = buildInitialState()) {
   let state = initial;
-  let setCallCount = 0;
   const get: GameStateGetter = () => state;
   const set: GameStateSetter = (partial) => {
-    setCallCount += 1;
     const update = typeof partial === 'function'
       ? partial(state)
       : partial;
@@ -48,7 +46,6 @@ function createHarness(initial: GameState = buildInitialState()) {
   return {
     pageView: createManhwaPageViewActions(set, get),
     getState: get,
-    getSetCallCount: () => setCallCount,
   };
 }
 
@@ -64,390 +61,187 @@ function withUnlockedPages(...pageIds: string[]): GameState {
   return state;
 }
 
-describe('canonical Manhwa page view transaction', () => {
-  it('adapts every authored page to canonical Echo metrics only', () => {
+describe('corrected V3 Manhwa page-view boundary', () => {
+  it('keeps every supplied page effect-free until an Owner-approved page matrix exists', () => {
     const canonicalKeys = new Set<string>(CANONICAL_ECHO_METRIC_KEYS);
 
-    for (const page of FINAL_MANHWA_PAGES) {
-      const effect = createManhwaPageAuthoredEffect(page);
+    for (const current of FINAL_MANHWA_PAGES) {
+      const effect = createManhwaPageAuthoredEffect(current);
       assert.equal(effect.effectVersion, MANHWA_PAGE_EFFECT_VERSION);
+      assert.equal(effect.hasAuthoredEffect, false);
+      assert.deepEqual(effect.echoEffect, {});
       assert.ok(
-        Object.keys(effect.echoEffect).every(
-          (key) => canonicalKeys.has(key),
-        ),
+        Object.keys(effect.echoEffect).every((key) => canonicalKeys.has(key)),
       );
     }
   });
 
-  it('records nothing when the page is locked', () => {
+  it('rejects retired IDs and unreleased V3 pages before changing local state', () => {
     const harness = createHarness();
-    harness.getState().progressionState.manhwa.unlockedPageIds = [];
     const before = structuredClone(harness.getState().progressionState);
-    const result = harness.pageView.viewManhwaPage(
-      'manhwa_ch01_page_02',
-      '2026-03-01T01:00:00.000Z',
-    );
 
-    assert.equal(result.success, false);
-    assert.equal(result.failureReason, 'page-not-unlocked');
+    const retired = harness.pageView.viewManhwaPage(
+      'manhwa_ch01_page_02',
+      '2026-09-03T11:11:00.000Z',
+    );
+    assert.equal(retired.success, false);
+    assert.equal(retired.failureReason, 'invalid-page-id');
+
+    const unreleased = harness.pageView.viewManhwaPage(
+      page(10).id,
+      '2026-09-03T11:11:00.000Z',
+    );
+    assert.equal(unreleased.success, false);
+    assert.equal(unreleased.failureReason, 'unreleased-page');
     assert.deepEqual(harness.getState().progressionState, before);
   });
 
-  it('does not treat Page 01 viewing as a Puzzle reward', () => {
-    const harness = createHarness();
-    const result = harness.pageView.viewManhwaPage(
-      'manhwa_ch01_page_01',
-      '2026-03-01T00:30:00.000Z',
-    );
-
-    assert.equal(result.success, true);
-    assert.equal(harness.getState().currency, 0);
-    assert.deepEqual(
-      harness.getState().progressionState.puzzles
-        .claimedRewardReceipts,
-      [],
-    );
-    assert.equal(
-      harness.getState().progressionState.evolution.currentStageId,
-      'awakening_fragile',
-    );
-  });
-
-  it('keeps final publication pages viewable without adding hidden authored effects', () => {
-    const harness = createHarness();
+  it('records the released cover once without inventing rewards, flags, or Echo effects', () => {
+    const cover = page(1);
+    const harness = createHarness(withUnlockedPages(cover.id));
     const initialFear = harness.getState().progressionState.echo.fear;
 
-    const writesBeforeView = harness.getSetCallCount();
-    const firstView = harness.pageView.viewManhwaPage(
-      'manhwa_ch01_page_01',
-      '2026-03-01T01:00:00.000Z',
-    );
-    assert.equal(firstView.success, true);
-    assert.equal(firstView.effectApplied, false);
-    assert.equal(harness.getSetCallCount(), writesBeforeView + 1);
-    const afterFirstView = harness.getState();
-    assert.equal(afterFirstView.progressionState.echo.fear, initialFear);
-    assert.equal(afterFirstView.echo.fear, initialFear);
-    assert.deepEqual(
-      afterFirstView.progressionState.manhwa.viewedPageIds,
-      ['manhwa_ch01_page_01'],
-    );
-    assert.equal(
-      afterFirstView.progressionState.manhwa.pageViewedAt
-        .manhwa_ch01_page_01,
-      '2026-03-01T01:00:00.000Z',
-    );
-    assert.deepEqual(afterFirstView.progressionState.manhwa.claimedPageEffectIds, []);
-    assert.equal(afterFirstView.narrative.activeFlags.first_glass_memory_restored, undefined);
-    assert.deepEqual(
-      afterFirstView.progressionState.echoEvents
-        .standaloneReceiptsByKey,
-      {},
-    );
-
-    const secondView = harness.pageView.viewManhwaPage(
-      'manhwa_ch01_page_01',
-      '2026-03-01T02:00:00.000Z',
-    );
-    assert.equal(secondView.success, true);
-    assert.equal(secondView.alreadyViewed, true);
-    assert.equal(secondView.effectApplied, false);
-    assert.equal(harness.getState().progressionState.echo.fear, initialFear);
-    assert.equal(
-      harness.getState().progressionState.manhwa.pageViewedAt
-        .manhwa_ch01_page_01,
-      '2026-03-01T01:00:00.000Z',
-    );
-    assert.equal(
-      harness.getState().progressionState.manhwa.claimedPageEffectIds
-        .filter(
-          (id) => id === 'manhwa_ch01_page_01:effect:1',
-        ).length,
-      0,
-    );
-    assert.deepEqual(
-      harness.getState().progressionState.puzzles.claimedRewardReceipts,
-      [],
-    );
-  });
-
-  it('records Page 02 once without inventing Echo effects from the PDF', () => {
-    const harness = createHarness(
-      withUnlockedPages('manhwa_ch01_page_02'),
-    );
-    const before = harness.getState().progressionState.echo;
-    const transformationStageBefore =
-      harness.getState().echo.transformationStage;
     const first = harness.pageView.viewManhwaPage(
-      'manhwa_ch01_page_02',
-      '2026-03-02T01:00:00.000Z',
+      cover.id,
+      '2026-09-03T11:11:00.000Z',
     );
-
     assert.equal(first.success, true);
     assert.equal(first.effectApplied, false);
-    assert.equal(
-      harness.getState().progressionState.echo.hope,
-      before.hope,
-    );
-    assert.equal(
-      harness.getState().progressionState.echo.trust,
-      before.trust,
-    );
-    assert.equal(
-      harness.getState().progressionState.echo.memoryStability,
-      before.memoryStability,
-    );
-    assert.equal(
-      harness.getState().progressionState.echo.ragePoints,
-      before.ragePoints,
-    );
-    assert.equal(
-      harness.getState().progressionState.evolution.currentStageId,
-      'awakening_fragile',
-    );
-    assert.equal(
-      harness.getState().echo.transformationStage,
-      transformationStageBefore,
-    );
-    assert.equal(
-      harness.getState().narrative.activeFlags
-        .time_0333_discovered,
-      undefined,
-    );
-
-    const afterFirst = structuredClone(
-      harness.getState().progressionState,
-    );
-    const second = harness.pageView.viewManhwaPage(
-      'manhwa_ch01_page_02',
-      '2026-03-02T02:00:00.000Z',
-    );
-    assert.equal(second.alreadyViewed, true);
-    assert.deepEqual(harness.getState().progressionState, afterFirst);
-  });
-
-  it('respects an old effect receipt while recording the first view', () => {
-    const state = withUnlockedPages();
-    state.progressionState.manhwa.claimedPageEffectIds = [
-      'manhwa_ch01_page_01',
-    ];
-    const migrated = mergeGameState(
-      migrateGameState({
-        progressionState: state.progressionState,
-      }, 12),
-      buildInitialState(),
-    );
-    const fearBefore = migrated.progressionState.echo.fear;
-    const harness = createHarness(migrated);
-    const result = harness.pageView.viewManhwaPage(
-      'manhwa_ch01_page_01',
-      '2026-03-03T01:00:00.000Z',
-    );
-
-    assert.equal(result.success, true);
-    assert.equal(result.effectApplied, false);
-    assert.equal(
-      harness.getState().progressionState.echo.fear,
-      fearBefore,
-    );
-    assert.ok(
-      harness.getState().progressionState.manhwa.viewedPageIds.includes(
-        'manhwa_ch01_page_01',
-      ),
-    );
     assert.deepEqual(
-      harness.getState().progressionState.manhwa.claimedPageEffectIds,
-      ['manhwa_ch01_page_01'],
+      harness.getState().progressionState.manhwa.viewedPageIds,
+      [cover.id],
     );
-    assert.deepEqual(
-      harness.getState().progressionState.manhwa
-        .pageEffectFingerprintsByReceiptKey,
-      {},
+    assert.equal(
+      harness.getState().progressionState.manhwa.pageViewedAt[cover.id],
+      '2026-09-03T11:11:00.000Z',
+    );
+    assert.deepEqual(harness.getState().progressionState.manhwa.claimedPageEffectIds, []);
+    assert.equal(harness.getState().progressionState.echo.fear, initialFear);
+    assert.equal(harness.getState().currency, 0);
+    assert.deepEqual(harness.getState().progressionState.puzzles.claimedRewardReceipts, []);
+
+    const replay = harness.pageView.viewManhwaPage(
+      cover.id,
+      '2026-09-03T12:11:00.000Z',
+    );
+    assert.equal(replay.success, true);
+    assert.equal(replay.alreadyViewed, true);
+    assert.equal(replay.effectApplied, false);
+    assert.equal(
+      harness.getState().progressionState.manhwa.pageViewedAt[cover.id],
+      '2026-09-03T11:11:00.000Z',
     );
   });
 
-  it('records a deferred page without creating an empty effect receipt', () => {
-    const state = withUnlockedPages(
-      'manhwa_ch01_page_02',
-      'manhwa_ch01_page_03',
+  it('requires the reader window for released chapter pages and saves a valid continuation point', () => {
+    const signalPage = page(7);
+    const archivePage = page(8);
+    const lockedHarness = createHarness(withUnlockedPages(signalPage.id));
+    const locked = lockedHarness.pageView.viewManhwaPage(
+      archivePage.id,
+      '2026-09-03T11:11:00.000Z',
     );
-    const harness = createHarness(state);
-    const result = harness.pageView.viewManhwaPage(
-      'manhwa_ch01_page_03',
-      '2026-03-04T01:00:00.000Z',
-    );
+    assert.equal(locked.success, false);
+    assert.equal(locked.failureReason, 'page-not-unlocked');
 
-    assert.equal(result.success, true);
-    assert.equal(result.effectApplied, false);
-    assert.ok(
-      harness.getState().progressionState.manhwa.viewedPageIds.includes(
-        'manhwa_ch01_page_03',
+    const harness = createHarness(withUnlockedPages(archivePage.id));
+    const viewed = harness.pageView.viewManhwaPage(
+      archivePage.id,
+      '2026-09-03T11:11:00.000Z',
+    );
+    assert.equal(viewed.success, true);
+    assert.equal(viewed.effectApplied, false);
+
+    assert.equal(
+      harness.pageView.recordManhwaReadingProgress(
+        archivePage.id,
+        archivePage.globalPageNumber,
+        archivePage.chapterId,
+        '2026-09-03T11:11:20.000Z',
       ),
+      true,
     );
     assert.equal(
-      harness.getState().progressionState.manhwa.claimedPageEffectIds
-        .includes('manhwa_ch01_page_03:effect:1'),
+      harness.getState().progressionState.manhwa.lastReadPageId,
+      archivePage.id,
+    );
+    assert.equal(
+      harness.pageView.recordManhwaReadingProgress(
+        page(10).id,
+        10,
+        'chapter_2',
+        '2026-09-03T11:12:00.000Z',
+      ),
       false,
     );
-    assert.deepEqual(
-      harness.getState().progressionState.manhwa
-        .pageEffectFingerprintsByReceiptKey,
-      {},
-    );
   });
 
-  it('keeps the compatibility wrapper and persistence round-trip idempotent', () => {
-    const firstHarness = createHarness();
-    firstHarness.pageView.markManhwaPageViewed(
-      'manhwa_ch01_page_01',
-    );
-    const firstState = firstHarness.getState();
-    assert.ok(
-      firstState.progressionState.manhwa.viewedPageIds.includes(
-        'manhwa_ch01_page_01',
-      ),
-    );
-
-    const saved = partializeGameState(firstState);
-    const reloaded = mergeGameState(
-      migrateGameState(saved, GAME_SAVE_VERSION),
-      buildInitialState(),
-    );
-    const secondHarness = createHarness(reloaded);
-    const timestampBefore =
-      reloaded.progressionState.manhwa.pageViewedAt
-        .manhwa_ch01_page_01;
-    const fingerprintsBefore = structuredClone(
-      reloaded.progressionState.manhwa
-        .pageEffectFingerprintsByReceiptKey,
-    );
-    const result = secondHarness.pageView.viewManhwaPage(
-      'manhwa_ch01_page_01',
-      '2026-03-05T01:00:00.000Z',
-    );
-
-    assert.equal(result.alreadyViewed, true);
-    assert.equal(
-      secondHarness.getState().progressionState.manhwa.pageViewedAt
-        .manhwa_ch01_page_01,
-      timestampBefore,
-    );
-    assert.deepEqual(
-      secondHarness.getState().progressionState.manhwa
-        .pageEffectFingerprintsByReceiptKey,
-      fingerprintsBefore,
-    );
-  });
-
-  it('rejects a conflicting page effect payload atomically', () => {
-    const page = FINAL_MANHWA_PAGE_BY_ID.manhwa_ch01_page_01;
-    assert.ok(page);
-    const effect: ManhwaPageAuthoredEffect = {
-      ...createManhwaPageAuthoredEffect(page),
+  it('keeps the generic page transaction atomic for a future authored V3 effect', () => {
+    const signalPage = page(7);
+    const firstEffect: ManhwaPageAuthoredEffect = {
+      ...createManhwaPageAuthoredEffect(signalPage),
       echoEffect: { fear: 2 },
       hasAuthoredEffect: true,
     };
     const first = applyManhwaPageViewTransaction(
-      withUnlockedPages().progressionState,
-      page.id,
-      effect,
-      '2026-03-06T01:00:00.000Z',
+      withUnlockedPages(signalPage.id).progressionState,
+      signalPage.id,
+      firstEffect,
+      '2026-09-03T11:11:00.000Z',
     );
     assert.equal(first.success, true);
-    const conflictingEffect: ManhwaPageAuthoredEffect = {
-      ...effect,
-      echoEffect: {
-        ...effect.echoEffect,
-        fear: 3,
-      },
-    };
+    assert.equal(first.effectApplied, true);
+    assert.ok(first.state.manhwa.claimedPageEffectIds.includes(
+      createManhwaPageEffectReceiptKey(signalPage.id),
+    ));
+
     const conflictState = structuredClone(first.state);
     conflictState.manhwa.viewedPageIds = [];
     conflictState.manhwa.pageViewedAt = {};
     const beforeConflict = structuredClone(conflictState);
     const conflict = applyManhwaPageViewTransaction(
       conflictState,
-      page.id,
-      conflictingEffect,
-      '2026-03-06T02:00:00.000Z',
+      signalPage.id,
+      {
+        ...firstEffect,
+        echoEffect: { fear: 3 },
+      },
+      '2026-09-03T11:12:00.000Z',
     );
 
     assert.equal(conflict.success, false);
     assert.equal(conflict.conflict, true);
     assert.equal(conflict.failureReason, 'page-effect-conflict');
-    assert.equal(
-      conflict.receiptKey,
-      createManhwaPageEffectReceiptKey(page.id),
-    );
-    assert.strictEqual(conflict.state, conflictState);
     assert.deepEqual(conflict.state, beforeConflict);
-    assert.deepEqual(conflict.state.manhwa.viewedPageIds, []);
   });
 
-  it('rejects compatibility Echo fields without recording the view', () => {
-    const page = FINAL_MANHWA_PAGE_BY_ID.manhwa_ch01_page_01;
-    assert.ok(page);
-    const state = withUnlockedPages().progressionState;
-    const before = structuredClone(state);
-    const invalidEffect = {
-      ...createManhwaPageAuthoredEffect(page),
-      echoEffect: {
-        hope: 2,
-        ragePoints: 2,
+  it('permits a later effect version to be appended once to an already read V3 page', () => {
+    const signalPage = page(7);
+    const initial = applyManhwaPageViewTransaction(
+      withUnlockedPages(signalPage.id).progressionState,
+      signalPage.id,
+      createManhwaPageAuthoredEffect(signalPage),
+      '2026-09-03T11:11:00.000Z',
+    );
+    assert.equal(initial.success, true);
+    assert.equal(initial.effectReceiptAdded, false);
+
+    const upgraded = applyManhwaPageViewTransaction(
+      initial.state,
+      signalPage.id,
+      {
+        ...createManhwaPageAuthoredEffect(signalPage),
+        effectVersion: 2,
+        echoEffect: { trust: 1 },
+        hasAuthoredEffect: true,
       },
-    } as unknown as ManhwaPageAuthoredEffect;
-    const result = applyManhwaPageViewTransaction(
-      state,
-      page.id,
-      invalidEffect,
-      '2026-03-07T01:00:00.000Z',
+      '2026-09-03T11:12:00.000Z',
     );
-
-    assert.equal(result.success, false);
-    assert.equal(result.failureReason, 'invalid-page-effect');
-    assert.deepEqual(result.state, before);
-  });
-
-  it('allows a future effect version on an already viewed no-effect page', () => {
-    const page = FINAL_MANHWA_PAGE_BY_ID.manhwa_ch01_page_03;
-    assert.ok(page);
-    const initialEffect = createManhwaPageAuthoredEffect(page);
-    const first = applyManhwaPageViewTransaction(
-      withUnlockedPages(
-        'manhwa_ch01_page_02',
-        page.id,
-      ).progressionState,
-      page.id,
-      initialEffect,
-      '2026-03-08T01:00:00.000Z',
-    );
-    assert.equal(first.success, true);
-    assert.equal(first.effectReceiptAdded, false);
-
-    const futureEffect: ManhwaPageAuthoredEffect = {
-      ...initialEffect,
-      effectVersion: 2,
-      echoEffect: { trust: 1 },
-      hasAuthoredEffect: true,
-    };
-    const second = applyManhwaPageViewTransaction(
-      first.state,
-      page.id,
-      futureEffect,
-      '2026-03-08T02:00:00.000Z',
-    );
-
-    assert.equal(second.success, true);
-    assert.equal(second.alreadyViewed, true);
-    assert.equal(second.effectApplied, true);
-    assert.equal(
-      second.state.manhwa.pageViewedAt[page.id],
-      '2026-03-08T01:00:00.000Z',
-    );
-    assert.ok(
-      second.state.manhwa.claimedPageEffectIds.includes(
-        createManhwaPageEffectReceiptKey(page.id, 2),
-      ),
-    );
+    assert.equal(upgraded.success, true);
+    assert.equal(upgraded.alreadyViewed, true);
+    assert.equal(upgraded.effectApplied, true);
+    assert.ok(upgraded.state.manhwa.claimedPageEffectIds.includes(
+      createManhwaPageEffectReceiptKey(signalPage.id, 2),
+    ));
   });
 });

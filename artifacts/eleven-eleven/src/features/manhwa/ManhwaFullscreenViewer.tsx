@@ -12,7 +12,10 @@ import {
   RotateCcw,
   X,
 } from 'lucide-react';
-import type { FinalManhwaPage } from '../../content/manhwa/finalManhwa';
+import {
+  FINAL_MANHWA_PAGE_COUNT,
+  type FinalManhwaPage,
+} from '../../content/manhwa/finalManhwa';
 import {
   createBrowserManhwaViewerHistoryPort,
   ManhwaViewerHistoryMarker,
@@ -338,7 +341,7 @@ export function ManhwaFullscreenViewer({
           </GameButton>
           <span aria-live="polite">
             {currentIndex + 1} / {pages.length}
-            <small> · {copy.page} {currentPage.globalPageNumber} {copy.of} 71</small>
+            <small> · {copy.page} {currentPage.globalPageNumber} {copy.of} {FINAL_MANHWA_PAGE_COUNT}</small>
           </span>
           <GameButton
             variant="ghost"

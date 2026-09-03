@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import {
   FINAL_MANHWA_CHAPTERS,
+  FINAL_MANHWA_PAGE_COUNT,
   FINAL_MANHWA_PAGE_BY_GLOBAL_NUMBER,
   FINAL_MANHWA_PAGES,
   getFinalManhwaChapter,
@@ -41,28 +42,29 @@ import { STORY_PUZZLE_BY_ID } from '../../content/puzzles/storyPuzzleCatalog';
 
 const MEMORY_COPY = {
   ar: {
-    title: 'المانهوا', read: 'صفحات مقروءة', progress: 'التقدم الكلي', revealed: 'صفحات مكشوفة',
-    publication: '11.11 // النسخة النهائية // 71 صفحة', archiveDescription: 'أرشيف القراءة النهائي المعتمد',
+    title: 'المانهوا', read: 'صفحات مقروءة', progress: 'تقدم الإصدار المتاح', revealed: 'صفحات مكشوفة',
+    publication: '11.11 // Echo Network // النسخة المصححة // 70 صفحة', archiveDescription: 'أرشيف القراءة المعتمد',
     chapterSelect: 'اختيار الفصل // 01—04', pageEyebrow: (page: number, kind: string) => `الصفحة ${String(page).padStart(2, '0')} // ${kind}`,
     pageIndicator: (page: number, total: number) => `الصفحة ${String(page).padStart(2, '0')} / ${total}`,
-    gate: 'مسار كشف صفحات المانهوا', window: 'نافذة القراءة الحالية: الصفحة', readUntil: 'اقرأ الصفحات بالترتيب حتى الصفحة', thenSolve: 'ثم حل', revealNext: 'لكشف الدفعة التالية.', complete: 'اكتمل المسار الرئيسي وأصبحت النسخة كاملة متاحة للقراءة.', choose: 'اختر الفصل', previous: 'اقرأ الصفحة السابقة أولًا', locked: 'مقفل حتى إكمال لغز القصة السابق', completed: 'مكتمل', lockedLabel: 'مقفل', continue: 'متابعة القراءة — الصفحة', approved: 'النسخة النهائية المعتمدة', previousPage: 'الصفحة السابقة', nextPage: 'الصفحة التالية', open: 'فتح القارئ', timeline: 'تقدم الفصول', drag: 'اسحب داخل القارئ للتنقل بين الصفحات', page: 'الصفحة', requiresPrevious: 'تتطلب قراءة الصفحة السابقة', requiresPuzzle: 'تتطلب حل لغز القصة', nextPageUnavailable: 'تعذر تحديد الصفحة التالية. حاول فتح القارئ مرة أخرى.', pageRecorded: 'تم تسجيل قراءة الصفحة', chapterRecorded: 'واكتملت مكافأة XP مرة واحدة.',
+    gate: 'مسار كشف صفحات المانهوا', window: 'نافذة القراءة الحالية: الصفحة', readUntil: 'اقرأ الصفحات بالترتيب حتى الصفحة', thenSolve: 'ثم حل', revealNext: 'لكشف الدفعة التالية.', complete: 'اكتمل مسار الافتتاح. الفصل التالي يبقى محجوبًا حتى اعتماد مصفوفة الـCanon.', choose: 'اختر الفصل', previous: 'اقرأ الصفحة السابقة أولًا', locked: 'مقفل حتى إكمال لغز القصة السابق', completed: 'مكتمل', lockedLabel: 'مقفل', continue: 'متابعة القراءة — الصفحة', approved: 'النسخة المصححة المعتمدة', previousPage: 'الصفحة السابقة', nextPage: 'الصفحة التالية', open: 'فتح القارئ', timeline: 'تقدم الفصول', drag: 'اسحب داخل القارئ للتنقل بين الصفحات', page: 'الصفحة', requiresPrevious: 'تتطلب قراءة الصفحة السابقة', requiresPuzzle: 'تتطلب حل لغز القصة', nextPageUnavailable: 'تعذر تحديد الصفحة التالية. حاول فتح القارئ مرة أخرى.', pageRecorded: 'تم تسجيل قراءة الصفحة', chapterRecorded: 'واكتملت مكافأة XP للإصدار الأول مرة واحدة.',
   },
   en: {
-    title: 'Manhwa', read: 'pages read', progress: 'overall progress', revealed: 'pages revealed',
-    publication: '11.11 // FINAL PUBLICATION // 71 PAGES', archiveDescription: 'Final approved reading archive',
+    title: 'Manhwa', read: 'pages read', progress: 'released edition progress', revealed: 'pages revealed',
+    publication: '11.11 // ECHO NETWORK // CORRECTED EDITION // 70 PAGES', archiveDescription: 'Corrected approved reading archive',
     chapterSelect: 'CHAPTER SELECT // 01—04', pageEyebrow: (page: number, kind: string) => `PAGE ${String(page).padStart(2, '0')} // ${kind}`,
     pageIndicator: (page: number, total: number) => `PAGE ${String(page).padStart(2, '0')} / ${total}`,
-    gate: 'Manhwa page-unlock path', window: 'Current reading window: page', readUntil: 'Read in order through page', thenSolve: 'then solve', revealNext: 'to reveal the next group.', complete: 'The main path is complete; the full edition is ready to read.', choose: 'Choose chapter', previous: 'Read the previous page first', locked: 'Locked until the previous story puzzle is complete', completed: 'Complete', lockedLabel: 'Locked', continue: 'Continue reading — page', approved: 'Final approved edition', previousPage: 'Previous page', nextPage: 'Next page', open: 'Open reader', timeline: 'Chapter progress', drag: 'Drag inside the reader to move between pages', page: 'Page', requiresPrevious: 'requires reading the previous page', requiresPuzzle: 'requires solving the story puzzle', nextPageUnavailable: 'Could not determine the next page. Try opening the reader again.', pageRecorded: 'Reading recorded for page', chapterRecorded: 'and its XP reward was recorded once.',
+    gate: 'Manhwa page-unlock path', window: 'Current reading window: page', readUntil: 'Read in order through page', thenSolve: 'then solve', revealNext: 'to reveal the next group.', complete: 'The opening path is complete. The next chapter remains sealed until its Canon matrix is approved.', choose: 'Choose chapter', previous: 'Read the previous page first', locked: 'Locked until the previous story puzzle is complete', completed: 'Complete', lockedLabel: 'Locked', continue: 'Continue reading — page', approved: 'Corrected approved edition', previousPage: 'Previous page', nextPage: 'Next page', open: 'Open reader', timeline: 'Chapter progress', drag: 'Drag inside the reader to move between pages', page: 'Page', requiresPrevious: 'requires reading the previous page', requiresPuzzle: 'requires solving the story puzzle', nextPageUnavailable: 'Could not determine the next page. Try opening the reader again.', pageRecorded: 'Reading recorded for page', chapterRecorded: 'and its first-release XP reward was recorded once.',
   },
 } as const;
 
 function pageKindLabel(pageKind: string, locale: 'ar' | 'en'): string {
   if (locale === 'en') {
     switch (pageKind) {
-      case 'cover': return 'Cover'; case 'credits': return 'Credits'; case 'chapter-cover': return 'Chapter cover'; case 'teaser': return 'Next-part teaser'; case 'back-cover': return 'Back cover'; default: return 'Manhwa page';
+      case 'cover': return 'Cover'; case 'outro': return 'Closing threshold'; default: return 'Manhwa page';
     }
   }
   switch (pageKind) {
+    case 'outro': return 'عتبة الختام';
     case 'cover': return 'الغلاف';
     case 'credits': return 'الحقوق والاعتمادات';
     case 'chapter-cover': return 'غلاف الفصل';
@@ -75,6 +77,9 @@ function pageKindLabel(pageKind: string, locale: 'ar' | 'en'): string {
 export default function MemoryScreen() {
   const locale = useUiPreferencesStore((state) => state.locale);
   const copy = MEMORY_COPY[locale];
+  const publicationLabel = locale === 'ar'
+    ? `11.11 // Echo Network // النسخة المصححة // ${FINAL_MANHWA_PAGE_COUNT} صفحة`
+    : `11.11 // ECHO NETWORK // CORRECTED EDITION // ${FINAL_MANHWA_PAGE_COUNT} PAGES`;
   const progressionState = useGameStore((state) => state.progressionState);
   const viewManhwaPage = useGameStore((state) => state.actions.viewManhwaPage);
   const recordReadingProgress = useGameStore(
@@ -133,6 +138,10 @@ export default function MemoryScreen() {
     () => FINAL_MANHWA_PAGES.filter((page) => accessiblePageIds.has(page.id)),
     [accessiblePageIds],
   );
+  const releasedPages = useMemo(
+    () => FINAL_MANHWA_PAGES.filter((page) => page.published),
+    [],
+  );
   const viewedPageIds = useMemo(
     () => new Set(progressionState.manhwa.viewedPageIds),
     [progressionState.manhwa.viewedPageIds],
@@ -180,9 +189,9 @@ export default function MemoryScreen() {
   const continuePage = savedPageNumber
     ? FINAL_MANHWA_PAGE_BY_GLOBAL_NUMBER[savedPageNumber]
     : undefined;
-  const viewedCount = FINAL_MANHWA_PAGES.filter((page) => viewedPageIds.has(page.id)).length;
+  const viewedCount = releasedPages.filter((page) => viewedPageIds.has(page.id)).length;
   const progressPercent = Math.floor(
-    (viewedCount / FINAL_MANHWA_PAGES.length) * 100,
+    (viewedCount / Math.max(1, releasedPages.length)) * 100,
   );
 
   useEffect(() => {
@@ -315,13 +324,13 @@ export default function MemoryScreen() {
       <header className="shell-screen-heading manhwa-archive__heading final-manhwa-reader__heading">
         <span className="shell-screen-code">03</span>
         <span>
-          <small>{copy.publication}</small>
+          <small>{publicationLabel}</small>
           <h1>{copy.title}</h1>
           <p>{copy.archiveDescription}</p>
         </span>
         <div className="final-manhwa-reader__summary" aria-label={copy.progress}>
           <span>
-            <strong>{viewedCount}/{FINAL_MANHWA_PAGES.length}</strong>
+            <strong>{viewedCount}/{releasedPages.length}</strong>
             <small>{copy.read}</small>
           </span>
           <span>
@@ -329,7 +338,7 @@ export default function MemoryScreen() {
             <small>{copy.progress}</small>
           </span>
           <span>
-            <strong>{accessiblePages.length}/71</strong>
+            <strong>{accessiblePages.length}/{FINAL_MANHWA_PAGE_COUNT}</strong>
             <small>{copy.revealed}</small>
           </span>
         </div>

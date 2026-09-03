@@ -1,5 +1,7 @@
 import {
   FINAL_MANHWA_CHAPTERS,
+  FINAL_MANHWA_PAGE_COUNT,
+  getFinalManhwaChapterRewardSourceId,
 } from '../../../src/content/manhwa/finalManhwa';
 import {
   PLAYER_XP_SOURCE_TYPES,
@@ -62,7 +64,7 @@ function cleanManhwaProof(value: unknown): { finalPageNumber: number } {
     typeof finalPageNumber !== 'number'
     || !Number.isInteger(finalPageNumber)
     || finalPageNumber < 1
-    || finalPageNumber > 71
+    || finalPageNumber > FINAL_MANHWA_PAGE_COUNT
   ) {
     throw new PlayerApiError(400, 'invalid_proof', 'Manhwa proof is invalid.');
   }
@@ -83,6 +85,13 @@ function verifyManhwaChapterReward(
       'Manhwa chapter is unknown.',
     );
   }
+  if (!chapter.published) {
+    throw new PlayerApiError(
+      409,
+      'reward_source_unpublished',
+      'This Manhwa chapter is not released in the current build.',
+    );
+  }
   const verifiedProof = cleanManhwaProof(proof);
   if (verifiedProof.finalPageNumber !== chapter.endPage) {
     throw new PlayerApiError(
@@ -93,11 +102,17 @@ function verifyManhwaChapterReward(
   }
   return {
     sourceType: 'manhwa',
-    sourceId: chapter.chapterId,
-    rewardKey: createXpRewardKey('manhwa', chapter.chapterId),
+    sourceId: getFinalManhwaChapterRewardSourceId(chapter.chapterId)!,
+    rewardKey: createXpRewardKey(
+      'manhwa',
+      getFinalManhwaChapterRewardSourceId(chapter.chapterId)!,
+    ),
     xpAmount: chapter.xpReward,
     requiredRewardKeys: chapter.prerequisiteChapterId
-      ? [createXpRewardKey('manhwa', chapter.prerequisiteChapterId)]
+      ? [createXpRewardKey(
+        'manhwa',
+        getFinalManhwaChapterRewardSourceId(chapter.prerequisiteChapterId)!,
+      )]
       : [],
   };
 }

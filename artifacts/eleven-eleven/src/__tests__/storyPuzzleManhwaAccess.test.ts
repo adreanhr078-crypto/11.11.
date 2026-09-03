@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import {
   FINAL_MANHWA_PAGE_COUNT,
+  FINAL_MANHWA_PAGES,
+  FINAL_MANHWA_RELEASED_PAGE_COUNT,
 } from '../content/manhwa/finalManhwa';
 import {
   STORY_PUZZLES,
@@ -16,15 +18,21 @@ const MAIN_PUZZLES = STORY_PUZZLES
   .sort((left, right) => left.order - right.order);
 
 describe('Story Puzzle Manhwa access', () => {
-  it('starts with only the reading window needed to reach the first clue', () => {
+  it('starts with only the approved reading window needed to reach the first clue', () => {
     const access = deriveStoryPuzzleManhwaAccess([]);
-    assert.equal(access.maxAccessibleGlobalPage, 4);
-    assert.equal(access.accessiblePageIds.length, 4);
-    assert.equal(access.nextGatePuzzleId, 'story_puzzle_01_signal_calibration');
+    assert.equal(access.maxAccessibleGlobalPage, 7);
+    assert.equal(access.accessiblePageIds.length, 7);
+    assert.equal(
+      access.nextGatePuzzleId,
+      'story_puzzle_01_echo_network_signal_sync',
+    );
     assert.equal(access.allMainPuzzlesCompleted, false);
+    assert.ok(access.accessiblePageIds.every((pageId) => (
+      pageId.startsWith('echo_network_final_2026_09_v1_page_')
+    )));
   });
 
-  it('reveals each next clue window from main completions only', () => {
+  it('reveals the second clue but never crosses the published opening boundary', () => {
     const completed: string[] = [];
     for (let index = 0; index < MAIN_PUZZLES.length; index += 1) {
       const current = MAIN_PUZZLES[index]!;
@@ -33,42 +41,51 @@ describe('Story Puzzle Manhwa access', () => {
       const next = MAIN_PUZZLES[index + 1];
       assert.equal(
         access.maxAccessibleGlobalPage,
-        next?.source.globalPageNumber ?? FINAL_MANHWA_PAGE_COUNT,
+        Math.min(
+          next?.source.globalPageNumber ?? FINAL_MANHWA_PAGE_COUNT,
+          FINAL_MANHWA_RELEASED_PAGE_COUNT,
+        ),
       );
     }
   });
 
-  it('never lets an optional secret puzzle bypass a main story gate', () => {
+  it('never lets a V2 puzzle ID bypass a current publication gate', () => {
     const baseline = deriveStoryPuzzleManhwaAccess([]);
-    const withSecret = deriveStoryPuzzleManhwaAccess([
+    const withLegacyPuzzleIds = deriveStoryPuzzleManhwaAccess([
+      'story_puzzle_01_signal_calibration',
       'story_puzzle_03_torn_memory',
-      'story_puzzle_05_color_protocol',
+      'story_puzzle_20_core_sequence',
     ]);
-    assert.deepEqual(withSecret, baseline);
+    assert.deepEqual(withLegacyPuzzleIds, baseline);
   });
 
-  it('places every secret clue inside the reading window opened by its main prerequisite', () => {
-    for (const secret of STORY_PUZZLES.filter((puzzle) => puzzle.classification === 'secret')) {
-      const hostOrder = STORY_PUZZLES.find((puzzle) => (
-        puzzle.id === secret.anomalyHostPuzzleId
-      ))?.order ?? 0;
-      const completedMainPrerequisites = MAIN_PUZZLES
-        .filter((puzzle) => puzzle.order <= hostOrder)
-        .map((puzzle) => puzzle.id);
-      const access = deriveStoryPuzzleManhwaAccess(completedMainPrerequisites);
-      assert.ok(
-        secret.source.globalPageNumber <= access.maxAccessibleGlobalPage,
-        `${secret.id} clue is outside its reachable reading window`,
-      );
-    }
+  it('publishes exactly pages 1–9 while retaining the 70-page immutable source', () => {
+    assert.equal(FINAL_MANHWA_PAGE_COUNT, 70);
+    assert.equal(FINAL_MANHWA_PAGES.length, FINAL_MANHWA_PAGE_COUNT);
+    assert.equal(FINAL_MANHWA_RELEASED_PAGE_COUNT, 9);
+    assert.deepEqual(
+      FINAL_MANHWA_PAGES.filter((page) => page.published)
+        .map((page) => page.globalPageNumber),
+      Array.from({ length: FINAL_MANHWA_RELEASED_PAGE_COUNT }, (_, index) => index + 1),
+    );
+    assert.equal(FINAL_MANHWA_PAGES[9]?.published, false);
+    assert.equal(FINAL_MANHWA_PAGES.at(-1)?.published, false);
   });
 
-  it('unlocks the complete 71-page publication after all 14 main puzzles', () => {
+  it('keeps pages 10–70 sealed after both approved opening puzzles', () => {
     const access = deriveStoryPuzzleManhwaAccess(
       MAIN_PUZZLES.map((puzzle) => puzzle.id),
     );
-    assert.equal(access.maxAccessibleGlobalPage, 71);
-    assert.equal(access.accessiblePageIds.length, 71);
+    assert.equal(access.totalMainPuzzleCount, 2);
+    assert.equal(access.completedMainPuzzleCount, 2);
+    assert.equal(access.maxAccessibleGlobalPage, FINAL_MANHWA_RELEASED_PAGE_COUNT);
+    assert.equal(access.accessiblePageIds.length, FINAL_MANHWA_RELEASED_PAGE_COUNT);
+    assert.equal(access.accessiblePageIds.includes(
+      FINAL_MANHWA_PAGES[9]!.id,
+    ), false);
+    assert.equal(access.accessiblePageIds.includes(
+      FINAL_MANHWA_PAGES.at(-1)!.id,
+    ), false);
     assert.equal(access.nextGatePuzzleId, null);
     assert.equal(access.allMainPuzzlesCompleted, true);
   });

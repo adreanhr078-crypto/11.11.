@@ -5,23 +5,22 @@ import type {
 import type {
   NarrativeKnowledgeGrant,
 } from '../../core/narrativeEventTypes';
+import type {
+  FinalManhwaChapterId,
+} from '../manhwa/finalManhwa';
 
-export type FinalManhwaCanonEventId =
-  | 'manhwa_chapter_04_black_coronation'
-  | 'manhwa_chapter_04_lina_protocol'
-  | 'manhwa_chapter_04_black_echo_protocol';
+/** Runtime IDs are intentionally open for a future, Owner-approved matrix. */
+export type FinalManhwaCanonEventId = string;
 
 export interface FinalManhwaCanonEventDefinition
   extends RuntimeStoryEventDefinition {
   eventId: FinalManhwaCanonEventId;
   source: {
     sourceType: 'manhwa';
-    chapterId: 'chapter_4';
+    chapterId: FinalManhwaChapterId;
     pageId: string;
     globalPageNumber: number;
-    /** The prior verified chapter needed before this source can be claimed. */
-    requiredCompletedChapterId: 'chapter_3';
-    /** A prior canonical receipt needed before this event may be recorded. */
+    requiredCompletedChapterId: FinalManhwaChapterId;
     requiredCanonEventId: FinalManhwaCanonEventId | null;
   };
   storyFlag: string;
@@ -33,71 +32,35 @@ export interface FinalManhwaCanonEventDefinition
 }
 
 /**
- * Publication-safe Canon milestones extracted from the approved final Manhwa.
- *
- * These are source coordinates, not client-authored accomplishments. The
- * server resolves a reader checkpoint against this registry and never accepts
- * a Canon event ID from the client.
+ * These receipts were authored for the superseded 71-page publication.  They
+ * remain immutable in player ledgers, but cannot project into the corrected
+ * publication or unlock its future content.
  */
-export const FINAL_MANHWA_CANON_EVENTS: readonly FinalManhwaCanonEventDefinition[] = Object.freeze([
-  Object.freeze({
-    eventId: 'manhwa_chapter_04_black_coronation',
-    eventVersion: 1,
-    chapterId: 'chapter_4',
-    published: true,
-    source: {
-      sourceType: 'manhwa',
-      chapterId: 'chapter_4',
-      pageId: 'manhwa_ch04_page_02',
-      globalPageNumber: 56,
-      requiredCompletedChapterId: 'chapter_3',
-      requiredCanonEventId: null,
-    },
-    storyFlag: 'canon.manhwa_chapter_04_black_coronation.reached',
-    knowledgeGrants: [
-      { nodeId: 'echo_knowledge_black_coronation', audience: 'echo' },
-    ],
-    characterFileUnlocks: [],
-  } as const),
-  Object.freeze({
-    eventId: 'manhwa_chapter_04_lina_protocol',
-    eventVersion: 1,
-    chapterId: 'chapter_4',
-    published: true,
-    source: {
-      sourceType: 'manhwa',
-      chapterId: 'chapter_4',
-      pageId: 'manhwa_ch04_page_04',
-      globalPageNumber: 58,
-      requiredCompletedChapterId: 'chapter_3',
-      requiredCanonEventId: 'manhwa_chapter_04_black_coronation',
-    },
-    storyFlag: 'canon.manhwa_chapter_04_lina_protocol.reached',
-    knowledgeGrants: [
-      { nodeId: 'echo_knowledge_lina_protocol', audience: 'echo' },
-    ],
-    characterFileUnlocks: [{ characterId: 'lina', accessLevel: 'partial' }],
-  } as const),
-  Object.freeze({
-    eventId: 'manhwa_chapter_04_black_echo_protocol',
-    eventVersion: 1,
-    chapterId: 'chapter_4',
-    published: true,
-    source: {
-      sourceType: 'manhwa',
-      chapterId: 'chapter_4',
-      pageId: 'manhwa_ch04_page_08',
-      globalPageNumber: 62,
-      requiredCompletedChapterId: 'chapter_3',
-      requiredCanonEventId: 'manhwa_chapter_04_lina_protocol',
-    },
-    storyFlag: 'canon.manhwa_chapter_04_black_echo_protocol.reached',
-    knowledgeGrants: [
-      { nodeId: 'echo_knowledge_black_echo_protocol', audience: 'echo' },
-    ],
-    characterFileUnlocks: [],
-  } as const),
-] satisfies readonly FinalManhwaCanonEventDefinition[]);
+export const RETIRED_FINAL_MANHWA_CANON_EVENT_IDS = Object.freeze([
+  'manhwa_chapter_04_black_coronation',
+  'manhwa_chapter_04_lina_protocol',
+  'manhwa_chapter_04_black_echo_protocol',
+] as const);
+
+export const RETIRED_FINAL_MANHWA_STORY_FLAGS = Object.freeze([
+  'canon.manhwa_chapter_04_black_coronation.reached',
+  'canon.manhwa_chapter_04_lina_protocol.reached',
+  'canon.manhwa_chapter_04_black_echo_protocol.reached',
+] as const);
+
+export const RETIRED_FINAL_MANHWA_KNOWLEDGE_NODE_IDS = Object.freeze([
+  'echo_knowledge_black_coronation',
+  'echo_knowledge_lina_protocol',
+  'echo_knowledge_black_echo_protocol',
+] as const);
+
+/**
+ * The supplied PDF is active as reading material, but it does not by itself
+ * approve a new Canon/reward matrix.  Leaving this registry empty prevents a
+ * legacy source coordinate from being silently assigned to new art.
+ */
+export const FINAL_MANHWA_CANON_EVENTS: readonly FinalManhwaCanonEventDefinition[] =
+  Object.freeze([]);
 
 export const FINAL_MANHWA_RUNTIME_STORY_EVENTS = Object.freeze(
   FINAL_MANHWA_CANON_EVENTS.map((event) => Object.freeze({
@@ -108,10 +71,6 @@ export const FINAL_MANHWA_RUNTIME_STORY_EVENTS = Object.freeze(
   })),
 ) satisfies readonly RuntimeStoryEventDefinition[];
 
-/**
- * These IDs are derived only from server-issued Canon receipts. A client can
- * never provide one as a fabricated Echo knowledge unlock.
- */
 export const FINAL_MANHWA_SERVER_ECHO_KNOWLEDGE_NODE_IDS = Object.freeze(
   FINAL_MANHWA_CANON_EVENTS
     .flatMap((event) => event.knowledgeGrants)
@@ -120,9 +79,9 @@ export const FINAL_MANHWA_SERVER_ECHO_KNOWLEDGE_NODE_IDS = Object.freeze(
 );
 
 /**
- * Visual state slots are mapped to the already-published Manhwa checkpoints.
- * No new Canon event is created here: the existing Lina Protocol checkpoint
- * is the verified bridge between Black Coronation and Black Echo Protocol.
+ * A single safe default visual form remains until a page/reveal matrix is
+ * approved. It preserves the existing player-facing Echo state without
+ * asserting any unpublished transformation from the corrected Manhwa.
  */
 export const FINAL_MANHWA_ECHO_EVOLUTION_STAGES = Object.freeze([
   Object.freeze({
@@ -138,61 +97,18 @@ export const FINAL_MANHWA_ECHO_EVOLUTION_STAGES = Object.freeze([
     safePlayerLabel: { ar: 'إيكو', en: 'Echo' },
     knowledgeBoundary: 'runtime-public',
   }),
-  Object.freeze({
-    stageId: 'black_coronation',
-    order: 2,
-    chapterId: 'chapter_4',
-    requiredStoryEventId: 'manhwa_chapter_04_black_coronation',
-    previousStageId: 'awakening_fragile',
-    visualFormId: 'echo_black_coronation_slot',
-    isPermanent: false,
-    published: true,
-    playerVisible: true,
-    safePlayerLabel: { ar: 'Black Coronation', en: 'Black Coronation' },
-    knowledgeBoundary: 'story-event-revealed',
-  }),
-  Object.freeze({
-    stageId: 'second_contract_marked',
-    order: 3,
-    chapterId: 'chapter_4',
-    requiredStoryEventId: 'manhwa_chapter_04_lina_protocol',
-    previousStageId: 'black_coronation',
-    visualFormId: 'echo_second_contract_marked',
-    isPermanent: false,
-    published: true,
-    playerVisible: true,
-    safePlayerLabel: { ar: 'Second Contract Marked', en: 'Second Contract Marked' },
-    knowledgeBoundary: 'story-event-revealed',
-  } as const),
-  Object.freeze({
-    stageId: 'black_echo_protocol',
-    order: 4,
-    chapterId: 'chapter_4',
-    requiredStoryEventId: 'manhwa_chapter_04_black_echo_protocol',
-    previousStageId: 'second_contract_marked',
-    visualFormId: 'echo_black_echo_protocol',
-    isPermanent: false,
-    published: true,
-    playerVisible: true,
-    safePlayerLabel: { ar: 'Black Echo Protocol', en: 'Black Echo Protocol' },
-    knowledgeBoundary: 'story-event-revealed',
-  }),
 ] satisfies readonly EchoEvolutionStageDefinition[]);
 
-const byEventId = FINAL_MANHWA_CANON_EVENTS.reduce(
-  (definitions, event) => {
-    definitions[event.eventId] = event;
-    return definitions;
-  },
-  {} as Record<FinalManhwaCanonEventId, FinalManhwaCanonEventDefinition>,
-);
+const byEventId = Object.fromEntries(
+  FINAL_MANHWA_CANON_EVENTS.map((event) => [event.eventId, event]),
+) as Record<string, FinalManhwaCanonEventDefinition>;
 
 export const FINAL_MANHWA_CANON_EVENT_BY_ID = Object.freeze(byEventId);
 
 export function getFinalManhwaCanonEvent(
   eventId: string,
 ): FinalManhwaCanonEventDefinition | undefined {
-  return FINAL_MANHWA_CANON_EVENT_BY_ID[eventId as FinalManhwaCanonEventId];
+  return FINAL_MANHWA_CANON_EVENT_BY_ID[eventId];
 }
 
 export function getFinalManhwaCanonEventsForCheckpoint(input: {

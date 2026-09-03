@@ -47,69 +47,12 @@ export const STORY_PUZZLE_BALANCE: Readonly<Record<
  */
 export const STORY_PUZZLE_HINT_COSTS = Object.freeze([4, 8, 14] as const);
 
-const imagePieces = (count: number): readonly string[] => (
-  Array.from({ length: count }, (_, index) => `piece-${index}`)
-);
-
-const zeroRotations = (count: number): Readonly<Record<string, number>> => (
-  Object.freeze(Object.fromEntries(
-    Array.from({ length: count }, (_, index) => [`piece-${index}`, 0]),
-  ))
-);
-
 const rawSolutions: Readonly<Record<string, PuzzleSolution>> = Object.freeze({
-  story_puzzle_01_signal_calibration: { tokens: ['58', 'channel-11'] },
-  story_puzzle_02_system_sequence: {
+  story_puzzle_01_echo_network_signal_sync: {
+    tokens: ['58', 'channel-11'],
+  },
+  story_puzzle_02_echo_network_archive_route: {
     tokens: ['signal', 'access', 'memory', 'echo'],
-  },
-  story_puzzle_03_torn_memory: {
-    imageOrder: imagePieces(9), rotations: zeroRotations(9),
-  },
-  story_puzzle_04_circuit_restore: {
-    assignments: {
-      power: 'terminal-wave', data: 'terminal-access', memory: 'terminal-memory',
-    },
-  },
-  story_puzzle_05_color_protocol: {
-    assignments: {
-      triangle: 'triangle', square: 'square', circle: 'circle',
-    },
-  },
-  story_puzzle_06_cipher_decoder: { tokens: ['three', 'one', 'one'] },
-  story_puzzle_07_evidence_protocol: { tokens: ['cam07'] },
-  story_puzzle_08_pattern_breach: { tokens: ['d3'] },
-  story_puzzle_09_timeline_recovery: {
-    tokens: ['1200', '1201', '1203', '1204'],
-  },
-  story_puzzle_10_memory_grid: { tokens: ['a1', 'b2', 'c3', 'b2'] },
-  story_puzzle_11_data_route_zero: { tokens: ['a', 'c', 'd', 'f'] },
-  story_puzzle_12_mirror_code: { tokens: ['four', 'one', 'four'] },
-  story_puzzle_13_visual_forensics: { tokens: ['x2', 'z1'], unorderedTokens: true },
-  story_puzzle_14_system_matrix: {
-    rotations: { tile1: 1, tile2: 2, tile3: 0, tile4: 3 },
-  },
-  story_puzzle_15_system_breach: {
-    stages: [
-      { tokens: ['74', 'channel-11'] },
-      { tokens: ['memory'] },
-      { assignments: { access: 'echo' } },
-    ],
-  },
-  story_puzzle_16_memory_reconstruction: {
-    rotations: { layer1: 1, layer2: 0, layer3: 3, layer4: 2 },
-  },
-  story_puzzle_17_contradictory_records: { tokens: ['r03'] },
-  story_puzzle_18_emergency_reroute: {
-    assignments: { power: '40', data: '30', cooling: '30' },
-  },
-  story_puzzle_19_final_deduction: { tokens: ['1111', 'cam07', 'r01'], unorderedTokens: true },
-  story_puzzle_20_core_sequence: {
-    stages: [
-      { tokens: ['81', 'channel-11'] },
-      { tokens: ['signal', 'memory', 'echo'] },
-      { tokens: ['access', 'memory', 'signal'] },
-      { tokens: ['signal', 'access', 'memory', 'echo'] },
-    ],
   },
 });
 

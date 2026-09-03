@@ -65,6 +65,12 @@ export function createManhwaPageViewActions(
       failureReason: 'invalid-page-id',
     };
     if (!page) return transaction;
+    if (!page.published) {
+      return {
+        ...transaction,
+        failureReason: 'unreleased-page',
+      };
+    }
     const effect = createManhwaPageAuthoredEffect(page);
 
     set((state) => {
@@ -121,6 +127,8 @@ export function createManhwaPageViewActions(
       const page = FINAL_MANHWA_PAGE_BY_ID[pageId.trim()];
       if (
         !page
+        || !page.published
+        || !get().progressionState.manhwa.unlockedPageIds.includes(page.id)
         || page.globalPageNumber !== globalPageNumber
         || (chapterId !== null && page.chapterId !== chapterId)
         || !timestamp.trim()
@@ -156,7 +164,9 @@ export function createManhwaPageViewActions(
       return changed;
     },
     markManhwaChapterCompleted(chapterId) {
-      if (!FINAL_MANHWA_CHAPTERS.some((chapter) => chapter.chapterId === chapterId)) {
+      if (!FINAL_MANHWA_CHAPTERS.some((chapter) => (
+        chapter.chapterId === chapterId && chapter.published
+      ))) {
         return false;
       }
       let changed = false;

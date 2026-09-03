@@ -1,22 +1,46 @@
 {
   "schemaVersion": 1,
   "visionVersion": "1.0",
-  "updatedAt": "2026-08-29",
+  "updatedAt": "2026-09-03",
   "ownerApproved": true,
   "ownerDirective": "Build an original world-class hybrid anime game with quality over speed, using as many evidence-gated phases and professional tools as needed.",
-  "currentPhase": "WAITING_FOR_FINAL_MANHWA",
+  "currentPhase": "PART_1_CANON_RECONCILIATION_AND_FIRST_SLICE_BLUEPRINT",
   "currentPhaseGate": [
-    "Receive the complete ordered Manhwa at original available quality",
-    "Receive or extract final text and identify pages still subject to change",
-    "Reconcile the Manhwa with the approved Story Bible and Narrative Master",
-    "Obtain Owner approval for the versioned Canon and first playable slice"
+    "Publish and preserve the Owner-approved Part 1 Manhwa source, hashes, and Canon manifest",
+    "Reconcile the approved Part 1 Manhwa with the Story Bible and Narrative Master, recording true conflicts rather than silently rewriting either source",
+    "Produce and obtain Owner approval for the Part 1 page-to-scene-to-gameplay matrix and first playable slice",
+    "Lock only the assets, reveal classifications, localization, and runtime scope needed for the approved slice"
   ],
   "currentSafeWork": [
     "Preserve integrity, authentication, save, reward, and rollout authority",
     "Maintain portable Blender, Godot proof, GLB, video, audio, and Edge validation tooling",
-    "Prepare non-Canon technical prototypes and performance measurements",
-    "Document decisions without publishing unfinished narrative content"
+    "Prepare technical prototypes and performance measurements tied to the approved Part 1 reference without locking unapproved scene details",
+    "Document Part 1 decisions, page-to-scene mapping, and staged runtime releases without publishing future content ahead of its approved slice"
   ],
+  "ownerRequestedPrototypes": {
+    "manhwaAnchoredOpeningCinematic": {
+      "requestedAt": "2026-09-03",
+      "status": "approved-for-part-1-referenced-previsual-and-promotional-preview-only",
+      "intent": "Use Blender and owner-supplied reference art to plan an original premium-anime opening and a short trailer preview, with the Owner-approved Part 1 Manhwa as the visual and narrative reference.",
+      "constraints": [
+        "Do not treat a promotional preview as a final Canon cinematic or live progression transition.",
+        "Do not lock character models, chronology, transformation timing, dialogue, or a final environment before the final Manhwa gate.",
+        "Do not make a launch cinematic choice grant rewards, branch Canon, or bypass the post-login Mission Control home screen.",
+        "Use a reduced-motion/static-poster fallback and keep delivery media lazy-loaded if later integrated."
+      ],
+      "implementationBrief": "docs/internal/production/opening-cinematic-prototype-2026-09.md"
+    }
+  },
+  "partOneCanon": {
+    "status": "owner-approved-exact",
+    "approvedAt": "2026-09-03",
+    "publicationId": "echo-network-final-2026-09-v1",
+    "sourceFile": "11.11_Echo_Network_Manhwa_FINAL_ORDERED_NO_DUPLICATES.pdf",
+    "sourceSha256": "6BE33FDD8A66210302AA44ED56D854B544F7A8B4C62AA57108557438571BFF1C",
+    "pageCount": 70,
+    "scope": "The attached corrected Manhwa is the exact approved Part 1 story source. Its contents are Canon for Part 1 subject only to later explicit Owner changes.",
+    "implementationConstraint": "A page-to-scene-to-gameplay matrix still controls staged runtime exposure, spoiler handling, technical production, and any change to player progression."
+  },
   "lockedProductDecisions": {
     "format": "hybrid-ui-manhwa-puzzles-cinematics-third-person",
     "qualityPriority": "quality-over-speed",

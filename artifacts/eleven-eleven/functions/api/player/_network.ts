@@ -6,6 +6,9 @@ import {
   DEFAULT_GLICKO2_RATING,
   rankedMatchmakingBand,
 } from '../../../src/domain/echo-network/glicko2';
+import {
+  getFinalManhwaChapterRewardSourceId,
+} from '../../../src/content/manhwa/finalManhwa';
 import { createXpRewardKey } from '../../../src/domain/player-progression/playerProgression';
 
 interface MilestoneRow {
@@ -102,12 +105,16 @@ export async function assertRankedStoryEligibility(
   mode: OnlineMode,
 ): Promise<void> {
   if (mode !== 'chess_ranked_blitz' && mode !== 'chess_ranked_rapid') return;
+  const rewardSourceId = getFinalManhwaChapterRewardSourceId('chapter_3');
+  if (!rewardSourceId) {
+    throw new Error('Corrected Manhwa Chapter 3 reward source is missing.');
+  }
   const receipt = await db.prepare(`
     SELECT reward_key
     FROM xp_reward_events
     WHERE user_id = ? AND reward_key = ?
     LIMIT 1
-  `).bind(uid, createXpRewardKey('manhwa', 'chapter_3')).first<{ reward_key: string }>();
+  `).bind(uid, createXpRewardKey('manhwa', rewardSourceId)).first<{ reward_key: string }>();
   if (!receipt?.reward_key) {
     throw new PlayerApiError(
       409,

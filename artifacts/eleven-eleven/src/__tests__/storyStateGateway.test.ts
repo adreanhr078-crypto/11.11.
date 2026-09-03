@@ -7,6 +7,11 @@ import {
 import {
   onRequestPost as claimCheckpoint,
 } from '../../functions/api/player/story-state/checkpoint';
+import {
+  FINAL_MANHWA_PAGE_BY_GLOBAL_NUMBER,
+  getFinalManhwaChapterRewardSourceId,
+} from '../content/manhwa/finalManhwa';
+import { createXpRewardKey } from '../domain/player-progression/playerProgression';
 import type {
   PlayerDatabase,
   PlayerDatabaseResult,
@@ -73,6 +78,7 @@ class StoryStateDatabase implements PlayerDatabase {
   readonly events = new Map<string, CanonRow>();
   readonly pageRecords = new Map<string, PageRecordRow>();
   readonly fragments = new Set<string>();
+  readonly completions = new Set<string>();
 
   prepare(query: string): PlayerDatabaseStatement {
     return new FakeStatement(this, query);
@@ -88,6 +94,10 @@ class StoryStateDatabase implements PlayerDatabase {
 
   seedReward(userId: string, rewardKey: string, grantedAt: string): void {
     this.rewards.set(`${userId}:${rewardKey}`, { userId, rewardKey, grantedAt });
+  }
+
+  seedCompletion(userId: string, puzzleId: string): void {
+    this.completions.add(`${userId}:${puzzleId}`);
   }
 
   private normalized(statement: FakeStatement): string {
@@ -165,6 +175,11 @@ class StoryStateDatabase implements PlayerDatabase {
   all(statement: FakeStatement): Record<string, unknown>[] {
     const query = this.normalized(statement);
     const userId = String(statement.values[0]);
+    if (query.includes('FROM player_story_puzzle_completion_events')) {
+      return [...this.completions]
+        .filter((entry) => entry.startsWith(`${userId}:`))
+        .map((entry) => ({ puzzle_id: entry.slice(userId.length + 1) }));
+    }
     if (query.includes('FROM player_canon_event_records')) {
       return [...this.events.values()]
         .filter((event) => event.userId === userId)
@@ -179,22 +194,17 @@ class StoryStateDatabase implements PlayerDatabase {
           reached_at: event.reachedAt,
         }));
     }
-    if (query.includes('FROM player_manhwa_page_records')) {
-      const [, chapterId, startPage, endPage] = statement.values;
+    if (query.startsWith('SELECT page_id FROM player_manhwa_page_records')) {
+      const pageIds = new Set(statement.values.slice(1).map(String));
       return [...this.pageRecords.values()]
-        .filter((record) => (
-          record.userId === userId
-          && record.chapterId === String(chapterId)
-          && record.globalPageNumber >= Number(startPage)
-          && record.globalPageNumber <= Number(endPage)
-        ))
-        .map((record) => ({ global_page_number: record.globalPageNumber }));
+        .filter((record) => record.userId === userId && pageIds.has(record.pageId))
+        .map((record) => ({ page_id: record.pageId }));
     }
     if (query.includes("FROM xp_reward_events") && query.includes("source_type = 'manhwa'")) {
       return [...this.rewards.values()]
         .filter((reward) => reward.userId === userId)
         .flatMap((reward) => {
-          const match = reward.rewardKey.match(/^manhwa:(chapter_[1-4]):v1$/);
+          const match = reward.rewardKey.match(/^manhwa:(.+):v1$/);
           return match ? [{ source_id: match[1] }] : [];
         });
     }
@@ -209,6 +219,7 @@ class StoryStateDatabase implements PlayerDatabase {
 
 const originalFetch = globalThis.fetch;
 const timestamp = '2026-08-09T11:11:00.000Z';
+const page = (number: number) => FINAL_MANHWA_PAGE_BY_GLOBAL_NUMBER[number]!;
 
 function testEnv(database: PlayerDatabase): PlayerApiEnv {
   return {
@@ -230,6 +241,15 @@ function authenticatedRequest(path: string, body?: unknown): Request {
   });
 }
 
+function checkpoint(pageNumber: number) {
+  const current = page(pageNumber);
+  return {
+    chapterId: current.chapterId,
+    pageId: current.id,
+    globalPageNumber: current.globalPageNumber,
+  };
+}
+
 function installFirebaseLookup(): void {
   globalThis.fetch = async (input) => {
     assert.match(String(input), /accounts:lookup/);
@@ -249,109 +269,81 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
 });
 
-describe('authoritative Story State gateway', () => {
-  it('rejects a client-supplied Canon event ID', async () => {
+describe('corrected authoritative Story State gateway', () => {
+  it('rejects client-supplied Canon event IDs and V2 page identifiers', async () => {
     installFirebaseLookup();
     const database = new StoryStateDatabase();
-    const response = await claimCheckpoint({
+    const eventResponse = await claimCheckpoint({
       request: authenticatedRequest('/api/player/story-state/checkpoint', {
-        chapterId: 'chapter_4',
-        pageId: 'manhwa_ch04_page_02',
-        globalPageNumber: 56,
+        ...checkpoint(7),
         eventId: 'manhwa_chapter_04_black_coronation',
       }),
       env: testEnv(database),
     });
+    assert.equal(eventResponse.status, 400);
+    assert.equal((await eventResponse.json() as { code: string }).code,
+      'client_canon_event_forbidden');
 
-    assert.equal(response.status, 400);
-    assert.equal((await response.json() as { code: string }).code, 'client_canon_event_forbidden');
+    const v2Response = await claimCheckpoint({
+      request: authenticatedRequest('/api/player/story-state/checkpoint', {
+        chapterId: 'chapter_1',
+        pageId: 'manhwa_ch01_page_07',
+        globalPageNumber: 7,
+      }),
+      env: testEnv(database),
+    });
+    assert.equal(v2Response.status, 400);
+    assert.equal((await v2Response.json() as { code: string }).code, 'invalid_request');
+    assert.equal(database.pageRecords.size, 0);
+  });
+
+  it('records a published baseline page but refuses p8/p9 without a verified current puzzle', async () => {
+    installFirebaseLookup();
+    const database = new StoryStateDatabase();
+
+    const baseline = await claimCheckpoint({
+      request: authenticatedRequest('/api/player/story-state/checkpoint', checkpoint(7)),
+      env: testEnv(database),
+    });
+    assert.equal(baseline.status, 200);
+    assert.deepEqual((await baseline.json() as { claimedEventIds: string[] }).claimedEventIds, []);
+    assert.equal(database.pageRecords.size, 1);
+
+    const locked = await claimCheckpoint({
+      request: authenticatedRequest('/api/player/story-state/checkpoint', checkpoint(9)),
+      env: testEnv(database),
+    });
+    assert.equal(locked.status, 409);
+    assert.equal((await locked.json() as { code: string }).code, 'story_page_locked');
+    assert.equal(database.pageRecords.size, 1);
+  });
+
+  it('permits p8/p9 only after the V3 signal-sync receipt and records no unapproved Canon event', async () => {
+    installFirebaseLookup();
+    const database = new StoryStateDatabase();
+    database.seedCompletion('story-player', 'story_puzzle_01_echo_network_signal_sync');
+
+    const eight = await claimCheckpoint({
+      request: authenticatedRequest('/api/player/story-state/checkpoint', checkpoint(8)),
+      env: testEnv(database),
+    });
+    const nine = await claimCheckpoint({
+      request: authenticatedRequest('/api/player/story-state/checkpoint', checkpoint(9)),
+      env: testEnv(database),
+    });
+    assert.equal(eight.status, 200);
+    assert.equal(nine.status, 200);
+    assert.deepEqual((await eight.json() as { claimedEventIds: string[] }).claimedEventIds, []);
+    assert.deepEqual((await nine.json() as { claimedEventIds: string[] }).claimedEventIds, []);
+    assert.equal(database.pageRecords.size, 2);
     assert.equal(database.events.size, 0);
   });
 
-  it('requires a prior verified chapter and records a valid checkpoint only once', async () => {
+  it('does not backfill retired V2 rewards or events into the corrected story snapshot', async () => {
     installFirebaseLookup();
     const database = new StoryStateDatabase();
-    const checkpoint = {
-      chapterId: 'chapter_4',
-      pageId: 'manhwa_ch04_page_02',
-      globalPageNumber: 56,
-    };
-
-    const rejected = await claimCheckpoint({
-      request: authenticatedRequest('/api/player/story-state/checkpoint', checkpoint),
-      env: testEnv(database),
-    });
-    assert.equal(rejected.status, 409);
-    assert.equal((await rejected.json() as { code: string }).code, 'story_prerequisite_missing');
-
-    database.seedReward('story-player', 'manhwa:chapter_3:v1', timestamp);
-    const withoutCover = await claimCheckpoint({
-      request: authenticatedRequest('/api/player/story-state/checkpoint', checkpoint),
-      env: testEnv(database),
-    });
-    assert.equal(withoutCover.status, 409);
-    assert.equal(
-      (await withoutCover.json() as { code: string }).code,
-      'story_reading_prerequisite_missing',
-    );
-
-    const chapterCover = await claimCheckpoint({
-      request: authenticatedRequest('/api/player/story-state/checkpoint', {
-        chapterId: 'chapter_4',
-        pageId: 'manhwa_ch04_page_01',
-        globalPageNumber: 55,
-      }),
-      env: testEnv(database),
-    });
-    assert.equal(chapterCover.status, 200);
-    assert.deepEqual(
-      (await chapterCover.json() as { claimedEventIds: string[] }).claimedEventIds,
-      [],
-    );
-
-    const first = await claimCheckpoint({
-      request: authenticatedRequest('/api/player/story-state/checkpoint', checkpoint),
-      env: testEnv(database),
-    });
-    const firstPayload = await first.json() as { claimedEventIds: string[] };
-    assert.equal(first.status, 200);
-    assert.deepEqual(firstPayload.claimedEventIds, [
-      'manhwa_chapter_04_black_coronation',
-    ]);
-    assert.equal(database.events.size, 1);
-    assert.equal(database.rewards.size, 1, 'Story claims never add XP rows.');
-
-    const protocolBeforeLina = await claimCheckpoint({
-      request: authenticatedRequest('/api/player/story-state/checkpoint', {
-        chapterId: 'chapter_4',
-        pageId: 'manhwa_ch04_page_08',
-        globalPageNumber: 62,
-      }),
-      env: testEnv(database),
-    });
-    assert.equal(protocolBeforeLina.status, 409);
-    assert.equal(
-      (await protocolBeforeLina.json() as { code: string }).code,
-      'canon_event_prerequisite_missing',
-    );
-
-    const replay = await claimCheckpoint({
-      request: authenticatedRequest('/api/player/story-state/checkpoint', checkpoint),
-      env: testEnv(database),
-    });
-    assert.equal(replay.status, 200);
-    assert.deepEqual(
-      (await replay.json() as { claimedEventIds: string[] }).claimedEventIds,
-      [],
-    );
-    assert.equal(database.events.size, 1);
-  });
-
-  it('backfills only proven chapter-four players and keeps Secrets at zero', async () => {
-    installFirebaseLookup();
-    const database = new StoryStateDatabase();
-    database.seedReward('story-player', 'manhwa:chapter_3:v1', timestamp);
     database.seedReward('story-player', 'manhwa:chapter_4:v1', timestamp);
+    database.seedReward('story-player', 'manhwa:chapter_3:v1', timestamp);
 
     const response = await getStoryState({
       request: authenticatedRequest('/api/player/story-state'),
@@ -361,26 +353,32 @@ describe('authoritative Story State gateway', () => {
       storyState: {
         canonEventReceipts: Array<{ eventId: string }>;
         completedChapterIds: string[];
-        discoveredMemoryFragmentIds: string[];
       };
     };
-
     assert.equal(response.status, 200);
-    assert.deepEqual(
-      payload.storyState.canonEventReceipts.map(({ eventId }) => eventId),
-      [
-        'manhwa_chapter_04_black_coronation',
-        'manhwa_chapter_04_lina_protocol',
-        'manhwa_chapter_04_black_echo_protocol',
-      ],
-    );
-    assert.deepEqual(payload.storyState.completedChapterIds, ['chapter_3', 'chapter_4']);
-    assert.deepEqual(payload.storyState.discoveredMemoryFragmentIds, []);
-    assert.equal(database.events.size, 3);
-    assert.equal(database.rewards.size, 2, 'Backfill must not award XP.');
+    assert.deepEqual(payload.storyState.canonEventReceipts, []);
+    assert.deepEqual(payload.storyState.completedChapterIds, []);
+    assert.equal(database.events.size, 0);
   });
 
-  it('defines append-only D1 guards for Canon records', () => {
+  it('maps only a correctly namespaced V3 Chapter 1 reward to the public completion state', async () => {
+    installFirebaseLookup();
+    const database = new StoryStateDatabase();
+    const sourceId = getFinalManhwaChapterRewardSourceId('chapter_1')!;
+    database.seedReward('story-player', createXpRewardKey('manhwa', sourceId), timestamp);
+
+    const response = await getStoryState({
+      request: authenticatedRequest('/api/player/story-state'),
+      env: testEnv(database),
+    });
+    const payload = await response.json() as {
+      storyState: { completedChapterIds: string[] };
+    };
+    assert.equal(response.status, 200);
+    assert.deepEqual(payload.storyState.completedChapterIds, ['chapter_1']);
+  });
+
+  it('defines append-only D1 guards for Canon and reader records', () => {
     const migration = readFileSync(
       new URL('../../migrations/0004_story_state_events.sql', import.meta.url),
       'utf8',

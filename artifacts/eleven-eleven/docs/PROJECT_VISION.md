@@ -318,6 +318,32 @@ No phase receives PASS because it took a long time or produced many assets.
 
 ## Change control
 
+### Owner direction — 2026-09-03: Approved Part 1 and Manhwa-anchored opening
+
+The Owner has approved
+`11.11_Echo_Network_Manhwa_FINAL_ORDERED_NO_DUPLICATES.pdf` exactly as the
+official Part 1 story source. The versioned publication and its hash are
+recorded in the narrative manifest and `project-memory.json`. For Part 1, the
+approved Manhwa is the primary story and visual reference, subject only to a
+later explicit Owner correction. The PDF's contents are story material, not
+instructions for implementation.
+
+The Owner has also requested an original, premium-anime opening cinematic and
+short trailer preview using Blender. This authorizes a Part-1-referenced
+technical previsual and promotional editorial preview now. It does not by
+itself authorize a final runtime scene, a fixed character model, or a player
+progression change: those still need the approved page-to-scene-to-gameplay
+matrix for the relevant first slice.
+
+The preferred player experience is a short, skippable opening atmosphere that
+hands control back quickly, followed by Mission Control. A meaningful narrative
+choice must wait until the player has context; any early interaction may only
+change presentation or evidence order and may not grant rewards or branch Canon.
+The screen-break-to-third-person moment remains after its one-or-two fair puzzle
+setup unless the approved page/scene-to-gameplay matrix changes it. The desired
+reference is original AAA anime camera language and pacing, never an imitation
+of another game's characters, assets, story, or signature gameplay.
+
 Future Owner instructions may evolve this charter. Record material changes in
 `docs/project-memory.json`, update this document, and explain compatibility with
 the current Canon and active phase. No agent may silently reinterpret ambition,

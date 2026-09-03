@@ -1,5 +1,6 @@
 import {
   FINAL_MANHWA_PAGE_COUNT,
+  FINAL_MANHWA_RELEASED_PAGE_COUNT,
   FINAL_MANHWA_PAGES,
 } from '../../content/manhwa/finalManhwa';
 import {
@@ -36,11 +37,20 @@ export function deriveStoryPuzzleManhwaAccess(
   );
   const nextGate = MAIN_STORY_PUZZLES.find((puzzle) => !completed.has(puzzle.id));
   const allMainPuzzlesCompleted = nextGate === undefined;
-  const maxAccessibleGlobalPage = allMainPuzzlesCompleted
+  const requestedMaxAccessibleGlobalPage = allMainPuzzlesCompleted
     ? FINAL_MANHWA_PAGE_COUNT
     : nextGate.source.globalPageNumber;
+  // The corrected PDF is stored as one immutable publication, while the
+  // player build exposes only the approved opening slice. A solved opening
+  // puzzle must never turn unpublished chapters into a hidden bypass.
+  const maxAccessibleGlobalPage = Math.min(
+    requestedMaxAccessibleGlobalPage,
+    FINAL_MANHWA_RELEASED_PAGE_COUNT,
+  );
   const accessiblePageIds = FINAL_MANHWA_PAGES
-    .filter((page) => page.globalPageNumber <= maxAccessibleGlobalPage)
+    .filter((page) => (
+      page.published && page.globalPageNumber <= maxAccessibleGlobalPage
+    ))
     .map((page) => page.id);
 
   return {
@@ -57,4 +67,3 @@ export function deriveStoryPuzzleManhwaAccess(
 export const INITIAL_STORY_PUZZLE_MANHWA_ACCESS = Object.freeze(
   deriveStoryPuzzleManhwaAccess([]),
 );
-

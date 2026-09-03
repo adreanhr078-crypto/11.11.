@@ -16,7 +16,9 @@ export type ManhwaArchivePageStatus =
   | 'unlocked'
   | 'available'
   | 'insufficient_shards'
-  | 'previous_page_required';
+  | 'previous_page_required'
+  | 'story_gated'
+  | 'unreleased';
 
 export interface ManhwaArchiveUnlockedContent {
   title: ManhwaMemoryPageDefinition['title'];
@@ -78,6 +80,14 @@ const statusLabels: Record<
     ar: 'الصفحة السابقة مطلوبة',
     en: 'Previous page required',
   },
+  unreleased: {
+    ar: 'محجوبة في هذا الإصدار',
+    en: 'Sealed in this edition',
+  },
+  story_gated: {
+    ar: 'مسار القصة مطلوب',
+    en: 'Story path required',
+  },
 };
 
 function createReason(
@@ -105,6 +115,18 @@ function createReason(
       en: `Unlock Page ${String(page).padStart(2, '0')} first.`,
     };
   }
+  if (status === 'unreleased') {
+    return {
+      ar: 'هذه الصفحة محفوظة في الأرشيف لكنها غير منشورة بعد.',
+      en: 'This page is preserved in the archive but is not published yet.',
+    };
+  }
+  if (status === 'story_gated') {
+    return {
+      ar: 'تابع القراءة وحل لغز القصة التالي لفتح هذه الصفحة.',
+      en: 'Continue reading and solve the next Story Puzzle to reveal this page.',
+    };
+  }
   const missing = Math.max(0, shardCost - balance);
   return {
     ar: `تحتاج إلى ${missing} شظايا إضافية.`,
@@ -115,23 +137,15 @@ function createReason(
 function getStatus(
   progressionState: GameProgressionState,
   page: FinalManhwaPage,
-  shardCost: number,
-  prerequisitePageId?: string,
 ): ManhwaArchivePageStatus {
+  if (!page.published) return 'unreleased';
   const unlockedPageIds = progressionState.manhwa.unlockedPageIds;
   if (
     unlockedPageIds.includes(page.id)
   ) return 'unlocked';
-  if (
-    prerequisitePageId
-    && !unlockedPageIds.includes(prerequisitePageId)
-  ) {
-    return 'previous_page_required';
-  }
-  return progressionState.resources.memoryShards.spendableBalance
-      >= shardCost
-    ? 'available'
-    : 'insufficient_shards';
+  // The corrected edition intentionally ignores the retired shard-purchase
+  // loop. The reader window is synchronized from Story Puzzle receipts.
+  return 'story_gated';
 }
 
 /**
@@ -166,8 +180,6 @@ export function createManhwaArchiveReadModel(
       const status = getStatus(
         progressionState,
         page,
-        shardCost,
-        prerequisitePageId,
       );
       const unlocked = status === 'unlocked';
 

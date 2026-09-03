@@ -8,10 +8,6 @@ import type {
   ManhwaUnlockTransactionResult,
 } from '../../core/manhwaArchiveTypes';
 import {
-  applyManhwaPageUnlockTransaction,
-  createManhwaPageAccessDefinition,
-} from '../../domain/manhwa/manhwaArchiveProgression';
-import {
   deriveStoryPuzzleManhwaAccess,
 } from '../../domain/manhwa/storyPuzzleManhwaAccess';
 import {
@@ -86,7 +82,7 @@ export function createManhwaArchiveActions(
       return changed;
     },
 
-    unlockManhwaPage(pageId, timestamp = now()) {
+    unlockManhwaPage(pageId) {
       const normalizedPageId = pageId.trim();
       const page = FINAL_MANHWA_PAGE_BY_ID[normalizedPageId];
       let transaction: ManhwaUnlockTransactionResult = {
@@ -98,28 +94,20 @@ export function createManhwaArchiveActions(
         failureReason: 'invalid-page-id',
       };
       if (!page) return transaction;
+      if (!page.published) {
+        return {
+          ...transaction,
+          failureReason: 'unreleased-page',
+        };
+      }
 
-      const definition = createManhwaPageAccessDefinition({
-        pageId: page.id,
-        pageNumber: page.pageNumber,
-        ...(page.prerequisitePageId
-          ? { prerequisitePageId: page.prerequisitePageId }
-          : {}),
-      });
-      set((state) => {
-        transaction = applyManhwaPageUnlockTransaction(
-          state.progressionState,
-          definition,
-          timestamp,
-        );
-        return transaction.success && transaction.state !== state.progressionState
-          ? projectGameProgressionCompatibility(
-              state,
-              transaction.state,
-            )
-          : {};
-      });
-      return transaction;
+      // The corrected edition is never opened by the retired shard-purchase
+      // loop. Its reader window is derived from verified Story Puzzle state,
+      // so a local caller cannot bypass the p7/p9 narrative gates.
+      return {
+        ...transaction,
+        failureReason: 'story-gated',
+      };
     },
   };
 }

@@ -6,6 +6,7 @@ import type {
 import {
   DEFAULT_ECHO_PROGRESS,
   GAME_PROGRESSION_SCHEMA_VERSION,
+  createInitialEchoEvolutionProgressState,
 } from '../../core/gameProgressionDefaults';
 import {
   ACHIEVEMENT_DEFINITIONS,
@@ -51,6 +52,11 @@ import {
   FINAL_MANHWA_PAGES,
 } from '../../content/manhwa/finalManhwa';
 import {
+  RETIRED_FINAL_MANHWA_CANON_EVENT_IDS,
+  RETIRED_FINAL_MANHWA_KNOWLEDGE_NODE_IDS,
+  RETIRED_FINAL_MANHWA_STORY_FLAGS,
+} from '../../content/story/finalManhwaCanonEvents';
+import {
   INITIAL_STORY_PUZZLE_MANHWA_ACCESS,
 } from '../../domain/manhwa/storyPuzzleManhwaAccess';
 import {
@@ -59,6 +65,7 @@ import {
 } from '../../core/manhwaArchiveTypes';
 import {
   MANHWA_PAGE_EFFECT_FINGERPRINT_PATTERN,
+  getManhwaPageEffectReceiptPageId,
 } from '../../core/manhwaPageViewTypes';
 import {
   normalizeEchoEventProgressState,
@@ -76,10 +83,13 @@ import {
   normalizeAwakeningWardState,
 } from '../../features/awakening-ward/domain/awakeningWardState';
 import {
+  createInitialAuthoritativeStoryState,
   normalizeAuthoritativeStoryState,
 } from '../../domain/story/storyState';
 
-export const GAME_SAVE_VERSION = 21;
+// v22 isolates the corrected 70-page Echo Network publication from the
+// superseded 71-page reader and its local Canon projections.
+export const GAME_SAVE_VERSION = 22;
 
 // Keep the established key so Zustand can migrate existing local saves.
 export const GAME_STORAGE_NAME = '11-11-game-store-v5';
@@ -102,6 +112,35 @@ const RETIRED_LOCAL_CAMPAIGN_SHARD_ID_PATTERN = /^page\d{2}_shard_\d{2}$/;
 
 function isRetiredLocalCampaignPuzzleId(value: string): boolean {
   return RETIRED_LOCAL_CAMPAIGN_PUZZLE_ID_PATTERN.test(value);
+}
+
+const RETIRED_FINAL_MANHWA_STORY_EVENT_RECEIPTS = new Set<string>(
+  RETIRED_FINAL_MANHWA_CANON_EVENT_IDS.map((eventId) => `story:${eventId}:1`),
+);
+const RETIRED_FINAL_MANHWA_STORY_FLAGS_SET = new Set<string>(
+  RETIRED_FINAL_MANHWA_STORY_FLAGS,
+);
+const RETIRED_FINAL_MANHWA_KNOWLEDGE_NODE_IDS_SET = new Set<string>(
+  RETIRED_FINAL_MANHWA_KNOWLEDGE_NODE_IDS,
+);
+
+function stripRetiredFinalManhwaNarrativeProjection(
+  narrative: ReturnType<typeof normalizeNarrativeState>,
+): ReturnType<typeof normalizeNarrativeState> {
+  return {
+    ...narrative,
+    activeFlags: Object.fromEntries(
+      Object.entries(narrative.activeFlags).filter(([flag]) => (
+        !RETIRED_FINAL_MANHWA_STORY_FLAGS_SET.has(flag)
+      )),
+    ),
+    knowledgeNodeIds: narrative.knowledgeNodeIds.filter((nodeId) => (
+      !RETIRED_FINAL_MANHWA_KNOWLEDGE_NODE_IDS_SET.has(nodeId)
+    )),
+    echoKnowledgeNodeIds: narrative.echoKnowledgeNodeIds.filter((nodeId) => (
+      !RETIRED_FINAL_MANHWA_KNOWLEDGE_NODE_IDS_SET.has(nodeId)
+    )),
+  };
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -396,7 +435,11 @@ export function migrateGameState(
   const totalSpent = hasOwn(canonicalShards, 'totalSpent')
     ? normalizeCurrency(canonicalShards.totalSpent)
     : 0;
-  const finalPageIds = new Set(FINAL_MANHWA_PAGES.map((page) => page.id));
+  // Presence on disk is not publication. Persisted progress may only ever
+  // project the pages currently released by the corrected edition.
+  const finalPageIds = new Set(
+    FINAL_MANHWA_PAGES.filter((page) => page.published).map((page) => page.id),
+  );
   const isFinalManhwaSave = (
     canonicalManhwa.manifestVersion === FINAL_MANHWA_MANIFEST_VERSION
   );
@@ -456,9 +499,14 @@ export function migrateGameState(
           const pageId = getManhwaUnlockReceiptPageId(receipt);
           return pageId !== null && unlockedManhwaPageIds.includes(pageId);
         })
-    : FINAL_MANHWA_PAGES.map((page) => createManhwaUnlockReceiptKey(page.id));
+    : INITIAL_STORY_PUZZLE_MANHWA_ACCESS.accessiblePageIds.map((pageId) => (
+      createManhwaUnlockReceiptKey(pageId)
+    ));
   const claimedPageEffectIds = isFinalManhwaSave
-    ? normalizeStringArray(canonicalManhwa.claimedPageEffectIds)
+    ? normalizeStringArray(canonicalManhwa.claimedPageEffectIds).filter((receipt) => {
+        const pageId = getManhwaPageEffectReceiptPageId(receipt);
+        return pageId !== null && viewedManhwaPageIds.includes(pageId);
+      })
     : [];
   const pageEffectFingerprintsByReceiptKey = isFinalManhwaSave
     ? Object.fromEntries(
@@ -470,9 +518,14 @@ export function migrateGameState(
         )),
       )
     : {};
-  const lastReadPage = isFinalManhwaSave
+  const candidateLastReadPage = isFinalManhwaSave
     && typeof canonicalManhwa.lastReadPageId === 'string'
     ? FINAL_MANHWA_PAGE_BY_ID[canonicalManhwa.lastReadPageId]
+    : undefined;
+  const lastReadPage = candidateLastReadPage
+    && candidateLastReadPage.published
+    && unlockedManhwaPageIds.includes(candidateLastReadPage.id)
+    ? candidateLastReadPage
     : undefined;
   const lastReadGlobalPageNumber = lastReadPage
     ? lastReadPage.globalPageNumber
@@ -487,7 +540,9 @@ export function migrateGameState(
     : null;
   const completedChapterIds = isFinalManhwaSave
     ? normalizeStringArray(canonicalManhwa.completedChapterIds).filter((chapterId) => (
-        FINAL_MANHWA_CHAPTERS.some((chapter) => chapter.chapterId === chapterId)
+        FINAL_MANHWA_CHAPTERS.some((chapter) => (
+          chapter.chapterId === chapterId && chapter.published
+        ))
       ))
     : [];
   const lastAvailablePuzzleId = STORY_PUZZLES[0]!.id;
@@ -623,17 +678,39 @@ export function migrateGameState(
   const narrativeSource = hasOwn(canonicalStory, 'narrative')
     ? canonicalStory.narrative
     : persisted.narrative;
-  const narrative = normalizeNarrativeState(
+  const normalizedNarrative = normalizeNarrativeState(
     isObject(narrativeSource)
       ? narrativeSource as Partial<GameState['narrative']>
       : undefined,
   );
-  const authoritativeStory = normalizeAuthoritativeStoryState(
-    canonicalStory.authoritative,
-  );
-  const narrativeEvents = normalizeNarrativeEventProgressState(
+  const narrative = isFinalManhwaSave
+    ? normalizedNarrative
+    : stripRetiredFinalManhwaNarrativeProjection(normalizedNarrative);
+  const authoritativeStory = isFinalManhwaSave
+    ? normalizeAuthoritativeStoryState(canonicalStory.authoritative)
+    : createInitialAuthoritativeStoryState();
+  const normalizedNarrativeEvents = normalizeNarrativeEventProgressState(
     canonicalNarrativeEvents,
   );
+  const narrativeEvents = isFinalManhwaSave
+    ? normalizedNarrativeEvents
+    : {
+      ...normalizedNarrativeEvents,
+      claimedSourceReceiptKeys: normalizedNarrativeEvents.claimedSourceReceiptKeys
+        .filter((key) => !RETIRED_FINAL_MANHWA_STORY_EVENT_RECEIPTS.has(key)),
+      sourceFingerprintsByReceiptKey: Object.fromEntries(
+        Object.entries(normalizedNarrativeEvents.sourceFingerprintsByReceiptKey)
+          .filter(([key]) => !RETIRED_FINAL_MANHWA_STORY_EVENT_RECEIPTS.has(key)),
+      ),
+      sourceAppliedAtByReceiptKey: Object.fromEntries(
+        Object.entries(normalizedNarrativeEvents.sourceAppliedAtByReceiptKey)
+          .filter(([key]) => !RETIRED_FINAL_MANHWA_STORY_EVENT_RECEIPTS.has(key)),
+      ),
+      provenStoryEventsByReceiptKey: Object.fromEntries(
+        Object.entries(normalizedNarrativeEvents.provenStoryEventsByReceiptKey)
+          .filter(([key]) => !RETIRED_FINAL_MANHWA_STORY_EVENT_RECEIPTS.has(key)),
+      ),
+    };
   const legacyNarrativeReceiptKeys = [
     ...narrative.unlockedMemoryIds.map((memoryId) => (
       `memory:${memoryId}:1`
@@ -702,7 +779,9 @@ export function migrateGameState(
     echo: echoProgress,
     echoEvents: normalizeEchoEventProgressState(canonicalEchoEvents),
     narrativeEvents,
-    evolution: migrateEchoEvolutionProgress(canonicalEvolution),
+    evolution: isFinalManhwaSave
+      ? migrateEchoEvolutionProgress(canonicalEvolution)
+      : createInitialEchoEvolutionProgressState(),
     story: {
       narrative,
       authoritative: authoritativeStory,

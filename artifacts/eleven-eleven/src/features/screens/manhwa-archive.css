@@ -903,7 +903,7 @@
 
 .final-manhwa-reader__timeline-track {
   display: grid;
-  grid-template-columns: repeat(71, minmax(2px, 1fr));
+  grid-template-columns: repeat(70, minmax(2px, 1fr));
   gap: 2px;
   direction: ltr;
   pointer-events: none;

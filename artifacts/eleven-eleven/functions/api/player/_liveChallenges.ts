@@ -26,6 +26,9 @@ import {
   WEEKLY_REWARD_PREVIEW,
   weeklyRewardPlanFor,
 } from '../../../src/domain/live-challenges/weeklyRewardCatalog';
+import {
+  getFinalManhwaChapterRewardSourceId,
+} from '../../../src/content/manhwa/finalManhwa';
 import { createXpRewardKey } from '../../../src/domain/player-progression/playerProgression';
 import type { RarePlayerAvatarId } from '../../../src/domain/player-profile/playerProfile';
 import { ensurePlayerProgressionRow } from './_progressionRepository';
@@ -62,6 +65,8 @@ export async function hasLiveChallengeProgression(
   mode: LiveChallengeMode,
 ): Promise<boolean> {
   const chapterId = requiredStoryChapterForLiveChallenge(mode);
+  const rewardSourceId = getFinalManhwaChapterRewardSourceId(chapterId);
+  if (!rewardSourceId) return false;
   const receipt = await database.prepare(`
     SELECT reward_key
     FROM xp_reward_events
@@ -69,7 +74,7 @@ export async function hasLiveChallengeProgression(
     LIMIT 1
   `).bind(
     account.uid,
-    createXpRewardKey('manhwa', chapterId),
+    createXpRewardKey('manhwa', rewardSourceId),
   ).first<{ reward_key: string }>();
   return Boolean(receipt?.reward_key);
 }

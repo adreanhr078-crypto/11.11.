@@ -23,6 +23,7 @@ const MAIN_MENU_COPY = {
     identity: 'أنت لست مجرد ذكريات.',
     identityStrong: 'أنت الحقيقة التي تحاول استعادتها.',
     resume: 'استعادة الاتصال',
+    enterMissionControl: 'الذهاب إلى مركز المهمة',
     start: 'ابدأ الرحلة',
     identityFirst: 'ثبّت هويتك أولًا',
     signIn: 'سجّل الدخول وابدأ',
@@ -46,6 +47,7 @@ const MAIN_MENU_COPY = {
     identity: 'You are not only memories.',
     identityStrong: 'You are the truth trying to return.',
     resume: 'Restore the connection',
+    enterMissionControl: 'Open Mission Control',
     start: 'Begin the journey',
     identityFirst: 'Secure your identity first',
     signIn: 'Sign in and begin',
@@ -70,8 +72,6 @@ export default function MainMenuScreen() {
   const locale = useUiPreferencesStore((preferences) => preferences.locale);
   const copy = MAIN_MENU_COPY[locale];
   const storyPuzzleSnapshot = useStoryPuzzleStore((store) => store.snapshot);
-  const requestManhwaReader = useShellStore((shell) => shell.requestManhwaReader);
-  const requestStoryPuzzleDiscovery = useShellStore((shell) => shell.requestStoryPuzzleDiscovery);
   const authStatus = useAuthStore((store) => store.status);
   const [authOpen, setAuthOpen] = useState(false);
   const objective = useMemo(
@@ -89,9 +89,9 @@ export default function MainMenuScreen() {
       setAuthOpen(true);
       return;
     }
-    if (objective.secretPuzzleId) requestStoryPuzzleDiscovery(objective.secretPuzzleId);
-    else if (objective.screen === 'memories') requestManhwaReader();
-    else navigate(objective.screen);
+    // Signing in should first return the player to the central mission hub.
+    // The Manhwa opens only from an explicit objective inside that hub.
+    navigate('psychological-state');
   };
 
   return (
@@ -165,11 +165,11 @@ export default function MainMenuScreen() {
             size="lg"
             fullWidth
             leadingIcon={<GameIcon id={signedIn
-              ? (objective.kind === 'read' ? 'screen-memory' : 'screen-puzzles')
+              ? 'screen-psychological-state'
               : 'category-characters'} />}
             onClick={continueJourney}
           >
-            {signedIn ? objective.actionLabel : copy.signIn}
+            {signedIn ? copy.enterMissionControl : copy.signIn}
           </GameButton>
           <div className="shell-main-menu__checkpoint">
             <span>{copy.nextStep}</span>

@@ -1,65 +1,41 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import {
-  createStoryStateActions,
-} from '../application/story/createStoryStateActions';
-import {
-  createEchoPresentationReadModel,
-} from '../application/ui/echoPresentationReadModel';
+import { createStoryStateActions } from '../application/story/createStoryStateActions';
+import { createEchoPresentationReadModel } from '../application/ui/echoPresentationReadModel';
 import type { GameState } from '../core/gameTypes';
 import type {
   AuthoritativeStoryEventReceipt,
   AuthoritativeStoryState,
 } from '../domain/story/storyState';
+import { createStoryStateReadModel } from '../domain/story/storyState';
+import { mergeGameState, partializeGameState } from '../infrastructure/persistence/gamePersistence';
 import {
-  createStoryStateReadModel,
-} from '../domain/story/storyState';
-import {
-  mergeGameState,
-  partializeGameState,
-} from '../infrastructure/persistence/gamePersistence';
+  FINAL_MANHWA_CANON_EVENTS,
+  RETIRED_FINAL_MANHWA_CANON_EVENT_IDS,
+} from '../content/story/finalManhwaCanonEvents';
 import { buildInitialState } from '../stores/gameStoreHelpers';
-import type {
-  GameStateGetter,
-  GameStateSetter,
-} from '../application/game/statePorts';
+import type { GameStateGetter, GameStateSetter } from '../application/game/statePorts';
 
-const reachedAt = '2026-08-09T11:11:00.000Z';
+const reachedAt = '2026-09-03T11:11:00.000Z';
 
-function receipt(
-  eventId: AuthoritativeStoryEventReceipt['eventId'],
-): AuthoritativeStoryEventReceipt {
-  const source = {
-    manhwa_chapter_04_black_coronation: {
-      pageId: 'manhwa_ch04_page_02',
-      pageNumber: 56,
-    },
-    manhwa_chapter_04_lina_protocol: {
-      pageId: 'manhwa_ch04_page_04',
-      pageNumber: 58,
-    },
-    manhwa_chapter_04_black_echo_protocol: {
-      pageId: 'manhwa_ch04_page_08',
-      pageNumber: 62,
-    },
-  } as const;
+function retiredReceipt(): AuthoritativeStoryEventReceipt {
   return {
-    eventId,
+    eventId: RETIRED_FINAL_MANHWA_CANON_EVENT_IDS[0],
     eventVersion: 1,
     sourceType: 'manhwa',
     sourceId: 'chapter_4',
-    sourcePageId: source[eventId].pageId,
-    sourcePageNumber: source[eventId].pageNumber,
+    sourcePageId: 'manhwa_ch04_page_02',
+    sourcePageNumber: 56,
     reachedAt,
   };
 }
 
 function snapshot(
-  events: readonly AuthoritativeStoryEventReceipt[],
+  events: readonly AuthoritativeStoryEventReceipt[] = [],
 ): AuthoritativeStoryState {
   return {
     canonEventReceipts: [...events],
-    completedChapterIds: ['chapter_3'],
+    completedChapterIds: ['chapter_1'],
     discoveredMemoryFragmentIds: [],
     syncedAt: reachedAt,
   };
@@ -80,100 +56,61 @@ function createHarness(initial = buildInitialState()) {
 
 describe('authoritative Story State projection', () => {
   it('starts a new player at the safe initial Echo state', () => {
-    const state = buildInitialState();
-    const story = createStoryStateReadModel(state.progressionState);
+    const story = createStoryStateReadModel(buildInitialState().progressionState);
 
     assert.deepEqual(story.reachedCanonEvents, []);
     assert.equal(story.echoState.stageId, 'awakening_fragile');
     assert.deepEqual(story.discoveredMemoryFragments, []);
   });
 
-  it('projects only valid server receipts and is idempotent on a reread', () => {
-    const harness = createHarness();
-    const coronation = snapshot([receipt('manhwa_chapter_04_black_coronation')]);
+  it('does not bind corrected Manhwa art to a Canon transformation without an Owner-approved matrix', () => {
+    assert.deepEqual(FINAL_MANHWA_CANON_EVENTS, []);
 
-    assert.equal(harness.actions.syncAuthoritativeStoryState(coronation), true);
-    const once = structuredClone(harness.getState());
+    const harness = createHarness();
     assert.equal(
-      createStoryStateReadModel(once.progressionState).echoState.stageId,
-      'black_coronation',
-    );
-    assert.equal(createEchoPresentationReadModel(once).form, 'black-coronation');
-
-    assert.equal(harness.actions.syncAuthoritativeStoryState(coronation), true);
-    const twice = harness.getState();
-    assert.deepEqual(
-      twice.progressionState.narrativeEvents.claimedSourceReceiptKeys,
-      once.progressionState.narrativeEvents.claimedSourceReceiptKeys,
-    );
-    assert.deepEqual(
-      twice.progressionState.story.authoritative.canonEventReceipts,
-      once.progressionState.story.authoritative.canonEventReceipts,
-    );
-  });
-
-  it('reaches Black Echo Protocol only after its approved receipt', () => {
-    const harness = createHarness();
-    const prior = receipt('manhwa_chapter_04_black_coronation');
-    const lina = receipt('manhwa_chapter_04_lina_protocol');
-
-    harness.actions.syncAuthoritativeStoryState(snapshot([prior, lina]));
-    assert.equal(
-      createStoryStateReadModel(harness.getState().progressionState)
-        .echoState.stageId,
-      'second_contract_marked',
+      harness.actions.syncAuthoritativeStoryState(snapshot([retiredReceipt()])),
+      true,
     );
 
-    harness.actions.syncAuthoritativeStoryState(snapshot([
-      prior,
-      lina,
-      receipt('manhwa_chapter_04_black_echo_protocol'),
-    ]));
-    const story = createStoryStateReadModel(harness.getState().progressionState);
-    assert.equal(story.echoState.stageId, 'black_echo_protocol');
-    assert.deepEqual(story.majorTransformationFlags, [
-      'manhwa_chapter_04_black_coronation',
-      'manhwa_chapter_04_lina_protocol',
-      'manhwa_chapter_04_black_echo_protocol',
-    ]);
-  });
-
-  it('rejects malformed local receipts and does not invent XP or fragments', () => {
-    const harness = createHarness();
-    const forged = snapshot([{
-      ...receipt('manhwa_chapter_04_black_echo_protocol'),
-      sourcePageNumber: 999,
-    }]);
-
-    assert.equal(harness.actions.syncAuthoritativeStoryState(forged), true);
     const state = harness.getState();
     const story = createStoryStateReadModel(state.progressionState);
     assert.deepEqual(story.reachedCanonEvents, []);
     assert.equal(story.echoState.stageId, 'awakening_fragile');
+    assert.equal(createEchoPresentationReadModel(state).form, 'normal');
+  });
+
+  it('rejects malformed or unknown server receipts without inventing XP, fragments, or character revelations', () => {
+    const harness = createHarness();
+    const forged = {
+      ...retiredReceipt(),
+      eventId: 'unapproved_future_reveal',
+      sourcePageNumber: 999,
+    } as AuthoritativeStoryEventReceipt;
+
+    assert.equal(harness.actions.syncAuthoritativeStoryState(snapshot([forged])), true);
+    const state = harness.getState();
+    const story = createStoryStateReadModel(state.progressionState);
+    assert.deepEqual(story.reachedCanonEvents, []);
+    assert.equal(story.echoState.stageId, 'awakening_fragile');
+    assert.deepEqual(story.unlockedCharacterFiles, []);
     assert.deepEqual(state.progressionState.resources.memoryShards.discoveredShardIds, []);
     assert.equal(state.progressionState.resources.coins, 0);
   });
 
-  it('persists server Story State across a client reload without adding rewards', () => {
-    const initial = buildInitialState();
-    const harness = createHarness(initial);
-    harness.actions.syncAuthoritativeStoryState(snapshot([
-      receipt('manhwa_chapter_04_black_coronation'),
-    ]));
+  it('persists the server story snapshot across a reload without adding legacy rewards or transformations', () => {
+    const harness = createHarness();
+    assert.equal(harness.actions.syncAuthoritativeStoryState(snapshot()), true);
 
     const reloaded = mergeGameState(
       partializeGameState(harness.getState()),
       buildInitialState(),
     );
+    const story = createStoryStateReadModel(reloaded.progressionState);
 
-    assert.equal(
-      createStoryStateReadModel(reloaded.progressionState).echoState.stageId,
-      'black_coronation',
-    );
+    assert.equal(story.echoState.stageId, 'awakening_fragile');
+    assert.deepEqual(story.reachedCanonEvents, []);
+    assert.deepEqual(story.completedChapters, ['chapter_1']);
     assert.equal(reloaded.progressionState.resources.coins, 0);
-    assert.deepEqual(
-      reloaded.progressionState.resources.memoryShards.discoveredShardIds,
-      [],
-    );
+    assert.deepEqual(reloaded.progressionState.resources.memoryShards.discoveredShardIds, []);
   });
 });

@@ -55,7 +55,7 @@
   z-index: -1;
   inset: 0 55% 0 0;
   opacity: .25;
-  background: linear-gradient(90deg, transparent, #020509), url('/manhwa/final/page-060.webp') center 35% / cover;
+  background: linear-gradient(90deg, transparent, #020509), url('/manhwa/echo-network-final-2026-09-v1/page-009.webp') center 35% / cover;
   filter: grayscale(.6) contrast(1.25);
   mask-image: linear-gradient(90deg, #000, transparent);
 }
@@ -325,16 +325,15 @@
 .echo-network-season__hero::before { position: absolute; inset: 0; background: linear-gradient(90deg, rgb(2 5 9 / 35%), rgb(2 5 9 / 94%) 54%), radial-gradient(circle at 20%, rgb(var(--net-violet) / 10%), transparent); content: ""; }
 [dir="ltr"] .echo-network-season__hero::before { background: linear-gradient(-90deg, rgb(2 5 9 / 35%), rgb(2 5 9 / 94%) 54%); }
 .echo-network-season__hero > * { position: relative; }
-.echo-network-season__hero[data-character="yuki"]::after { position: absolute; z-index: 1; inset: 54% auto auto 16%; padding: .12rem .2rem; border: 1px solid rgb(var(--net-red) / 68%); color: #fff1ed; background: rgb(9 4 7 / 84%); box-shadow: 0 0 .7rem rgb(var(--net-red) / 28%); content: "EX-012"; font: 800 .44rem var(--gds-font-mono); letter-spacing: .08em; transform: rotate(-4deg); pointer-events: none; }
 .echo-network-season__hero h2 { margin: .15rem 0; font-size: clamp(1.4rem, 3vw, 2.2rem); }.echo-network-season__hero p { margin: 0; color: var(--gds-text-secondary); }
 .echo-network-season__hero > div { display: grid; text-align: center; }.echo-network-season__hero > div strong { color: rgb(var(--net-cyan)); font: 900 2rem var(--gds-font-mono); }.echo-network-season__hero > div small { color: var(--gds-text-muted); }
 .echo-network-season-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .45rem; }
 .echo-network-season-grid article { position: relative; display: grid; grid-template-columns: 3.5rem 1fr; gap: .45rem; min-block-size: 6rem; padding: .45rem; overflow: hidden; border: 1px solid rgb(255 255 255 / 9%); background: rgb(255 255 255 / 3%); }
 .echo-network-season-grid article[data-current="true"] { border-color: rgb(var(--net-violet) / 58%); box-shadow: inset 0 -2px rgb(var(--net-violet)); }.echo-network-season-grid article[data-complete="true"] { border-color: rgb(101 230 181 / 30%); }
-.echo-network-season-grid article > span { position: relative; background-position: center top; background-size: cover; filter: grayscale(.45) contrast(1.15); }.echo-network-season-grid article > span[data-character="yuki"]::after { position: absolute; inset: auto .08rem .08rem; border: 1px solid rgb(var(--net-red) / 64%); color: #fff1ed; background: rgb(9 4 7 / 84%); content: "EX-012"; font: 800 .3rem var(--gds-font-mono); letter-spacing: .03em; text-align: center; }.echo-network-season-grid article[data-current="true"] > span { filter: none; }
+.echo-network-season-grid article > span { position: relative; background-position: center top; background-size: cover; filter: grayscale(.45) contrast(1.15); }.echo-network-season-grid article[data-current="true"] > span { filter: none; }
 .echo-network-season-grid article > div { min-inline-size: 0; }.echo-network-season-grid article small { color: rgb(var(--net-cyan)); font: 600 .45rem var(--gds-font-mono); }.echo-network-season-grid article strong { display: block; margin-block: .12rem; font-size: .65rem; }.echo-network-season-grid article p { display: -webkit-box; margin: 0; overflow: hidden; color: var(--gds-text-muted); font-size: .52rem; line-height: 1.45; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .echo-network-season-grid article > i { position: absolute; inset: .25rem .25rem auto auto; color: var(--gds-text-muted); font: 700 .42rem var(--gds-font-mono); font-style: normal; }
-.echo-network-bonds { display: grid; grid-template-columns: repeat(3, 1fr); gap: .35rem; }.echo-network-bonds > div { display: grid; justify-items: center; gap: .12rem; padding: .3rem; border: 1px solid rgb(255 255 255 / 8%); }.echo-network-bonds span { position: relative; inline-size: 2.8rem; aspect-ratio: 1; border-radius: 50%; background-position: center 20%; background-size: cover; }.echo-network-bonds span[data-character="yuki"]::after { position: absolute; inset: auto .08rem .08rem; padding: .02rem; border: 1px solid rgb(var(--net-red) / 66%); color: #fff1ed; background: rgb(9 4 7 / 84%); content: "EX-012"; font: 800 .27rem var(--gds-font-mono); text-align: center; }.echo-network-bonds strong { font: 700 .5rem var(--gds-font-mono); }.echo-network-bonds small { color: var(--gds-text-muted); font: 500 .43rem var(--gds-font-mono); }
+.echo-network-bonds { display: grid; grid-template-columns: repeat(3, 1fr); gap: .35rem; }.echo-network-bonds > div { display: grid; justify-items: center; gap: .12rem; padding: .3rem; border: 1px solid rgb(255 255 255 / 8%); }.echo-network-bonds span { position: relative; inline-size: 2.8rem; aspect-ratio: 1; border-radius: 50%; background-position: center 20%; background-size: cover; }.echo-network-bonds strong { font: 700 .5rem var(--gds-font-mono); }.echo-network-bonds small { color: var(--gds-text-muted); font: 500 .43rem var(--gds-font-mono); }
 
 .echo-network-community { display: grid; gap: .65rem; }
 .echo-network-confirmation { display: flex; align-items: start; gap: .5rem; margin-block: .7rem; padding: .55rem; border: 1px solid rgb(255 255 255 / 10%); color: var(--gds-text-secondary); font-size: .66rem; line-height: 1.55; cursor: pointer; }

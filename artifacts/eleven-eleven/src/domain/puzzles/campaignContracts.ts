@@ -173,7 +173,10 @@ export interface CampaignMemoryShardRuntime {
 }
 
 export const manhwaMemoryPageSchema = z.object({
-  id: z.string().regex(/^manhwa_ch\d{2}_page_\d{2}$/),
+  // Publication identifiers are immutable. The original Chapter 01 schema is
+  // kept readable for legacy data, while new publications use a namespaced
+  // source ID (for example echo_network_final_2026_09_v1_page_001).
+  id: z.string().regex(/^[a-z][a-z0-9_-]{2,127}$/i),
   chapterId: z.string().regex(/^chapter_\d+$/),
   pageNumber: z.number().int().positive(),
   title: localizedTextSchema,
@@ -206,6 +209,7 @@ export const manhwaMemoryPageSchema = z.object({
     'chapter-page',
     'teaser',
     'back-cover',
+    'outro',
   ]).optional(),
 });
 export type ManhwaMemoryPageDefinition = z.infer<

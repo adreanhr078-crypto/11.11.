@@ -1,3 +1,4 @@
+import { FINAL_MANHWA_ASSET_ROOT } from '../../content/manhwa/finalManhwa';
 import type { LocalizedCopy } from './contracts';
 
 export type CoopMechanic =
@@ -93,7 +94,7 @@ function makeCase(
     order: seed.order,
     title: seed.title,
     description: seed.description,
-    imageSrc: `/manhwa/final/page-${String(seed.image).padStart(3, '0')}.webp`,
+    imageSrc: `${FINAL_MANHWA_ASSET_ROOT}/page-${String(seed.image).padStart(3, '0')}.webp`,
     focusCharacter: seed.focusCharacter,
     difficulty: seed.difficulty,
     estimatedMinutes: seed.difficulty === 'guided' ? 12 : seed.difficulty === 'standard' ? 15 : 18,
@@ -120,19 +121,25 @@ function makeCase(
   });
 }
 
+/**
+ * The opaque IDs remain unchanged because the Realtime service validates active
+ * rooms against them. They are not player-facing Canon. Until the page/scene
+ * matrix is approved, every live case stays in the released opening chapter,
+ * uses only pages 7 or 9, and describes a neutral team signal exercise.
+ */
 const CASE_SEEDS = [
-  ['warm-signal', 'chapter_1', 1, 'الإشارة الدافئة', 'Warm Signal', 4, 'yuki', 'guided', ['wiring', 'cipher', 'pattern']],
-  ['broken-window', 'chapter_1', 2, 'النافذة المكسورة', 'Broken Window', 8, 'echo', 'guided', ['image-reconstruction', 'evidence', 'routing']],
-  ['first-contract', 'chapter_1', 3, 'العقد الأول', 'First Contract', 12, 'echo', 'standard', ['timeline', 'cipher', 'load-balance']],
-  ['nara-farewell', 'chapter_2', 4, 'وداع نارا', 'Nara Farewell', 18, 'nara', 'standard', ['evidence', 'timeline', 'pattern']],
-  ['red-circuit', 'chapter_2', 5, 'الدائرة الحمراء', 'Red Circuit', 21, 'zero', 'standard', ['wiring', 'routing', 'load-balance']],
-  ['silent-key', 'chapter_2', 6, 'المفتاح الصامت', 'Silent Key', 26, 'yuki', 'standard', ['cipher', 'evidence', 'pattern']],
-  ['kenja-record', 'chapter_3', 7, 'سجل كينجا', 'Kenja Record', 35, 'kenja', 'standard', ['timeline', 'image-reconstruction', 'routing']],
-  ['zero-route', 'chapter_3', 8, 'مسار زيرو', 'Zero Route', 40, 'zero', 'deep', ['routing', 'cipher', 'load-balance']],
-  ['mirror-memory', 'chapter_3', 9, 'ذاكرة المرآة', 'Mirror Memory', 45, 'echo', 'deep', ['image-reconstruction', 'pattern', 'evidence']],
-  ['lina-protocol', 'chapter_4', 10, 'بروتوكول لينا', 'Lina Protocol', 60, 'lina', 'deep', ['load-balance', 'wiring', 'cipher']],
-  ['black-coronation', 'chapter_4', 11, 'التتويج الأسود', 'Black Coronation', 62, 'echo', 'deep', ['evidence', 'timeline', 'pattern']],
-  ['echo-fracture', 'chapter_4', 12, 'شظية Echo', 'Echo Fracture', 69, 'echo', 'deep', ['routing', 'load-balance', 'image-reconstruction']],
+  ['warm-signal', 'chapter_1', 1, 'نبض البوابة', 'Gate Pulse', 7, 'echo', 'guided', ['wiring', 'cipher', 'pattern']],
+  ['broken-window', 'chapter_1', 2, 'نافذة الأثر', 'Trace Window', 9, 'echo', 'guided', ['image-reconstruction', 'evidence', 'routing']],
+  ['first-contract', 'chapter_1', 3, 'الرابط الأول', 'First Link', 7, 'echo', 'standard', ['timeline', 'cipher', 'load-balance']],
+  ['nara-farewell', 'chapter_1', 4, 'تردد صامت', 'Quiet Frequency', 9, 'echo', 'standard', ['evidence', 'timeline', 'pattern']],
+  ['red-circuit', 'chapter_1', 5, 'دائرة الإشارة', 'Signal Circuit', 7, 'echo', 'standard', ['wiring', 'routing', 'load-balance']],
+  ['silent-key', 'chapter_1', 6, 'مفتاح الأرشيف', 'Archive Key', 9, 'echo', 'standard', ['cipher', 'evidence', 'pattern']],
+  ['kenja-record', 'chapter_1', 7, 'سجل العقدة', 'Node Record', 7, 'echo', 'standard', ['timeline', 'image-reconstruction', 'routing']],
+  ['zero-route', 'chapter_1', 8, 'مسار الإشارة', 'Signal Route', 9, 'echo', 'deep', ['routing', 'cipher', 'load-balance']],
+  ['mirror-memory', 'chapter_1', 9, 'مرآة الأثر', 'Trace Mirror', 7, 'echo', 'deep', ['image-reconstruction', 'pattern', 'evidence']],
+  ['lina-protocol', 'chapter_1', 10, 'بروتوكول الوصول', 'Access Protocol', 9, 'echo', 'deep', ['load-balance', 'wiring', 'cipher']],
+  ['black-coronation', 'chapter_1', 11, 'نقطة الانعكاس', 'Reflection Point', 7, 'echo', 'deep', ['evidence', 'timeline', 'pattern']],
+  ['echo-fracture', 'chapter_1', 12, 'خريطة الشظايا', 'Shard Map', 9, 'echo', 'deep', ['routing', 'load-balance', 'image-reconstruction']],
 ] as const;
 
 export const COOP_CASES: readonly CoopCasePublicDefinition[] = Object.freeze(

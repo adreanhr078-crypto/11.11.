@@ -5,6 +5,9 @@ import {
   type FinalManhwaCanonEventId,
 } from '../../content/story/finalManhwaCanonEvents';
 import type {
+  FinalManhwaChapterId,
+} from '../../content/manhwa/finalManhwa';
+import type {
   GameProgressionState,
 } from '../../core/gameProgressionTypes';
 
@@ -12,7 +15,7 @@ export interface AuthoritativeStoryEventReceipt {
   eventId: FinalManhwaCanonEventId;
   eventVersion: number;
   sourceType: 'manhwa';
-  sourceId: 'chapter_4';
+  sourceId: FinalManhwaChapterId;
   sourcePageId: string;
   sourcePageNumber: number;
   reachedAt: string;
@@ -264,16 +267,7 @@ export function createStoryStateReadModel(
     },
     unlockedCharacterFiles,
     discoveredMemoryFragments: authoritative.discoveredMemoryFragmentIds,
-    majorTransformationFlags: FINAL_MANHWA_CANON_EVENTS
-      .filter((event) => (
-        reached.has(event.eventId)
-        && (
-          event.eventId === 'manhwa_chapter_04_black_coronation'
-          || event.eventId === 'manhwa_chapter_04_lina_protocol'
-          || event.eventId === 'manhwa_chapter_04_black_echo_protocol'
-        )
-      ))
-      .map((event) => event.eventId),
+    majorTransformationFlags: [],
   };
 }
 

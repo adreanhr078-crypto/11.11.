@@ -1,11 +1,17 @@
 import {
   FINAL_MANHWA_CHAPTERS,
+  FINAL_MANHWA_PAGES,
+  getFinalManhwaChapterByPublicationId,
+  type FinalManhwaChapterId,
 } from '../../../src/content/manhwa/finalManhwa';
 import {
   getPlayerLevelProgress,
   normalizeTotalXp,
   type LeaderboardPlayer,
 } from '../../../src/domain/player-progression/playerProgression';
+import {
+  deriveStoryPuzzleManhwaAccess,
+} from '../../../src/domain/manhwa/storyPuzzleManhwaAccess';
 import {
   PlayerApiError,
   type FirebaseAccount,
@@ -25,6 +31,14 @@ interface ProgressionRow {
 
 interface CountRow {
   total: number | string;
+}
+
+interface ReadPageRow {
+  page_id: string;
+}
+
+interface StoryPuzzleCompletionRow {
+  puzzle_id: string;
 }
 
 export interface PlayerProfileStatsRow {
@@ -153,24 +167,36 @@ async function hasCompletedManhwaReading(
   uid: string,
   chapterId: string,
 ): Promise<boolean> {
-  const chapter = FINAL_MANHWA_CHAPTERS.find(({ chapterId: candidate }) => (
-    candidate === chapterId
-  ));
-  if (!chapter) return false;
-  const row = await db.prepare(`
-    SELECT COUNT(*) AS total
+  const chapter = getFinalManhwaChapterByPublicationId(chapterId);
+  if (!chapter || !chapter.published) return false;
+  const expectedPageIds = FINAL_MANHWA_PAGES
+    .filter((page) => page.published && page.chapterId === chapter.chapterId)
+    .map((page) => page.id);
+  if (expectedPageIds.length !== chapter.pageCount) return false;
+  const completionRows = await db.prepare(`
+    SELECT puzzle_id
+    FROM player_story_puzzle_completion_events
+    WHERE user_id = ?
+  `).bind(uid).all<StoryPuzzleCompletionRow>();
+  const access = deriveStoryPuzzleManhwaAccess(
+    (completionRows.results ?? []).map((row) => row.puzzle_id),
+  );
+  const chapterFinalPageId = FINAL_MANHWA_PAGES.find((page) => (
+    page.chapterId === chapter.chapterId
+    && page.globalPageNumber === chapter.endPage
+  ))?.id;
+  if (!chapterFinalPageId || !access.accessiblePageIds.includes(chapterFinalPageId)) {
+    return false;
+  }
+  const placeholders = expectedPageIds.map(() => '?').join(', ');
+  const rows = await db.prepare(`
+    SELECT page_id
     FROM player_manhwa_page_records
     WHERE user_id = ?
-      AND chapter_id = ?
-      AND global_page_number >= ?
-      AND global_page_number <= ?
-  `).bind(
-    uid,
-    chapter.chapterId,
-    chapter.startPage,
-    chapter.endPage,
-  ).first<CountRow>();
-  return toPositiveInteger(row?.total, 0) === chapter.pageCount;
+      AND page_id IN (${placeholders})
+  `).bind(uid, ...expectedPageIds).all<ReadPageRow>();
+  const readPageIds = new Set((rows.results ?? []).map((row) => row.page_id));
+  return expectedPageIds.every((pageId) => readPageIds.has(pageId));
 }
 
 export async function readLeaderboard(
@@ -327,13 +353,19 @@ export async function readPlayerProfileStats(
     FROM xp_reward_events
     WHERE user_id = ? AND source_type = 'manhwa'
   `).bind(uid).all<{ source_id: string }>();
-  const validChapterIds = new Set<string>(
-    FINAL_MANHWA_CHAPTERS.map((chapter) => chapter.chapterId),
+  const chapterIdByRewardSourceId = new Map(
+    FINAL_MANHWA_CHAPTERS.map((chapter) => [
+      chapter.publicationChapterId,
+      chapter.chapterId,
+    ]),
   );
   const chaptersCompleted = new Set(
     (manhwaResult.results ?? [])
       .map((row) => row.source_id)
-      .filter((sourceId) => validChapterIds.has(sourceId)),
+      .map((sourceId) => chapterIdByRewardSourceId.get(sourceId))
+      .filter((chapterId): chapterId is FinalManhwaChapterId => (
+        chapterId !== undefined
+      )),
   ).size;
   const secretRow = await db.prepare(`
     SELECT COUNT(*) AS total

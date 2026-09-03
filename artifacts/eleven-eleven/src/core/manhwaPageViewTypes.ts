@@ -21,6 +21,7 @@ export interface ManhwaPageAuthoredEffect {
 
 export type ManhwaPageViewFailureReason =
   | 'invalid-page-id'
+  | 'unreleased-page'
   | 'invalid-timestamp'
   | 'page-not-unlocked'
   | 'invalid-page-effect'

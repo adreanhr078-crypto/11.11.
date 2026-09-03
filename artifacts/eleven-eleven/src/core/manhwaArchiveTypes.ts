@@ -12,6 +12,8 @@ export interface ManhwaPageAccessDefinition {
 
 export type ManhwaUnlockFailureReason =
   | 'invalid-page-id'
+  | 'unreleased-page'
+  | 'story-gated'
   | 'invalid-page-number'
   | 'invalid-prerequisite'
   | 'invalid-cost'

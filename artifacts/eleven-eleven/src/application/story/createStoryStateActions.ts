@@ -1,5 +1,8 @@
 import {
   FINAL_MANHWA_CANON_EVENTS,
+  RETIRED_FINAL_MANHWA_CANON_EVENT_IDS,
+  RETIRED_FINAL_MANHWA_KNOWLEDGE_NODE_IDS,
+  RETIRED_FINAL_MANHWA_STORY_FLAGS,
   getFinalManhwaCanonEvent,
 } from '../../content/story/finalManhwaCanonEvents';
 import {
@@ -80,22 +83,27 @@ function withoutKnownStoryProjection(
   state: ReturnType<GameStateGetter>['progressionState'],
   authoritative: AuthoritativeStoryState,
 ): ReturnType<GameStateGetter>['progressionState'] {
-  const knownReceiptKeys = new Set(
-    FINAL_MANHWA_CANON_EVENTS.map((definition) => (
+  const knownReceiptKeys = new Set([
+    ...FINAL_MANHWA_CANON_EVENTS.map((definition) => (
       createNarrativeSourceReceiptKey({
         kind: 'story',
         eventId: definition.eventId,
       }, definition.eventVersion)
     )),
-  );
-  const knownFlags = new Set<string>(
-    FINAL_MANHWA_CANON_EVENTS.map((definition) => definition.storyFlag),
-  );
-  const knownKnowledge = new Set<string>(
-    FINAL_MANHWA_CANON_EVENTS.flatMap((definition) => (
+    ...RETIRED_FINAL_MANHWA_CANON_EVENT_IDS.map((eventId) => (
+      createNarrativeSourceReceiptKey({ kind: 'story', eventId }, 1)
+    )),
+  ]);
+  const knownFlags = new Set<string>([
+    ...FINAL_MANHWA_CANON_EVENTS.map((definition) => definition.storyFlag),
+    ...RETIRED_FINAL_MANHWA_STORY_FLAGS,
+  ]);
+  const knownKnowledge = new Set<string>([
+    ...FINAL_MANHWA_CANON_EVENTS.flatMap((definition) => (
       definition.knowledgeGrants.map((grant) => grant.nodeId)
     )),
-  );
+    ...RETIRED_FINAL_MANHWA_KNOWLEDGE_NODE_IDS,
+  ]);
   const keepReceipt = (key: string) => !knownReceiptKeys.has(key);
   const retainedReceiptKeys = state.narrativeEvents.claimedSourceReceiptKeys
     .filter(keepReceipt);

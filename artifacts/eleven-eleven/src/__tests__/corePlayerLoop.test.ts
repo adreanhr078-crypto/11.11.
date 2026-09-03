@@ -14,7 +14,18 @@ function snapshot(
     mainCompletedCount: 0,
     totalCompletedCount: 0,
     discoverableSecretPuzzleIds: [...discoverableSecretPuzzleIds],
-    echoResonance: { total: 0, byAxis: { clarity: 0, memory: 0, trust: 0, resolve: 0, stability: 0, anomaly: 0 }, lastPuzzleId: null },
+    echoResonance: {
+      total: 0,
+      byAxis: {
+        clarity: 0,
+        memory: 0,
+        trust: 0,
+        resolve: 0,
+        stability: 0,
+        anomaly: 0,
+      },
+      lastPuzzleId: null,
+    },
     syncedAt: new Date(0).toISOString(),
     entries: STORY_PUZZLES.map((puzzle) => ({
       puzzleId: puzzle.id,
@@ -30,45 +41,45 @@ function snapshot(
 }
 
 describe('Core Player Loop', () => {
-  it('gives a first-time player one readable objective instead of a menu choice', () => {
+  it('gives a first-time player one readable published objective instead of a menu choice', () => {
     const objective = deriveCorePlayerObjective(null);
+
     assert.equal(objective.kind, 'read');
     assert.equal(objective.screen, 'memories');
-    assert.match(objective.title, /4/);
+    assert.match(objective.title, /7/);
   });
 
-  it('moves from Manhwa evidence to the current puzzle and then to the next evidence page', () => {
+  it('moves from the Chapter 1 evidence page to its puzzle and then to the next published evidence page', () => {
     const available = deriveCorePlayerObjective(snapshot({
-      story_puzzle_01_signal_calibration: 'available',
+      story_puzzle_01_echo_network_signal_sync: 'available',
     }));
     assert.deepEqual([available.kind, available.screen], ['solve', 'puzzles']);
 
     const afterFirst = deriveCorePlayerObjective(snapshot({
-      story_puzzle_01_signal_calibration: 'completed',
+      story_puzzle_01_echo_network_signal_sync: 'completed',
     }));
     assert.deepEqual([afterFirst.kind, afterFirst.screen], ['read', 'memories']);
-    assert.match(afterFirst.title, /5/);
+    assert.match(afterFirst.title, /9/);
   });
 
-  it('makes a server-discovered secret a clear next objective without treating it as unlocked in the client', () => {
+  it('ignores stale secret identifiers that are not part of the published Chapter 1 route', () => {
     const objective = deriveCorePlayerObjective(snapshot({
-      story_puzzle_01_signal_calibration: 'completed',
-      story_puzzle_02_broken_sequence: 'completed',
-      story_puzzle_03_torn_memory: 'available',
+      story_puzzle_01_echo_network_signal_sync: 'completed',
     }, ['story_puzzle_03_torn_memory']), 'en');
 
-    assert.equal(objective.kind, 'solve');
-    assert.equal(objective.screen, 'puzzles');
-    assert.equal(objective.secretPuzzleId, 'story_puzzle_03_torn_memory');
-    assert.equal(objective.actionLabel, 'Inspect fragment');
-    assert.doesNotMatch(objective.detail, /piece-|target|answer/i);
+    assert.equal(objective.kind, 'read');
+    assert.equal(objective.screen, 'memories');
+    assert.equal(objective.secretPuzzleId, undefined);
+    assert.match(objective.title, /9/);
   });
 
-  it('keeps first-three puzzle answers out of the public catalog and client readiness path', async () => {
+  it('keeps only the two published puzzle solutions out of the public catalog and client readiness path', async () => {
     const { readFile } = await import('node:fs/promises');
     const catalog = await readFile(new URL('../content/puzzles/storyPuzzleCatalog.ts', import.meta.url), 'utf8');
     const screen = await readFile(new URL('../features/screens/PuzzleScreen.tsx', import.meta.url), 'utf8');
-    assert.doesNotMatch(catalog.slice(0, catalog.indexOf("id: 'story_puzzle_04_circuit_restore'")), /targetFrequency|targetChannel|رتّب: إشارة، وصول، ذاكرة، Echo|أعلى اليمين/);
+
+    assert.equal(STORY_PUZZLES.length, 2);
+    assert.doesNotMatch(catalog, /targetFrequency|targetChannel|targetSequence|signal_calibration|broken_sequence|torn_memory/);
     assert.doesNotMatch(screen, /TARGET WINDOW|data-target|pieceId === `piece-\$\{index\}`/);
     assert.match(screen, /readSignalSelection/);
   });
@@ -90,7 +101,7 @@ describe('Core Player Loop', () => {
     assert.match(onboarding, /previousFocus\?\.isConnected/);
   });
 
-  it('keeps the first-session path connected from account to Echo, objective, reward, and next evidence', async () => {
+  it('lands a newly authenticated player in Mission Control before any Manhwa route', async () => {
     const { readFile } = await import('node:fs/promises');
     const [menu, onboarding, shell, objectiveCard, puzzle] = await Promise.all([
       readFile(new URL('../features/screens/MainMenuScreen.tsx', import.meta.url), 'utf8'),
@@ -99,22 +110,23 @@ describe('Core Player Loop', () => {
       readFile(new URL('../features/player-journey/CoreObjectiveCard.tsx', import.meta.url), 'utf8'),
       readFile(new URL('../features/screens/PuzzleScreen.tsx', import.meta.url), 'utf8'),
     ]);
-    assert.match(menu, /سجّل الدخول وابدأ/);
+
     assert.match(menu, /<AuthPanel open=\{authOpen\}/);
+    assert.match(menu, /enterMissionControl/);
+    assert.match(menu, /navigate\('psychological-state'\)/);
+    assert.doesNotMatch(menu, /requestManhwaReader/);
+    assert.doesNotMatch(menu, /requestStoryPuzzleDiscovery/);
     assert.match(onboarding, /navigate\('main-menu'\)/);
-    assert.doesNotMatch(onboarding, /navigate\('echo-mind'\)/);
     assert.match(shell, /<CoreObjectiveCard/);
-    assert.match(objectiveCard, /main-puzzle-solved/);
     assert.match(objectiveCard, /requestManhwaReader/);
     assert.match(puzzle, /playPuzzleCompletionSound/);
-    assert.match(puzzle, /void loadProfile\(\)/);
-    assert.match(puzzle, /void loadLeaderboard\(true\)/);
   });
 
   it('does not expose developer configuration keys to a player when sign-in is unavailable', async () => {
     const { readFile } = await import('node:fs/promises');
     const authPanel = await readFile(new URL('../features/auth/AuthPanel.tsx', import.meta.url), 'utf8');
-    assert.match(authPanel, /تسجيل الدخول غير جاهز في هذه النسخة بعد/);
+
+    assert.match(authPanel, /shouldCloseAuthPanelAfterAuthentication/);
     assert.doesNotMatch(authPanel, /missingConfigKeys\.join/);
   });
 });

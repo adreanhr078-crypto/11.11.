@@ -4,6 +4,7 @@ import type {
   LiveChallengeReward,
   LiveChallengeVisual,
 } from './liveChallengeContracts';
+import { FINAL_MANHWA_ASSET_ROOT } from '../../content/manhwa/finalManhwa';
 import { WEEKLY_REWARD_PREVIEW } from './weeklyRewardCatalog';
 
 export const SMART_LIVE_VERSION = 'smart-memory-v1';
@@ -58,31 +59,17 @@ export const SMART_MECHANIC_ROTATION: readonly SmartMechanic[] = Object.freeze([
   'word-path',
 ]);
 
+/** Only pages released in the corrected opening slice may frame live puzzles. */
 const MEMORY_FRAGMENTS = Object.freeze([
   {
-    imageSrc: '/assets/characters/echo-portrait-v1.png',
-    alt: 'شظية بصرية من ذاكرة Echo قبل استقرار الإشارة.',
-    title: 'ملامح قبل الصمت',
+    imageSrc: `${FINAL_MANHWA_ASSET_ROOT}/page-007.webp`,
+    alt: 'شظية بصرية من افتتاح مانهوَا Echo Network المصححة.',
+    title: 'نبض الافتتاح 007',
   },
   {
-    imageSrc: '/assets/characters/echo-fullbody-normal-v2.png',
-    alt: 'لقطة كاملة من ذاكرة Echo داخل الممر المضيء.',
-    title: 'الممر الذي تذكّرها',
-  },
-  {
-    imageSrc: '/manhwa/final/page-009.webp',
-    alt: 'صفحة معتمدة من سجل Echo المصوّر.',
-    title: 'السجل المصوّر 009',
-  },
-  {
-    imageSrc: '/manhwa/final/page-041.webp',
-    alt: 'صفحة معتمدة من ذاكرة Echo المتقطعة.',
-    title: 'السجل المصوّر 041',
-  },
-  {
-    imageSrc: '/assets/characters/echo-states/echo-second-contract-marked-v1.png',
-    alt: 'أثر بصري من عقد Echo الثاني.',
-    title: 'علامة العقد الثاني',
+    imageSrc: `${FINAL_MANHWA_ASSET_ROOT}/page-009.webp`,
+    alt: 'شظية بصرية من بوابة الأرشيف في الافتتاح المصحح.',
+    title: 'بوابة الأرشيف 009',
   },
 ] as const);
 
@@ -91,33 +78,33 @@ const ECHO_MEMORY_WORDS = Object.freeze([
   'ECHO',
   'SIGNAL',
   'ACCESS',
-  'NARA',
-  'ZERO',
-  'YUKI',
-  'KENJA',
+  'TRACE',
+  'ARCHIVE',
+  'RELAY',
+  'GATE',
 ] as const);
 
 const WIRING_SCENES = Object.freeze([
   {
-    title: 'شبكة الرفاق',
-    sources: ['ECHO', 'NARA', 'ZERO'],
-    targets: ['CORE MEMORY', 'NORTH RELAY', 'BLACK CHANNEL'],
-    labels: ['الوعي', 'البوصلة', 'القناة المحجوبة'],
-    signatures: ['11·C', '07·N', '00·B'],
+    title: 'شبكة الإشارات',
+    sources: ['ECHO', 'SIGNAL', 'TRACE'],
+    targets: ['CORE MEMORY', 'NORTH RELAY', 'ARCHIVE GATE'],
+    labels: ['الوعي', 'المرحل', 'بوابة الأرشيف'],
+    signatures: ['11·C', '07·R', '09·A'],
   },
   {
     title: 'خط العودة',
-    sources: ['YUKI', 'KENJA', 'ECHO'],
+    sources: ['ACCESS', 'ARCHIVE', 'ECHO'],
     targets: ['SAFE ROOM', 'ARCHIVE GATE', 'HEARTBEAT'],
-    labels: ['المخبأ', 'البوابة', 'النبض'],
-    signatures: ['24·S', '40·A', '13·H'],
+    labels: ['الممر الآمن', 'البوابة', 'النبض'],
+    signatures: ['07·S', '09·A', '11·H'],
   },
   {
     title: 'مصفوفة 11:11',
-    sources: ['ZERO', 'ECHO', 'NARA'],
+    sources: ['SIGNAL', 'ECHO', 'TRACE'],
     targets: ['TRACE 01', 'TRACE 02', 'TRACE 03'],
     labels: ['الأثر الأول', 'الأثر الثاني', 'الأثر الثالث'],
-    signatures: ['Z·01', 'E·02', 'N·03'],
+    signatures: ['S·01', 'E·02', 'T·03'],
   },
 ].map((scene) => Object.freeze(scene)) as readonly {
   readonly title: string;
@@ -477,7 +464,7 @@ function createChoiceTemplate(
   if (mechanic === 'text-riddle') {
     const riddles = [
       { answer: 'MEMORY', clue: 'أحملك حين يختفي المكان، وقد أنكسر إلى شظايا من دون أن أموت.', options: ['MEMORY', 'SIGNAL', 'SHADOW', 'GATE'] },
-      { answer: 'ECHO', clue: 'أعود إليك بصوتك، لكنني لا أبدأ الكلام أبدًا.', options: ['ECHO', 'ZERO', 'LIGHT', 'TRACE'] },
+      { answer: 'ECHO', clue: 'أعود إليك بصوتك، لكنني لا أبدأ الكلام أبدًا.', options: ['ECHO', 'GATE', 'LIGHT', 'TRACE'] },
       { answer: 'KEY', clue: 'لا أفتح بابًا من حديد؛ أفتح نصًا أغلقته الشيفرة.', options: ['KEY', 'WIRE', 'CLOCK', 'MASK'] },
       { answer: 'SHADOW', clue: 'أتبعك بلا خطوات، وأختفي عندما يغيب الضوء.', options: ['SHADOW', 'MEMORY', 'CODE', 'NORTH'] },
     ] as const;

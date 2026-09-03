@@ -31,8 +31,11 @@ export const ECHO_PRESENTATION_ASSETS: EchoPresentationAssetSet = {
 };
 
 /**
- * Canon-safe visual mapping for the four published Part 1 Echo states.
- * Story authority remains in the server-issued Canon receipts.
+ * Only the opening state has an approved visual mapping in the corrected
+ * publication. The other identifiers remain as persistence-compatible inputs
+ * for retired saves, but intentionally resolve to the neutral base look. Do
+ * not turn an old receipt into a new transformation, character reveal, or
+ * Manhwa spoiler through presentation.
  */
 export const ECHO_STATE_PRESENTATION_ASSETS: Readonly<
   Record<EchoVisualStageId, EchoStatePresentationAssets>
@@ -42,28 +45,16 @@ export const ECHO_STATE_PRESENTATION_ASSETS: Readonly<
     fullBody: ECHO_PRESENTATION_ASSETS.fullBodyNormal,
   },
   black_coronation: {
-    portrait: '/assets/characters/echo-states/echo-black-coronation-v1.png',
-    fullBody: '/assets/characters/echo-states/echo-black-coronation-v1.png',
-    transitionVideo:
-      '/assets/cinematics/echo-transform-base-to-black-coronation-v1.mp4',
+    portrait: ECHO_PRESENTATION_ASSETS.portrait,
+    fullBody: ECHO_PRESENTATION_ASSETS.fullBodyNormal,
   },
   second_contract_marked: {
-    portrait: '/assets/characters/echo-states/echo-second-contract-marked-v1.png',
-    fullBody: '/assets/characters/echo-states/echo-second-contract-marked-v1.png',
-    transitionFrames: [
-      '/assets/characters/echo-states/echo-black-coronation-v1.png',
-      '/manhwa/final/page-058.webp',
-      '/assets/characters/echo-states/echo-second-contract-marked-v1.png',
-    ],
+    portrait: ECHO_PRESENTATION_ASSETS.portrait,
+    fullBody: ECHO_PRESENTATION_ASSETS.fullBodyNormal,
   },
   black_echo_protocol: {
-    portrait: '/assets/characters/echo-states/echo-black-echo-protocol-v1.png',
-    fullBody: '/assets/characters/echo-states/echo-black-echo-protocol-v1.png',
-    transitionFrames: [
-      '/assets/characters/echo-states/echo-second-contract-marked-v1.png',
-      '/manhwa/final/page-062.webp',
-      '/assets/characters/echo-states/echo-black-echo-protocol-v1.png',
-    ],
+    portrait: ECHO_PRESENTATION_ASSETS.portrait,
+    fullBody: ECHO_PRESENTATION_ASSETS.fullBodyNormal,
   },
 });
 

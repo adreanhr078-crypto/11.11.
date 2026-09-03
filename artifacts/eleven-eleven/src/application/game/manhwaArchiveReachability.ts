@@ -8,7 +8,7 @@ import {
 } from '../../domain/manhwa/manhwaArchiveProgression';
 
 export const FINAL_MANHWA_ACCESS_DEFINITIONS =
-  FINAL_MANHWA_PAGES.map((page) => (
+  FINAL_MANHWA_PAGES.filter((page) => page.published).map((page) => (
     createManhwaPageAccessDefinition({
       pageId: page.id,
       pageNumber: page.globalPageNumber,
