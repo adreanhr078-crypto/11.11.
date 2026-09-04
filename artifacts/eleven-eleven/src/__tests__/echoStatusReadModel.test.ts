@@ -168,7 +168,7 @@ describe('canon-safe Echo status read model', () => {
     const serialized = JSON.stringify(model);
 
     assert.equal(model.knowledge.player.visibleCount, 0);
-    assert.equal(model.knowledge.echo.visibleCount, 1);
+    assert.equal(model.knowledge.echo.visibleCount, 0);
     assert.equal(serialized.includes('echo_knowledge_black_coronation'), false);
     assert.equal(serialized.includes('echo_knowledge_black_echo_protocol'), false);
   });

@@ -19,6 +19,12 @@ import {
   normalizeAuthoritativeStoryState,
   type AuthoritativeStoryState,
 } from '../../../src/domain/story/storyState';
+import {
+  OPENING_COVER_PUZZLE_ID,
+  OPENING_MANHWA_PACKET_ID,
+  OPENING_ROOM_ID,
+  OPENING_MANHWA_PACKET_PAGE_IDS,
+} from '../../../src/domain/opening/openingProgress';
 import type {
   PlayerDatabase,
 } from './_database';
@@ -58,6 +64,17 @@ interface ReadPageRow {
 
 interface StoryPuzzleCompletionRow {
   puzzle_id: string;
+}
+
+interface OpeningRecoveryStateRow {
+  receipt_id: string;
+}
+
+interface OpeningRoomStateRow {
+  receipt_id: string;
+  room_id: string;
+  packet_id: string;
+  page_ids_json: string;
 }
 
 export interface ManhwaReaderCheckpoint {
@@ -154,6 +171,7 @@ async function assertCheckpointWithinReaderWindow(
   uid: string,
   pageId: string,
 ): Promise<void> {
+  if (await hasOpeningPacketPage(database, uid, pageId)) return;
   const completed = await database.prepare(`
     SELECT puzzle_id
     FROM player_story_puzzle_completion_events
@@ -168,6 +186,77 @@ async function assertCheckpointWithinReaderWindow(
       'story_page_locked',
       'The next Story Puzzle must be verified before this Manhwa page can be read.',
     );
+  }
+}
+
+function isMissingOpeningTablesError(error: unknown): boolean {
+  return error instanceof Error
+    && /no such table|Unhandled fake D1/i.test(error.message);
+}
+
+async function hasOpeningPacketPage(
+  database: PlayerDatabase,
+  uid: string,
+  pageId: string,
+): Promise<boolean> {
+  try {
+    const row = await database.prepare(`
+      SELECT page_ids_json
+      FROM player_opening_room_receipts
+      WHERE user_id = ? AND room_id = ?
+    `).bind(uid, OPENING_ROOM_ID).first<{ page_ids_json: string }>();
+    if (!row) return false;
+    const parsed: unknown = JSON.parse(row.page_ids_json);
+    return Array.isArray(parsed)
+      && parsed.includes(pageId)
+      && OPENING_MANHWA_PACKET_PAGE_IDS.includes(pageId);
+  } catch (error) {
+    if (isMissingOpeningTablesError(error)) return false;
+    throw error;
+  }
+}
+
+interface OpeningUnlockSnapshot {
+  openingCoverPuzzleCompleted: boolean;
+  openingRoomCompleted: boolean;
+  manhwaPacketIds: string[];
+}
+
+async function readOpeningUnlockSnapshot(
+  database: PlayerDatabase,
+  uid: string,
+): Promise<OpeningUnlockSnapshot> {
+  try {
+    const [recovery, room] = await Promise.all([
+      database.prepare(`
+        SELECT receipt_id
+        FROM player_opening_recovery_receipts
+        WHERE user_id = ? AND puzzle_id = ?
+      `).bind(uid, OPENING_COVER_PUZZLE_ID).first<OpeningRecoveryStateRow>(),
+      database.prepare(`
+        SELECT receipt_id, room_id, packet_id, page_ids_json
+        FROM player_opening_room_receipts
+        WHERE user_id = ? AND room_id = ?
+      `).bind(uid, OPENING_ROOM_ID).first<OpeningRoomStateRow>(),
+    ]);
+    // Page IDs are validated when the packet is emitted and again by the
+    // checkpoint gate. The snapshot exposes only the packet identity.
+    return {
+      openingCoverPuzzleCompleted: Boolean(recovery?.receipt_id),
+      openingRoomCompleted: Boolean(room?.receipt_id),
+      manhwaPacketIds: room?.packet_id === OPENING_MANHWA_PACKET_ID
+        ? [OPENING_MANHWA_PACKET_ID]
+        : [],
+    };
+  } catch (error) {
+    if (isMissingOpeningTablesError(error)) {
+      return {
+        openingCoverPuzzleCompleted: false,
+        openingRoomCompleted: false,
+        manhwaPacketIds: [],
+      };
+    }
+    throw error;
   }
 }
 
@@ -288,7 +377,7 @@ async function readSnapshot(
   account: FirebaseAccount,
 ): Promise<AuthoritativeStoryState> {
   await ensurePlayerProgressionRow(database, account);
-  const [events, chapters, fragments] = await Promise.all([
+  const [events, chapters, fragments, opening] = await Promise.all([
     database.prepare(`
       SELECT
         event_id,
@@ -314,6 +403,7 @@ async function readSnapshot(
         AND fragment_id NOT GLOB 'story_puzzle_shard_*'
       ORDER BY found_at ASC, fragment_id ASC
     `).bind(account.uid).all<FragmentRow>(),
+    readOpeningUnlockSnapshot(database, account.uid),
   ]);
   const chapterByPublicationSourceId = new Map(
     FINAL_MANHWA_CHAPTERS.map((chapter) => [
@@ -339,6 +429,10 @@ async function readSnapshot(
       .map((chapter) => chapter.chapterId),
     discoveredMemoryFragmentIds: (fragments.results ?? [])
       .map((row) => row.fragment_id),
+    openingCoverPuzzleCompleted: opening.openingCoverPuzzleCompleted,
+    openingRoomCompleted: opening.openingRoomCompleted,
+    manhwaPacketIds: opening.manhwaPacketIds,
+    chessHobbyUnlocked: false,
     syncedAt: new Date().toISOString(),
   });
 }

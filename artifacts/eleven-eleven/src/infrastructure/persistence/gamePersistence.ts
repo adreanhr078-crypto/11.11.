@@ -779,7 +779,11 @@ export function migrateGameState(
     echo: echoProgress,
     echoEvents: normalizeEchoEventProgressState(canonicalEchoEvents),
     narrativeEvents,
-    evolution: isFinalManhwaSave
+    // Evolution is its own canonical, definition-independent ledger. Do not
+    // discard a newer stage merely because an older save is missing the
+    // corrected Manhwa manifest marker; the normalization boundary already
+    // strips malformed data and never exposes a stage definition.
+    evolution: hasOwn(canonical, 'evolution')
       ? migrateEchoEvolutionProgress(canonicalEvolution)
       : createInitialEchoEvolutionProgressState(),
     story: {

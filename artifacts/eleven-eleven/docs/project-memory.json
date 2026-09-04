@@ -1,21 +1,23 @@
 {
   "schemaVersion": 1,
   "visionVersion": "1.0",
-  "updatedAt": "2026-09-03",
+  "updatedAt": "2026-09-04",
   "ownerApproved": true,
   "ownerDirective": "Build an original world-class hybrid anime game with quality over speed, using as many evidence-gated phases and professional tools as needed.",
-  "currentPhase": "PART_1_CANON_RECONCILIATION_AND_FIRST_SLICE_BLUEPRINT",
+  "currentPhase": "PART_2_CONNECTED_UI_MANHWA_AND_OPENING_PUZZLES",
   "currentPhaseGate": [
-    "Publish and preserve the Owner-approved Part 1 Manhwa source, hashes, and Canon manifest",
-    "Reconcile the approved Part 1 Manhwa with the Story Bible and Narrative Master, recording true conflicts rather than silently rewriting either source",
-    "Produce and obtain Owner approval for the Part 1 page-to-scene-to-gameplay matrix and first playable slice",
-    "Lock only the assets, reveal classifications, localization, and runtime scope needed for the approved slice"
+    "Connect Mission Control, the approved Manhwa reader, and the opening Story Puzzle gateway without changing the Part 1 Canon or frozen paths",
+    "After every server-authoritative puzzle receipt, show the verified reward, Echo response, and the truthful next objective with a matching route and action label",
+    "Prove the connected handoff in Arabic and English across refresh/resume, loading/error/retry, keyboard/touch, reduced motion, mute, and responsive target viewports",
+    "Keep Manhwa exposure bounded by the approved opening matrix and keep Screen Break, 3D arrival, guide, transformation, combat, and final cinematic integration out of this phase",
+    "Add reproducible regression evidence for duplicate-safe receipts, story-puzzle access, objective derivation, and the connected UI route"
   ],
   "currentSafeWork": [
     "Preserve integrity, authentication, save, reward, and rollout authority",
-    "Maintain portable Blender, Godot proof, GLB, video, audio, and Edge validation tooling",
-    "Prepare technical prototypes and performance measurements tied to the approved Part 1 reference without locking unapproved scene details",
-    "Document Part 1 decisions, page-to-scene mapping, and staged runtime releases without publishing future content ahead of its approved slice"
+    "Maintain portable Blender, Godot proof, GLB, video, audio, and Edge validation tooling without enabling the dormant 3D route",
+    "Finish the connected Mission Control → Manhwa → opening puzzle → receipt → Echo → next objective loop using existing authoritative contracts",
+    "Run focused player-experience, accessibility, responsive, content, type, test, build, media, and Worker checks tied to this bounded surface",
+    "Document the Phase 2 release boundary and keep future Screen Break, 3D, guide, transformation, and combat work behind their own gates"
   ],
   "ownerRequestedPrototypes": {
     "manhwaAnchoredOpeningCinematic": {

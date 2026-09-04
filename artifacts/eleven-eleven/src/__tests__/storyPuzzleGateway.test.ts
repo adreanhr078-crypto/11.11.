@@ -374,19 +374,19 @@ function draftFromAuthoritativeSolution(
 describe('server-authoritative Story Puzzle gateway', () => {
   it('records an accessible completion, XP, coins, and shard exactly once', async () => {
     const database = new StoryPuzzleDatabase();
-    database.seedPage(account.uid, 'manhwa_ch01_page_02');
+    database.seedPage(account.uid, 'echo_network_final_2026_09_v1_page_007');
     const solution = draft({ tokens: ['58', 'channel-11'] });
 
     const first = await completeStoryPuzzle(
       database,
       account,
-      'story_puzzle_01_signal_calibration',
+      'story_puzzle_01_echo_network_signal_sync',
       solution,
     );
     const replay = await completeStoryPuzzle(
       database,
       account,
-      'story_puzzle_01_signal_calibration',
+      'story_puzzle_01_echo_network_signal_sync',
       solution,
     );
 
@@ -433,10 +433,10 @@ describe('server-authoritative Story Puzzle gateway', () => {
 
   it('rejects incorrect opening-slice submissions before any reward receipt is written', async () => {
     const database = new StoryPuzzleDatabase();
-    database.seedPage(account.uid, 'manhwa_ch01_page_02');
+    database.seedPage(account.uid, 'echo_network_final_2026_09_v1_page_007');
 
     await assert.rejects(
-      () => completeStoryPuzzle(database, account, 'story_puzzle_01_signal_calibration', draft({
+      () => completeStoryPuzzle(database, account, 'story_puzzle_01_echo_network_signal_sync', draft({
         tokens: ['42', 'channel-07'],
       })),
       (error) => error instanceof PlayerApiError && error.code === 'puzzle_not_verified',
@@ -446,13 +446,13 @@ describe('server-authoritative Story Puzzle gateway', () => {
     assert.equal(database.fragments.size, 0);
     assert.equal(database.coinBalance(account.uid), 0);
 
-    await completeStoryPuzzle(database, account, 'story_puzzle_01_signal_calibration', draft({
+    await completeStoryPuzzle(database, account, 'story_puzzle_01_echo_network_signal_sync', draft({
       tokens: ['58', 'channel-11'],
     }));
-    database.seedPage(account.uid, 'manhwa_ch01_page_03');
+    database.seedPage(account.uid, 'echo_network_final_2026_09_v1_page_009');
 
     await assert.rejects(
-      () => completeStoryPuzzle(database, account, 'story_puzzle_02_system_sequence', draft({
+      () => completeStoryPuzzle(database, account, 'story_puzzle_02_echo_network_archive_route', draft({
         tokens: ['signal', 'memory', 'access', 'echo'],
       })),
       (error) => error instanceof PlayerApiError && error.code === 'puzzle_not_verified',
@@ -460,107 +460,57 @@ describe('server-authoritative Story Puzzle gateway', () => {
     assert.equal(database.completions.size, 1);
     assert.equal(database.fragments.size, 1);
 
-    await completeStoryPuzzle(database, account, 'story_puzzle_02_system_sequence', draft({
+    await completeStoryPuzzle(database, account, 'story_puzzle_02_echo_network_archive_route', draft({
       tokens: ['signal', 'access', 'memory', 'echo'],
     }));
-    database.seedPage(account.uid, 'manhwa_ch01_page_07');
-    await discoverStoryPuzzle(database, account, 'story_puzzle_03_torn_memory');
-
     await assert.rejects(
-      () => completeStoryPuzzle(database, account, 'story_puzzle_03_torn_memory', draft({
-        imageOrder: ['piece-0', 'piece-0', 'piece-2', 'piece-3', 'piece-4', 'piece-5', 'piece-6', 'piece-7', 'piece-8'],
-        rotations: Object.fromEntries(Array.from({ length: 9 }, (_, index) => [`piece-${index}`, 0])),
-      })),
-      (error) => error instanceof PlayerApiError && error.code === 'puzzle_not_verified',
+      () => completeStoryPuzzle(database, account, 'story_puzzle_03_torn_memory', draft()),
+      (error) => error instanceof PlayerApiError && error.code === 'unknown_puzzle',
     );
     assert.equal(database.completions.size, 2);
     assert.equal(database.fragments.size, 2);
   });
 
-  it('keeps a secret hidden until its verified source and prerequisite are present', async () => {
+  it('keeps retired secret routes closed at the gateway', async () => {
     const database = new StoryPuzzleDatabase();
-    database.seedPage(account.uid, 'manhwa_ch01_page_02');
-    await completeStoryPuzzle(database, account, 'story_puzzle_01_signal_calibration', draft({
-      tokens: ['58', 'channel-11'],
-    }));
-    database.seedPage(account.uid, 'manhwa_ch01_page_03');
-    await completeStoryPuzzle(database, account, 'story_puzzle_02_system_sequence', draft({
-      tokens: ['signal', 'access', 'memory', 'echo'],
-    }));
-    database.seedPage(account.uid, 'manhwa_ch01_page_07');
-
-    const discovered = await discoverStoryPuzzle(
-      database,
-      account,
-      'story_puzzle_03_torn_memory',
+    await assert.rejects(
+      () => discoverStoryPuzzle(database, account, 'story_puzzle_03_torn_memory'),
+      (error) => error instanceof PlayerApiError && error.code === 'unknown_puzzle',
     );
-    const entry = discovered.entries.find((candidate) => (
-      candidate.puzzleId === 'story_puzzle_03_torn_memory'
-    ));
-    assert.equal(entry?.status, 'available');
-    assert.equal(database.discoveries.size, 1);
-
-    const reward = await completeStoryPuzzle(database, account, 'story_puzzle_03_torn_memory', draft({
-      imageOrder: Array.from({ length: 9 }, (_, index) => `piece-${index}`),
-      rotations: Object.fromEntries(Array.from({ length: 9 }, (_, index) => [`piece-${index}`, 0])),
-    }));
-    assert.equal(reward.awarded, true);
-    assert.equal(database.discoveries.size, 1, 'completion cannot create a second discovery receipt');
-    assert.equal(database.fragments.size, 3);
+    await assert.rejects(
+      () => completeStoryPuzzle(database, account, 'story_puzzle_03_torn_memory', draft()),
+      (error) => error instanceof PlayerApiError && error.code === 'unknown_puzzle',
+    );
+    assert.equal(database.discoveries.size, 0);
+    assert.equal(database.completions.size, 0);
   });
 
-  it('accepts the physical Torn Memory arrangement emitted by the RTL-safe client and rejects its mirror', async () => {
+  it('persists the current archive-route draft without exposing its solution', async () => {
     const database = new StoryPuzzleDatabase();
-    database.seedPage(account.uid, 'manhwa_ch01_page_02');
-    await completeStoryPuzzle(database, account, 'story_puzzle_01_signal_calibration', draft({
+    database.seedPage(account.uid, 'echo_network_final_2026_09_v1_page_007');
+    await completeStoryPuzzle(database, account, 'story_puzzle_01_echo_network_signal_sync', draft({
       tokens: ['58', 'channel-11'],
     }));
-    database.seedPage(account.uid, 'manhwa_ch01_page_03');
-    await completeStoryPuzzle(database, account, 'story_puzzle_02_system_sequence', draft({
-      tokens: ['signal', 'access', 'memory', 'echo'],
-    }));
-    database.seedPage(account.uid, 'manhwa_ch01_page_07');
-    await discoverStoryPuzzle(database, account, 'story_puzzle_03_torn_memory');
-
-    await assert.rejects(
-      () => completeStoryPuzzle(database, account, 'story_puzzle_03_torn_memory', draft({
-        imageOrder: ['piece-2', 'piece-1', 'piece-0', 'piece-5', 'piece-4', 'piece-3', 'piece-8', 'piece-7', 'piece-6'],
-        rotations: Object.fromEntries(Array.from({ length: 9 }, (_, index) => [`piece-${index}`, 0])),
-      })),
-      (error) => error instanceof PlayerApiError && error.code === 'puzzle_not_verified',
-    );
-
-    const uiDraft = normalizeImageReconstructionDraft({
-      imageOrder: Array.from({ length: 9 }, (_, index) => `piece-${index}`),
-      rotations: { 'piece-0': 3, stale: 1 },
-    }, 3, 3, false);
-    const persistedDraft = draft(uiDraft);
+    database.seedPage(account.uid, 'echo_network_final_2026_09_v1_page_009');
+    const persistedDraft = draft({ tokens: ['signal', 'access'] });
     const snapshot = await saveStoryPuzzleDraft(
       database,
       account,
-      'story_puzzle_03_torn_memory',
+      'story_puzzle_02_echo_network_archive_route',
       persistedDraft,
     );
     const savedEntry = snapshot.entries.find((entry) => (
-      entry.puzzleId === 'story_puzzle_03_torn_memory'
+      entry.puzzleId === 'story_puzzle_02_echo_network_archive_route'
     ));
+    assert.equal(savedEntry?.status, 'in_progress');
     assert.deepEqual(savedEntry?.draft, persistedDraft);
-
-    const reward = await completeStoryPuzzle(
-      database,
-      account,
-      'story_puzzle_03_torn_memory',
-      savedEntry!.draft!,
-    );
-    assert.equal(reward.awarded, true);
-    assert.equal(database.completions.size, 3);
   });
 
   it('keeps every hint priced atomically, rejects insufficient coins, and removes only the perfect bonus', async () => {
     const database = new StoryPuzzleDatabase();
-    database.seedPage(account.uid, 'manhwa_ch01_page_02');
+    database.seedPage(account.uid, 'echo_network_final_2026_09_v1_page_007');
     await assert.rejects(
-      () => unlockStoryPuzzleHint(database, account, 'story_puzzle_01_signal_calibration', 0),
+      () => unlockStoryPuzzleHint(database, account, 'story_puzzle_01_echo_network_signal_sync', 0),
       (error) => error instanceof PlayerApiError && error.code === 'insufficient_coins',
     );
 
@@ -568,11 +518,11 @@ describe('server-authoritative Story Puzzle gateway', () => {
     const firstPaidHint = await unlockStoryPuzzleHint(
       database,
       account,
-      'story_puzzle_01_signal_calibration',
+      'story_puzzle_01_echo_network_signal_sync',
       0,
     );
     await assert.rejects(
-      () => unlockStoryPuzzleHint(database, account, 'story_puzzle_01_signal_calibration', 1),
+      () => unlockStoryPuzzleHint(database, account, 'story_puzzle_01_echo_network_signal_sync', 1),
       (error) => error instanceof PlayerApiError && error.code === 'insufficient_coins',
     );
 
@@ -580,19 +530,19 @@ describe('server-authoritative Story Puzzle gateway', () => {
     const paidHint = await unlockStoryPuzzleHint(
       database,
       account,
-      'story_puzzle_01_signal_calibration',
+      'story_puzzle_01_echo_network_signal_sync',
       1,
     );
     const replay = await unlockStoryPuzzleHint(
       database,
       account,
-      'story_puzzle_01_signal_calibration',
+      'story_puzzle_01_echo_network_signal_sync',
       1,
     );
     const reward = await completeStoryPuzzle(
       database,
       account,
-      'story_puzzle_01_signal_calibration',
+      'story_puzzle_01_echo_network_signal_sync',
       draft({ tokens: ['58', 'channel-11'] }),
     );
 
@@ -608,15 +558,15 @@ describe('server-authoritative Story Puzzle gateway', () => {
 
   it('calculates perfect status inside the completion batch when a paid hint wins the race', async () => {
     const database = new StoryPuzzleDatabase();
-    database.seedPage(account.uid, 'manhwa_ch01_page_02');
+    database.seedPage(account.uid, 'echo_network_final_2026_09_v1_page_007');
     database.seedCoins(account.uid, 4);
     database.beforeNextBatch = () => {
-      database.hints.set(`${account.uid}:story_puzzle_01_signal_calibration:0`, {
+      database.hints.set(`${account.uid}:story_puzzle_01_echo_network_signal_sync:0`, {
         userId: account.uid,
-        puzzleId: 'story_puzzle_01_signal_calibration',
+        puzzleId: 'story_puzzle_01_echo_network_signal_sync',
         hintIndex: 0,
       });
-      database.coins.set(`${account.uid}:story_puzzle_01_signal_calibration:hint:0:v1`, {
+      database.coins.set(`${account.uid}:story_puzzle_01_echo_network_signal_sync:hint:0:v1`, {
         userId: account.uid,
         amount: -4,
       });
@@ -625,27 +575,29 @@ describe('server-authoritative Story Puzzle gateway', () => {
     const reward = await completeStoryPuzzle(
       database,
       account,
-      'story_puzzle_01_signal_calibration',
+      'story_puzzle_01_echo_network_signal_sync',
       draft({ tokens: ['58', 'channel-11'] }),
     );
 
     assert.equal(reward.awarded, true);
     assert.equal(reward.perfectBonusCoins, 0);
-    assert.equal(database.completions.get(`${account.uid}:story_puzzle_01_signal_calibration`)?.perfectSolve, 0);
+    assert.equal(database.completions.get(`${account.uid}:story_puzzle_01_echo_network_signal_sync`)?.perfectSolve, 0);
     assert.equal(database.coinBalance(account.uid), 18, 'the committed hint removes only the perfect bonus');
   });
 
-  it('persists a multi-stage draft and restores it from a fresh snapshot', async () => {
+  it('persists the current puzzle draft and restores it from a fresh snapshot', async () => {
     const database = new StoryPuzzleDatabase();
-    database.seedCompletion(account.uid, 'story_puzzle_13_visual_forensics');
-    database.seedPage(account.uid, 'manhwa_ch03_page_26');
+    database.seedPage(account.uid, 'echo_network_final_2026_09_v1_page_007');
+    await completeStoryPuzzle(database, account, 'story_puzzle_01_echo_network_signal_sync', draft({
+      tokens: ['58', 'channel-11'],
+    }));
+    database.seedPage(account.uid, 'echo_network_final_2026_09_v1_page_009');
     const stagedDraft = draft({
-      stageIndex: 1,
+      stageIndex: 0,
+      tokens: ['signal'],
       assignments: {
         __stages: JSON.stringify([
-          { stageIndex: 0, tokens: ['74', 'channel-11'], assignments: {}, imageOrder: [], rotations: {} },
-          { stageIndex: 0, tokens: ['memory'], assignments: {}, imageOrder: [], rotations: {} },
-          { stageIndex: 0, tokens: [], assignments: { access: 'echo' }, imageOrder: [], rotations: {} },
+          { stageIndex: 0, tokens: ['signal'], assignments: {}, imageOrder: [], rotations: {} },
         ]),
       },
     });
@@ -653,11 +605,11 @@ describe('server-authoritative Story Puzzle gateway', () => {
     const snapshot = await saveStoryPuzzleDraft(
       database,
       account,
-      'story_puzzle_15_system_breach',
+      'story_puzzle_02_echo_network_archive_route',
       stagedDraft,
     );
     const entry = snapshot.entries.find((candidate) => (
-      candidate.puzzleId === 'story_puzzle_15_system_breach'
+      candidate.puzzleId === 'story_puzzle_02_echo_network_archive_route'
     ));
 
     assert.equal(entry?.status, 'in_progress');

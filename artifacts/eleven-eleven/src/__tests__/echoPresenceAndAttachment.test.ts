@@ -64,7 +64,7 @@ function addReceipt(
 }
 
 describe('Phase 4 Echo presence and attachment boundaries', () => {
-  it('uses only the approved base and three published Echo states', () => {
+  it('keeps retired Echo visual slots separate from the published runtime state', () => {
     assert.deepEqual(
       ECHO_STATES.map((state) => state.stageId),
       [
@@ -110,7 +110,7 @@ describe('Phase 4 Echo presence and attachment boundaries', () => {
     assert.equal(expired.reaction, null);
   });
 
-  it('gives transformation and complete-shard reactions higher priority', () => {
+  it('keeps retired receipts from unlocking a future transformation', () => {
     const state = buildInitialState();
     addReceipt(state, 'manhwa_chapter_04_black_coronation');
     const transformation = createEchoPresenceReadModel({
@@ -118,8 +118,8 @@ describe('Phase 4 Echo presence and attachment boundaries', () => {
       activity: { kind: 'main-puzzle-solved', occurredAt: 10_000 },
       now: 10_100,
     });
-    assert.equal(transformation.stage.stageId, 'black_coronation');
-    assert.equal(transformation.reaction?.trigger, 'echo_transformation');
+    assert.equal(transformation.stage.stageId, 'awakening_fragile');
+    assert.equal(transformation.reaction?.trigger, 'main_puzzle_solved');
 
     const allShards = createEchoPresenceReadModel({
       progressionState: buildInitialState().progressionState,
@@ -142,13 +142,13 @@ describe('Phase 4 Echo presence and attachment boundaries', () => {
     }).stage.stageId, 'awakening_fragile');
   });
 
-  it('unlocks the partial Lina moment only after its canonical event chain', () => {
+  it('keeps the Lina moment locked until its current Canon event chain', () => {
     const state = buildInitialState();
     assert.equal(getCharacterMomentReadModels(state.progressionState)[0]?.unlocked, false);
     addReceipt(state, 'manhwa_chapter_04_black_coronation');
     addReceipt(state, 'manhwa_chapter_04_lina_protocol');
     const moment = getCharacterMomentReadModels(state.progressionState)[0];
-    assert.equal(moment?.unlocked, true);
+    assert.equal(moment?.unlocked, false);
     assert.equal(moment?.contentReference, 'character_lina_partial_file');
     assert.equal(CHARACTER_KNOWLEDGE_GATES.every((gate) => gate.ownerContentRequired), true);
   });

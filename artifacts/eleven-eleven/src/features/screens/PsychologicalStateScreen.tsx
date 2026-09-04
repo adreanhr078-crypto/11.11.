@@ -25,6 +25,7 @@ import { useStoryPuzzleStore } from '../story-puzzles/storyPuzzleStore';
 import { deriveCorePlayerObjective } from '../../application/player-journey/corePlayerLoop';
 import { MiniEchoCompanion } from '../echo/MiniEchoCompanion';
 import './psychological-state-screen.css';
+import { usePlayerProgressionStore } from '../player-progression/playerProgressionStore';
 
 const MISSION_COPY = {
   ar: {
@@ -64,6 +65,9 @@ export default function PsychologicalStateScreen() {
   );
   const locale = useUiPreferencesStore((preferences) => preferences.locale);
   const storyPuzzleSnapshot = useStoryPuzzleStore((store) => store.snapshot);
+  const authoritativeStoryState = usePlayerProgressionStore(
+    (store) => store.storyState,
+  );
   const visualProfile = useEmotionVisualProfile();
   const copy = MISSION_COPY[locale];
   const model = useMemo(
@@ -78,8 +82,12 @@ export default function PsychologicalStateScreen() {
     [state],
   );
   const objective = useMemo(
-    () => deriveCorePlayerObjective(storyPuzzleSnapshot, locale),
-    [locale, storyPuzzleSnapshot],
+    () => deriveCorePlayerObjective(
+      storyPuzzleSnapshot,
+      locale,
+      authoritativeStoryState,
+    ),
+    [authoritativeStoryState, locale, storyPuzzleSnapshot],
   );
   const continueMission = () => {
     if (objective.secretPuzzleId) {

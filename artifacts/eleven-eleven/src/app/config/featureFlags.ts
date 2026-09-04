@@ -74,7 +74,8 @@ export function isFeatureEnabled(key: FeatureFlagKey): boolean {
   return FEATURE_FLAGS[key];
 }
 
-/** The 3D opening room is retained but excluded from the active flow. */
+/** The legacy flag remains exported for compatibility; opening access is now
+ * controlled by the server-issued opening gateway entitlement. */
 export const OPENING_ROOM_3D_ENABLED = FEATURE_FLAGS.openingRoom3d;
 
 /** Awakening Ward remains shipped and save-compatible while its pass is paused. */
@@ -85,10 +86,6 @@ export const LEGACY_PUZZLE_ARCHIVE_ENABLED = FEATURE_FLAGS.legacyPuzzleArchive;
 export function resolveFeatureGatedScreen(
   screen: string,
 ): string {
-  if (!OPENING_ROOM_3D_ENABLED && screen === 'play') {
-    if (AWAKENING_WARD_ENABLED) return 'awakening-ward';
-    return 'puzzles';
-  }
   if (!AWAKENING_WARD_ENABLED && screen === 'awakening-ward') {
     return 'puzzles';
   }

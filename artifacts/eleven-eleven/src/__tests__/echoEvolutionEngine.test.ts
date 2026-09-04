@@ -104,25 +104,16 @@ describe('legacy runtime Manhwa isolation boundary', () => {
   it('keeps pre-replacement runtime events isolated from the current Canon publication state', () => {
     assert.deepEqual(
       RUNTIME_ECHO_EVOLUTION_STAGES.map(({ stageId }) => stageId),
-      [
-        INITIAL_ECHO_EVOLUTION_STAGE_ID,
-        'black_coronation',
-        'second_contract_marked',
-        'black_echo_protocol',
-      ],
+      [INITIAL_ECHO_EVOLUTION_STAGE_ID],
     );
     assert.deepEqual(
       RUNTIME_ECHO_STORY_EVENTS.map(({ eventId }) => eventId),
-      [
-        'manhwa_chapter_04_black_coronation',
-        'manhwa_chapter_04_lina_protocol',
-        'manhwa_chapter_04_black_echo_protocol',
-      ],
+      [],
     );
     assert.deepEqual(CANON_REGISTRY.runtimePublishedChapterIds, []);
     assert.ok(RUNTIME_ECHO_EVOLUTION_STAGES.every(
       ({ chapterId, published, playerVisible }) => (
-        ['chapter_1', 'chapter_4'].includes(chapterId)
+        chapterId === 'chapter_1'
         && published
         && playerVisible
       ),
@@ -172,7 +163,7 @@ describe('legacy runtime Manhwa isolation boundary', () => {
     );
 
     assert.equal(result.transitionAvailable, false);
-    assert.equal(result.failureReason, 'story-event-not-proven');
+    assert.equal(result.failureReason, 'no-next-stage');
     assert.equal(result.progress, progress);
   });
 });

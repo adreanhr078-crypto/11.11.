@@ -10,6 +10,11 @@ import type {
 import type {
   GameProgressionState,
 } from '../../core/gameProgressionTypes';
+import {
+  createInitialStoryUnlockState,
+  normalizeStoryUnlockState,
+  type StoryUnlockState,
+} from '../opening/openingProgress';
 
 export interface AuthoritativeStoryEventReceipt {
   eventId: FinalManhwaCanonEventId;
@@ -28,6 +33,13 @@ export interface AuthoritativeStoryState {
   completedChapterIds: Array<'chapter_1' | 'chapter_2' | 'chapter_3' | 'chapter_4'>;
   /** Server-issued Memory Fragment IDs only. */
   discoveredMemoryFragmentIds: string[];
+  /** Server-issued opening gateway and room receipts. */
+  openingCoverPuzzleCompleted?: boolean;
+  openingRoomCompleted?: boolean;
+  /** Explicit page packets; an empty list means Manhwa remains hidden. */
+  manhwaPacketIds?: readonly string[];
+  /** Reserved until an authored Echo chess memory is server-issued. */
+  chessHobbyUnlocked?: boolean;
   syncedAt: string | null;
 }
 
@@ -83,10 +95,12 @@ function accessRank(access: StoryCharacterAccessLevel): number {
 }
 
 export function createInitialAuthoritativeStoryState(): AuthoritativeStoryState {
+  const opening = createInitialStoryUnlockState();
   return {
     canonEventReceipts: [],
     completedChapterIds: [],
     discoveredMemoryFragmentIds: [],
+    ...opening,
     syncedAt: null,
   };
 }
@@ -173,11 +187,16 @@ export function normalizeAuthoritativeStoryState(
       (fragmentId): fragmentId is string => typeof fragmentId === 'string',
     )).filter((fragmentId) => FRAGMENT_ID_PATTERN.test(fragmentId))
     : [];
+  const opening = normalizeStoryUnlockState(source);
 
   return {
     canonEventReceipts,
     completedChapterIds,
     discoveredMemoryFragmentIds,
+    openingCoverPuzzleCompleted: opening.openingCoverPuzzleCompleted,
+    openingRoomCompleted: opening.openingRoomCompleted,
+    manhwaPacketIds: [...opening.manhwaPacketIds],
+    chessHobbyUnlocked: opening.chessHobbyUnlocked,
     syncedAt: validTimestamp(source.syncedAt) ? source.syncedAt : null,
   };
 }

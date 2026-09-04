@@ -1,5 +1,6 @@
 import {
   FINAL_MANHWA_PAGE_BY_ID,
+  FINAL_MANHWA_PAGES,
 } from '../../content/manhwa/finalManhwa';
 import type {
   GameActions,
@@ -35,7 +36,18 @@ export function createManhwaArchiveActions(
   return {
     synchronizeStoryPuzzleManhwaAccess(completedPuzzleIds, timestamp = now()) {
       const access = deriveStoryPuzzleManhwaAccess(completedPuzzleIds);
-      const targetPageIds = [...access.accessiblePageIds];
+      const authoritativePacketIds = get().progressionState.story.authoritative
+        .manhwaPacketIds ?? [];
+      const targetPageIds = authoritativePacketIds.length > 0
+        ? FINAL_MANHWA_PAGES
+          .filter((page) => page.published && authoritativePacketIds.includes(
+            'opening_room_pages_01_09_v1',
+          ) && page.globalPageNumber <= 9)
+          .map((page) => page.id)
+        : [...access.accessiblePageIds];
+      const targetMaxAccessibleGlobalPage = authoritativePacketIds.length > 0
+        ? 9
+        : access.maxAccessibleGlobalPage;
       const targetPageIdSet = new Set(targetPageIds);
       let changed = false;
       set((state) => {
@@ -69,7 +81,7 @@ export function createManhwaArchiveActions(
               ? current.lastReadChapterId
               : null,
             lastReadGlobalPageNumber: current.lastReadGlobalPageNumber !== null
-              && current.lastReadGlobalPageNumber <= access.maxAccessibleGlobalPage
+              && current.lastReadGlobalPageNumber <= targetMaxAccessibleGlobalPage
               ? current.lastReadGlobalPageNumber
               : null,
             lastReadAt: current.lastReadPageId && targetPageIdSet.has(current.lastReadPageId)

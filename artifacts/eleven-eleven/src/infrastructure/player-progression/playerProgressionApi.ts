@@ -32,6 +32,9 @@ import type {
 import type {
   PlayerTelemetryEvent,
 } from '../../domain/telemetry/telemetryContracts';
+import type {
+  OpeningRoomEventId,
+} from '../../domain/opening/openingProgress';
 
 export interface LeaderboardApiSnapshot {
   entries: LeaderboardPlayer[];
@@ -80,6 +83,28 @@ interface StoryStateApiResponse {
 
 interface StoryCheckpointApiResponse extends StoryStateApiResponse {
   claimedEventIds: string[];
+}
+
+export interface OpeningRecoveryApiResponse extends StoryStateApiResponse {
+  receipt: {
+    receiptId: string;
+    puzzleId: string;
+    puzzleVersion: number;
+    awarded: boolean;
+    completedAt: string;
+  };
+}
+
+export interface OpeningRoomApiResponse extends StoryStateApiResponse {
+  receipt: {
+    receiptId: string;
+    roomId: string;
+    roomVersion: number;
+    packetId: string;
+    pageIds: string[];
+    awarded: boolean;
+    completedAt: string;
+  };
 }
 
 interface ApiErrorBody {
@@ -325,6 +350,24 @@ export function completeStoryPuzzle(
     method: 'POST',
     body: JSON.stringify({ puzzleId, draft }),
   }).then((response) => response.reward);
+}
+
+export function completeOpeningRecovery(
+  imageOrder: readonly number[],
+): Promise<OpeningRecoveryApiResponse> {
+  return authorizedRequest<OpeningRecoveryApiResponse>('/opening-recovery/complete', {
+    method: 'POST',
+    body: JSON.stringify({ imageOrder }),
+  });
+}
+
+export function completeOpeningRoom(
+  eventIds: readonly OpeningRoomEventId[],
+): Promise<OpeningRoomApiResponse> {
+  return authorizedRequest<OpeningRoomApiResponse>('/opening-room/complete', {
+    method: 'POST',
+    body: JSON.stringify({ eventIds }),
+  });
 }
 
 export function discoverStoryPuzzle(puzzleId: string): Promise<StoryPuzzleSnapshot> {

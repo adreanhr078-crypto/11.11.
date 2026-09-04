@@ -27,6 +27,7 @@ import {
   playPuzzleCompletionSound,
   primeRewardAudio,
 } from '../../infrastructure/audio/puzzleRewardAudio';
+import './live-challenges.css';
 
 interface LiveChallengesScreenProps {
   mode?: 'daily' | 'weekly';

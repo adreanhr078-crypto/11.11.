@@ -38,6 +38,7 @@ interface PlayerProgressionActions {
   hydrateProfile: (profile: PlayerProfile) => void;
   hydrateStoryState: (storyState: AuthoritativeStoryState) => void;
   failProfile: (message: string) => void;
+  clearProfileError: () => void;
   failStoryState: (message: string) => void;
   updateProfile: (input: PlayerProfileUpdateInput) => Promise<boolean>;
   claimManhwaChapterReward: (
@@ -96,7 +97,7 @@ function friendlyProgressionError(error: unknown): string {
 function friendlyProfileError(error: unknown): string {
   if (error instanceof PlayerProgressionApiError) {
     if (error.code === 'username_taken') {
-      return 'This username is already in use.';
+      return 'اسم المستخدم مستخدم بالفعل. اختر اسمًا آخر. / This username is already in use. Choose another name.';
     }
     if (error.code === 'invalid_avatar') {
       return 'Choose one of the fixed in-game avatars.';
@@ -151,6 +152,10 @@ PlayerProgressionStoreState>((set, get) => ({
 
     failProfile(message) {
       set({ profileStatus: 'error', profileError: message });
+    },
+
+    clearProfileError() {
+      set({ profileError: null });
     },
 
     failStoryState(message) {
@@ -239,6 +244,7 @@ PlayerProgressionStoreState>((set, get) => ({
     },
 
     async updateProfile(input) {
+      const hasCurrentProfile = get().profile !== null;
       try {
         set({ profileStatus: 'loading', profileError: null });
         const profile = await updatePlayerProfile(input);
@@ -257,7 +263,10 @@ PlayerProgressionStoreState>((set, get) => ({
         return true;
       } catch (error) {
         set({
-          profileStatus: 'error',
+          // A rejected update (for example, a reserved username) is not a
+          // failed profile load. Keep the existing profile ready so the
+          // caller can show the recoverable validation error in its form.
+          profileStatus: hasCurrentProfile ? 'ready' : 'error',
           profileError: friendlyProfileError(error),
         });
         return false;

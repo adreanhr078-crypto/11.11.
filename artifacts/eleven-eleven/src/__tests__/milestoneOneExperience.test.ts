@@ -10,10 +10,10 @@ function source(relativePath: string): string {
 describe('Milestone 1 first-player experience contract', () => {
   it('explains the story, Manhwa, puzzle, and Echo loop during onboarding', () => {
     const onboarding = source('src/features/onboarding/FirstTimeOnboarding.tsx');
-    assert.ok(onboarding.includes("type OnboardingStep = 'welcome' | 'mission' | 'identity'"));
-    assert.ok(onboarding.includes('المانهوا تكشف صفحة من السجل'));
-    assert.ok(onboarding.includes('الألغاز تحول ما رأيته إلى قرار قابل للتحقق'));
-    assert.ok(onboarding.includes('بعد اختيار هويتك ستقابل Echo'));
+    assert.ok(onboarding.includes("type OnboardingStep = Exclude<OnboardingStage, 'complete'>"));
+    assert.ok(onboarding.includes('The Manhwa reveals one page of the record at a time.'));
+    assert.ok(onboarding.includes('Puzzles turn what you noticed into a decision the system can verify.'));
+    assert.ok(onboarding.includes('After you choose an identity, you will meet Echo'));
     assert.ok(onboarding.includes('emitExperienceCue({ name: \'onboarding-complete\''));
   });
 
@@ -36,6 +36,18 @@ describe('Milestone 1 first-player experience contract', () => {
     assert.equal(puzzle.includes('data-anomaly='), false);
     assert.equal(puzzle.includes("'// LOCKED'"), false);
     assert.equal(puzzle.includes('TIMESTAMP CONSISTENT'), false);
+  });
+
+  it('routes post-reward continuation through the current story objective', () => {
+    const puzzle = source('src/features/screens/PuzzleScreen.tsx');
+    const completionLoopStart = puzzle.indexOf('story-puzzle-console__completion-loop');
+    const completionLoop = puzzle.slice(completionLoopStart, completionLoopStart + 1800);
+    assert.ok(completionLoop.includes('continueToObjective(nextObjective)'));
+    assert.ok(completionLoop.includes('nextObjective.actionLabel'));
+    assert.ok(completionLoop.includes('data-next-objective-kind={nextObjective.kind}'));
+    assert.ok(puzzle.includes('function ObjectiveActionIcon'));
+    assert.ok(puzzle.includes('onContinueObjective(nextObjective)'));
+    assert.ok(puzzle.includes('kind === \'complete\''));
   });
 
   it('keeps paid Story hints instructional rather than shipping exact answer strings', () => {
@@ -68,7 +80,7 @@ describe('Milestone 1 first-player experience contract', () => {
     const viewer = source('src/features/manhwa/ManhwaFullscreenViewer.tsx');
     const memory = source('src/features/screens/MemoryScreen.tsx');
     assert.ok(viewer.includes('{currentIndex + 1} / {pages.length}'));
-    assert.ok(viewer.includes('{copy.page} {currentPage.globalPageNumber} {copy.of} 71'));
+    assert.ok(viewer.includes('{copy.page} {currentPage.globalPageNumber} {copy.of} {FINAL_MANHWA_PAGE_COUNT}'));
     assert.ok(memory.includes("emitExperienceCue({ name: 'manhwa-open'"));
   });
 
@@ -104,7 +116,8 @@ describe('Milestone 1 first-player experience contract', () => {
     assert.ok(seasonPanel.includes('data-character={current.focusCharacter}'));
     assert.ok(seasonPanel.includes('data-character={activity.focusCharacter}'));
     assert.ok(stylesheet.includes('data-character="yuki"'));
-    assert.ok(stylesheet.includes('EX-012'));
+    assert.ok(stylesheet.includes('data-character="yuki"'));
+    assert.equal(stylesheet.includes('EX-012'), false);
   });
 
   it('keeps authored voice status truthful until audio assets are published', () => {

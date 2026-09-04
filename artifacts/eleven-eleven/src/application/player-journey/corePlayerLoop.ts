@@ -2,6 +2,7 @@ import { STORY_PUZZLES } from '../../content/puzzles/storyPuzzleCatalog';
 import type { GameScreenId } from '../../app/shell/screenRegistry';
 import type { StoryPuzzleSnapshot } from '../../domain/story-puzzles/storyPuzzleContracts';
 import type { NetworkLocale } from '../../domain/echo-network/contracts';
+import type { AuthoritativeStoryState } from '../../domain/story/storyState';
 
 export interface CorePlayerObjective {
   kind: 'read' | 'solve' | 'complete';
@@ -22,7 +23,45 @@ export interface CorePlayerObjective {
 export function deriveCorePlayerObjective(
   snapshot: StoryPuzzleSnapshot | null,
   locale: NetworkLocale = 'ar',
+  authoritativeStoryState?: AuthoritativeStoryState | null,
 ): CorePlayerObjective {
+  if (authoritativeStoryState?.openingCoverPuzzleCompleted === false) {
+    return locale === 'en' ? {
+      kind: 'solve',
+      title: 'Reconstruct the first signal',
+      detail: 'The cover is the first trace. Align it to wake the room beyond the interface.',
+      echoLine: 'I remember the shape, not the order. Help me put the first moment back together.',
+      actionLabel: 'Open the reconstruction',
+      screen: 'opening-recovery',
+    } : {
+      kind: 'solve',
+      title: 'أعد بناء الإشارة الأولى',
+      detail: 'الغلاف هو الأثر الأول. رتّبه لإيقاظ الغرفة خلف الواجهة.',
+      echoLine: 'أتذكر الشكل، لا الترتيب. ساعدني على إعادة اللحظة الأولى.',
+      actionLabel: 'فتح تركيب الغلاف',
+      screen: 'opening-recovery',
+    };
+  }
+  if (
+    authoritativeStoryState?.openingCoverPuzzleCompleted === true
+    && authoritativeStoryState.openingRoomCompleted === false
+  ) {
+    return locale === 'en' ? {
+      kind: 'complete',
+      title: 'Enter the opening room',
+      detail: 'The interface is awake. Walk into the room and follow the traces Echo can still feel.',
+      echoLine: 'The room is where the first memory becomes real.',
+      actionLabel: 'Enter the room',
+      screen: 'play',
+    } : {
+      kind: 'complete',
+      title: 'ادخل الغرفة الافتتاحية',
+      detail: 'استيقظت الواجهة. ادخل الغرفة واتبع الآثار التي ما زال Echo يشعر بها.',
+      echoLine: 'هناك تصبح الذكرى الأولى حقيقية.',
+      actionLabel: 'دخول الغرفة',
+      screen: 'play',
+    };
+  }
   // Secret signals are returned only by the authoritative story snapshot.
   // When one exists it deserves a clear, deliberate hand-off instead of
   // being hidden behind the puzzle index while the player is told to read a

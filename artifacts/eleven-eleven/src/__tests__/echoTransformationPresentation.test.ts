@@ -16,7 +16,7 @@ import type {
 } from '../application/game/statePorts';
 
 describe('Phase 6.5 Echo transformation presentation', () => {
-  it('maps the four approved stages to distinct in-game assets', () => {
+  it('maps only the published opening stage to an approved in-game asset', () => {
     assert.deepEqual(
       ECHO_STATES.map((state) => state.stageId),
       [
@@ -27,16 +27,16 @@ describe('Phase 6.5 Echo transformation presentation', () => {
       ],
     );
     assert.equal(
-      getEchoStatePresentationAssets('black_coronation').transitionVideo,
-      '/assets/cinematics/echo-transform-base-to-black-coronation-v1.mp4',
+      getEchoStatePresentationAssets('awakening_fragile').transitionVideo,
+      undefined,
     );
     assert.match(
       ECHO_STATE_PRESENTATION_ASSETS.second_contract_marked.portrait,
-      /echo-second-contract-marked-v1\.png$/,
+      /echo-portrait-v1\.webp$/,
     );
     assert.match(
       ECHO_STATE_PRESENTATION_ASSETS.black_echo_protocol.portrait,
-      /echo-black-echo-protocol-v1\.png$/,
+      /echo-portrait-v1\.webp$/,
     );
   });
 

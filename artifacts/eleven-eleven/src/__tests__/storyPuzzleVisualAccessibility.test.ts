@@ -53,6 +53,22 @@ describe('Story puzzle visual asset accessibility', () => {
     assert.doesNotMatch(screen, /correctAnswer|rawSolution|targetFrequency|targetChannel/);
   });
 
+  it('makes the opening cover a real touch/mouse drag puzzle with a reduced-motion fallback', () => {
+    const screen = source('src/features/opening-recovery/OpeningRecoveryScreen.tsx');
+    const stylesheet = source('src/features/opening-recovery/opening-recovery.css');
+
+    assert.match(screen, /onPointerDown=\{\(event\) => handlePiecePointerDown\(event, slot\)\}/);
+    assert.match(screen, /document\.elementFromPoint\(clientX, clientY\)/);
+    assert.match(screen, /data-opening-piece-slot=\{slot\}/);
+    assert.match(screen, /data-drag-over=\{/);
+    assert.match(screen, /completeOpeningRecovery\(order\)/);
+    assert.match(screen, /const verifyDisabled =/);
+    assert.doesNotMatch(screen, /if \(!solved \|\| status === 'verifying'/);
+    assert.match(stylesheet, /touch-action: none;/);
+    assert.match(stylesheet, /opening-piece-drop-target/);
+    assert.match(stylesheet, /\[data-motion="reduced"\] \.opening-recovery__piece/);
+  });
+
   it('flushes a local draft before a confirmed hint purchase and does not rehydrate the active puzzle on its snapshot response', () => {
     const screen = source('src/features/screens/PuzzleScreen.tsx');
     const openHint = screen.slice(

@@ -16,19 +16,20 @@ describe('canonical story authority', () => {
   it('uses both Owner-approved Echo Network references and no old Long Fall authority', () => {
     assert.equal(CANON_VERSION, 'echo-network-evolving-v1');
     assert.equal(CANON_REGISTRY.storyStatus, 'ongoing');
-    assert.equal(currentManifest.canonVersion, CANON_VERSION);
+    assert.equal(currentManifest.canonVersion, 'echo-network-part-1-approved-2026-09-v1');
     assert.equal(currentManifest.canonStatus, 'canonical-authority');
-    assert.equal(currentManifest.storyStatus, 'ongoing');
-    assert.equal(currentManifest.documents.length, 2);
+    assert.equal(currentManifest.storyStatus, 'part-1-approved');
+    assert.equal(currentManifest.documents.length, 3);
     assert.deepEqual(
       currentManifest.documents.map((document) => document.id),
-      ['story-bible', 'narrative-master'],
+      ['story-bible', 'narrative-master', 'approved-part-1-manhwa-publication'],
     );
     assert.ok(currentManifest.documents.every((document) => (
       document.canonStatus === 'canonical-authority'
-      && document.runtimeIncluded === false
-      && document.originalSha256.length === 64
+      || document.canonStatus === 'canonical-authority-for-part-1'
     )));
+    assert.equal(currentManifest.documents[2]?.runtimeIncluded, true);
+    assert.ok(currentManifest.documents.every((document) => document.originalSha256.length === 64));
   });
 
   it('keeps unreached secrets out of the runtime-safe projection', () => {

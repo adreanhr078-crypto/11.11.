@@ -5,6 +5,7 @@ import {
   type DirectedActivity,
 } from '../../domain/echo-network/activityDirector';
 import type { NetworkLocale } from '../../domain/echo-network/contracts';
+import { STORY_PUZZLE_COUNTS } from '../../content/puzzles/storyPuzzleCatalog';
 import { GameButton, GlassPanel } from '../../ui/design-system';
 
 export function ActivityDirectorPanel({
@@ -29,7 +30,7 @@ export function ActivityDirectorPanel({
   const recommendation = useMemo(() => recommendActivity({
     budgetMinutes: budget,
     storyCompleted,
-    storyTotal: 20,
+    storyTotal: STORY_PUZZLE_COUNTS.total,
     dailyCompleted,
     weeklyCompletedStages,
     weeklyTotalStages,

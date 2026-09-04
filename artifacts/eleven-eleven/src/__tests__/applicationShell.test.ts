@@ -277,10 +277,9 @@ describe('Application Shell', () => {
       sourcePageNumber: 56,
       reachedAt: '2026-08-09T11:11:00.000Z',
     }];
-    assert.equal(
-      createEchoPresentationReadModel(transformedState).form,
-      'black-coronation',
-    );
+    // The receipt belongs to a retired, unpublished event and must not turn
+    // into a presentation state in the current Part 1 runtime.
+    assert.equal(createEchoPresentationReadModel(transformedState).form, 'normal');
 
     const tamperedState = {
       ...state,
@@ -423,7 +422,7 @@ describe('Application Shell', () => {
     }
   });
 
-  it('keeps both room prototypes dormant and does not expose their route early', () => {
+  it('keeps the legacy ward dormant while the authoritative opening room owns Play', () => {
     assert.equal(OPENING_ROOM_3D_ENABLED, false);
     assert.equal(AWAKENING_WARD_ENABLED, false);
     useShellStore.setState({
@@ -434,7 +433,7 @@ describe('Application Shell', () => {
     });
 
     useShellStore.getState().navigate('play');
-    assert.equal(resolveFeatureGatedScreen('play'), 'puzzles');
+    assert.equal(resolveFeatureGatedScreen('play'), 'play');
     assert.equal(useShellStore.getState().currentScreen, 'main-menu');
     assert.equal(useShellStore.getState().routeAccessNotice?.reason, 'progress-syncing');
   });

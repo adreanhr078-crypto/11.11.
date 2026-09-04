@@ -10,6 +10,7 @@ import { AuthStatusButton } from '../auth/AuthStatusButton';
 import { useAuthStore } from '../auth/authStore';
 import { usePlayerProgressionStore } from './playerProgressionStore';
 import { useShellStore } from '../../app/shell/shellStore';
+import './leaderboard.css';
 
 const numberFormatter = new Intl.NumberFormat('en-US');
 

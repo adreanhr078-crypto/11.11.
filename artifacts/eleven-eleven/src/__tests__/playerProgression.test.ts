@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { PlayerApiError } from '../../functions/api/player/_shared';
+import { getFinalManhwaChapterRewardSourceId } from '../content/manhwa/finalManhwa';
 import {
   verifyXpRewardClaim,
 } from '../../functions/api/player/_xpRewards';
@@ -66,20 +67,21 @@ describe('server-authoritative player progression', () => {
     const reward = verifyXpRewardClaim({
       sourceType: 'manhwa',
       sourceId: 'chapter_1',
-      proof: { finalPageNumber: 11 },
+      proof: { finalPageNumber: 9 },
     });
     assert.equal(reward.sourceType, 'manhwa');
     assert.equal(reward.xpAmount, 100);
-    assert.equal(reward.rewardKey, 'manhwa:chapter_1:v1');
+    const chapterOneSourceId = getFinalManhwaChapterRewardSourceId('chapter_1');
+    assert.equal(reward.sourceId, chapterOneSourceId);
+    assert.equal(reward.rewardKey, `manhwa:${chapterOneSourceId}:v1`);
     assert.deepEqual(reward.requiredRewardKeys, []);
 
-    const secondChapter = verifyXpRewardClaim({
+    assert.throws(() => verifyXpRewardClaim({
       sourceType: 'manhwa',
       sourceId: 'chapter_2',
-      proof: { finalPageNumber: 28 },
-    });
-    assert.equal(secondChapter.xpAmount, 150);
-    assert.deepEqual(secondChapter.requiredRewardKeys, ['manhwa:chapter_1:v1']);
+      proof: { finalPageNumber: 29 },
+    }), (error) => error instanceof PlayerApiError
+      && error.code === 'reward_source_unpublished');
   });
 
   it('rejects chapter claims before the chapter end and never accepts client XP', () => {
@@ -96,7 +98,7 @@ describe('server-authoritative player progression', () => {
       () => verifyXpRewardClaim({
         sourceType: 'manhwa',
         sourceId: 'chapter_1',
-        proof: { finalPageNumber: 11 },
+        proof: { finalPageNumber: 9 },
         totalXp: 999_999,
       }),
       (error) => error instanceof PlayerApiError

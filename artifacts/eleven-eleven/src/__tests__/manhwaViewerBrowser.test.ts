@@ -165,9 +165,9 @@ describe('Manhwa Viewer unlocked-page boundary', () => {
     const model = createManhwaArchiveReadModel(progression);
     const pages = getUnlockedManhwaViewerPages(model);
 
-    assert.equal(pages.length, 4);
-    assert.equal(pages[0]?.id, 'manhwa_ch00_page_01');
-    assert.equal(pages.at(-1)?.id, 'manhwa_ch01_page_02');
+    assert.equal(pages.length, 7);
+    assert.equal(pages[0]?.id, 'echo_network_final_2026_09_v1_page_001');
+    assert.equal(pages.at(-1)?.id, 'echo_network_final_2026_09_v1_page_007');
     const screen = readFileSync(
       resolve(
         process.cwd(),

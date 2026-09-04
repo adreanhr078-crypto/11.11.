@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import {
   STORY_PUZZLE_BY_ID,
+  STORY_PUZZLE_COUNTS,
   STORY_PUZZLES,
 } from '../../content/puzzles/storyPuzzleCatalog';
 import type {
@@ -2109,7 +2110,7 @@ function PuzzleMechanic({ puzzle, mechanic, options: stageOptions, tokenLimit, s
     return <DataRouteBoard options={options} tokenLimit={tokenLimit} draft={draft} onChange={onChange} disabled={disabled} />;
   }
 
-  if (mechanic === 'sequence' && puzzle.id === 'story_puzzle_02_system_sequence') {
+  if (mechanic === 'sequence' && puzzle.id === 'story_puzzle_02_echo_network_archive_route') {
     return <SystemSequenceBoard options={options} draft={draft} onChange={onChange} disabled={disabled} />;
   }
 
@@ -2216,7 +2217,6 @@ function RewardMoment({
       perfect: (coins: number) => `حل مثالي +${coins} عملات`,
       echoResponse: 'استجابة Echo',
       nextObjective: 'الهدف التالي',
-      continueManhwa: 'افتح المانهوا وتابع الدليل',
       dismiss: 'العودة إلى الألغاز',
     }
     : {
@@ -2229,7 +2229,6 @@ function RewardMoment({
       perfect: (coins: number) => `Perfect solve +${coins} coins`,
       echoResponse: 'Echo response',
       nextObjective: 'Next objective',
-      continueManhwa: 'Open Manhwa and follow the clue',
       dismiss: 'Return to puzzles',
     };
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -2291,7 +2290,7 @@ function RewardMoment({
         <dl>
           <div><dt>XP</dt><dd>+{reward.xpGranted}</dd></div>
           <div><dt>{copy.coins}</dt><dd>+{reward.coinsGranted} ◉</dd></div>
-          <div><dt>{copy.shard}</dt><dd dir="ltr">{reward.snapshot.shardCount} / 20</dd></div>
+          <div><dt>{copy.shard}</dt><dd dir="ltr">{reward.snapshot.shardCount} / {STORY_PUZZLE_COUNTS.total}</dd></div>
         </dl>
         <small className="story-reward-moment__receipt"><Check aria-hidden="true" /> {copy.receipt}</small>
         <div className="story-reward-moment__echo-impact">
@@ -2313,11 +2312,10 @@ function RewardMoment({
             ref={continueRef}
             className="story-reward-moment__continue"
             type="button"
+            data-next-objective-kind={nextObjective.kind}
             onClick={() => onContinueObjective(nextObjective)}
           >
-            {nextObjective.secretPuzzleId
-              ? <Crosshair aria-hidden="true" />
-              : <BookOpenCheck aria-hidden="true" />}
+            <ObjectiveActionIcon kind={nextObjective.kind} />
             {nextObjective.actionLabel}
           </button>
           <button className="story-reward-moment__dismiss" type="button" onClick={onDismiss}>{copy.dismiss}</button>
@@ -2326,6 +2324,12 @@ function RewardMoment({
     </div>,
     document.body,
   );
+}
+
+function ObjectiveActionIcon({ kind }: { kind: CorePlayerObjective['kind'] }) {
+  if (kind === 'read') return <BookOpenCheck aria-hidden="true" />;
+  if (kind === 'complete') return <Check aria-hidden="true" />;
+  return <Crosshair aria-hidden="true" />;
 }
 
 /**
@@ -2582,8 +2586,8 @@ export default function PuzzleScreen() {
   const hasVerifiedReward = useShellStore(
     (state) => state.experienceEntitlements.snapshot.firstRewardReceived,
   );
-  const [selectedPuzzleId, setSelectedPuzzleId] = useState<string>('story_puzzle_01_signal_calibration');
-  const [draft, setDraft] = useState<StoryPuzzleDraft>(() => defaultDraft(STORY_PUZZLE_BY_ID.story_puzzle_01_signal_calibration!));
+  const [selectedPuzzleId, setSelectedPuzzleId] = useState<string>(STORY_PUZZLES[0]!.id);
+  const [draft, setDraft] = useState<StoryPuzzleDraft>(() => defaultDraft(STORY_PUZZLES[0]!));
   const [draftResetVersion, setDraftResetVersion] = useState(0);
   const [busy, setBusy] = useState(false);
   const [pendingHintIndex, setPendingHintIndex] = useState<number | null>(null);
@@ -2915,8 +2919,8 @@ export default function PuzzleScreen() {
       <header className="story-puzzle-screen__header">
         <div><small>{screenCopy.storyInterference}</small><h1>{screenCopy.title}</h1></div>
         <dl>
-          <div><dt>{screenCopy.mainPath}</dt><dd dir="ltr">{snapshot?.mainCompletedCount ?? 0} / 14</dd></div>
-          <div><dt>{screenCopy.memoryShards}</dt><dd dir="ltr">{snapshot?.shardCount ?? 0} / 20</dd></div>
+          <div><dt>{screenCopy.mainPath}</dt><dd dir="ltr">{snapshot?.mainCompletedCount ?? 0} / {STORY_PUZZLE_COUNTS.main}</dd></div>
+          <div><dt>{screenCopy.memoryShards}</dt><dd dir="ltr">{snapshot?.shardCount ?? 0} / {STORY_PUZZLE_COUNTS.total}</dd></div>
           <div><dt>{screenCopy.echoResonance}</dt><dd>{snapshot?.echoResonance.total ?? 0}</dd></div>
           <div><dt><Coins aria-hidden="true" /> {screenCopy.coins}</dt><dd>{snapshot?.coinBalance ?? 0}</dd></div>
         </dl>
@@ -3023,8 +3027,12 @@ export default function PuzzleScreen() {
                 <small>{screenCopy.nextObjective}</small>
                 <strong>{nextObjective.title}</strong>
                 <p>{nextObjective.detail}</p>
-                <button type="button" onClick={requestManhwaReader}>
-                  <BookOpenCheck aria-hidden="true" /> {screenCopy.continueManhwa}
+                <button
+                  type="button"
+                  data-next-objective-kind={nextObjective.kind}
+                  onClick={() => continueToObjective(nextObjective)}
+                >
+                  <ObjectiveActionIcon kind={nextObjective.kind} /> {nextObjective.actionLabel}
                 </button>
               </section>
               {selectedPuzzle.image && <img src={selectedPuzzle.image.src} alt={selectedPuzzle.image.alt[locale]} loading="lazy" />}

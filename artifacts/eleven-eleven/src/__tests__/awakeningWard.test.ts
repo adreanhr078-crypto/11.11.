@@ -252,15 +252,15 @@ describe('Puzzle registry and preserved prototypes', () => {
   });
 
   it('routes the active Story Puzzle experience through the puzzle screen', () => {
-    assert.equal(STORY_PUZZLE_COUNTS.total, 20);
+    assert.equal(STORY_PUZZLE_COUNTS.total, 2);
     assert.equal(LEGACY_PUZZLE_ARCHIVE_ENABLED, true);
     assert.equal(resolveFeatureGatedScreen('puzzles'), 'puzzles');
   });
 
-  it('keeps both room prototypes dormant without deleting their modules', () => {
+  it('keeps the legacy ward dormant without deleting its module', () => {
     assert.equal(OPENING_ROOM_3D_ENABLED, false);
     assert.equal(AWAKENING_WARD_ENABLED, false);
-    assert.equal(resolveFeatureGatedScreen('play'), 'puzzles');
+    assert.equal(resolveFeatureGatedScreen('play'), 'play');
     assert.equal(resolveFeatureGatedScreen('awakening-ward'), 'puzzles');
     const source = readFileSync(
       new URL(

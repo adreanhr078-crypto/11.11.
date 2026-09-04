@@ -256,6 +256,20 @@ export const GAME_ICON_REGISTRY = {
     tone: 'memory',
     glyph: Puzzle,
   },
+  'screen-opening-recovery': {
+    id: 'screen-opening-recovery',
+    systemId: 'puzzles',
+    screenIds: ['opening-recovery'],
+    actionId: 'gameplay.open-opening-recovery',
+    label: { ar: 'تركيب الإشارة الأولى', en: 'Opening reconstruction' },
+    description: {
+      ar: 'إعادة ترتيب غلاف Echo Network لفتح الغرفة الأولى',
+      en: 'Reconstruct the Echo Network cover to open the first room',
+    },
+    tooltip: { ar: 'تركيب الإشارة الأولى', en: 'Opening reconstruction' },
+    tone: 'memory',
+    glyph: RefreshCw,
+  },
   'category-network': {
     id: 'category-network',
     systemId: 'network',

@@ -20,7 +20,12 @@ import {
 import { useAuthStore } from '../auth/authStore';
 import { usePlayerProgressionStore } from '../player-progression/playerProgressionStore';
 import { useShellStore, useUiPreferencesStore } from '../../app/shell/shellStore';
-import { needsFirstTimeOnboarding } from './onboardingRules';
+import {
+  needsFirstTimeOnboarding,
+  onboardingStageNumber,
+  ONBOARDING_STAGE_COUNT,
+  type OnboardingStage,
+} from './onboardingRules';
 import { retryPlayerSync } from '../player-sync/playerSyncCoordinator';
 import { emitExperienceCue } from '../../ui/presentation/experienceCues';
 
@@ -110,7 +115,7 @@ const ONBOARDING_COPY = {
 
 type OnboardingCopy = (typeof ONBOARDING_COPY)[keyof typeof ONBOARDING_COPY];
 
-type OnboardingStep = 'welcome' | 'mission' | 'identity';
+type OnboardingStep = Exclude<OnboardingStage, 'complete'>;
 type UsernameCheck = 'idle' | 'valid' | 'invalid';
 
 function onboardingStorageKey(uid: string): string {
@@ -230,11 +235,7 @@ function OnboardingFrame({
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
-  const stepNumber = step === 'welcome' || step === 'loading'
-    ? '01'
-    : step === 'mission'
-      ? '02'
-      : '03';
+  const stepNumber = onboardingStageNumber(step);
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
 
@@ -324,8 +325,12 @@ function OnboardingFrame({
           </div>
           <div className="onboarding-step-indicator" dir="ltr">
             <strong>{stepNumber}</strong>
-            <span>/ 03</span>
-            <small>{step === 'mission' ? 'FIRST OBJECTIVE' : 'IDENTITY SETUP'}</small>
+            <span>/ {String(ONBOARDING_STAGE_COUNT).padStart(2, '0')}</span>
+            <small>{step === 'mission'
+              ? 'FIRST OBJECTIVE'
+              : step === 'complete'
+                ? copy.connectedTitle
+                : 'IDENTITY SETUP'}</small>
           </div>
         </header>
 
@@ -427,7 +432,7 @@ function IdentityStep({
 }) {
   return (
     <div className="onboarding-identity">
-      <span className="onboarding-kicker">PLAYER IDENTITY SETUP // 02</span>
+      <span className="onboarding-kicker">PLAYER IDENTITY SETUP // 03</span>
       <h1>{copy.identityTitle}</h1>
       <p className="onboarding-identity__intro">{copy.identityIntro}</p>
 
@@ -435,10 +440,14 @@ function IdentityStep({
         <span>{copy.username}</span>
         <div className="onboarding-field__row">
           <input
+            id="onboarding-username"
             value={username}
             maxLength={PROFILE_USERNAME_MAX_LENGTH}
             autoComplete="nickname"
             placeholder={copy.usernamePlaceholder}
+            aria-describedby={profileError
+              ? 'onboarding-username-validation onboarding-profile-error'
+              : 'onboarding-username-validation'}
             onChange={(event) => onUsernameChange(event.target.value)}
           />
           <button
@@ -451,7 +460,11 @@ function IdentityStep({
           </button>
         </div>
       </label>
-      <div className={`onboarding-validation onboarding-validation--${usernameCheck}`} role="status">
+      <div
+        id="onboarding-username-validation"
+        className={`onboarding-validation onboarding-validation--${usernameCheck}`}
+        role="status"
+      >
         {usernameCheck === 'valid' && copy.usernameValid}
         {usernameCheck === 'invalid' && copy.usernameInvalid(PROFILE_USERNAME_MIN_LENGTH)}
       </div>
@@ -479,7 +492,7 @@ function IdentityStep({
         </div>
       </div>
 
-      {profileError && <p className="onboarding-error" role="alert">{profileError}</p>}
+      {profileError && <p id="onboarding-profile-error" className="onboarding-error" role="alert">{profileError}</p>}
       <button
         type="button"
         className="onboarding-primary-action onboarding-primary-action--identity"
@@ -524,6 +537,7 @@ export function FirstTimeOnboarding() {
   const profileStatus = usePlayerProgressionStore((state) => state.profileStatus);
   const profileError = usePlayerProgressionStore((state) => state.profileError);
   const updateProfile = usePlayerProgressionStore((state) => state.actions.updateProfile);
+  const clearProfileError = usePlayerProgressionStore((state) => state.actions.clearProfileError);
   const navigate = useShellStore((state) => state.navigate);
   const locale = useUiPreferencesStore((state) => state.locale);
   const copy = ONBOARDING_COPY[locale];
@@ -585,6 +599,7 @@ export function FirstTimeOnboarding() {
   const handleUsernameChange = (value: string) => {
     setUsername(value);
     setUsernameCheck('idle');
+    clearProfileError();
   };
 
   const handleCheckUsername = () => {

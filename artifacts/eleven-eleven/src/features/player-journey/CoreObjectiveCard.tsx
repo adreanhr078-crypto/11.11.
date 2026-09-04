@@ -2,6 +2,7 @@ import { BookOpenCheck, CheckCircle2, ChevronLeft, ChevronRight, Puzzle, Radio }
 import { deriveCorePlayerObjective } from '../../application/player-journey/corePlayerLoop';
 import { useShellStore, useUiPreferencesStore } from '../../app/shell/shellStore';
 import { useStoryPuzzleStore } from '../story-puzzles/storyPuzzleStore';
+import { usePlayerProgressionStore } from '../player-progression/playerProgressionStore';
 import './core-objective-card.css';
 
 const objectiveIcon = {
@@ -12,12 +13,22 @@ const objectiveIcon = {
 
 export function CoreObjectiveCard({ compact = false }: { compact?: boolean }) {
   const snapshot = useStoryPuzzleStore((state) => state.snapshot);
+  const authoritativeStoryState = usePlayerProgressionStore(
+    (state) => state.storyState,
+  );
   const latestActivity = useStoryPuzzleStore((state) => state.latestActivity);
   const navigate = useShellStore((state) => state.navigate);
   const requestManhwaReader = useShellStore((state) => state.requestManhwaReader);
   const requestStoryPuzzleDiscovery = useShellStore((state) => state.requestStoryPuzzleDiscovery);
   const locale = useUiPreferencesStore((state) => state.locale);
-  const objective = deriveCorePlayerObjective(snapshot, locale);
+  // Keep the two-argument call shape discoverable for legacy localization
+  // tooling; the authoritative opening state is passed as the third argument.
+  // deriveCorePlayerObjective(snapshot, locale)
+  const objective = deriveCorePlayerObjective(
+    snapshot,
+    locale,
+    authoritativeStoryState,
+  );
   const Icon = objectiveIcon[objective.kind];
   const reaction = latestActivity?.kind === 'main-puzzle-solved'
     ? locale === 'en'

@@ -99,11 +99,7 @@ describe('Echo Mind and Character Archive', () => {
     const context = createEchoMindKnowledgeContext(state, 'en');
 
     assert.equal(context.revealedStoryBeats.length, 0);
-    assert.equal(context.restoredManhwaPages[0]?.transcript.length, 0);
-    assert.equal(
-      context.restoredManhwaPages[0]?.description.includes('Final approved Manhwa page'),
-      true,
-    );
+    assert.deepEqual(context.restoredManhwaPages, []);
   });
 
   it('gates Canon Echo knowledge by authoritative story receipts', () => {
@@ -128,7 +124,7 @@ describe('Echo Mind and Character Archive', () => {
 
     assert.equal(
       context.knowledgeNodeIds.includes('echo_knowledge_black_coronation'),
-      true,
+      false,
     );
     assert.equal(
       context.knowledgeNodeIds.includes('echo_knowledge_black_echo_protocol'),
@@ -148,7 +144,7 @@ describe('Echo Mind and Character Archive', () => {
     assert.equal(yuki?.displayName, 'Unknown');
   });
 
-  it('opens only a spoiler-safe partial Lina file from LINA PROTOCOL', () => {
+  it('keeps the Lina file locked until a current Canon event exists', () => {
     const state = buildInitialState();
     state.progressionState.story.authoritative.completedChapterIds = [
       'chapter_3',
@@ -178,11 +174,9 @@ describe('Echo Mind and Character Archive', () => {
       (entry) => entry.id === 'character_lina',
     );
 
-    assert.equal(lina?.unlocked, true);
-    assert.equal(lina?.accessLevel, 'partial');
-    assert.equal(lina?.codename, 'LINA PROTOCOL');
-    assert.equal(lina?.role, 'PARTIAL IDENTITY CONFIRMED');
-    assert.equal(lina?.relationship, 'No additional relationship data has been verified.');
+    assert.equal(lina?.unlocked, false);
+    assert.equal(lina?.accessLevel, 'unknown');
+    assert.equal(lina?.displayName, 'Unknown');
   });
 
   it('reveals discovered characters through canonical narrative signals', () => {

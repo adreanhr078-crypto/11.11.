@@ -1,35 +1,48 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   useShellStore,
   useUiPreferencesStore,
 } from '../../app/shell/shellStore';
 import { useGameStore } from '../../stores/gameStore';
+import { usePlayerProgressionStore } from '../player-progression/playerProgressionStore';
+import type { AuthoritativeStoryState } from '../../domain/story/storyState';
 import { GameWorld } from '../gameplay/components/GameWorld';
 import {
   GameplayErrorBoundary,
 } from '../gameplay/components/GameplayErrorBoundary';
 import '../gameplay/gameplay.css';
-import {
-  OPENING_ROOM_3D_ENABLED,
-} from '../../app/config/featureFlags';
 
 export default function GameplayScreen() {
   const paused = useShellStore((shell) => shell.pauseOpen);
   const openPause = useShellStore((shell) => shell.openPause);
   const goBack = useShellStore((shell) => shell.goBack);
-  const navigate = useShellStore((shell) => shell.navigate);
   const quality = useUiPreferencesStore(
     (preferences) => preferences.quality,
   );
   const motion = useUiPreferencesStore(
     (preferences) => preferences.motion,
   );
+  const experienceEntitlements = useShellStore(
+    (shell) => shell.experienceEntitlements,
+  );
+  const requestManhwaReader = useShellStore(
+    (shell) => shell.requestManhwaReader,
+  );
+  const [roomComplete, setRoomComplete] = useState(false);
+
+  const handleRoomComplete = useCallback((storyState: AuthoritativeStoryState) => {
+    usePlayerProgressionStore.getState().actions.hydrateStoryState(storyState);
+    useGameStore.getState().actions.syncAuthoritativeStoryState(storyState);
+    setRoomComplete(true);
+  }, []);
 
   useEffect(() => {
-    if (!OPENING_ROOM_3D_ENABLED) {
-      navigate('puzzles');
-      return;
+    if (roomComplete && experienceEntitlements.accessibleScreens.includes('memories')) {
+      requestManhwaReader();
     }
+  }, [experienceEntitlements.accessibleScreens, requestManhwaReader, roomComplete]);
+
+  useEffect(() => {
     const game = useGameStore.getState();
     if (!game.narrative.activeFlags.opening_room_session_started) {
       game.actions.setNarrativeFlag(
@@ -42,9 +55,7 @@ export default function GameplayScreen() {
         'system',
       );
     }
-  }, [navigate]);
-
-  if (!OPENING_ROOM_3D_ENABLED) return null;
+  }, []);
 
   return (
     <GameplayErrorBoundary onExit={goBack}>
@@ -53,6 +64,7 @@ export default function GameplayScreen() {
         quality={quality}
         motion={motion}
         onPause={openPause}
+        onRoomComplete={handleRoomComplete}
       />
     </GameplayErrorBoundary>
   );

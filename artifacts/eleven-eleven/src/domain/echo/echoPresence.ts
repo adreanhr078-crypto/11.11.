@@ -177,7 +177,7 @@ export const ECHO_REACTIONS: readonly EchoReactionDefinition[] = Object.freeze([
     trigger: 'all_20_shards_found',
     priority: 88,
     repeatPolicy: 'once-per-event',
-    acknowledgement: 'MEMORY ARRAY 20/20',
+    acknowledgement: 'MEMORY ARRAY COMPLETE',
     dialogueRef: null,
     visualEffect: 'transform',
   },

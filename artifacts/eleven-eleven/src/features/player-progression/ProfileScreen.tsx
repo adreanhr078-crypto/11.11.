@@ -35,6 +35,7 @@ import { useShellStore } from '../../app/shell/shellStore';
 import { usePlayerProgressionStore } from './playerProgressionStore';
 import { useCollectionStore } from '../collection/collectionStore';
 import { useLiveChallengeStore } from '../live-challenges/liveChallengeStore';
+import './profile.css';
 
 const numberFormatter = new Intl.NumberFormat('en-US');
 const joinDateFormatter = new Intl.DateTimeFormat('en-GB', {

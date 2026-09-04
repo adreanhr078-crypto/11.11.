@@ -17,7 +17,9 @@ export type ExperienceLockReason =
   | 'chapter-three-required'
   | 'verified-chess-training-required'
   | 'rollout-disabled'
-  | 'part-two-required';
+  | 'part-two-required'
+  | 'opening-recovery-required'
+  | 'opening-room-required';
 
 export interface PlayerExperienceSnapshot {
   version: 1;
@@ -35,6 +37,12 @@ export interface PlayerExperienceSnapshot {
   casualChessCompleted: number;
   /** The Network service, not a local training screen, grants Ranked admission. */
   rankedChessUnlocked: boolean;
+  openingCoverPuzzleCompleted: boolean;
+  openingRoomCompleted: boolean;
+  manhwaPacketIds: readonly string[];
+  chessHobbyUnlocked: boolean;
+  /** Compatibility marker for pre-opening snapshots during migration only. */
+  openingGatewayPublished: boolean;
 }
 
 /**
@@ -123,6 +131,7 @@ const VERIFICATION_REQUIRED_SCREENS: readonly GameScreenId[] = [
   'echo-network',
   'leaderboard',
   'play',
+  'opening-recovery',
   'cinematic',
   'awakening-ward',
   'profile',
@@ -136,6 +145,7 @@ const PROGRESS_SYNC_REQUIRED_SCREENS: readonly GameScreenId[] = [
   'echo-network',
   'leaderboard',
   'play',
+  'opening-recovery',
   'cinematic',
   'awakening-ward',
   'profile',
@@ -212,6 +222,15 @@ function createSnapshot(input: ExperienceEntitlementInput): PlayerExperienceSnap
     chessTrainingCompleted,
     casualChessCompleted,
     rankedChessUnlocked,
+    openingCoverPuzzleCompleted: story?.openingCoverPuzzleCompleted === true,
+    openingRoomCompleted: story?.openingRoomCompleted === true,
+    manhwaPacketIds: story?.manhwaPacketIds ?? [],
+    chessHobbyUnlocked: story?.chessHobbyUnlocked === true,
+    openingGatewayPublished: story !== null
+      && Object.prototype.hasOwnProperty.call(
+        story,
+        'openingCoverPuzzleCompleted',
+      ),
   };
 }
 
@@ -231,6 +250,17 @@ function lockedScreens(
   if (snapshot.authority !== 'verified') {
     for (const screen of PROGRESS_SYNC_REQUIRED_SCREENS) locked[screen] = 'progress-syncing';
     return locked;
+  }
+
+  if (!snapshot.openingGatewayPublished) {
+    locked.play = 'part-two-required';
+  } else if (!snapshot.openingCoverPuzzleCompleted) {
+    locked.play = 'opening-recovery-required';
+    locked.puzzles = 'opening-recovery-required';
+    locked.memories = 'opening-recovery-required';
+  } else if (snapshot.openingGatewayPublished && !snapshot.openingRoomCompleted) {
+    locked.puzzles = 'opening-room-required';
+    locked.memories = 'opening-room-required';
   }
 
   if (!snapshot.storyPuzzleAvailable) {
@@ -256,7 +286,9 @@ function lockedScreens(
   // The Part 2 route is intentionally not published in Stage 3. Eligibility
   // is exposed for a future server-backed world release, never as permission
   // to enter the dormant prototype screens.
-  locked.play = 'part-two-required';
+  if (snapshot.openingGatewayPublished && !snapshot.openingCoverPuzzleCompleted) {
+    locked.play = 'opening-recovery-required';
+  }
   locked.cinematic = 'part-two-required';
   return locked;
 }
@@ -290,11 +322,14 @@ export function deriveExperienceEntitlements(
       part2WorldEnabled: false,
     };
   const lockedReasonByScreen = lockedScreens(snapshot, effectiveRollout);
-  const baseScreens = snapshot.authority === 'signed-out'
+  const legacyBaseScreens = snapshot.authority === 'signed-out'
     ? BASE_SIGNED_OUT_SCREENS
     : snapshot.authority === 'verified'
       ? BASE_SIGNED_IN_SCREENS
       : BASE_SYNCING_SCREENS;
+  const baseScreens = snapshot.openingGatewayPublished
+    ? legacyBaseScreens.filter((screen) => screen !== 'memories')
+    : legacyBaseScreens;
   const chapterOneComplete = snapshot.completedChapterIds.includes('chapter_1');
   const chapterTwoComplete = snapshot.completedChapterIds.includes('chapter_2');
   const chapterThreeComplete = snapshot.completedChapterIds.includes('chapter_3');
@@ -303,8 +338,23 @@ export function deriveExperienceEntitlements(
     && effectiveRollout.part2WorldEnabled;
   const accessibleScreens = unique([
     ...baseScreens,
-    ...(snapshot.storyPuzzleAvailable ? ['puzzles' as const] : []),
-    ...(snapshot.firstRewardReceived ? ['progress' as const] : []),
+    ...(snapshot.openingGatewayPublished && !snapshot.openingRoomCompleted
+      ? ['opening-recovery' as const]
+      : []),
+    ...(snapshot.openingGatewayPublished && snapshot.openingCoverPuzzleCompleted
+      ? ['play' as const]
+      : []),
+    ...(snapshot.openingGatewayPublished && snapshot.openingRoomCompleted
+      ? ['memories' as const]
+      : []),
+    ...(snapshot.storyPuzzleAvailable
+      && (!snapshot.openingGatewayPublished || snapshot.openingRoomCompleted)
+      ? ['puzzles' as const]
+      : []),
+    ...(snapshot.firstRewardReceived
+      && (!snapshot.openingGatewayPublished || snapshot.openingRoomCompleted)
+      ? ['progress' as const]
+      : []),
     ...(chapterOneComplete ? ['echo-mind' as const, 'characters' as const] : []),
     ...(chapterTwoComplete && effectiveRollout.networkEnabled
       ? ['echo-network' as const]
@@ -315,8 +365,14 @@ export function deriveExperienceEntitlements(
   ]).filter((screen) => !lockedReasonByScreen[screen]);
   const visibleNavigation = unique([
     ...(snapshot.authority === 'verified' ? BASE_NAVIGATION : []),
-    ...(snapshot.storyPuzzleAvailable ? ['puzzles' as const] : []),
-    ...(snapshot.firstRewardReceived ? ['memory' as const] : []),
+    ...(snapshot.storyPuzzleAvailable
+      && (!snapshot.openingGatewayPublished || snapshot.openingRoomCompleted)
+      ? ['puzzles' as const]
+      : []),
+    ...(snapshot.firstRewardReceived
+      && (!snapshot.openingGatewayPublished || snapshot.openingRoomCompleted)
+      ? ['memory' as const]
+      : []),
     ...(chapterTwoComplete && effectiveRollout.networkEnabled
       ? ['network' as const]
       : []),
@@ -408,6 +464,12 @@ export function experienceLockCopy(
     'part-two-required': english
       ? { eyebrow: 'PART 2 LOCKED', title: 'Restore the full record first', detail: 'Outside the System begins after all 20 puzzles and four chapters are verified.', action: 'Continue the mission' }
       : { eyebrow: 'الجزء الثاني مقفل', title: 'استعد السجل كاملًا أولًا', detail: 'يبدأ خارج النظام بعد توثيق الألغاز العشرين والفصول الأربعة.', action: 'متابعة المهمة' },
+    'opening-recovery-required': english
+      ? { eyebrow: 'OPENING GATEWAY', title: 'Reconstruct the first signal', detail: 'Align the cover to wake the room beyond the interface.', action: 'Open the reconstruction' }
+      : { eyebrow: 'Ø¨ÙˆØ§Ø¨Ø© Ø§Ù„Ø§ÙØªØªØ§Ø­', title: 'Ø£Ø¹Ø¯ Ø¨Ù†Ø§Ø¡ Ø§Ù„Ø¥Ø´Ø§Ø±Ø© Ø§Ù„Ø£ÙˆÙ„Ù‰', detail: 'Ø±ØªÙ‘Ø¨ Ø§Ù„ØºÙ„Ø§Ù Ù„Ø¥ÙŠÙ‚Ø§Ø¸ Ø§Ù„ØºØ±ÙØ© Ø®Ù„Ù Ø§Ù„ÙˆØ§Ø¬Ù‡Ø©.', action: 'ÙØªØ­ ØªØ±ÙƒÙŠØ¨ Ø§Ù„ØºÙ„Ø§Ù' },
+    'opening-room-required': english
+      ? { eyebrow: 'ROOM REQUIRED', title: 'Enter the opening room', detail: 'The old puzzle channels stay quiet until the first room and memory beat are complete.', action: 'Enter the room' }
+      : { eyebrow: 'Ø§Ù„ØºØ±ÙØ© Ù…Ø·Ù„ÙˆØ¨Ø©', title: 'Ø§Ø¯Ø®Ù„ Ø§Ù„ØºØ±ÙØ© Ø§Ù„Ø§ÙØªØªØ§Ø­ÙŠØ©', detail: 'ØªØ¨Ù‚Ù‰ Ù‚Ù†ÙˆØ§Øª Ø§Ù„Ø£Ù„ØºØ§Ø² Ù‡Ø§Ø¯Ø¦Ø© Ø­ØªÙ‰ ÙŠÙƒØªÙ…Ù„ Ø§Ù„Ù…Ø´Ù‡Ø¯ Ø§Ù„Ø£ÙˆÙ„.', action: 'Ø§Ø¯Ø®Ù„ Ø§Ù„ØºØ±ÙØ©' },
   };
   return copy[reason];
 }

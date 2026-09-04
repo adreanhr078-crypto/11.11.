@@ -99,7 +99,7 @@ describe('canonical game progression persistence', () => {
       },
       totalSpent: 2,
     };
-    canonical.manhwa.unlockedPageIds.push('manhwa_ch01_page_02');
+    canonical.manhwa.unlockedPageIds.push('echo_network_final_2026_09_v1_page_008');
 
     const migratedSpentSave = migrateGameState({
       progressionState: canonical,
@@ -117,7 +117,7 @@ describe('canonical game progression persistence', () => {
     );
     assert.ok(
       migratedSpentSave.progressionState?.manhwa.unlockedPageIds
-        .includes('manhwa_ch01_page_02'),
+        .includes('echo_network_final_2026_09_v1_page_008'),
     );
   });
 
@@ -179,10 +179,10 @@ describe('canonical game progression persistence', () => {
       },
       claimedPuzzleRewards: ['puzzle_001_broken_pulse'],
       unlockedManhwaPageIds: [
-        'manhwa_ch01_page_01',
-        'manhwa_ch01_page_02',
+        'echo_network_final_2026_09_v1_page_001',
+        'echo_network_final_2026_09_v1_page_002',
       ],
-      viewedManhwaPageIds: ['manhwa_ch01_page_01'],
+      viewedManhwaPageIds: ['echo_network_final_2026_09_v1_page_001'],
       echo: {
         ...initial.echo,
         hope: 41,
@@ -239,7 +239,7 @@ describe('canonical game progression persistence', () => {
     );
     assert.ok(
       secondLoad.progressionState.manhwa.unlockedPageIds
-        .includes('manhwa_ch01_page_02'),
+        .includes('echo_network_final_2026_09_v1_page_002'),
     );
     assert.equal(secondLoad.progressionState.echo.memoryStability, 62);
     assert.equal(secondLoad.progressionState.echo.memoriesRecovered, 4);

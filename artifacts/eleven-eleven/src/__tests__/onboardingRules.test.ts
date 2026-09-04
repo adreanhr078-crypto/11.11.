@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { needsFirstTimeOnboarding } from '../features/onboarding/onboardingRules';
+import {
+  needsFirstTimeOnboarding,
+  onboardingStageNumber,
+  ONBOARDING_STAGE_COUNT,
+} from '../features/onboarding/onboardingRules';
 import type { PlayerProfile } from '../domain/player-profile/playerProfile';
 
 function profile(username: string): PlayerProfile {
@@ -39,4 +43,13 @@ test('first-time onboarding only targets generated subject identities', () => {
   assert.equal(needsFirstTimeOnboarding(profile('SUBJECT-ABC123'), true), false);
   assert.equal(needsFirstTimeOnboarding(profile('Echo Runner'), false), false);
   assert.equal(needsFirstTimeOnboarding(null, false), false);
+});
+
+test('onboarding indicator tracks all four player-facing stages', () => {
+  assert.equal(ONBOARDING_STAGE_COUNT, 4);
+  assert.deepEqual(
+    (['welcome', 'mission', 'identity', 'complete'] as const).map(onboardingStageNumber),
+    ['01', '02', '03', '04'],
+  );
+  assert.equal(onboardingStageNumber('loading'), '01');
 });

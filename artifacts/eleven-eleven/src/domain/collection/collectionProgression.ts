@@ -2,6 +2,8 @@ import {
   MEMORY_SHARD_SETS,
   PHASE5_ACHIEVEMENT_DEFINITIONS,
 } from './collectionDefinitions';
+import { STORY_PUZZLE_COUNTS } from '../../content/puzzles/storyPuzzleCatalog';
+import { FINAL_MANHWA_CHAPTERS } from '../../content/manhwa/finalManhwa';
 import type {
   AchievementCondition,
   CollectionAchievementDefinition,
@@ -50,11 +52,17 @@ function ratio(current: number, total: number): number {
 export function createSystemRecovery(
   signals: CollectionProgressSignals,
 ): SystemRecoveryView {
-  const story = ratio(signals.completedChapterIds.length, 4);
-  const puzzles = ratio(signals.allPuzzlesCompleted, 20);
+  const publishedChapterCount = FINAL_MANHWA_CHAPTERS.filter(
+    (chapter) => chapter.published,
+  ).length;
+  const story = ratio(signals.completedChapterIds.length, publishedChapterCount);
+  const puzzles = ratio(signals.allPuzzlesCompleted, STORY_PUZZLE_COUNTS.total);
   const memory = clampPercent(
-    ratio(signals.shardsCollected, 20) * 0.75
-      + ratio(signals.reconstructionsCompleted, MEMORY_SHARD_SETS.length) * 0.25,
+    ratio(signals.shardsCollected, STORY_PUZZLE_COUNTS.total) * 0.75
+      + ratio(
+        signals.reconstructionsCompleted,
+        MEMORY_SHARD_SETS.filter((set) => set.shardIds.length > 0).length,
+      ) * 0.25,
   );
   const secrets = signals.canonicalSecretsKnown === 0
     ? 100
@@ -171,4 +179,3 @@ export function createDefaultCollectionSignals(): CollectionProgressSignals {
     achievementTotal: PHASE5_ACHIEVEMENT_DEFINITIONS.length,
   };
 }
-

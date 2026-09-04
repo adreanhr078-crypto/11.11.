@@ -783,11 +783,7 @@ describe('Phase 3F canonical narrative event integration', () => {
     )));
     assert.deepEqual(
       RUNTIME_ECHO_STORY_EVENTS.map(({ eventId }) => eventId),
-      [
-        'manhwa_chapter_04_black_coronation',
-        'manhwa_chapter_04_lina_protocol',
-        'manhwa_chapter_04_black_echo_protocol',
-      ],
+      [],
     );
 
     const runtimeFiles = [

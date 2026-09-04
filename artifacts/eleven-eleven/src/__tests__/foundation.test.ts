@@ -28,8 +28,8 @@ describe('Phase 1 foundation', () => {
   it('validates the content manifest and scalable capacity', () => {
     assert.doesNotThrow(validateContentRegistry);
     assert.equal(CONTENT_COUNTS.chapters, 7);
-    assert.equal(CONTENT_COUNTS.puzzles, 20);
-    assert.equal(CONTENT_COUNTS.memories, 71);
+    assert.equal(CONTENT_COUNTS.puzzles, 2);
+    assert.equal(CONTENT_COUNTS.memories, 70);
     assert.ok(CONTENT_MANIFEST.capacity.puzzles >= 2000);
     assert.ok(CONTENT_MANIFEST.capacity.memories >= 2000);
   });
@@ -87,24 +87,24 @@ describe('Phase 1 foundation', () => {
     const state = useGameStore.getState();
     assert.equal(Object.keys(state.chapters).length, 7);
     assert.equal(state.currentChapter, 'chapter_1');
-    assert.equal(state.totalPuzzles, 20);
+    assert.equal(state.totalPuzzles, 2);
     assert.equal(state.puzzles.length, 0);
-    assert.equal(state.memory.totalFragments, 20);
+    assert.equal(state.memory.totalFragments, 2);
     assert.equal(state.currency, 0);
     assert.deepEqual(state.collectedMemoryFragments, []);
     assert.deepEqual(state.claimedPuzzleRewards, []);
     assert.deepEqual(state.unlockedManhwaPageIds, []);
     assert.deepEqual(state.viewedManhwaPageIds, []);
-    assert.equal(state.progressionState.manhwa.unlockedPageIds.length, 4);
-    assert.equal(state.progressionState.manhwa.unlockedPageIds[0], 'manhwa_ch00_page_01');
-    assert.equal(state.progressionState.manhwa.unlockedPageIds.at(-1), 'manhwa_ch01_page_02');
+    assert.equal(state.progressionState.manhwa.unlockedPageIds.length, 7);
+    assert.equal(state.progressionState.manhwa.unlockedPageIds[0], 'echo_network_final_2026_09_v1_page_001');
+    assert.equal(state.progressionState.manhwa.unlockedPageIds.at(-1), 'echo_network_final_2026_09_v1_page_007');
     assert.equal(state.progressionState.echo.memoryStability, 5);
     assert.equal(state.progressionState.echo.memoriesRecovered, 0);
     assert.equal(state.progressionState.echo.humanity, 35);
     assert.equal(state.progressionState.echo.hope, 20);
     assert.equal(
       state.lastAvailablePuzzleId,
-      'story_puzzle_01_signal_calibration',
+      'story_puzzle_01_echo_network_signal_sync',
     );
     assert.equal(state.echo.personality.trust, state.echo.trust);
     assert.equal(typeof state.actions.solve, 'function');

@@ -55,6 +55,8 @@ const COLLECTION_COSMETIC_TYPES = new Set([
   'title', 'frame', 'badge', 'avatar-effect', 'system-border',
 ]);
 
+const ACTIVE_MEMORY_SHARD_SETS = MEMORY_SHARD_SETS.filter((set) => set.shardIds.length > 0);
+
 function integer(value: unknown): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
@@ -68,7 +70,7 @@ function chapterSetViews(
   shardIds: ReadonlySet<string>,
   reconstructed: ReadonlySet<string>,
 ): MemoryShardSetView[] {
-  return MEMORY_SHARD_SETS.map((set) => {
+  return ACTIVE_MEMORY_SHARD_SETS.map((set) => {
     const collected = set.shardIds.filter((id) => shardIds.has(id)).length;
     const complete = collected === set.shardIds.length;
     return {
@@ -98,7 +100,7 @@ function createSignals(input: {
     STORY_PUZZLES.filter((puzzle) => puzzle.classification === 'main').map((puzzle) => puzzle.id),
   );
   const mainCompletions = input.completions.filter((row) => main.has(row.puzzle_id));
-  const completedSets = MEMORY_SHARD_SETS.filter((set) => (
+  const completedSets = ACTIVE_MEMORY_SHARD_SETS.filter((set) => (
     set.shardIds.every((id) => input.shardIds.has(id))
   )).length;
   const linaReached = input.canonEvents.has('manhwa_chapter_04_lina_protocol');
@@ -324,7 +326,7 @@ export async function readCollectionSnapshot(
   return {
     shardIds: [...finalRows.shardIds].sort(),
     shardCount: finalRows.shardIds.size,
-    totalShards: 20,
+    totalShards: STORY_PUZZLES.length,
     memorySets,
     reconstructionsCompleted: finalRows.reconstructions.size,
     secretSignals,
@@ -352,7 +354,7 @@ export async function reconstructMemory(
   chapterId: string,
   env: PlayerApiEnv,
 ): Promise<{ snapshot: CollectionSnapshot; alreadyReconstructed: boolean }> {
-  const valid = MEMORY_SHARD_SETS.find((set) => set.chapterId === chapterId);
+  const valid = ACTIVE_MEMORY_SHARD_SETS.find((set) => set.chapterId === chapterId);
   if (!valid) throw new PlayerApiError(400, 'invalid_chapter', 'Chapter is not available for reconstruction.');
   const before = await readCollectionSnapshot(database, account, idToken, env);
   const set = before.memorySets.find((candidate) => candidate.chapterId === valid.chapterId)!;

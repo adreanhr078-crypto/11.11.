@@ -25,7 +25,7 @@ describe('Manhwa reader localization and direction', () => {
     const viewer = source('src/features/manhwa/ManhwaFullscreenViewer.tsx');
 
     assert.ok(archive.includes('lang={locale}'));
-    assert.ok(archive.includes('{copy.publication}'));
+    assert.ok(archive.includes('{publicationLabel}'));
     assert.ok(archive.includes('{copy.archiveDescription}'));
     assert.ok(archive.includes('eyebrow={copy.chapterSelect}'));
     assert.ok(archive.includes('copy.pageEyebrow(activePage.globalPageNumber'));

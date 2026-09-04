@@ -8,6 +8,7 @@ import type {
 import { FINAL_MANHWA_PAGE_BY_ID } from '../../content/manhwa/finalManhwa';
 import {
   FINAL_MANHWA_SERVER_ECHO_KNOWLEDGE_NODE_IDS,
+  RETIRED_FINAL_MANHWA_KNOWLEDGE_NODE_IDS,
 } from '../../content/story/finalManhwaCanonEvents';
 import {
   createStoryStateReadModel,
@@ -92,14 +93,17 @@ export function createEchoMindKnowledgeContext(
     state.narrative.unlockedMemoryFragmentIds,
   );
   const authoritativeStory = createStoryStateReadModel(state.progressionState);
-  const serverOwnedKnowledge = new Set(
+  const serverOwnedKnowledge = new Set<string>(
     FINAL_MANHWA_SERVER_ECHO_KNOWLEDGE_NODE_IDS,
+  );
+  const retiredKnowledge = new Set<string>(
+    RETIRED_FINAL_MANHWA_KNOWLEDGE_NODE_IDS,
   );
   const knowledgeNodeIds = [...new Set([
     ...state.narrative.knowledgeNodeIds
-      .filter((nodeId) => !serverOwnedKnowledge.has(nodeId))
+      .filter((nodeId) => !serverOwnedKnowledge.has(nodeId) && !retiredKnowledge.has(nodeId))
       .slice(-30),
-    ...authoritativeStory.unlockedKnowledge.echo,
+    ...authoritativeStory.unlockedKnowledge.echo.filter((nodeId) => !retiredKnowledge.has(nodeId)),
   ])].slice(-30);
 
   return {

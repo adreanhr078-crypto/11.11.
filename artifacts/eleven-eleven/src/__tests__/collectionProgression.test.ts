@@ -13,13 +13,13 @@ import {
 import { STORY_PUZZLES, STORY_PUZZLE_COUNTS } from '../content/puzzles/storyPuzzleCatalog';
 
 describe('Phase 5 memory collection definitions', () => {
-  it('keeps the verified 14 main / 6 secret split and 20 unique shards', () => {
-    assert.deepEqual(STORY_PUZZLE_COUNTS, { total: 20, main: 14, secret: 6 });
-    assert.deepEqual(MEMORY_SHARD_SETS.map((set) => set.shardIds.length), [3, 5, 7, 5]);
+  it('keeps the verified opening split and unique shard bindings', () => {
+    assert.deepEqual(STORY_PUZZLE_COUNTS, { total: 2, main: 2, secret: 0 });
+    assert.deepEqual(MEMORY_SHARD_SETS.map((set) => set.shardIds.length), [2, 0, 0, 0]);
     const shardIds = MEMORY_SHARD_SETS.flatMap((set) => set.shardIds);
-    assert.equal(new Set(shardIds).size, 20);
-    assert.equal(SECRET_SIGNAL_PUZZLE_IDS.length, 6);
-    assert.equal(STORY_PUZZLES.filter((puzzle) => puzzle.classification === 'secret').length, 6);
+    assert.equal(new Set(shardIds).size, 2);
+    assert.equal(SECRET_SIGNAL_PUZZLE_IDS.length, 0);
+    assert.equal(STORY_PUZZLES.filter((puzzle) => puzzle.classification === 'secret').length, 0);
   });
 });
 
@@ -38,7 +38,7 @@ describe('Phase 5 collection progression', () => {
     signals.shardsCollected = set.shardIds.length;
     signals.completedChapterShardSets = 1;
     assert.equal(signals.completedChapterShardSets, 1);
-    assert.equal(set.shardIds.length, 3);
+    assert.equal(set.shardIds.length, 2);
   });
 
   it('keeps Secrets Found separate from shard progress', () => {

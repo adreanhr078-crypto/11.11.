@@ -6,7 +6,8 @@ import type {
 } from './collectionContracts';
 import { STORY_PUZZLES } from '../../content/puzzles/storyPuzzleCatalog';
 
-export const MEMORY_SHARD_TOTAL = 20;
+/** The active release exposes only the shards bound to published Story Puzzles. */
+export const MEMORY_SHARD_TOTAL = STORY_PUZZLES.length;
 
 export const MEMORY_SHARD_SETS: readonly {
   chapterId: CollectionChapterId;
@@ -17,7 +18,7 @@ export const MEMORY_SHARD_SETS: readonly {
   ['chapter_2', 2, 5],
   ['chapter_3', 3, 7],
   ['chapter_4', 4, 5],
-] as const).map(([chapterId, order, total]) => ({
+] as const).map(([chapterId, order]) => ({
   chapterId,
   order,
   shardIds: Object.freeze(
@@ -25,7 +26,6 @@ export const MEMORY_SHARD_SETS: readonly {
       .filter((puzzle) => puzzle.chapterId === chapterId)
       .map((puzzle) => `story_puzzle_shard_${String(puzzle.order).padStart(2, '0')}`),
   ),
-  total,
 })));
 
 export const SECRET_SIGNAL_PUZZLE_IDS = Object.freeze(

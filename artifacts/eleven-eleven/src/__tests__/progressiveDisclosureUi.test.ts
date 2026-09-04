@@ -41,7 +41,8 @@ describe('Stage 3 progressive disclosure UI', () => {
     assert.match(home, /requestManhwaReader\(\)/);
     assert.match(home, /dir=\{locale === 'ar' \? 'rtl' : 'ltr'\}/);
     assert.doesNotMatch(home, /psychological-state__quick-links/);
-    assert.match(mainMenu, /objective\.actionLabel/);
+    assert.match(home, /objective\.actionLabel/);
+    assert.match(mainMenu, /continueJourney/);
     assert.doesNotMatch(mainMenu, /navigate\('echo-network'\)/);
     assert.doesNotMatch(mainMenu, /navigate\('echo-mind'\)/);
     assert.doesNotMatch(mainMenu, /confirmNewGame/);

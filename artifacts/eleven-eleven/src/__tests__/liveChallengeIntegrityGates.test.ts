@@ -16,6 +16,16 @@ import type {
 } from '../../functions/api/player/_database';
 import type { FirebaseAccount, PlayerApiEnv } from '../../functions/api/player/_shared';
 import { createXpRewardKey } from '../domain/player-progression/playerProgression';
+import { getFinalManhwaChapterRewardSourceId } from '../content/manhwa/finalManhwa';
+
+const CHAPTER_ONE_REWARD_KEY = createXpRewardKey(
+  'manhwa',
+  getFinalManhwaChapterRewardSourceId('chapter_1')!,
+);
+const CHAPTER_TWO_REWARD_KEY = createXpRewardKey(
+  'manhwa',
+  getFinalManhwaChapterRewardSourceId('chapter_2')!,
+);
 
 const account: FirebaseAccount = {
   uid: 'live-gate-player',
@@ -117,7 +127,7 @@ describe('live challenge progression and hint integrity', () => {
       (error: unknown) => hasErrorCode(error, 'daily_story_locked'),
     );
     const weeklyDatabase = new GateDatabase(new Set([
-      createXpRewardKey('manhwa', 'chapter_1'),
+      CHAPTER_ONE_REWARD_KEY,
     ]));
     await assert.rejects(
       () => requireLiveChallengeProgression(weeklyDatabase, account, 'weekly'),
@@ -127,14 +137,14 @@ describe('live challenge progression and hint integrity', () => {
 
   it('keeps Weekly out of a Chapter 1 projection until Chapter 2 is receipted', async () => {
     const chapterOneOnly = new GateDatabase(new Set([
-      createXpRewardKey('manhwa', 'chapter_1'),
+      CHAPTER_ONE_REWARD_KEY,
     ]));
     assert.equal(await hasLiveChallengeProgression(chapterOneOnly, account, 'daily'), true);
     assert.equal(await hasLiveChallengeProgression(chapterOneOnly, account, 'weekly'), false);
 
     const chapterTwo = new GateDatabase(new Set([
-      createXpRewardKey('manhwa', 'chapter_1'),
-      createXpRewardKey('manhwa', 'chapter_2'),
+      CHAPTER_ONE_REWARD_KEY,
+      CHAPTER_TWO_REWARD_KEY,
     ]));
     assert.equal(await hasLiveChallengeProgression(chapterTwo, account, 'weekly'), true);
 

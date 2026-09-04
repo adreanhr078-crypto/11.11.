@@ -129,7 +129,7 @@ describe('Echo Network foundation', () => {
       [1, 2, 3, 4].map((chapter) => COOP_CASES.filter(
         (definition) => definition.chapterId === `chapter_${chapter}`,
       ).length),
-      [3, 3, 3, 3],
+      [12, 0, 0, 0],
     );
     const fingerprints = COOP_CASES.map((definition) => {
       assert.equal(definition.stages.length, 3);

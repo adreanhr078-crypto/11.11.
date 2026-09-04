@@ -37,6 +37,9 @@ import { emitExperienceCue } from '../../ui/presentation/experienceCues';
 import {
   deriveStoryPuzzleManhwaAccess,
 } from '../../domain/manhwa/storyPuzzleManhwaAccess';
+import {
+  OPENING_MANHWA_PACKET_ID,
+} from '../../domain/opening/openingProgress';
 import { deriveManhwaReaderWindow } from '../../domain/manhwa/manhwaReaderWindow';
 import { STORY_PUZZLE_BY_ID } from '../../content/puzzles/storyPuzzleCatalog';
 
@@ -109,6 +112,9 @@ export default function MemoryScreen() {
     (state) => state.actions.load,
   );
   const storyPuzzleSnapshot = useStoryPuzzleStore((state) => state.snapshot);
+  const authoritativeStoryState = usePlayerProgressionStore(
+    (state) => state.storyState,
+  );
   const readerLaunchRequested = useShellStore(
     (state) => state.manhwaReaderLaunchRequested,
   );
@@ -126,10 +132,23 @@ export default function MemoryScreen() {
   useEffect(() => {
     synchronizeManhwaAccess(completedPuzzleIds);
   }, [completedPuzzleIds, synchronizeManhwaAccess]);
-  const manhwaAccess = useMemo(
-    () => deriveStoryPuzzleManhwaAccess(completedPuzzleIds),
-    [completedPuzzleIds],
-  );
+  const manhwaAccess = useMemo(() => {
+    if (authoritativeStoryState?.manhwaPacketIds?.includes(OPENING_MANHWA_PACKET_ID)) {
+      const packetPages = FINAL_MANHWA_PAGES.filter((page) => (
+        page.published && page.globalPageNumber <= 9
+      ));
+      return {
+        accessiblePageIds: packetPages.map((page) => page.id),
+        maxAccessibleGlobalPage: packetPages.at(-1)?.globalPageNumber ?? 0,
+        completedMainPuzzleCount: completedPuzzleIds.length,
+        totalMainPuzzleCount: 2,
+        nextGatePuzzleId: null,
+        nextGateSourcePage: null,
+        allMainPuzzlesCompleted: false,
+      };
+    }
+    return deriveStoryPuzzleManhwaAccess(completedPuzzleIds);
+  }, [authoritativeStoryState, completedPuzzleIds]);
   const accessiblePageIds = useMemo(
     () => new Set(manhwaAccess.accessiblePageIds),
     [manhwaAccess.accessiblePageIds],
@@ -147,11 +166,15 @@ export default function MemoryScreen() {
     [progressionState.manhwa.viewedPageIds],
   );
   const verifiedStoryEvidenceThrough = useMemo(() => Math.max(
-    0,
-    ...completedPuzzleIds.map(
-      (puzzleId) => STORY_PUZZLE_BY_ID[puzzleId]?.source.globalPageNumber ?? 0,
-    ),
-  ), [completedPuzzleIds]);
+    authoritativeStoryState?.manhwaPacketIds?.includes(OPENING_MANHWA_PACKET_ID)
+      ? 0
+      : 0,
+    ...(authoritativeStoryState?.manhwaPacketIds?.includes(OPENING_MANHWA_PACKET_ID)
+      ? []
+      : completedPuzzleIds.map(
+        (puzzleId) => STORY_PUZZLE_BY_ID[puzzleId]?.source.globalPageNumber ?? 0,
+      )),
+  ), [authoritativeStoryState, completedPuzzleIds]);
   const readerWindow = useMemo(
     () => deriveManhwaReaderWindow(
       accessiblePages,

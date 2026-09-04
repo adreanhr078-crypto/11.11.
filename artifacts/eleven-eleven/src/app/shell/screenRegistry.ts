@@ -58,6 +58,20 @@ export const GAME_SCREEN_DEFINITIONS = [
     )),
   },
   {
+    id: 'opening-recovery',
+    label: 'تركيب الإشارة الأولى',
+    shortLabel: 'البداية',
+    description: 'إعادة تركيب غلاف Echo Network لفتح الغرفة الأولى.',
+    code: 'OPEN',
+    tone: 'memory',
+    iconId: 'screen-opening-recovery',
+    categoryId: 'puzzles',
+    navigation: 'hidden',
+    component: lazy(() => import(
+      '../../features/opening-recovery/OpeningRecoveryScreen'
+    )),
+  },
+  {
     id: 'play',
     label: 'الغرفة الافتتاحية',
     shortLabel: 'اللعب',

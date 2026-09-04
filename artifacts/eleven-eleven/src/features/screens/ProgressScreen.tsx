@@ -11,6 +11,7 @@ import { createProgressScreenReadModel } from '../../application/ui/gameUiReadMo
 import { useStoryPuzzleStore } from '../story-puzzles/storyPuzzleStore';
 import { useUiPreferencesStore } from '../../app/shell/shellStore';
 import { localizeCollectionAchievement } from '../../domain/collection/collectionPresentation';
+import './collection-hub.css';
 
 export default function ProgressScreen() {
   const state = useGameStore();

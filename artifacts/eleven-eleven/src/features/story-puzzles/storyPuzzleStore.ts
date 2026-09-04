@@ -6,7 +6,7 @@ import type {
   StoryPuzzleActivity,
 } from '../../domain/story-puzzles/storyPuzzleContracts';
 import type { NetworkLocale } from '../../domain/echo-network/contracts';
-import { STORY_PUZZLE_BY_ID } from '../../content/puzzles/storyPuzzleCatalog';
+import { STORY_PUZZLE_BY_ID, STORY_PUZZLES } from '../../content/puzzles/storyPuzzleCatalog';
 import { recordEchoPresenceActivity } from '../../application/ui/echoPresenceActivityStore';
 import {
   PlayerProgressionApiError,
@@ -148,7 +148,7 @@ export const useStoryPuzzleStore = create<StoryPuzzleStoreState>((set, get) => (
       try {
         const receipt = await completeStoryPuzzle(puzzleId, draft);
         const puzzle = STORY_PUZZLE_BY_ID[puzzleId];
-        const kind: StoryPuzzleActivity['kind'] = receipt.snapshot.shardCount >= 20
+        const kind: StoryPuzzleActivity['kind'] = receipt.snapshot.shardCount >= STORY_PUZZLES.length
           ? 'all-20-shards-found'
           : puzzle?.classification === 'secret'
             ? 'secret-puzzle-solved'

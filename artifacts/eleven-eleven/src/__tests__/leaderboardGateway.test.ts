@@ -12,6 +12,9 @@ import type {
   PlayerDatabaseStatement,
 } from '../../functions/api/player/_database';
 import type { PlayerApiEnv } from '../../functions/api/player/_shared';
+import {
+  FINAL_MANHWA_PAGES,
+} from '../content/manhwa/finalManhwa';
 
 interface FakePlayerRow {
   userId: string;
@@ -61,6 +64,7 @@ class FakePlayerDatabase implements PlayerDatabase {
   readonly rewards = new Map<string, FakeRewardRow>();
   readonly memoryFragments = new Set<string>();
   readonly pageRecords = new Set<string>();
+  readonly storyPuzzleCompletions = new Set<string>();
 
   prepare(query: string): PlayerDatabaseStatement {
     return new FakeStatement(this, query);
@@ -85,10 +89,16 @@ class FakePlayerDatabase implements PlayerDatabase {
     });
   }
 
-  seedManhwaChapter(userId: string, chapterId: string, startPage: number, endPage: number): void {
-    for (let page = startPage; page <= endPage; page += 1) {
-      this.pageRecords.add(`${userId}:${chapterId}:${page}`);
+  seedManhwaChapter(userId: string, chapterId: string): void {
+    for (const page of FINAL_MANHWA_PAGES.filter((candidate) => (
+      candidate.chapterId === chapterId && candidate.published
+    ))) {
+      this.pageRecords.add(`${userId}:${page.id}`);
     }
+  }
+
+  seedStoryPuzzleCompletion(userId: string, puzzleId: string): void {
+    this.storyPuzzleCompletions.add(`${userId}:${puzzleId}`);
   }
 
   private normalized(statement: FakeStatement): string {
@@ -179,6 +189,21 @@ class FakePlayerDatabase implements PlayerDatabase {
 
   all(statement: FakeStatement): Record<string, unknown>[] {
     const query = this.normalized(statement);
+    if (query.startsWith('SELECT puzzle_id FROM player_story_puzzle_completion_events')) {
+      const userId = String(statement.values[0]);
+      return [...this.storyPuzzleCompletions]
+        .filter((key) => key.startsWith(`${userId}:`))
+        .map((key) => ({ puzzle_id: key.slice(userId.length + 1) }));
+    }
+    if (query.startsWith('SELECT page_id FROM player_manhwa_page_records')) {
+      const userId = String(statement.values[0]);
+      const expected = new Set(statement.values.slice(1).map(String));
+      return [...this.pageRecords]
+        .filter((key) => key.startsWith(`${userId}:`))
+        .map((key) => key.slice(userId.length + 1))
+        .filter((pageId) => expected.has(pageId))
+        .map((pageId) => ({ page_id: pageId }));
+    }
     if (!query.includes('RANK() OVER')) {
       throw new Error(`Unhandled fake D1 all: ${query}`);
     }
@@ -254,11 +279,12 @@ describe('global leaderboard gateway', () => {
     installFirebaseLookup();
     const database = new FakePlayerDatabase();
     const env = testEnv(database);
-    database.seedManhwaChapter('player-current', 'chapter_1', 3, 11);
+    database.seedManhwaChapter('player-current', 'chapter_1');
+    database.seedStoryPuzzleCompletion('player-current', 'story_puzzle_01_echo_network_signal_sync');
     const body = JSON.stringify({
       sourceType: 'manhwa',
       sourceId: 'chapter_1',
-      proof: { finalPageNumber: 11 },
+      proof: { finalPageNumber: 9 },
     });
 
     const first = await claimXp({
@@ -305,7 +331,7 @@ describe('global leaderboard gateway', () => {
         body: JSON.stringify({
           sourceType: 'manhwa',
           sourceId: 'chapter_1',
-          proof: { finalPageNumber: 11 },
+          proof: { finalPageNumber: 9 },
         }),
       }),
       env: testEnv(database),
@@ -350,7 +376,7 @@ describe('global leaderboard gateway', () => {
         body: JSON.stringify({
           sourceType: 'manhwa',
           sourceId: 'chapter_2',
-          proof: { finalPageNumber: 28 },
+          proof: { finalPageNumber: 29 },
         }),
       }),
       env: testEnv(database),
@@ -358,7 +384,7 @@ describe('global leaderboard gateway', () => {
     assert.equal(response.status, 409);
     assert.equal(
       (await response.json() as { code: string }).code,
-      'reward_prerequisite_missing',
+      'reward_source_unpublished',
     );
     assert.equal(database.rewards.size, 0);
   });

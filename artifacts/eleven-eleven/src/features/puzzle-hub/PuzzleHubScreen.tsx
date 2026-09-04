@@ -19,6 +19,7 @@ import {
   PUZZLE_HUB_MODES,
   type PuzzleHubMode,
 } from './puzzleHubModes';
+import { STORY_PUZZLE_COUNTS } from '../../content/puzzles/storyPuzzleCatalog';
 import './puzzle-hub.css';
 
 const StoryPuzzleMode = lazy(() => import('../screens/PuzzleScreen'));
@@ -31,8 +32,8 @@ const MODE_ICONS = {
 } as const;
 
 const HUB_COPY = {
-  ar: { loading: 'تثبيت قناة اللعب…', title: 'مركز الألغاز', description: 'تظهر مهمتك القصصية الحالية هنا. تُفتح قنوات إضافية فقط بعد تقدمك القصصي الموثّق.', integrity: 'حالة تكامل مركز الألغاز', modes: 'أنماط مركز الألغاز', operations: 'عمليات الألغاز // الجزء الأول', storyMetric: 'قصة', channelMetric: 'قناة', signIn: 'يتطلب تسجيل الدخول', ready: 'جاهز للمزامنة', available: 'متاح عند الدخول', complete: 'مكتمل', stages: 'مراحل', eyebrows: { story: 'ألغاز القصة', daily: 'الإشارة اليومية', weekly: 'اختبار النظام' }, labels: { story: ['ألغاز القصة', 'عشرون لغزًا قصصيًا: 14 رئيسيًا و6 إشارات سرية.'], daily: ['إشارة 11:11 اليومية', 'إشارة خادمية متجددة ومكافأة واحدة موثقة لكل دورة.'], weekly: ['اختبار النظام الأسبوعي', 'مراحل متتابعة، حفظ تلقائي، واستعادة أسبوعية موثقة.'] } },
-  en: { loading: 'Securing play channel…', title: 'Puzzle Hub', description: 'Your current story mission appears here. Additional channels open only after verified story progress.', integrity: 'Puzzle Hub integrity status', modes: 'Puzzle Hub modes', operations: 'PUZZLE OPERATIONS // PART 1', storyMetric: 'STORY', channelMetric: 'CHANNEL', signIn: 'Sign-in required', ready: 'Ready to sync', available: 'Available when signed in', complete: 'complete', stages: 'stages', eyebrows: { story: 'STORY PUZZLES', daily: 'DAILY SIGNAL', weekly: 'SYSTEM TRIAL' }, labels: { story: ['Story puzzles', 'Twenty story puzzles: 14 main puzzles and 6 secret signals.'], daily: ['Daily 11:11 Signal', 'A renewing server signal and one verified reward per cycle.'], weekly: ['Weekly system trial', 'Sequential stages, automatic save, and verified weekly recovery.'] } },
+  ar: { loading: 'تثبيت قناة اللعب…', title: 'مركز الألغاز', description: 'تظهر مهمتك القصصية الحالية هنا. تُفتح قنوات إضافية فقط بعد تقدمك القصصي الموثّق.', integrity: 'حالة تكامل مركز الألغاز', modes: 'أنماط مركز الألغاز', operations: 'عمليات الألغاز // الجزء الأول', storyMetric: 'قصة', channelMetric: 'قناة', signIn: 'يتطلب تسجيل الدخول', ready: 'جاهز للمزامنة', available: 'متاح عند الدخول', complete: 'مكتمل', stages: 'مراحل', eyebrows: { story: 'ألغاز القصة', daily: 'الإشارة اليومية', weekly: 'اختبار النظام' }, labels: { story: ['ألغاز القصة', 'لغزان قصصيان موثقان في الشريحة الافتتاحية.'], daily: ['إشارة 11:11 اليومية', 'إشارة خادمية متجددة ومكافأة واحدة موثقة لكل دورة.'], weekly: ['اختبار النظام الأسبوعي', 'مراحل متتابعة، حفظ تلقائي، واستعادة أسبوعية موثقة.'] } },
+  en: { loading: 'Securing play channel…', title: 'Puzzle Hub', description: 'Your current story mission appears here. Additional channels open only after verified story progress.', integrity: 'Puzzle Hub integrity status', modes: 'Puzzle Hub modes', operations: 'PUZZLE OPERATIONS // PART 1', storyMetric: 'STORY', channelMetric: 'CHANNEL', signIn: 'Sign-in required', ready: 'Ready to sync', available: 'Available when signed in', complete: 'complete', stages: 'stages', eyebrows: { story: 'STORY PUZZLES', daily: 'DAILY SIGNAL', weekly: 'SYSTEM TRIAL' }, labels: { story: ['Story puzzles', 'Two verified story puzzles in the opening slice.'], daily: ['Daily 11:11 Signal', 'A renewing server signal and one verified reward per cycle.'], weekly: ['Weekly system trial', 'Sequential stages, automatic save, and verified weekly recovery.'] } },
 } as const;
 
 function PuzzleModeLoading({ locale }: { locale: 'ar' | 'en' }) {
@@ -111,7 +112,7 @@ export default function PuzzleHubScreen() {
 
     return {
       story: storySnapshot
-        ? `${storySnapshot.mainCompletedCount} / 14 ${copy.complete}`
+        ? `${storySnapshot.mainCompletedCount} / ${STORY_PUZZLE_COUNTS.main} ${copy.complete}`
         : copy.ready,
       daily: liveSnapshot
         ? liveSnapshot.daily.status.replace('_', ' ').toUpperCase()
@@ -135,7 +136,7 @@ export default function PuzzleHubScreen() {
           <p>{copy.description}</p>
         </div>
         <div className="puzzle-hub__integrity" aria-label={copy.integrity}>
-          <span><b>20</b> {copy.storyMetric}</span>
+          <span><b>{STORY_PUZZLE_COUNTS.total}</b> {copy.storyMetric}</span>
           <span><b>{String(visibleModes.length).padStart(2, '0')}</b> {copy.channelMetric}</span>
         </div>
       </header>

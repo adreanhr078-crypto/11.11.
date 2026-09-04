@@ -15,6 +15,7 @@ import { AuthPanel } from '../auth/AuthPanel';
 import { useAuthStore } from '../auth/authStore';
 import { useStoryPuzzleStore } from '../story-puzzles/storyPuzzleStore';
 import { deriveCorePlayerObjective } from '../../application/player-journey/corePlayerLoop';
+import { usePlayerProgressionStore } from '../player-progression/playerProgressionStore';
 
 const MAIN_MENU_COPY = {
   ar: {
@@ -72,11 +73,20 @@ export default function MainMenuScreen() {
   const locale = useUiPreferencesStore((preferences) => preferences.locale);
   const copy = MAIN_MENU_COPY[locale];
   const storyPuzzleSnapshot = useStoryPuzzleStore((store) => store.snapshot);
+  const authoritativeStoryState = usePlayerProgressionStore(
+    (store) => store.storyState,
+  );
   const authStatus = useAuthStore((store) => store.status);
   const [authOpen, setAuthOpen] = useState(false);
   const objective = useMemo(
-    () => deriveCorePlayerObjective(storyPuzzleSnapshot, locale),
-    [locale, storyPuzzleSnapshot],
+    // Legacy two-argument signature remains supported for non-authenticated
+    // shell previews: deriveCorePlayerObjective(storyPuzzleSnapshot, locale)
+    () => deriveCorePlayerObjective(
+      storyPuzzleSnapshot,
+      locale,
+      authoritativeStoryState,
+    ),
+    [authoritativeStoryState, locale, storyPuzzleSnapshot],
   );
   const signedIn = authStatus === 'signed-in';
 

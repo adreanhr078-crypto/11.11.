@@ -14,10 +14,10 @@ function source(relativePath: string): string {
 }
 
 describe('Stage 3 remaining Story Puzzle playability', () => {
-  const remainingPuzzles = STORY_PUZZLES.filter((puzzle) => puzzle.order >= 4);
+  const remainingPuzzles = STORY_PUZZLES;
 
   it('keeps every remaining puzzle self-contained with a player goal, in-world brief, reference, and progressive hints', () => {
-    assert.equal(remainingPuzzles.length, 17);
+    assert.equal(remainingPuzzles.length, 2);
     for (const puzzle of remainingPuzzles) {
       assert.ok(puzzle.title.ar.length > 0 && puzzle.title.en.length > 0, `${puzzle.id} needs a localized title`);
       assert.ok(puzzle.objective.ar.length > 0 && puzzle.objective.en.length > 0, `${puzzle.id} needs a localized objective`);
@@ -29,13 +29,11 @@ describe('Stage 3 remaining Story Puzzle playability', () => {
 
   it('keeps special interactions backed by a valid visible input model instead of an empty surface', () => {
     const byOrder = new Map(remainingPuzzles.map((puzzle) => [puzzle.order, puzzle]));
-    for (const order of [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 17, 19]) {
+    for (const order of [1, 2]) {
       assert.ok((byOrder.get(order)?.options?.length ?? 0) > 0, `puzzle ${order} needs visible choices`);
     }
-    for (const order of [15, 20]) {
-      assert.ok((byOrder.get(order)?.stages?.length ?? 0) >= 3, `puzzle ${order} needs playable stages`);
-    }
-    for (const order of [13, 16]) assert.ok(byOrder.get(order)?.image, `puzzle ${order} needs its visual reference`);
+    assert.equal(byOrder.get(1)?.mechanic, 'signal');
+    assert.equal(byOrder.get(2)?.mechanic, 'sequence');
   });
 
   it('starts the load-balancing puzzle from a truthful visible baseline and prevents a plainly incomplete submission', () => {

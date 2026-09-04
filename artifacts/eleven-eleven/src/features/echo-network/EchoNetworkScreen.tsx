@@ -10,6 +10,7 @@ import { useAuthStore } from '../auth/authStore';
 import { ContractChessPanel } from './ContractChessPanel';
 import { CoopBreachPanel } from './CoopBreachPanel';
 import { useRealtimeRoom } from './useRealtimeRoom';
+import './echo-network.css';
 
 type NetworkTab = 'chess' | 'coop';
 

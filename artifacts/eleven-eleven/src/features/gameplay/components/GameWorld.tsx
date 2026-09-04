@@ -34,6 +34,15 @@ import {
   OpeningCinematic,
   OpeningCinematicOverlay,
 } from './OpeningCinematic';
+import { OpeningMemoryBeat } from './OpeningMemoryBeat';
+import {
+  completeOpeningRoom,
+} from '../../../infrastructure/player-progression/playerProgressionApi';
+import {
+  OPENING_ROOM_EVENT_SEQUENCE,
+  type OpeningRoomEventId,
+} from '../../../domain/opening/openingProgress';
+import type { AuthoritativeStoryState } from '../../../domain/story/storyState';
 import {
   ThirdPersonCamera,
   type ThirdPersonCameraConfig,
@@ -44,6 +53,7 @@ interface GameWorldProps {
   quality: QualityTier;
   motion: MotionTier;
   onPause: () => void;
+  onRoomComplete?: (storyState: AuthoritativeStoryState) => void;
 }
 
 const PUZZLE_STAGE_COPY = {
@@ -116,6 +126,7 @@ export function GameWorld({
   quality,
   motion,
   onPause,
+  onRoomComplete,
 }: GameWorldProps) {
   const playerRef = useRef<Group | null>(null);
   const cameraYawRef = useRef(0);
@@ -129,6 +140,11 @@ export function GameWorld({
   const [activeInteractionId, setActiveInteractionId] = useState<
     string | null
   >(null);
+  const [pendingMemoryBeat, setPendingMemoryBeat] = useState(false);
+  const [memoryBeatActive, setMemoryBeatActive] = useState(false);
+  const [roomCompletionStatus, setRoomCompletionStatus] = useState<
+    'idle' | 'submitting' | 'completed' | 'error'
+  >('idle');
   const [visualEvent, setVisualEvent] = useState<
     OpeningRoomVisualEvent | null
   >(null);
@@ -143,6 +159,7 @@ export function GameWorld({
     executeInteraction,
     markControlsSeen,
     markCinematicSeen,
+    completeRoomLocally,
     controlsSeen,
     cinematicSeen,
   } = useOpeningRoomProgress();
@@ -188,6 +205,12 @@ export function GameWorld({
         { volume: 0.5 },
       );
     }
+    if (
+      execution.interaction.id === 'opening-door'
+      && execution.result.outcome === 'unlocked'
+    ) {
+      setPendingMemoryBeat(true);
+    }
     if (execution.memoryGranted) {
       playCue('memoryGlitch', { volume: 0.5 });
     }
@@ -225,10 +248,28 @@ export function GameWorld({
     showTutorial,
   ]);
 
+  const submitRoomCompletion = useCallback(async () => {
+    if (roomCompletionStatus === 'submitting' || roomCompletionStatus === 'completed') return;
+    setRoomCompletionStatus('submitting');
+    try {
+      const response = await completeOpeningRoom(
+        OPENING_ROOM_EVENT_SEQUENCE as readonly OpeningRoomEventId[],
+      );
+      completeRoomLocally();
+      setRoomCompletionStatus('completed');
+      onRoomComplete?.(response.storyState);
+    } catch {
+      setRoomCompletionStatus('error');
+    }
+  }, [completeRoomLocally, onRoomComplete, roomCompletionStatus]);
+
   const controls = usePlayerControls({
     enabled: !paused
       && !cinematicActive
       && !showTutorial
+      && !memoryBeatActive
+      && roomCompletionStatus !== 'submitting'
+      && roomCompletionStatus !== 'completed'
       && narrative === null
       && activeInteractionId === null,
     pauseEnabled: !paused,
@@ -274,6 +315,9 @@ export function GameWorld({
   const inputEnabled = !paused
     && !cinematicActive
     && !showTutorial
+    && !memoryBeatActive
+    && roomCompletionStatus !== 'submitting'
+    && roomCompletionStatus !== 'completed'
     && narrative === null
     && activeInteractionId === null;
   const dpr: [number, number] = quality === 'high'
@@ -376,6 +420,31 @@ export function GameWorld({
         reducedMotion={motion === 'reduced'}
       />
 
+      {memoryBeatActive && roomCompletionStatus === 'idle' && (
+        <OpeningMemoryBeat
+          reducedMotion={motion === 'reduced'}
+          onComplete={() => {
+            setMemoryBeatActive(false);
+            void submitRoomCompletion();
+          }}
+        />
+      )}
+      {roomCompletionStatus === 'submitting' && (
+        <div className="opening-room-receipt-pending" role="status">
+          <span>ROOM RECEIPT // VERIFYING</span>
+          <small>ثبت مسار الغرفة وحزمة الذاكرة…</small>
+        </div>
+      )}
+      {roomCompletionStatus === 'error' && (
+        <div className="opening-room-receipt-error" role="alert">
+          <strong>تعذر تثبيت اجتياز الغرفة</strong>
+          <span>لم يُفتح أي محتوى محليًا. أعد المحاولة لتثبيت الإيصال.</span>
+          <button type="button" onClick={() => void submitRoomCompletion()}>
+            إعادة المحاولة
+          </button>
+        </div>
+      )}
+
       <GameplayHUD
         prompt={inputEnabled ? interactionPrompt : null}
         objective={stageCopy.objective}
@@ -396,6 +465,10 @@ export function GameWorld({
           }
           setNarrative(null);
           setActiveInteractionId(null);
+          if (pendingMemoryBeat) {
+            setPendingMemoryBeat(false);
+            setMemoryBeatActive(true);
+          }
         }}
       />
     </div>

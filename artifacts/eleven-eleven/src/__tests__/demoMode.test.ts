@@ -34,8 +34,8 @@ describe('demo mode', () => {
     ]);
 
     assert.equal(progress.completed, 1);
-    assert.equal(progress.total, 20);
-    assert.equal(progress.remaining, 19);
+    assert.equal(progress.total, STORY_PUZZLES.length);
+    assert.equal(progress.remaining, STORY_PUZZLES.length - 1);
     assert.equal(progress.boundaryReached, false);
   });
 
@@ -44,8 +44,8 @@ describe('demo mode', () => {
     const progress = createDemoProgressReadModel(completedIds);
 
     assert.deepEqual(progress, {
-      completed: 20,
-      total: 20,
+      completed: STORY_PUZZLES.length,
+      total: STORY_PUZZLES.length,
       remaining: 0,
       percentage: 100,
       boundaryReached: true,

@@ -143,29 +143,27 @@ export function useOpeningRoomProgress() {
     ));
     const memoryGranted = applyEvents(events);
 
-    if (interaction.type === 'door' && result.outcome === 'unlocked') {
-      const afterUnlock = readOpeningRoomFlags(
-        useGameStore.getState().narrative.activeFlags,
-      );
-      if (afterUnlock.openingDoorUnlocked) {
-        applyEvent({ type: 'roomCompleted' });
-        const latest = useGameStore.getState();
-        if (!latest.narrative.latestDecisions['opening-room-exit']) {
-          latest.actions.recordNarrativeDecision(
-            'opening-room-exit',
-            'opened',
-            'system',
-          );
-        }
-      }
-    }
-
     return {
       interaction,
       result,
       memoryGranted,
     };
   }, [applyEvent, applyEvents]);
+
+  const completeRoomLocally = useCallback(() => {
+    const transition = applyEvent({ type: 'roomCompleted' });
+    if (transition.changed) {
+      const latest = useGameStore.getState();
+      if (!latest.narrative.latestDecisions['opening-room-exit']) {
+        latest.actions.recordNarrativeDecision(
+          'opening-room-exit',
+          'opened',
+          'system',
+        );
+      }
+    }
+    return transition;
+  }, [applyEvent]);
 
   const markControlsSeen = useCallback(() => {
     useGameStore.getState().actions.setNarrativeFlag(
@@ -186,6 +184,7 @@ export function useOpeningRoomProgress() {
     puzzle,
     enterRoom,
     executeInteraction,
+    completeRoomLocally,
     markControlsSeen,
     markCinematicSeen,
     controlsSeen: Boolean(activeFlags[OPENING_ROOM_CONTROLS_SEEN_FLAG]),

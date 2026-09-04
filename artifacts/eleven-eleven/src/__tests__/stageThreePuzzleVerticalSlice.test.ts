@@ -46,23 +46,22 @@ describe('Stage 3 opening puzzle vertical slice', () => {
   });
 
   it('keeps later signal stages playable through visible candidates without publishing a target field', () => {
-    const coreFrequencyIds = ['63', '81', '97'];
+    const coreFrequencyIds = ['42', '58', '73'];
     const coreChannelIds = ['channel-07', 'channel-11', 'channel-13'];
     const relayFirst = toggleSignalSelection([], 'channel-11', coreFrequencyIds, coreChannelIds);
     assert.deepEqual(relayFirst, ['channel-11']);
-    assert.deepEqual(toggleSignalSelection(relayFirst, '81', coreFrequencyIds, coreChannelIds), ['81', 'channel-11']);
+    assert.deepEqual(toggleSignalSelection(relayFirst, '58', coreFrequencyIds, coreChannelIds), ['58', 'channel-11']);
 
     const catalog = source('src/content/puzzles/storyPuzzleCatalog.ts');
     const screen = source('src/features/screens/PuzzleScreen.tsx');
-    const coreSlice = catalog.slice(catalog.indexOf("id: 'story_puzzle_20_core_sequence'"));
+    const coreSlice = catalog.slice(0, catalog.indexOf("id: 'story_puzzle_02_echo_network_archive_route'"));
     assert.doesNotMatch(catalog, /targetFrequency|targetChannel/);
-    assert.match(coreSlice, /frequencyOptions: \[63, 81, 97\]/);
-    assert.match(coreSlice, /visualProfile: 'core'/);
-    assert.doesNotMatch(coreSlice, /81 on channel 11|81 على القناة 11/);
+    assert.match(coreSlice, /frequencyOptions: \[42, 58, 73\]/);
+    assert.match(coreSlice, /visualProfile: 'opening'/);
+    assert.doesNotMatch(coreSlice, /58 on channel 11|58 على القناة 11/);
     assert.doesNotMatch(coreSlice, /SIGNAL → MEMORY → ECHO|ACCESS → MEMORY → SIGNAL|SIGNAL → ACCESS → MEMORY → ECHO/);
     assert.doesNotMatch(coreSlice, /المسار الموثق|مفتاح النواة:|التثبيت الأخير:/);
-    assert.match(coreSlice, /source ⌁ launches the trace/);
-    assert.match(coreSlice, /clearance gate/);
+    assert.match(coreSlice, /story_puzzle_01_echo_network_signal_sync/);
     assert.match(screen, /signal=\{currentStage\?\.signal \?\? selectedPuzzle\.signal\}/);
     assert.match(screen, /data-profile=\{profile\}/);
   });
@@ -124,19 +123,16 @@ describe('Stage 3 opening puzzle vertical slice', () => {
     assert.match(screen, /key=\{`\$\{selectedPuzzle\.id\}:\$\{stageIndex\}:\$\{draftResetVersion\}`\}/);
   });
 
-  it('gives Torn Memory a touch and keyboard path with no contradictory rotation control', () => {
+  it('gives the published archive route a touch and keyboard path', () => {
     const catalog = source('src/content/puzzles/storyPuzzleCatalog.ts');
-    const openingSlice = catalog.slice(0, catalog.indexOf("id: 'story_puzzle_04_circuit_restore'"));
     const screen = source('src/features/screens/PuzzleScreen.tsx');
     const stylesheet = source('src/features/screens/story-puzzle-experience.css');
 
-    assert.match(openingSlice, /torn-memory-record-v1\.webp/);
-    assert.match(openingSlice, /allowRotation: false/);
-    assert.match(screen, /aria-pressed=\{selectedPiece === pieceId\}/);
-    assert.match(screen, /story-image-puzzle__status/);
-    assert.match(screen, /className="story-image-puzzle__grid"\s+dir="ltr"/);
-    assert.match(stylesheet, /\.story-image-puzzle__art \{ position: relative; min-block-size: 2\.75rem; touch-action: manipulation;/);
-    assert.match(stylesheet, /\.story-image-puzzle__grid \{[^}]*direction: ltr;/);
+    assert.match(catalog, /story_puzzle_02_echo_network_archive_route/);
+    assert.doesNotMatch(catalog, /torn-memory-record-v1\.webp/);
+    assert.match(screen, /aria-pressed=\{selectedSlot === index\}/);
+    assert.match(screen, /story-system-route__slots/);
+    assert.match(stylesheet, /\.story-system-route__slots/);
   });
 
   it('normalizes Torn Memory drafts to physical canvas pieces without learning its solution', () => {
